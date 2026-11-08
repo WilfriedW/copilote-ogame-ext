@@ -207,7 +207,7 @@ t('une seule planète : la mise à l\'abri passe par une expédition', () => {
 });
 
 t('après le retour d\'une expédition, un rappel de recyclage sans chiffres', () => {
-  const rec = Q.recycleAction([{ mission: 15, ret: true, arrival: (T0 - 20 * 60e3) / 1000, dest: '1:142:16' }], T0);
+  const rec = Q.recycleAction([{ kind: 'x', k: 'expo', end: T0 - 20 * 60e3, done: true }], T0);
   assert.equal(rec.family, 'recyclage');
   assert.equal(rec.cost, null);
   assert.ok(rec.how && rec.how.length);
@@ -216,7 +216,9 @@ t('après le retour d\'une expédition, un rappel de recyclage sans chiffres', (
 
 t('aucune expédition rentrée récemment : pas de rappel de recyclage', () => {
   assert.equal(Q.recycleAction([], T0), null);
-  assert.equal(Q.recycleAction([{ mission: 15, ret: true, arrival: (T0 - 5 * 3600e3) / 1000 }], T0), null);
+  assert.equal(Q.recycleAction([{ kind: 'x', k: 'expo', end: T0 - 5 * 3600e3, done: true }], T0), null);
+  // une expédition encore en vol ne déclenche rien
+  assert.equal(Q.recycleAction([{ kind: 'x', k: 'expo', end: T0 + 3600e3 }], T0), null);
 });
 
 /* ---------- la fraîcheur des données ---------- */
@@ -224,33 +226,33 @@ t('aucune expédition rentrée récemment : pas de rappel de recyclage', () => {
 const frais = { levels: T0 - 60e3, ships: T0 - 60e3, slots: T0 - 60e3, moves: T0 - 60e3 };
 
 t('installation vierge : une seule ligne d\'accueil, pas six corvées', () => {
-  const v = Q.freshnessAction({}, T0, true);
+  const v = Q.freshnessAction({}, T0, ['mine']);
   assert.equal(v.family, 'fraicheur');
   assert.equal(v.blocked.kind, 'stale');
-  assert.equal(Q.freshnessAction({}, T0, true).id, v.id);
+  assert.equal(Q.freshnessAction({}, T0, ['mine']).id, v.id);
 });
 
 t('installation vierge : la ligne d\'accueil ne dépend pas d\'une action bloquée', () => {
-  assert.ok(Q.freshnessAction({}, T0, false));
+  assert.ok(Q.freshnessAction({}, T0, []));
 });
 
 t('donnée fraîche : rien', () => {
-  assert.equal(Q.freshnessAction(frais, T0, true), null);
+  assert.equal(Q.freshnessAction(frais, T0, ['mine']), null);
 });
 
 t('donnée périmée mais aucune action bloquée derrière : on ne dérange pas', () => {
-  assert.equal(Q.freshnessAction(Object.assign({}, frais, { levels: T0 - 5 * 864e5 }), T0, false), null);
+  assert.equal(Q.freshnessAction(Object.assign({}, frais, { levels: T0 - 5 * 864e5 }), T0, ['expedition']), null);
 });
 
 t('la ligne nomme la page à ouvrir et l\'âge de la donnée', () => {
-  const vieux = Q.freshnessAction(Object.assign({}, frais, { levels: T0 - 5 * 864e5 }), T0, true);
+  const vieux = Q.freshnessAction(Object.assign({}, frais, { levels: T0 - 5 * 864e5 }), T0, ['mine']);
   assert.ok(vieux.blocked.page);
   assert.ok(/jour/.test(vieux.why));
 });
 
 t('une seule ligne de fraîcheur à la fois, la donnée la plus ancienne', () => {
   const deux = Q.freshnessAction({ levels: T0 - 5 * 864e5, ships: T0 - 20 * 3600e3,
-    slots: T0 - 60e3, moves: T0 - 60e3 }, T0, true);
+    slots: T0 - 60e3, moves: T0 - 60e3 }, T0, ['mine', 'expedition']);
   assert.equal(deux.blocked.page, 'Recherche');
 });
 
@@ -283,6 +285,34 @@ t('la colonisation et les formes de vie partent comme déjà faites', () => {
   assert.equal(Q.shouldExpand({ family: 'formevie', how: ['a'] }, learned), false);
   assert.equal(Q.shouldExpand({ family: 'abri', how: ['a'] }, learned), true);
   assert.equal(Q.shouldExpand({ family: 'recyclage', how: ['a'] }, learned), true);
+});
+
+/* ---------- corrections de la relecture ---------- */
+
+t('la ligne d\'accueil est une perte : elle ne peut pas finir en bas de file', () => {
+  const accueil = Q.freshnessAction({}, T0, []);
+  assert.equal(accueil.loss, true);
+  const r = Q.rankActions([a({ id: 'mine', payback: 2 }), accueil], T0);
+  assert.equal(r.banner.id, accueil.id);
+});
+
+t('une donnée jamais vue compte comme périmée', () => {
+  const jamais = Q.freshnessAction({ ships: T0 - 60e3, slots: T0 - 60e3, moves: T0 - 60e3 }, T0, ['mine']);
+  assert.ok(jamais);
+  assert.equal(jamais.blocked.page, 'Recherche');
+});
+
+t('la fraîcheur ne parle que des données dont une famille bloquée dépend', () => {
+  const seen = { levels: T0 - 5 * 864e5, ships: T0 - 5 * 864e5, slots: T0 - 60e3, moves: T0 - 60e3 };
+  assert.equal(Q.freshnessAction(seen, T0, ['expedition']).blocked.page, 'Flotte');
+  assert.equal(Q.freshnessAction(seen, T0, ['recherche']).blocked.page, 'Recherche');
+  assert.equal(Q.freshnessAction(seen, T0, ['formevie']), null);
+});
+
+t('une attente financée par une réserve le dit', () => {
+  const held = Q.collect({ now: 0, busy: [], first: { acts: [], goals: [],
+    waits: [{ q: 'Bâtiment · Mère', what: 'Mine de cristal 14', eta: 4200, held: true, miss: [0, 9000, 0] }] } }, [], 0)[0];
+  assert.ok(/réserv/i.test(held.why));
 });
 
 /* ---------- la projection ---------- */
@@ -342,6 +372,73 @@ t('un état sans la mémoire d\'apprentissage en reçoit une', () => {
   const app = loadApp(ancien, NOW, ['S']);
   assert.ok(app.S.learned);
   assert.ok(app.S.learned.colonisation);
+});
+
+/* ---------- ce que l'écran écrit vraiment ---------- */
+
+/** Un empire que l'extension n'a jamais lu. */
+function etatVierge() {
+  const v = fixtureState();
+  v.sample = true;
+  v.syncAt = 0;
+  v.planets = [v.planets[0]];
+  for (const k of Object.keys(v.planets[0].b)) v.planets[0].b[k] = 0;
+  v.planets[0].ships = {};
+  v.planets[0].stock = { m: 500, c: 500, d: 0, at: 0 };
+  for (const k of Object.keys(v.tech)) v.tech[k] = 0;
+  return v;
+}
+
+const ids = html => (html.match(/data-id="([^"]*)"/g) || []).map(x => x.slice(9, -1));
+
+t('installation vierge : la file n\'affiche que la ligne d\'accueil', () => {
+  const app = loadApp(etatVierge(), NOW, ['REFRESH']);
+  app.REFRESH.queue();
+  const h = app.html();
+  assert.ok(/je lis tout seul/i.test(h.qNow), 'la ligne d\'accueil occupe Maintenant');
+  assert.deepEqual(ids(h.qNext || ''), [], 'aucune autre ligne');
+});
+
+t('un empire saisi à la main mais jamais synchronisé garde son écran', () => {
+  const app = loadApp(fixtureState(), NOW, ['REFRESH']);
+  app.REFRESH.queue();
+  const h = app.html();
+  assert.ok(!/je lis tout seul/i.test(h.qNow || ''), 'Maintenant propose une vraie action');
+  assert.ok(ids(h.qNext || '').length > 0, 'la file n\'est pas vide');
+});
+
+t('aucune action n\'apparaît deux fois à l\'écran', () => {
+  const app = loadApp(fixtureState(), NOW, ['REFRESH']);
+  app.REFRESH.queue();
+  const h = app.html();
+  const tous = ids(h.qNow || '').concat(ids(h.qNext || ''));
+  assert.equal(new Set(tous).size, tous.length, 'identifiants en double : ' + tous.join(', '));
+});
+
+t('les files du jeu ne sont pas listées deux fois', () => {
+  const avecFiles = fixtureState();
+  avecFiles.timers = [{ id: 't1', game: true, kind: 'b', p: 0, k: 'metal', lvl: 15,
+    end: NOW + 40 * 60e3, done: false }];
+  const app = loadApp(avecFiles, NOW, ['REFRESH']);
+  app.REFRESH.queue();
+  const h = app.html();
+  assert.ok(/Mine de métal/.test(h.tmList || ''), 'le minuteur est listé');
+  assert.ok(!/Mine de métal/.test(h.qBusy || ''), 'et pas une deuxième fois dans En cours');
+});
+
+t('une action bloquée ne propose pas de bouton inerte', () => {
+  const app = loadApp(fixtureState(), NOW, ['goBtn']);
+  const bloquee = { family: 'mine', label: 'x', confirm: 'game', launch: null,
+    blocked: { kind: 'eta', secs: 600 }, how: null };
+  assert.equal(app.goBtn(bloquee), '');
+});
+
+t('une amélioration de mine porte son amortissement', () => {
+  const app = loadApp(fixtureState(), NOW, ['project']);
+  const mines = app.project().first.acts.filter(a => a.kind === 'b');
+  assert.ok(mines.length, 'la projection propose au moins un bâtiment');
+  assert.ok(mines.some(a => typeof a.payback === 'number'),
+    'aucun amortissement transmis : la règle de départage est morte');
 });
 
 /* ---------- résultat ---------- */

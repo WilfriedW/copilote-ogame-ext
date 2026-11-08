@@ -86,6 +86,7 @@ function collect(plan, missions, now) {
     const reachable = isFinite(w.eta);
     out.push(action({
       id: family + ':' + slug(w.what), family, label: w.what,
+      why: w.held ? 'Les ressources partent d\'abord dans la réserve d\'une recherche en cours de financement.' : '',
       blocked: reachable
         ? { kind: 'eta', secs: Math.max(0, Math.round(w.eta)), res: w.miss || null }
         : { kind: 'storage', res: w.miss || null },
@@ -194,13 +195,16 @@ function fleetsaveAction(planets, stats, night, now) {
  * Rappel d'aller voir si une expédition a laissé un champ de débris.
  * Sans chiffres : l'extension ne voit pas les champs de débris, qui ne sont ni
  * sur la page affichée ni dans les fichiers publics de l'univers.
- * @param {object[]} moves mouvements de flotte connus
+ * Se branche sur les minuteurs et non sur les mouvements de flotte : un
+ * mouvement déjà arrivé est effacé au premier instantané suivant, donc la
+ * fenêtre d'une heure ne s'ouvrait jamais.
+ * @param {object[]} timers minuteurs connus, `end` en millisecondes
  * @param {number} now horodatage courant
  * @returns {object|null}
  */
-function recycleAction(moves, now) {
-  const rentree = (moves || []).some(m => m && m.mission === 15 && m.ret &&
-    m.arrival * 1000 <= now && now - m.arrival * 1000 <= 3600e3);
+function recycleAction(timers, now) {
+  const rentree = (timers || []).some(t => t && t.kind === 'x' && t.k === 'expo' &&
+    t.end <= now && now - t.end <= 3600e3);
   if (!rentree) return null;
   return action({
     id: 'recyclage:expedition', family: 'recyclage',
@@ -220,10 +224,14 @@ function recycleAction(moves, now) {
 /* Au-delà de cet âge, la donnée ne porte plus de conseil sûr. Ordre : la plus
    structurante d'abord, pour départager deux données également périmées. */
 const STALE = [
-  { key: 'levels', hours: 48, page: 'Recherche', what: 'tes niveaux' },
-  { key: 'ships', hours: 12, page: 'Flotte', what: 'ta flotte à quai' },
-  { key: 'slots', hours: 3, page: 'Mouvements de flotte', what: 'tes emplacements de flotte' },
-  { key: 'moves', hours: 1, page: 'Mouvements de flotte', what: 'tes flottes en vol' }
+  { key: 'levels', hours: 48, page: 'Recherche', what: 'tes niveaux',
+    families: ['mine', 'recherche', 'chantier'] },
+  { key: 'ships', hours: 12, page: 'Flotte', what: 'ta flotte à quai',
+    families: ['expedition', 'abri', 'colonisation'] },
+  { key: 'slots', hours: 3, page: 'Mouvements de flotte', what: 'tes emplacements de flotte',
+    families: ['expedition'] },
+  { key: 'moves', hours: 1, page: 'Mouvements de flotte', what: 'tes flottes en vol',
+    families: ['expedition', 'recyclage'] }
 ];
 
 /** Âge en français, au jour ou à l'heure près. */
@@ -239,35 +247,39 @@ function ageText(ms) {
  * sinon la corvée du tour des onglets revient par la fenêtre.
  * @param {object} seen dernière lecture de chaque donnée, en millisecondes
  * @param {number} now horodatage courant
- * @param {boolean} hasBlockedSource une source attend cette donnée
+ * @param {string[]} blockedFamilies familles ayant au moins une action bloquée
  * @returns {object|null}
  */
-function freshnessAction(seen, now, hasBlockedSource) {
+function freshnessAction(seen, now, blockedFamilies) {
   const s = seen || {};
+  const attend = blockedFamilies || [];
   if (!STALE.some(x => s[x.key])) {
     return action({
       id: 'fraicheur:accueil', family: 'fraicheur',
       label: 'Ouvre une page du jeu, je lis tout seul',
       why: 'Je n\'ai encore rien vu de ton empire. Va sur n\'importe quelle page d\'OGame : je relève tes niveaux, tes ressources et tes files au passage.',
       blocked: { kind: 'stale', page: 'n\'importe laquelle' },
-      confirm: 'snooze', snoozeHours: 1
+      // une perte : tant que je n'ai rien lu, tout ce que je conseille est faux
+      loss: true, confirm: 'snooze', snoozeHours: 1
     });
   }
-  if (!hasBlockedSource) return null;
 
+  // une donnée jamais vue est périmée, pas fraîche
+  const perimee = x => s[x.key] == null || now - s[x.key] > x.hours * 3600e3;
   const vieille = STALE
-    .filter(x => s[x.key] && now - s[x.key] > x.hours * 3600e3)
-    .sort((a, b) => s[a.key] - s[b.key])[0];
+    .filter(x => perimee(x) && x.families.some(f => attend.indexOf(f) >= 0))
+    .sort((a, b) => (s[a.key] || 0) - (s[b.key] || 0))[0];
   if (!vieille) return null;
 
-  const age = ageText(now - s[vieille.key]);
+  const age = s[vieille.key] == null ? null : ageText(now - s[vieille.key]);
   return action({
     id: 'fraicheur:' + vieille.key, family: 'fraicheur',
     label: 'Ouvre la page ' + vieille.page,
-    why: 'Je ne vois ' + vieille.what + ' que tels qu\'ils étaient il y a ' + age +
-      '. Passe sur la page, je relis tout seul.',
+    why: (age ? 'Je ne vois ' + vieille.what + ' que tels qu\'ils étaient il y a ' + age + '.'
+               : 'Je n\'ai jamais vu ' + vieille.what + '.') +
+      ' Passe sur la page, je relis tout seul.',
     blocked: { kind: 'stale', page: vieille.page },
-    confirm: 'snooze', snoozeHours: 1
+    loss: true, confirm: 'snooze', snoozeHours: 1
   });
 }
 

@@ -41,9 +41,11 @@ function loadApp(state, nowMs, want) {
     static now() { return nowMs; }
   }
 
+  // un élément par identifiant, mémorisé : les tests peuvent relire ce qui a été écrit
+  const byId = new Map();
   const document = {
     title: 'Copilote OGame',
-    getElementById: () => fakeEl(),
+    getElementById: id => { if (!byId.has(id)) byId.set(id, fakeEl()); return byId.get(id); },
     querySelector: () => fakeEl(),
     querySelectorAll: () => [],
     createElement: () => fakeEl(),
@@ -65,8 +67,11 @@ function loadApp(state, nowMs, want) {
   const args = { document, window, chrome, LS, Date: FrozenDate,
     setInterval: () => 0, clearInterval: () => {} };
   const names = Object.keys(args);
-  return new Function(...names, src + '\nreturn {' + want.join(', ') + '};')(
+  const out = new Function(...names, src + '\nreturn {' + want.join(', ') + '};')(
     ...names.map(n => args[n]));
+  /** Ce que le rendu a écrit, par identifiant d'élément. */
+  out.html = () => { const o = {}; for (const [k, el] of byId) o[k] = el.innerHTML || el.textContent || ''; return o; };
+  return out;
 }
 
 /** Un empire de début de partie : deux planètes, Astrophysique fraîchement montée. */

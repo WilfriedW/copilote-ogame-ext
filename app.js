@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.8.3';
+const APP_VERSION = '2.0.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -224,7 +224,7 @@ function header(){
   document.getElementById('uniBadge').textContent = `${S.syncAt ? 'synchro ' + new Date(S.syncAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) + ' · ' : 'en attente du jeu · '}éco x${s.eco} · flotte x${s.fleet} · ${({collector:'Collecteur',general:'Général',explorer:'Explorateur',none:'Sans classe'})[s.cls]}`;
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.tab===tab)));
 }
-function render(){ header(); view.innerHTML = VIEWS[tab](); bind(); refresh(); }
+function render(){ header(); view.innerHTML = VIEWS[tab](); refresh(); bind(); }
 function refresh(){ (REFRESH[tab]||(()=>{}))(); header(); }
 
 /* ---------- timers ---------- */
@@ -469,7 +469,7 @@ function nextResearch(){
 /** Building candidates for a simulated planet, most urgent first. */
 function pickBuildings(p, ctx){
   const pr = production(p), iv = ctx.iv, rates=[pr.m,pr.c,pr.d], sk=['smetal','scrystal','sdeut'], out=[];
-  const add = (k, why)=>{ if(!out.some(o=>o.k===k)) out.push({k, lvl:p.b[k]+1, why}); };
+  const add = (k, why, payback)=>{ if(!out.some(o=>o.k===k)) out.push({k, lvl:p.b[k]+1, why, payback}); };
   const ranked = rankUpgrades(p).filter(u=>u.payback<Infinity);
   const satsSoon = p.satPending && p.satPending > ctx.T;
   if(pr.factor<1 && !satsSoon) add('solar', 'Énergie négative : tes mines tournent au ralenti');
@@ -487,7 +487,7 @@ function pickBuildings(p, ctx){
   for(const u of ranked.slice(0,2)){
     if(u.extraSolar && satsSoon) add(u.key, `Meilleur rendement, énergie fournie par les satellites`);
     else if(u.extraSolar) add('solar', `Énergie pour ${B_SHORT[u.key]} ${u.lvl}`);
-    else add(u.key, `Meilleur rendement : amorti en ${dur(u.payback*3600)}`);
+    else add(u.key, `Meilleur rendement : amorti en ${dur(u.payback*3600)}`, u.payback);
   }
   return out;
 }
@@ -640,7 +640,7 @@ function project(){
         if(!cands.length) continue;
         const res = reserveOf(p,Tm);
         const ch = cands.find(x=>can(p, levelCost(B[x.k],x.lvl), res));
-        if(ch){ const c=levelCost(B[ch.k],ch.lvl); pay(p,c); const d=buildTime(ch.k,ch.lvl,p), k=ch.k, L=ch.lvl; p.bq=Tm+d; p.bqKey=k; sim.ev.push({at:Tm+d, fn:()=>{ p.b[k]=Math.max(p.b[k],L); }}); acts.push({q:'Bâtiment · '+p.name, what:`${B[k].n} ${L}`, why:ch.why, cost:c, dur:d, end:Tm+d, kind:'b', k, lvl:L, p:p.i}); }
+        if(ch){ const c=levelCost(B[ch.k],ch.lvl); pay(p,c); const d=buildTime(ch.k,ch.lvl,p), k=ch.k, L=ch.lvl; p.bq=Tm+d; p.bqKey=k; sim.ev.push({at:Tm+d, fn:()=>{ p.b[k]=Math.max(p.b[k],L); }}); acts.push({q:'Bâtiment · '+p.name, what:`${B[k].n} ${L}`, why:ch.why, cost:c, dur:d, end:Tm+d, kind:'b', k, lvl:L, p:p.i, payback:ch.payback}); }
         else { const w=cands.map(x=>({x, eta:wait(p,levelCost(B[x.k],x.lvl))})).sort((a,b)=>a.eta-b.eta)[0]; waits.push({q:'Bâtiment · '+p.name, what:`${B[w.x.k].n} ${w.x.lvl}`, eta:w.eta, held:res.some(x=>x>0), miss:missOf(p,levelCost(B[w.x.k],w.x.lvl))}); soft.push({p, cost:levelCost(B[w.x.k],w.x.lvl), eta:w.eta}); }
       }
       {
@@ -886,6 +886,7 @@ function detailHtml(a){
 function goBtn(a){
   const fam = ` data-family="${esc(a.family)}"`;
   if(a.confirm==='game' && a.launch) return `<button class="btn primary"${fam} data-launch='${esc(JSON.stringify(a.launch))}'>C'est lancé</button>`;
+  if(a.confirm==='game') return '';
   if(a.blocked && a.blocked.kind==='stale') return '';
   return `<button class="btn primary"${fam} data-done="${esc(a.id)}">C'est fait</button>`;
 }
@@ -920,7 +921,6 @@ queue(){
     <div class="card"><h2>Ensuite</h2><ul class="qlist" id="qNext"></ul></div>
     <div class="card"><div class="row spread"><h2>En cours</h2><button class="btn sm ghost" id="tmSound">Tester le son</button></div>
       <ul class="timers" id="tmList"></ul>
-      <ul class="qlist" id="qBusy"></ul>
       <details><summary class="note">Ajouter un minuteur à la main</summary>
         <div class="timer-form" style="margin-top:8px">
           <label class="f">Quoi<select id="tmWhat">${timerOptions()}</select></label>
@@ -1132,18 +1132,32 @@ queue(){
   };
   const extra = [
     fleetsaveAction(S.planets, stats, nightWindow(now), now),
-    recycleAction(S.moves, now),
-    freshnessAction(seenOf(), now, base.some(a=>a.blocked))
+    recycleAction(S.timers, now),
+    freshnessAction(seenOf(), now, base.filter(a=>a.blocked).map(a=>a.family))
   ].filter(a => a && !snoozed(a, now));
-  const r = stabilize(rankActions(base.concat(extra), now));
+  // Tant que rien n'a été lu du jeu, une seule ligne : tout le reste serait
+  // calculé sur des données d'exemple.
+  // une ligne dépliée qui n'existe plus gèlerait l'ordre indéfiniment
+  if(openId && !base.concat(extra).some(a=>a.id===openId)) openId = null;
+  // Sur les données d'exemple, une seule ligne : tout le reste serait calculé
+  // sur un empire fictif. Un empire saisi à la main garde son écran, et la
+  // ligne d'accueil s'y classe comme une perte ordinaire.
+  const accueil = S.sample && extra.find(a=>a.id==='fraicheur:accueil');
+  const r = accueil
+    ? {now:accueil, banner:null, next:[], busy:[]}
+    : stabilize(rankActions(base.concat(extra), now));
 
   document.getElementById('qBanner').innerHTML = r.banner
     ? `<div class="card banner"><span class="pill bad">${esc(blockText(r.banner.blocked))}</span><b>${esc(r.banner.label)}</b>${r.banner.why?`<p class="why">${esc(r.banner.why)}</p>`:''}</div>` : '';
-  document.getElementById('qNow').innerHTML = nowHtml(r.now || r.next.find(a=>a.blocked) || null);
-  document.getElementById('qNext').innerHTML = r.next.slice(0, 5).map(lineHtml).join('')
-    || '<li class="note">Rien d\'autre en attente.</li>';
-  document.getElementById('qBusy').innerHTML = r.busy.map(a=>
-    `<li class="qline busy"><span class="tag t-${a.family}">${FAMILY_LABEL[a.family]||'En cours'}</span><div class="tx"><b>${esc(a.label)}</b></div><span class="when">fin ${hm(a.running.endsAt)}</span></li>`).join('');
+
+  // Une ligne dépliée ne se recrée pas sous le curseur : ses champs perdraient
+  // le focus à chaque instantané du jeu.
+  if(!openId){
+    const vedette = r.now || r.next.find(a=>a.blocked) || null;
+    document.getElementById('qNow').innerHTML = nowHtml(vedette);
+    document.getElementById('qNext').innerHTML = r.next.filter(a=>a!==vedette).slice(0, 5).map(lineHtml).join('')
+      || '<li class="note">Rien d\'autre en attente.</li>';
+  }
   document.getElementById('qStamp').textContent = S.syncAt ? `synchro ${hm(S.syncAt)}` : (S.lastImport ? `import ${hm(S.lastImport)}` : '');
   const ouverte = [r.now, r.banner].concat(r.next).find(a=>a && a.id===openId);
   if(ouverte && FAMILY_PANE[ouverte.family]) FAMILY_PANE[ouverte.family].refresh();
@@ -1247,7 +1261,7 @@ colony(){
   req.push({sev: w.sec===0 ? 'good' : w.storage!=null ? 'bad' : 'warn',
     what: colBuilt() ? 'Ressources du kit et carburant' : 'Ressources du vaisseau, du kit et carburant',
     why: `${w.sec===0 ? 'Disponibles maintenant.' : w.storage!=null ? 'Un hangar est trop petit pour ce total.' : `Disponibles dans ${dur(w.sec)}.`}${colBuilt() ? '' : ` Construction du vaisseau : ${dur(F.shipTime)}.`}`});
-  document.getElementById('coReq').innerHTML = req.map(r=>`<li><span class="pill ${r.sev==='info'?'info':r.sev}">${({good:'OK',warn:'Bientôt',bad:'À faire'})[r.sev]}</span><span class="what">${esc(r.what)}${r.add?` <button class="btn sm" data-coadd="${r.add}">+ Plan</button>`:''}</span><span class="why">${esc(r.why)}</span></li>`).join('');
+  document.getElementById('coReq').innerHTML = req.map(r=>`<li><span class="pill ${r.sev==='info'?'info':r.sev}">${({good:'OK',warn:'Bientôt',bad:'À faire'})[r.sev]}</span><span class="what">${esc(r.what)}</span><span class="why">${esc(r.why)}</span></li>`).join('');
 
   const rows = rankPositions(), tgtPos = (parseC(coloTarget())||[])[2];
   document.getElementById('coPos').innerHTML = rows.map(r=>`<tr style="${r.ok?'':'opacity:.45'}">
@@ -1327,21 +1341,16 @@ view.addEventListener('click',e=>{
 view.addEventListener('click', e=>{
   const cp = e.target.closest('[data-copos]');
   if(cp){ const [g,sy] = coloSystem(); S.colo.target = `${g}:${sy}:${cp.dataset.copos}`; save(); render(); return; }
-  const ca = e.target.closest('[data-coadd]');
-  if(ca){
-    const [kind,a,c] = ca.dataset.coadd.split(':');
-    save(); toast('Ajouté au plan');
-  }
 });
 view.addEventListener('click', e=>{
-  const dn = e.target.closest('[data-done]'); if(dn){ S.daily.done[dn.dataset.done] = Date.now(); learn(dn); save(); refresh(); toast('Bien joué'); return; }
+  const dn = e.target.closest('[data-done]'); if(dn){ S.daily.done[dn.dataset.done] = Date.now(); learn(dn); openId = null; save(); refresh(); toast('Bien joué'); return; }
   const rpp = e.target.closest('[data-raidprep]'); if(rpp){ S.raid = {coords:rpp.dataset.raidprep, name:rpp.dataset.raidname, m:0, c:0, d:0, safe:false}; save(); render(); return; }
   const rpc = e.target.closest('[data-raidclose]'); if(rpc){ S.raid = null; save(); render(); return; }
   const ct = e.target.closest('[data-cotarget]'); if(ct){ S.colo.target = ct.dataset.cotarget; save(); render(); toast('Destination de colonie mise à jour'); return; }
   const ar = e.target.closest('[data-apirefresh]'); if(ar){ try{ chrome.runtime.sendMessage({type:'apiRefresh', force:true}); }catch(err){} toast('Actualisation demandée'); return; }
   const go = e.target.closest('[data-goto]'); if(go){ tab = go.dataset.goto; try{ LS.setItem(KEY+'-tab',tab); }catch(err){} render(); return; }
   const sent = e.target.closest('[data-sent]'); if(sent){ S.colo.sentAt = Date.now(); S.colo.built = false; save(); refresh(); toast('Colonisation en route'); return; }
-  const la = e.target.closest('[data-launch]'); if(la) learn(la);
+  const la = e.target.closest('[data-launch]'); if(la){ learn(la); openId = null; }
   if(la){
     const a = JSON.parse(la.dataset.launch), tm = {id:Math.random().toString(36).slice(2,8), manual:true, end:Date.now()+a.dur*1000, done:false};
     if(a.kind==='t'){ tm.kind='t'; tm.k=a.k; tm.lvl=a.lvl; }
@@ -1481,7 +1490,7 @@ function applyGame(g){
     Object.assign(p.b, gp.b || {});
     if(gp.sats != null) p.sats = gp.sats;
     if(gp.energy != null){ p.eAdj = 0; p.eAdj = gp.energy - production(p).eBal; }
-    if(gp.ships){ p.ships = Object.assign({}, gp.ships); p.shipsAt = gp.shipsAt || 0; }
+    if(gp.ships){ p.ships = Object.assign({}, gp.ships); p.shipsAt = Math.max(p.shipsAt||0, gp.shipsAt||0); }
     if(gp.stock && gp.stock.m != null && gp.stock.at !== p.stockGameAt){ p.stock = {...gp.stock}; p.stockGameAt = gp.stock.at; }
     kept.push(p);
   }
