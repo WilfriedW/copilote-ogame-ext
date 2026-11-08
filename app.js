@@ -1476,6 +1476,7 @@ function applyGame(g){
   if(m.fleet) S.settings.fleet = m.fleet;
   if(m.cls) S.settings.cls = m.cls;
   Object.assign(S.tech, g.tech || {});
+  if(g.techAt) S.techAt = Math.max(S.techAt||0, g.techAt);
   const ids = (g.order && g.order.length) ? g.order : Object.keys(g.planets || {});
   const kept = [];
   for(const id of ids){
@@ -1486,6 +1487,7 @@ function applyGame(g){
     if(gp.name) p.name = gp.name;
     if(gp.coords) p.coords = gp.coords;
     if(gp.tmax != null) p.tmax = gp.tmax;
+    if(gp.bAt) p.bAt = Math.max(p.bAt||0, gp.bAt);
     Object.assign(p.b, gp.b || {});
     if(gp.sats != null) p.sats = gp.sats;
     if(gp.energy != null){ p.eAdj = 0; p.eAdj = gp.energy - production(p).eBal; }

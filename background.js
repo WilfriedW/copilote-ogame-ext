@@ -76,7 +76,7 @@ async function merge(s) {
     cur.name = s.planetName || cur.name;
     cur.coords = s.coords || cur.coords;
     for (const [id, lvl] of Object.entries(s.levels)) {
-      if (OG_BUILD[id]) cur.b[OG_BUILD[id]] = lvl;
+      if (OG_BUILD[id]) { cur.b[OG_BUILD[id]] = lvl; cur.bAt = s.at; }
       else if (id === '212') cur.sats = lvl;
     }
     if (s.stock.m != null) cur.stock = { ...s.stock, at: s.at };
@@ -87,7 +87,7 @@ async function merge(s) {
       cur.shipsAt = s.at;
     }
   }
-  for (const [id, lvl] of Object.entries(s.levels)) if (OG_TECH[id]) game.tech[OG_TECH[id]] = lvl;
+  for (const [id, lvl] of Object.entries(s.levels)) if (OG_TECH[id]) { game.tech[OG_TECH[id]] = lvl; game.techAt = s.at; }
 
   const now = Date.now();
   const keepMoves = (game.moves || []).filter(m => m.arrival * 1000 > now);

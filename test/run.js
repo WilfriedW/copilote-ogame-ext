@@ -6,7 +6,7 @@ const path = require('path');
 const assert = require('assert');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'queue.js'), 'utf8');
-const EXPORTS = ['rankActions', 'collect', 'fleetsaveAction', 'recycleAction'];
+const EXPORTS = ['rankActions', 'collect', 'fleetsaveAction', 'recycleAction', 'freshnessAction'];
 
 /** Évalue queue.js et renvoie ses fonctions, avec les globales injectées. */
 function load(globals) {
@@ -213,6 +213,41 @@ t('après le retour d\'une expédition, un rappel de recyclage sans chiffres', (
 t('aucune expédition rentrée récemment : pas de rappel de recyclage', () => {
   assert.equal(Q.recycleAction([], T0), null);
   assert.equal(Q.recycleAction([{ mission: 15, ret: true, arrival: (T0 - 5 * 3600e3) / 1000 }], T0), null);
+});
+
+/* ---------- la fraîcheur des données ---------- */
+
+const frais = { levels: T0 - 60e3, ships: T0 - 60e3, slots: T0 - 60e3, moves: T0 - 60e3 };
+
+t('installation vierge : une seule ligne d\'accueil, pas six corvées', () => {
+  const v = Q.freshnessAction({}, T0, true);
+  assert.equal(v.family, 'fraicheur');
+  assert.equal(v.blocked.kind, 'stale');
+  assert.equal(Q.freshnessAction({}, T0, true).id, v.id);
+});
+
+t('installation vierge : la ligne d\'accueil ne dépend pas d\'une action bloquée', () => {
+  assert.ok(Q.freshnessAction({}, T0, false));
+});
+
+t('donnée fraîche : rien', () => {
+  assert.equal(Q.freshnessAction(frais, T0, true), null);
+});
+
+t('donnée périmée mais aucune action bloquée derrière : on ne dérange pas', () => {
+  assert.equal(Q.freshnessAction(Object.assign({}, frais, { levels: T0 - 5 * 864e5 }), T0, false), null);
+});
+
+t('la ligne nomme la page à ouvrir et l\'âge de la donnée', () => {
+  const vieux = Q.freshnessAction(Object.assign({}, frais, { levels: T0 - 5 * 864e5 }), T0, true);
+  assert.ok(vieux.blocked.page);
+  assert.ok(/jour/.test(vieux.why));
+});
+
+t('une seule ligne de fraîcheur à la fois, la donnée la plus ancienne', () => {
+  const deux = Q.freshnessAction({ levels: T0 - 5 * 864e5, ships: T0 - 20 * 3600e3,
+    slots: T0 - 60e3, moves: T0 - 60e3 }, T0, true);
+  assert.equal(deux.blocked.page, 'Recherche');
 });
 
 /* ---------- la projection ---------- */

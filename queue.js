@@ -214,6 +214,62 @@ function recycleAction(moves, now) {
   });
 }
 
+/* ---------- la fraîcheur des données ---------- */
+
+/* Au-delà de cet âge, la donnée ne porte plus de conseil sûr. Ordre : la plus
+   structurante d'abord, pour départager deux données également périmées. */
+const STALE = [
+  { key: 'levels', hours: 48, page: 'Recherche', what: 'tes niveaux' },
+  { key: 'ships', hours: 12, page: 'Flotte', what: 'ta flotte à quai' },
+  { key: 'slots', hours: 3, page: 'Mouvements de flotte', what: 'tes emplacements de flotte' },
+  { key: 'moves', hours: 1, page: 'Mouvements de flotte', what: 'tes flottes en vol' }
+];
+
+/** Âge en français, au jour ou à l'heure près. */
+function ageText(ms) {
+  const h = Math.floor(ms / 3600e3);
+  if (h >= 24) { const j = Math.floor(h / 24); return j + ' jour' + (j > 1 ? 's' : ''); }
+  return Math.max(1, h) + ' heure' + (h > 1 ? 's' : '');
+}
+
+/**
+ * Propose d'ouvrir une page du jeu, au plus une à la fois.
+ * Ne dérange que lorsque la donnée périmée bloque vraiment quelque chose :
+ * sinon la corvée du tour des onglets revient par la fenêtre.
+ * @param {object} seen dernière lecture de chaque donnée, en millisecondes
+ * @param {number} now horodatage courant
+ * @param {boolean} hasBlockedSource une source attend cette donnée
+ * @returns {object|null}
+ */
+function freshnessAction(seen, now, hasBlockedSource) {
+  const s = seen || {};
+  if (!STALE.some(x => s[x.key])) {
+    return action({
+      id: 'fraicheur:accueil', family: 'fraicheur',
+      label: 'Ouvre une page du jeu, je lis tout seul',
+      why: 'Je n\'ai encore rien vu de ton empire. Va sur n\'importe quelle page d\'OGame : je relève tes niveaux, tes ressources et tes files au passage.',
+      blocked: { kind: 'stale', page: 'n\'importe laquelle' },
+      confirm: 'snooze', snoozeHours: 1
+    });
+  }
+  if (!hasBlockedSource) return null;
+
+  const vieille = STALE
+    .filter(x => s[x.key] && now - s[x.key] > x.hours * 3600e3)
+    .sort((a, b) => s[a.key] - s[b.key])[0];
+  if (!vieille) return null;
+
+  const age = ageText(now - s[vieille.key]);
+  return action({
+    id: 'fraicheur:' + vieille.key, family: 'fraicheur',
+    label: 'Ouvre la page ' + vieille.page,
+    why: 'Je ne vois ' + vieille.what + ' que tels qu\'ils étaient il y a ' + age +
+      '. Passe sur la page, je relis tout seul.',
+    blocked: { kind: 'stale', page: vieille.page },
+    confirm: 'snooze', snoozeHours: 1
+  });
+}
+
 /* ---------- classement ---------- */
 
 /**
