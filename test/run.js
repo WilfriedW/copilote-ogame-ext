@@ -320,6 +320,30 @@ t('l\'écran À faire se rend sur une installation vierge', () => {
   assert.doesNotThrow(() => app.REFRESH.queue());
 });
 
+/* ---------- la migration ---------- */
+
+t('un état enregistré de l\'ancienne version garde ses niveaux saisis à la main', () => {
+  const ancien = fixtureState();
+  // ce que portait l'ancienne version et qui vient d'être supprimé
+  ancien.plan = [{ type: 'b', p: 0, k: 'metal', lvl: 16 }, { type: 't', k: 'astro', lvl: 4 }];
+  ancien.ui = { tool: 'colony' };
+  ancien.day.interval = 90;
+  ancien.day.horizon = 24;
+  const app = loadApp(ancien, NOW, ['S', 'REFRESH']);
+  assert.equal(app.S.planets[0].b.metal, 14);
+  assert.equal(app.S.planets[1].b.solar, 6);
+  assert.equal(app.S.tech.astro, 3);
+  assert.equal(app.S.planets.length, 2);
+  assert.doesNotThrow(() => app.REFRESH.queue());
+});
+
+t('un état sans la mémoire d\'apprentissage en reçoit une', () => {
+  const ancien = fixtureState();
+  const app = loadApp(ancien, NOW, ['S']);
+  assert.ok(app.S.learned);
+  assert.ok(app.S.learned.colonisation);
+});
+
 /* ---------- résultat ---------- */
 
 if (failures.length) {

@@ -64,11 +64,9 @@ function sample(){
     settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true},
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
-    plan:[],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
     expo:{pf:true},
-    ui:{tool:'colony'},
-    day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'ecocol'},
+    day:{nightStart:23, nightEnd:7, focus:'ecocol'},
     lf:{found:['humans','rocktal']},
     roles:{}, raid:null, raids:{},
     daily:{done:{}},
@@ -87,7 +85,6 @@ try{ S = JSON.parse(LS.getItem(KEY)) || sample(); }catch(e){ S = sample(); }
 S = Object.assign(sample(), S);
 S.tech = Object.assign(sample().tech, S.tech);
 S.day = Object.assign(sample().day, S.day);
-S.ui = Object.assign(sample().ui, S.ui);
 S.lf = Object.assign(sample().lf, S.lf);
 S.roles = S.roles || {}; S.raids = S.raids || {};
 S.daily = Object.assign(sample().daily, S.daily);
@@ -220,7 +217,7 @@ function flight(from, to, ships, pct){
 const view = document.getElementById('view');
 let tab = 'queue';
 try{ tab = LS.getItem(KEY+'-tab') || 'queue'; }catch(e){}
-if(!['queue','empire','tools','settings'].includes(tab)) tab='queue';
+if(!['queue','empire','settings'].includes(tab)) tab='queue';
 
 function header(){
   const s=S.settings;
@@ -229,66 +226,6 @@ function header(){
 }
 function render(){ header(); view.innerHTML = VIEWS[tab](); bind(); refresh(); }
 function refresh(){ (REFRESH[tab]||(()=>{}))(); header(); }
-
-/* ---------- advice ---------- */
-const MILESTONES = [
-  {t:'b', k:'lab', lvl:1, why:'Débloque toutes les recherches.'},
-  {t:'t', k:'energy', lvl:1, why:'Premier prérequis de presque tout l\'arbre technologique.'},
-  {t:'b', k:'robot', lvl:2, why:'Accélère les constructions et débloque le chantier spatial.'},
-  {t:'b', k:'shipyard', lvl:2, why:'Nécessaire au petit transporteur.'},
-  {t:'t', k:'combustion', lvl:2, why:'Débloque le petit transporteur : fleetsave et pillage.'},
-  {t:'t', k:'espionage', lvl:2, why:'Sondes d\'espionnage pour repérer les joueurs inactifs.'},
-  {t:'t', k:'computer', lvl:2, why:'Un slot de flotte supplémentaire par niveau.'},
-  {t:'b', k:'lab', lvl:3, why:'Requis pour Astrophysique.'},
-  {t:'t', k:'impulse', lvl:3, why:'Requis pour Astrophysique.'},
-  {t:'t', k:'espionage', lvl:4, why:'Requis pour Astrophysique.'},
-  {t:'t', k:'astro', lvl:1, why:'Première colonie et premières expéditions.'},
-];
-function milestoneDone(m){ return m.t==='t' ? S.tech[m.k]>=m.lvl : S.planets[0] && S.planets[0].b[m.k]>=m.lvl; }
-function milestoneLabel(m){ return m.t==='t' ? `${T[m.k].n} ${m.lvl}` : `${B[m.k].n} ${m.lvl}`; }
-function milestoneMissing(m){ return m.t==='t' ? reqOk(T[m.k].req, null) : reqOk(B[m.k].req, S.planets[0]); }
-
-/** Builds a prioritized action list from the current state. */
-function adviceList(){
-  const out = [];
-  S.planets.forEach((p,i)=>{
-    const pr = production(p), st = stockNow(p), r = rankUpgrades(p);
-    const where = S.planets.length>1 ? ` sur ${p.name}` : '';
-    if(pr.factor<1){
-      const best = r[0];
-      out.push({sev:'bad', what:`Rétablir l'énergie${where}`, why:`Tes mines tournent à ${Math.round(pr.factor*100)} %. ${best ? `Le plus rentable : ${B_SHORT[best.key]} ${best.lvl}${best.extraSolar?` avec solaire ${p.b.solar+best.extraSolar}`:''}.` : 'Monte la centrale solaire.'}`});
-    }
-    ['m','c','d'].forEach((x,k)=>{
-      const rate=[pr.m,pr.c,pr.d][k], name=['Hangar de métal','Hangar de cristal','Réservoir de deutérium'][k], bk=['smetal','scrystal','sdeut'][k];
-      if(st[k]>=pr.cap[k]*0.98) out.push({sev:'bad', what:`${name} plein${where}`, why:`La production de ${['métal','cristal','deutérium'][k]} est arrêtée. Dépense ou monte ${name} ${p.b[bk]+1}.`});
-      else if(rate>0 && (pr.cap[k]-st[k])/rate<8) out.push({sev:'warn', what:`${name} plein dans ${dur((pr.cap[k]-st[k])/rate*3600)}${where}`, why:`Prévois ${name} ${p.b[bk]+1} avant une longue absence.`});
-    });
-    const best = r.find(u=>u.payback<Infinity);
-    if(best && pr.factor>=1){
-      const w = waitFor(p, best.cost);
-      out.push({sev:'info', what:`Construire ${B_SHORT[best.key]} ${best.lvl}${best.extraSolar?` puis solaire ${p.b.solar+best.extraSolar}`:''}${where}`, why:`Meilleur amortissement de tes mines : ${dur(best.payback*3600)}. ${w.sec===0?'Tu peux le lancer maintenant.':w.storage!=null?'Hangar trop petit pour ce coût.':`Payable dans ${dur(w.sec)}.`}`});
-    }
-  });
-  const next = MILESTONES.filter(m=>!milestoneDone(m));
-  const ready = next.find(m=>!milestoneMissing(m).length);
-  if(ready) out.push({sev:'info', what:`${ready.t==='t'?'Rechercher':'Construire'} ${milestoneLabel(ready)}`, why:`${ready.why} Étape ${MILESTONES.indexOf(ready)+1} sur ${MILESTONES.length} du début de partie.`});
-  else if(next[0]) out.push({sev:'warn', what:`Prochaine étape : ${milestoneLabel(next[0])}`, why:`Il manque : ${milestoneMissing(next[0]).join(', ')}.`});
-  const maxPl = 1 + Math.ceil(S.tech.astro/2);
-  if(S.tech.astro && S.planets.length<maxPl) out.push({sev:'info', what:`Coloniser (${S.planets.length}/${maxPl} planètes)`, why:'Chaque colonie ajoute une production complète. Prépare-la dans l\'onglet Colonie : position, vaisseaux et ressources à emporter.'});
-  S.plan.forEach(it=>{
-    const p = it.type==='b' ? S.planets[it.p] : S.planets[0]; if(!p) return;
-    const from = it.type==='b' ? p.b[it.k] : S.tech[it.k]; if(from>=it.lvl) return;
-    const def = it.type==='b' ? B[it.k] : T[it.k], c = levelCost(def, from+1), miss = it.type==='b'?reqOk(def.req,p):reqOk(def.req,null);
-    if(!miss.length && waitFor(p,c).sec===0) out.push({sev:'good', what:`Plan : lancer ${def.n} ${from+1}`, why:'Les ressources sont disponibles.'});
-  });
-  if(!(S.timers||[]).some(t=>t.kind==='t' && !t.done)) out.push({sev:'warn', what:'Aucune recherche suivie', why:'Si une recherche tourne dans le jeu, ajoute un minuteur pour être prévenu à la fin. Sinon, lances-en une : le labo ne doit jamais rester à l\'arrêt.'});
-  const importFresh = !S.syncAt || (S.lastImport||0) >= S.syncAt - 60000;
-  (importFresh ? (S.lastAlerts||[]) : []).forEach(a=>{ if(/file vide|arr[eê]t/i.test(a)) out.push({sev:'warn', what:a, why:'Signalé par le dernier import de la Vue empire. Une file vide, c\'est du temps de production perdu.'}); });
-  out.push({sev:'info', what:'Avant de te déconnecter', why:'Dépense tes ressources ou mets-les à l\'abri (fleetsave), surtout une fois sorti de la protection débutant.'});
-  const order = {bad:0, warn:1, good:2, info:3};
-  return out.sort((a,b)=>order[a.sev]-order[b.sev]);
-}
-const SEV_LABEL = {bad:'Urgent', warn:'Attention', good:'Prêt', info:'Conseillé'};
 
 /* ---------- timers ---------- */
 S.timers = S.timers || [];
@@ -742,14 +679,6 @@ function project(){
     return {now, first: sessions[0], busy, startV, endV, ups};
   } finally { S.tech = real.tech; S.planets = real.planets; }
 }
-function actHtml(a, withBtn){
-  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : ''].filter(Boolean).join('');
-  let btn = '';
-  if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
-  else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,p:a.p,n:a.n,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
-  return `<li><div><div class="q">${esc(a.q)}</div><div class="w">${esc(a.what)}</div></div>${btn||'<span></span>'}<div class="m">${m}</div></li>`;
-}
-
 /* ---------- daily missions ---------- */
 const LIFEFORMS = {humans:{n:'Humains', why:'polyvalents'}, rocktal:{n:'Roctas', why:'mineurs : production et bâtiments moins chers'}, mechas:{n:'Mécas', why:'vaisseaux et chantier spatial'}, kaelesh:{n:'Kaeleshs', why:'expéditions et recherche'}};
 function bestLifeform(){
@@ -878,6 +807,13 @@ function raidPlan(){
 }
 
 /* ---------- la file : état d'affichage et rendu ---------- */
+const FAMILY_PANE = {
+  colonisation: {view:()=>VIEWS.colony(),  refresh:()=>REFRESH.colony()},
+  expedition:   {view:()=>VIEWS.fleet(),   refresh:()=>REFRESH.fleet()},
+  abri:         {view:()=>VIEWS.fleet(),   refresh:()=>REFRESH.fleet()},
+  espionnage:   {view:()=>VIEWS.explore(), refresh:()=>REFRESH.explore()},
+  raid:         {view:()=>VIEWS.explore(), refresh:()=>REFRESH.explore()}
+};
 const FAMILY_LABEL = {mine:'Mine', recherche:'Recherche', chantier:'Chantier',
   expedition:'Flotte', colonisation:'Colonie', abri:'Sécurité', recyclage:'Flotte',
   espionnage:'Espionnage', raid:'Pillage', formevie:'Forme de vie', fraicheur:'Données'};
@@ -934,6 +870,11 @@ function howHtml(a){
   return `<details class="how"${open?' open':''}><summary>Comment faire</summary><ol>${a.how.map(x=>`<li>${x}</li>`).join('')}</ol></details>`;
 }
 
+/** L'ancien outil correspondant, affiché sous l'action quand elle est ouverte. */
+function paneHtml(a){
+  const p = openId===a.id && FAMILY_PANE[a.family];
+  return p ? p.view() : '';
+}
 function detailHtml(a){
   const t = a.detail;
   if(!t || !t.ships) return '';
@@ -956,7 +897,7 @@ function nowHtml(a){
     ${a.why?`<p class="why">${esc(a.why)}</p>`:''}
     ${a.cost?costHtml(a.cost):''}
     ${a.blocked?`<p class="note">${esc(blockText(a.blocked))}${missText(a.blocked)?' · '+esc(missText(a.blocked)):''}</p>`:''}
-    ${detailHtml(a)}${howHtml(a)}
+    ${detailHtml(a)}${howHtml(a)}${paneHtml(a)}
     <div class="row">${goBtn(a)}</div>
   </div>`;
 }
@@ -967,7 +908,7 @@ function lineHtml(a){
     <span class="tag t-${esc(a.family)}">${esc(FAMILY_LABEL[a.family]||'À faire')}</span>
     <div class="tx"><b>${esc(a.label)}</b>${a.why?`<small>${esc(a.why)}</small>`:''}</div>
     <span class="when">${esc(blockText(a.blocked))}</span>
-    ${open?`<div class="pane">${a.blocked&&missText(a.blocked)?`<p class="note">${esc(missText(a.blocked))}</p>`:''}${detailHtml(a)}${howHtml(a)}<div class="row">${goBtn(a)}</div></div>`:''}
+    ${open?`<div class="pane">${a.blocked&&missText(a.blocked)?`<p class="note">${esc(missText(a.blocked))}</p>`:''}${detailHtml(a)}${howHtml(a)}${paneHtml(a)}<div class="row">${goBtn(a)}</div></div>`:''}
   </li>`;
 }
 
@@ -990,7 +931,7 @@ queue(){
     </div>
   </section>`;
 },
-empire(){ return `<div class="panel">${VIEWS.planets()}${VIEWS.research()}</div>`; },
+empire(){ return `<div class="panel">${VIEWS.planets()}${VIEWS.build()}${VIEWS.research()}</div>`; },
 explore(){
   if(!IS_EXT) return `<div class="card"><h2>Cibles</h2><p class="note">Cette partie utilise les données publiques officielles d'OGame. Elle ne fonctionne que dans l'extension Copilote.</p></div>`;
   const a = API, ok = a && a.planets && a.players;
@@ -1013,25 +954,6 @@ explore(){
     </div>` : ''}
     <div class="card"><h2>Qui piller</h2><div id="exRaid"></div></div>
     <div class="card"><h2>Où explorer</h2><div id="exExplore"></div></div>
-  </section>`;
-},
-tools(){
-  const sub = S.ui.tool || 'colony';
-  return `<section class="panel"><div class="seg" role="tablist">${[['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['plan','Objectifs']].map(([k,l])=>`<button role="tab" data-tool="${k}" aria-selected="${sub===k}">${l}</button>`).join('')}</div>${VIEWS[sub]()}</section>`;
-},
-advice(){
-  return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Minuteurs</h2><button class="btn sm ghost" id="tmSound">Tester le son</button></div>
-      <div class="timer-form">
-        <label class="f">Quoi<select id="tmWhat">${timerOptions()}</select></label>
-        <label class="f">Temps restant (copié du jeu)<input id="tmLeft" placeholder="2h 13m 05s"></label>
-        <button class="btn primary" id="tmAdd">Lancer</button>
-      </div>
-      <ul class="timers" id="tmList"></ul>
-      <p class="note">Garde l'onglet Copilote ouvert : à la fin, un bandeau vert apparaît en haut de la page jusqu'à ce que tu cliques, avec un son si ton ordinateur en a. Le niveau de la recherche ou du bâtiment est alors augmenté automatiquement.</p>
-    </div>
-    <div class="card"><div class="row spread"><h2>À faire maintenant</h2><span class="note" id="advStamp"></span></div><ul class="advice" id="advList"></ul>
-    <p class="note">Calculé à partir de tes niveaux saisis ou importés. Garde-les à jour pour des conseils justes.</p></div>
   </section>`;
 },
 planets(){
@@ -1084,7 +1006,7 @@ build(){
 research(){
   return `<details class="card"><summary>Recherches <span class="note">labo niveau <b id="labLv"></b></span></summary>
     <div class="tbl-wrap"><table><thead><tr><th>Technologie</th><th class="n">Niv.</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th><th></th></tr></thead><tbody>
-    ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${S.tech[k]}"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td><td><button class="btn sm" data-addt="${k}">+ Objectif</button></td></tr>`).join('')}
+    ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${S.tech[k]}"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
     </tbody></table></div>
   </details>`;
 },
@@ -1153,29 +1075,14 @@ colony(){
     </div>
   </section>`;
 },
-plan(){
-  return `<section class="panel">
-    <div class="card"><h2>Ajouter un objectif</h2>
-      <div class="grid">
-        <label class="f">Planète<select id="plP">${S.planets.map((p,i)=>`<option value="${i}">${esc(p.name)}</option>`).join('')}</select></label>
-        <label class="f">Bâtiment<select id="plB">${Object.keys(B).map(k=>`<option value="${k}">${B[k].n}</option>`).join('')}</select></label>
-        <label class="f">Niveau visé<input id="plL" type="number" min="1" value="5"></label>
-      </div>
-      <div class="row"><button class="btn primary" id="plAdd">Ajouter au plan</button><span class="note">Les recherches s'ajoutent depuis Empire, section Recherches.</span></div>
-    </div>
-    <div class="card"><div class="row spread"><h2>Plan</h2><span class="note" id="plTot"></span></div><ul class="list" id="plList"></ul></div>
-  </section>`;
-},
 settings(){
   const s=S.settings, d=S.day;
   return `<section class="panel">
     <div class="card"><h2>Plan du jour</h2>
       <div class="grid">
         <label class="f">Priorité<select id="dFocus" data-day="focus">${Object.entries(FOCUS).map(([k,l])=>`<option value="${k}" ${d.focus===k?'selected':''}>${l}</option>`).join('')}</select></label>
-        <label class="f">Je me connecte toutes les<select id="dInt" data-day="interval">${[30,60,90,120,180].map(v=>`<option value="${v}" ${+d.interval===v?'selected':''}>${v} min</option>`).join('')}</select></label>
         <label class="f">Nuit : de (heure)<input id="dNs" type="number" min="0" max="23" data-day="nightStart" value="${d.nightStart}"></label>
         <label class="f">à (heure)<input id="dNe" type="number" min="0" max="23" data-day="nightEnd" value="${d.nightEnd}"></label>
-        <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
       </div>
     </div>
     <div class="card"><h2>Formes de vie découvertes</h2>
@@ -1238,10 +1145,11 @@ queue(){
   document.getElementById('qBusy').innerHTML = r.busy.map(a=>
     `<li class="qline busy"><span class="tag t-${a.family}">${FAMILY_LABEL[a.family]||'En cours'}</span><div class="tx"><b>${esc(a.label)}</b></div><span class="when">fin ${hm(a.running.endsAt)}</span></li>`).join('');
   document.getElementById('qStamp').textContent = S.syncAt ? `synchro ${hm(S.syncAt)}` : (S.lastImport ? `import ${hm(S.lastImport)}` : '');
+  const ouverte = [r.now, r.banner].concat(r.next).find(a=>a && a.id===openId);
+  if(ouverte && FAMILY_PANE[ouverte.family]) FAMILY_PANE[ouverte.family].refresh();
   renderTimers();
 },
-empire(){ REFRESH.planets(); REFRESH.research(); },
-tools(){ REFRESH[S.ui.tool||'colony'](); },
+empire(){ REFRESH.planets(); REFRESH.build(); REFRESH.research(); },
 explore(){
   const el = document.getElementById('exColo'); if(!el || !API || !API.planets) return;
   const cand = colonyCandidates().slice(0,8), tgt = coloTarget();
@@ -1259,16 +1167,15 @@ explore(){
     rpEl.innerHTML = rp.need<=0 ? '<p class="note">Saisis les ressources du rapport pour calculer la flotte.</p>' : `<div class="res">${gauge('m','m','Butin possible',fmt(rp.need),`${S.settings.cls==='explorer'?'75':'50'} % du stock`)}${gauge('c','c','Ramené',fmt(rp.got),okShips?shipList(rp.ships):'aucun transporteur')}${gauge('d','d','Carburant',fmt(rp.fuel),'aller-retour')}${gauge('e','e','Vol',rp.fl?dur(rp.fl.secs):'–','aller')}</div>
       ${!S.raid.safe ? '<p class="pill warn" style="margin-top:8px">Coche la case seulement si le rapport ne montre ni flotte ni défense. Sinon, ne l\'attaque pas.</p>' : ''}
       ${rp.short>0 ? `<p class="note">Il te manque ${fmt(rp.short)} de soute à ${esc(rp.home.name)} : le reste attendra un second passage.</p>` : ''}
-      ${S.raid.safe && okShips && rp.net>0 ? `<ul class="acts" style="margin-top:8px">${actHtml({q:'Flotte · '+rp.home.name, what:`Attaquer ${S.raid.coords} avec ${shipList(rp.ships)}`, why:`Galaxie ou Flotte → ${S.raid.coords} → mission Attaquer · retour vers ${hm(Date.now()+2*rp.fl.secs*1000)}`, cost:[0,0,rp.fuel], dur:2*rp.fl.secs, end:Date.now()+2*rp.fl.secs*1000, kind:'raid', ships:rp.ships, p:hubIndex(), coords:S.raid.coords}, true)}</ul>` : ''}`;
+      ${S.raid.safe && okShips && rp.net>0 ? `<div class="detail" style="margin-top:8px">
+        <div class="rowx"><span>Attaquer ${esc(S.raid.coords)}</span><span>${esc(shipList(rp.ships))}</span></div>
+        <div class="rowx"><span>Retour</span><span>${hm(Date.now()+2*rp.fl.secs*1000)}</span></div>
+        <div class="rowx"><span>Deutérium</span><span>${fmt(rp.fuel)}</span></div>
+        <p class="note" style="margin-top:6px">Galaxie ou Flotte → ${esc(S.raid.coords)} → mission Attaquer.</p>
+      </div>` : ''}`;
   }
   const ex = exploreSystems();
   document.getElementById('exExplore').innerHTML = `<ul class="advice">${ex.map(x=>`<li><span class="pill info">${x.left} pos.</span><span class="what">Système ${x.sys}</span><span class="why">${x.dist===0?'Ton système':`À ${x.dist} système${x.dist>1?'s':''}`} : ${x.left} position${x.left>1?'s':''} pas explorée${x.left>1?'s':''} depuis 7 jours.</span></li>`).join('')}</ul><p class="note">Missions de découverte : bouton Découverte dans Galaxie. Copilote retient les positions explorées quand il voit tes missions dans Mouvements de flotte. Pour les expéditions, alterne la position 16 de systèmes voisins si les résultats baissent.</p>`;
-},
-advice(){
-  const list = adviceList();
-  document.getElementById('advList').innerHTML = list.map(a=>`<li><span class="pill ${a.sev==='info'?'info':a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('');
-  renderTimers();
-  document.getElementById('advStamp').textContent = S.lastImport ? `Import du ${new Date(S.lastImport).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}` : '';
 },
 planets(){
   let tm=0,tc=0,td=0, worst=1;
@@ -1289,7 +1196,7 @@ build(){
     const pr=production(p), r=rankUpgrades(p);
     document.getElementById('bf-'+i).innerHTML = factorPill(pr.factor);
     document.getElementById('br-'+i).innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Construire</th><th>Coût total</th><th class="n">Gain éq. métal/h</th><th class="n">Amorti en</th><th class="n">Durée</th><th class="n">Dispo dans</th><th></th></tr></thead><tbody>${
-      r.map((u,j)=>{ const w=waitFor(p,u.cost); return `<tr><td class="rank">${j+1}</td><td>${B_SHORT[u.key]} ${u.lvl}${u.extraSolar?` <span class="pill warn">+ solaire ${p.b.solar+u.extraSolar}</span>`:''}</td><td>${costHtml(u.cost)}</td><td class="n">${fmt(u.gain)}</td><td class="n">${dur(u.payback*3600)}</td><td class="n">${dur(u.time)}</td><td class="n">${w.storage!=null?'<span class="pill bad">hangar trop petit</span>':w.sec===0?'<span class="pill good">maintenant</span>':dur(w.sec)}</td><td><button class="btn sm" data-addb="${i}:${u.key}:${u.lvl}">+ Plan</button></td></tr>`; }).join('')
+      r.map((u,j)=>{ const w=waitFor(p,u.cost); return `<tr><td class="rank">${j+1}</td><td>${B_SHORT[u.key]} ${u.lvl}${u.extraSolar?` <span class="pill warn">+ solaire ${p.b.solar+u.extraSolar}</span>`:''}</td><td>${costHtml(u.cost)}</td><td class="n">${fmt(u.gain)}</td><td class="n">${dur(u.payback*3600)}</td><td class="n">${dur(u.time)}</td><td class="n">${w.storage!=null?'<span class="pill bad">hangar trop petit</span>':w.sec===0?'<span class="pill good">maintenant</span>':dur(w.sec)}</td></tr>`; }).join('')
     }</tbody></table></div>`;
     const warn=[]; const st=stockNow(p);
     ['m','c','d'].forEach((x,k)=>{ const rate=[pr.m,pr.c,pr.d][k]; if(rate>0 && pr.cap[k]/rate<8) warn.push(`<span class="pill warn">${['Hangar de métal','Hangar de cristal','Réservoir'][k]} plein en moins de 8 h</span>`); });
@@ -1298,7 +1205,7 @@ build(){
   });
   document.getElementById('infra').innerHTML = S.planets.flatMap((p,i)=>['robot','shipyard','lab','nanite','fusion','smetal','scrystal','sdeut'].map(k=>{
     const L=p.b[k]+1, c=levelCost(B[k],L), miss=reqOk(B[k].req,p), w=waitFor(p,c);
-    return `<tr><td>${esc(p.name)}</td><td>${B[k].n}</td><td class="n">${L}</td><td>${costHtml(c)}</td><td class="n">${dur(buildTime(k,L,p))}</td><td class="n">${miss.length?`<span class="pill bad">requiert ${miss.join(', ')}</span>`:w.storage!=null?'<span class="pill bad">hangar trop petit</span>':w.sec===0?'<span class="pill good">maintenant</span>':dur(w.sec)}</td><td><button class="btn sm" data-addb="${i}:${k}:${L}">+ Plan</button></td></tr>`;
+    return `<tr><td>${esc(p.name)}</td><td>${B[k].n}</td><td class="n">${L}</td><td>${costHtml(c)}</td><td class="n">${dur(buildTime(k,L,p))}</td><td class="n">${miss.length?`<span class="pill bad">requiert ${miss.join(', ')}</span>`:w.storage!=null?'<span class="pill bad">hangar trop petit</span>':w.sec===0?'<span class="pill good">maintenant</span>':dur(w.sec)}</td></tr>`;
   })).join('');
 },
 research(){
@@ -1368,22 +1275,6 @@ colony(){
   const fpos = +S.colo.fpos || (parseC(coloTarget())||[])[2], v = coloVerdict(+S.colo.fields, fpos);
   document.getElementById('coEval').innerHTML = v ? `<ul class="advice"><li><span class="pill ${v.sev}">${v.t}</span><span class="what">Position ${fpos}</span><span class="why">${esc(v.why)}</span></li></ul>` : '';
 },
-plan(){
-  const tot=[0,0,0]; let tTime=0;
-  const items = S.plan.map((it,i)=>{
-    let name, cost, time, from;
-    if(it.type==='b'){ const p=S.planets[it.p]; if(!p) return ''; from=p.b[it.k]; cost=rangeCost(B[it.k],from,it.lvl); time=0; for(let L=from+1;L<=it.lvl;L++) time+=buildTime(it.k,L,p); name=`${B[it.k].n} ${it.lvl} · ${esc(p.name)}`; }
-    else { from=S.tech[it.k]; cost=rangeCost(T[it.k],from,it.lvl); time=0; for(let L=from+1;L<=it.lvl;L++) time+=researchTime(it.k,L); name=`${T[it.k].n} ${it.lvl}`; }
-    const done = from>=it.lvl;
-    cost.forEach((x,j)=>tot[j]+=x); tTime+=time;
-    return `<li><div><div>${name} ${done?'<span class="pill good">atteint</span>':''}</div>${done?'':`<div class="row" style="gap:12px">${costHtml(cost)}<span class="mono note">${dur(time)}</span></div>`}</div>
-      <div class="row" style="gap:6px"><button class="btn sm ghost" data-up="${i}" aria-label="Monter">↑</button><button class="btn sm ghost" data-rm="${i}">Retirer</button></div></li>`;
-  });
-  document.getElementById('plList').innerHTML = items.join('') || `<li><div class="note">Aucun objectif. Ajoute un bâtiment ci-dessus, ou utilise « + Plan » dans Construire et Recherche.</div></li>`;
-  const pm = S.planets.reduce((a,p)=>{ const r=production(p); return [a[0]+r.m,a[1]+r.c,a[2]+r.d]; },[0,0,0]);
-  const hrs = Math.max(...tot.map((x,j)=>pm[j]>0?x/pm[j]:(x>0?Infinity:0)));
-  document.getElementById('plTot').innerHTML = `${costHtml(tot)} <span class="mono">· ${dur(tTime)} de chantier · ${dur(hrs*3600)} de production</span>`;
-},
 };
 
 /* ---------- events ---------- */
@@ -1406,10 +1297,9 @@ function bind(){
     card.querySelectorAll('input[data-p]').forEach(el=>el.addEventListener('input',()=>{ const k=el.dataset.p; p[k] = (k==='tmax'||k==='sats') ? (parseInt(el.value)||0) : el.value; changed(); }));
     card.querySelectorAll('input[data-s]').forEach(el=>el.addEventListener('input',()=>{ const st=stockNow(p); p.stock={m:st[0],c:st[1],d:st[2],at:Date.now()}; p.stock[el.dataset.s]=parseFloat(el.value)||0; changed(); }));
   });
-  view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ S.planets.splice(+b.dataset.del,1); S.plan=S.plan.filter(x=>x.type!=='b'||x.p<S.planets.length); save(); render(); }));
+  view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ S.planets.splice(+b.dataset.del,1); save(); render(); }));
   on('addPlanet','click',()=>{ S.planets.push(newPlanet('Colonie '+S.planets.length,'1:1:'+(S.planets.length+4),20,{})); S.sample=false; save(); render(); });
   view.querySelectorAll('input[data-t]').forEach(el=>el.addEventListener('input',()=>{ S.tech[el.dataset.t]=Math.max(0,parseInt(el.value)||0); changed(); }));
-  view.querySelectorAll('[data-addt]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.addt; S.plan.push({type:'t',k,lvl:S.tech[k]+1}); save(); toast('Ajouté au plan'); }));
   view.querySelectorAll('[data-set]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k=el.dataset.set, s=S.settings;
     if(k==='ratio'){ const r=el.value.split(':').map(Number); if(r.length===3 && r.every(x=>x>0)) s.ratio=r; }
@@ -1421,7 +1311,6 @@ function bind(){
   view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.value==='1'; changed(); }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
   view.querySelectorAll('[data-ship]').forEach(el=>el.addEventListener('input',()=>{ S.fleetCalc.ships[el.dataset.ship]=Math.max(0,parseInt(el.value)||0); changed(); }));
-  on('plAdd','click',()=>{ const pi=+document.getElementById('plP').value, k=document.getElementById('plB').value, lvl=Math.max(1,parseInt(document.getElementById('plL').value)||1); S.plan.push({type:'b',p:pi,k,lvl}); save(); refresh(); toast('Ajouté au plan'); });
   on('ioCopy','click',()=>{ const txt=JSON.stringify(S); const ta=document.getElementById('ioText'); ta.value=txt;
     (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>msg('Copié dans le presse-papiers')).catch(()=>{ ta.select(); msg('Sélectionné : copie-le manuellement'); }); });
   on('ioImport','click',()=>{ try{ const d=JSON.parse(document.getElementById('ioText').value); if(!d.planets||!d.settings) throw 0; S=Object.assign(sample(),d); S.sample=false; save(); render(); toast('Données importées'); }catch(e){ msg('Texte invalide : colle une sauvegarde complète'); } });
@@ -1431,12 +1320,9 @@ view.addEventListener('click', e=>{
   const line = e.target.closest('.qline, .now-act');
   if(!line || e.target.closest('button, a, summary, input, select')) return;
   openId = (openId === line.dataset.id) ? null : line.dataset.id;
-  REFRESH.queue();
+  render();
 });
 view.addEventListener('click',e=>{
-  const ab=e.target.closest('[data-addb]'); if(ab){ const [p,k,l]=ab.dataset.addb.split(':'); S.plan.push({type:'b',p:+p,k,lvl:+l}); save(); toast('Ajouté au plan'); }
-  const rm=e.target.closest('[data-rm]'); if(rm){ S.plan.splice(+rm.dataset.rm,1); save(); refresh(); }
-  const up=e.target.closest('[data-up]'); if(up){ const i=+up.dataset.up; if(i>0){ [S.plan[i-1],S.plan[i]]=[S.plan[i],S.plan[i-1]]; save(); refresh(); } }
 });
 view.addEventListener('click', e=>{
   const cp = e.target.closest('[data-copos]');
@@ -1444,8 +1330,6 @@ view.addEventListener('click', e=>{
   const ca = e.target.closest('[data-coadd]');
   if(ca){
     const [kind,a,c] = ca.dataset.coadd.split(':');
-    if(kind==='t') S.plan.push({type:'t', k:a, lvl: a==='impulse' ? 3 : S.tech[a] + (S.tech[a]%2===0?1:2)});
-    else S.plan.push({type:'b', p:+a, k:c, lvl:4});
     save(); toast('Ajouté au plan');
   }
 });
@@ -1455,7 +1339,6 @@ view.addEventListener('click', e=>{
   const rpc = e.target.closest('[data-raidclose]'); if(rpc){ S.raid = null; save(); render(); return; }
   const ct = e.target.closest('[data-cotarget]'); if(ct){ S.colo.target = ct.dataset.cotarget; save(); render(); toast('Destination de colonie mise à jour'); return; }
   const ar = e.target.closest('[data-apirefresh]'); if(ar){ try{ chrome.runtime.sendMessage({type:'apiRefresh', force:true}); }catch(err){} toast('Actualisation demandée'); return; }
-  const tl = e.target.closest('[data-tool]'); if(tl){ S.ui.tool = tl.dataset.tool; save(); render(); return; }
   const go = e.target.closest('[data-goto]'); if(go){ tab = go.dataset.goto; try{ LS.setItem(KEY+'-tab',tab); }catch(err){} render(); return; }
   const sent = e.target.closest('[data-sent]'); if(sent){ S.colo.sentAt = Date.now(); S.colo.built = false; save(); refresh(); toast('Colonisation en route'); return; }
   const la = e.target.closest('[data-launch]'); if(la) learn(la);
@@ -1525,7 +1408,6 @@ function importEmpire(d){
   for(const [label,v] of Object.entries(d.research||{})){
     const k = matchKey(label, MATCH_T); if(k){ S.tech[k]=lvlOf(v); rep.techs++; } else rep.unknown.add(label);
   }
-  S.plan = S.plan.map(it=>{ if(it.type!=='b') return it; const old=S.planets[it.p]; const ni=kept.indexOf(old); return ni<0?null:{...it,p:ni}; }).filter(Boolean);
   S.planets = kept; S.sample = false; S.lastImport = at;
   S.lastAlerts = rep.alerts.map(a=>String(a).replace(/[\p{Extended_Pictographic}\uFE0F]/gu,'').trim());
   save();
@@ -1604,7 +1486,6 @@ function applyGame(g){
     kept.push(p);
   }
   if(kept.length){
-    S.plan = S.plan.map(it=>{ if(it.type!=='b') return it; const ni = kept.indexOf(S.planets[it.p]); return ni<0 ? null : {...it, p:ni}; }).filter(Boolean);
     S.planets = kept;
   }
   S.timers = (S.timers || []).filter(t=>!t.game);
@@ -1630,7 +1511,7 @@ function applyGame(g){
 }
 render();
 if(window.__game) applyGame(window.__game);
-chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ API = ch.api.newValue; if(tab==='tools' && S.ui.tool==='explore') render(); } });
+chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ API = ch.api.newValue; if(tab==='queue') render(); } });
 
 /* ---------- one alert, one acknowledgment ---------- */
 /** In the extension, every alert goes through the background so a single "OK" clears them all. */
