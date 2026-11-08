@@ -6,7 +6,7 @@ const path = require('path');
 const assert = require('assert');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'queue.js'), 'utf8');
-const EXPORTS = ['rankActions'];
+const EXPORTS = ['rankActions', 'collect'];
 
 /** Évalue queue.js et renvoie ses fonctions, avec les globales injectées. */
 function load(globals) {
@@ -73,6 +73,79 @@ t('file vide : rien ne plante', () => {
   const r = Q.rankActions([], 0);
   assert.equal(r.now, null);
   assert.equal(r.banner, null);
+});
+
+/* ---------- les sources existantes deviennent des actions ---------- */
+
+const vide = { now: 0, first: { acts: [], waits: [], goals: [] }, busy: [] };
+const avecActe = {
+  now: 0, busy: [], first: {
+    acts: [{ q: 'Bâtiment · Mère', what: 'Mine de cristal 13', why: 'r',
+      cost: [18400, 9200, 0], kind: 'b', k: 'crystal', lvl: 13, p: 0 }],
+    waits: [], goals: []
+  }
+};
+
+t('une action de la projection devient une action faisable', () => {
+  const [act] = Q.collect(avecActe, [], 0);
+  assert.equal(act.blocked, null);
+  assert.deepEqual(act.cost, [18400, 9200, 0]);
+  assert.equal(act.launch.k, 'crystal');
+  assert.equal(act.confirm, 'game');
+  assert.equal(act.family, 'mine');
+});
+
+t('une attente devient une action bloquée, pas une action absente', () => {
+  const b = Q.collect({ now: 0, busy: [], first: { acts: [], goals: [],
+    waits: [{ q: 'Recherche', what: 'Astrophysique 4', eta: 4200, miss: [0, 12000, 0] }] } }, [], 0)[0];
+  assert.equal(b.blocked.kind, 'eta');
+  assert.equal(b.blocked.secs, 4200);
+  assert.equal(b.family, 'recherche');
+});
+
+t('un hangar trop petit devient storage, sans Infinity sur l\'action', () => {
+  const petit = Q.collect({ now: 0, busy: [], first: { acts: [], goals: [],
+    waits: [{ q: 'Bâtiment · Mère', what: 'x', eta: Infinity, miss: [1, 0, 0] }] } }, [], 0)[0];
+  assert.equal(petit.blocked.kind, 'storage');
+  // un hangar trop petit est une perte bloquée : il part au bandeau, pas dans Ensuite
+  const r = Q.rankActions([petit], 0);
+  assert.equal(r.banner.id, petit.id);
+  assert.ok(Number.isFinite(r.banner.blocked.secs ?? 0));
+});
+
+t('une mission garde ses étapes et sa mise en sommeil', () => {
+  const m = Q.collect(vide, [{ id: 'raid', q: 'Pillage', every: 12, sev: 'good',
+    what: 'Espionner', why: 'w', how: ['a', 'b'] }], 0)[0];
+  assert.deepEqual(m.how, ['a', 'b']);
+  assert.equal(m.confirm, 'snooze');
+  assert.equal(m.snoozeHours, 12);
+  assert.equal(m.family, 'raid');
+});
+
+t('une file en cours devient une action running', () => {
+  const r = Q.collect({ now: 0, first: { acts: [], waits: [], goals: [] },
+    busy: [{ q: 'Bâtiment · Mère', what: 'Usine de robots 9', end: 5000 }] }, [], 0)[0];
+  assert.equal(r.running.endsAt, 5000);
+});
+
+t('une perte exceptionnelle est marquée, un bâtiment ordinaire ne l\'est pas', () => {
+  const bati = Q.collect(avecActe, [], 0)[0];
+  assert.equal(bati.loss, false);
+  const expo = Q.collect({ now: 0, busy: [], first: { goals: [], waits: [],
+    acts: [{ q: 'Flotte · Mère', what: 'Expédition : 2 sc', why: '', kind: 'expo', p: 0 }] } }, [], 0)[0];
+  assert.equal(expo.loss, true);
+  const urgent = Q.collect(vide, [{ id: 'x', q: 'Sécurité', every: 1, sev: 'bad',
+    what: 'w', why: 'y', how: [] }], 0)[0];
+  assert.equal(urgent.loss, true);
+});
+
+t('une planète unique : aucune source ne plante', () => {
+  assert.doesNotThrow(() => Q.collect(vide, [], 0));
+  assert.deepEqual(Q.collect(vide, [], 0), []);
+});
+
+t('les identifiants sont stables d\'un appel à l\'autre', () => {
+  assert.equal(Q.collect(avecActe, [], 0)[0].id, Q.collect(avecActe, [], 5000)[0].id);
 });
 
 /* ---------- la projection ---------- */
