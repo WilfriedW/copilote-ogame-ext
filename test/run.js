@@ -20,7 +20,7 @@ function app(modifier, now) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH']);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef']);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -106,6 +106,49 @@ t('sans transporteur, le rappel reste utile mais générique', () => {
 t('l\'onglet Aujourd\'hui se rend toujours sans erreur', () => {
   const g = app(s => { s.planets[0].ships = { lc: 30 }; });
   assert.doesNotThrow(() => g.REFRESH.today());
+});
+
+/* ---------- savoir où aller ---------- */
+
+const JOUR = new Date(2026, 10, 8, 14, 0, 0).getTime();
+
+/** Trois planètes, dont deux colonies au nom par défaut identique. */
+function troisPlanetes(s) {
+  s.planets[0].b.lab = 8;
+  s.planets.push({ id: 'c2', name: 'Colonie', coords: '1:201:9', tmax: 48,
+    b: Object.assign({}, s.planets[1].b, { metal: 5, lab: 2 }), sats: 0, ships: {}, shipsAt: 0,
+    stock: { m: 8000, c: 5000, d: 800, at: JOUR } });
+}
+
+t('deux colonies du même nom se distinguent par leurs coordonnées', () => {
+  const g = app(troisPlanetes, JOUR);
+  const files = g.simulateDay().sessions[0].acts.map(a => a.q)
+    .filter(q => /Colonie/.test(q));
+  assert.ok(files.length >= 2, 'au moins deux actions sur une planète nommée Colonie');
+  assert.equal(new Set(files).size, files.length,
+    'étiquettes identiques pour deux planètes différentes : ' + files.join(' / '));
+  assert.ok(files.every(q => /\[\d+:\d+:\d+\]/.test(q)), 'chacune porte ses coordonnées');
+});
+
+t('un nom unique reste affiché sans coordonnées', () => {
+  const g = app(null, JOUR);
+  const mere = g.simulateDay().sessions[0].acts.map(a => a.q).find(q => /Planète mère/.test(q));
+  assert.ok(mere, 'une action sur la planète mère');
+  assert.ok(!/\[/.test(mere), 'pas de coordonnées inutiles : ' + mere);
+});
+
+t('une recherche dit sur quelle planète la lancer', () => {
+  const g = app(troisPlanetes, JOUR);
+  const s0 = g.simulateDay().sessions[0];
+  const rech = s0.acts.concat(s0.waits).find(x => /Recherche/.test(x.q));
+  assert.ok(rech, 'une recherche est proposée');
+  assert.ok(/Planète mère/.test(rech.q),
+    'la recherche se lance depuis le meilleur laboratoire, ici Planète mère : ' + rech.q);
+});
+
+t('planetRef ne plante pas sans planète', () => {
+  const g = app(null, JOUR);
+  assert.equal(g.planetRef(null), '');
 });
 
 /* ---------- résultat ---------- */

@@ -116,6 +116,20 @@ function buildTime(key, L, p){
   const h = (c[0]+c[1]) / (2500 * lowLvl * (1+p.b.robot) * Math.pow(2,p.b.nanite) * S.settings.eco);
   return Math.max(1, h*3600);
 }
+/**
+ * Comment désigner une planète sans ambiguïté.
+ * OGame nomme « Colonie » toutes les colonies par défaut : tant que le nom est
+ * unique on l'affiche seul, sinon on ajoute les coordonnées.
+ * @param {object} p planète
+ * @returns {string}
+ */
+function planetRef(p){
+  if(!p) return '';
+  const homonyme = S.planets.filter(x=>x.name===p.name).length > 1;
+  return homonyme && p.coords ? `${p.name} [${p.coords}]` : p.name;
+}
+/** La planète au meilleur laboratoire : c'est de là qu'on lance une recherche. */
+function labPlanet(){ return S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
 function labLevel(){ return Math.max(0, ...S.planets.map(p=>p.b.lab)); }
 /** Research time in seconds. */
 function researchTime(key, L){
@@ -549,12 +563,12 @@ function simulateDay(){
   const busy = [];
   for(const t of S.timers||[]){
     if(t.done || t.end<=now) continue;
-    if(t.kind==='t' && T[t.k]){ sim.rq=Math.max(sim.rq,t.end); busy.push({q:'Recherche', what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ sim.tech[t.k]=Math.max(sim.tech[t.k],t.lvl); }}); }
-    else if(t.kind==='b' && P[t.p]){ const p=P[t.p]; p.bq=Math.max(p.bq,t.end); p.bqKey=t.k; busy.push({q:'Bâtiment · '+p.name, what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.b[t.k]=Math.max(p.b[t.k],t.lvl); }}); }
+    if(t.kind==='t' && T[t.k]){ sim.rq=Math.max(sim.rq,t.end); busy.push({q:'Recherche · '+planetRef(labPlanet()), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ sim.tech[t.k]=Math.max(sim.tech[t.k],t.lvl); }}); }
+    else if(t.kind==='b' && P[t.p]){ const p=P[t.p]; p.bq=Math.max(p.bq,t.end); p.bqKey=t.k; busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.b[t.k]=Math.max(p.b[t.k],t.lvl); }}); }
     else if(t.kind==='x' && t.k==='expo'){ expoBusy.push(t.end); busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[t.p]){ const p=P[t.p]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
     else if(t.kind==='x' && t.k==='fleet'){ busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[t.p]){ const p=P[t.p]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
-    else if(t.kind==='x' && (t.k==='shipyard' || t.queue==='shipyard') && P[t.p]){ const p=P[t.p]; p.sq=Math.max(p.sq,t.end); busy.push({q:'Chantier spatial · '+p.name, what:timerLabel(t), end:t.end}); if(t.manual && t.ships) sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); }
-    else if(t.kind==='x' && t.k==='sats' && P[t.p]){ const p=P[t.p]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+p.name, what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
+    else if(t.kind==='x' && (t.k==='shipyard' || t.queue==='shipyard') && P[t.p]){ const p=P[t.p]; p.sq=Math.max(p.sq,t.end); busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); if(t.manual && t.ships) sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); }
+    else if(t.kind==='x' && t.k==='sats' && P[t.p]){ const p=P[t.p]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
     else if(t.kind==='x' && t.k==='colship'){ const p=P[+S.colo.from]||P[0]; p.sq=t.end; sim.colShip=true; sim.colReady=t.end; busy.push({q:'Chantier spatial', what:'Vaisseau de colonisation', end:t.end}); }
   }
   const iv = Math.max(15,+S.day.interval||90)/60;
@@ -592,10 +606,10 @@ function simulateDay(){
       const nr = nextResearch();
       if(nr.labNeed && labP.b.lab<nr.labNeed && labP.bq<=Tm && sim.rq<=Tm){
         const c = levelCost(B.lab, labP.b.lab+1);
-        if(can(labP,c,reserveOf(labP,Tm))){ pay(labP,c); const d=buildTime('lab',labP.b.lab+1,labP), L=labP.b.lab+1, pp=labP; pp.bq=Tm+d; pp.bqKey='lab'; sim.ev.push({at:Tm+d, fn:()=>{ pp.b.lab=Math.max(pp.b.lab,L); }}); acts.push({q:'Bâtiment · '+pp.name, what:`${B.lab.n} ${L}`, why:'Débloque la recherche suivante', cost:c, dur:d, end:Tm+d, kind:'b', k:'lab', lvl:L, p:pp.i}); }
+        if(can(labP,c,reserveOf(labP,Tm))){ pay(labP,c); const d=buildTime('lab',labP.b.lab+1,labP), L=labP.b.lab+1, pp=labP; pp.bq=Tm+d; pp.bqKey='lab'; sim.ev.push({at:Tm+d, fn:()=>{ pp.b.lab=Math.max(pp.b.lab,L); }}); acts.push({q:'Bâtiment · '+planetRef(pp), what:`${B.lab.n} ${L}`, why:'Débloque la recherche suivante', cost:c, dur:d, end:Tm+d, kind:'b', k:'lab', lvl:L, p:pp.i}); }
       }
       const labBusy = labP.bq>Tm && labP.bqKey==='lab';
-      const launchR = (R, why)=>{ const c=levelCost(T[R.k],R.lvl); pay(labP,c); const d=researchTime(R.k,R.lvl), k=R.k, L=R.lvl; sim.rq=Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ sim.tech[k]=Math.max(sim.tech[k],L); }}); acts.push({q:'Recherche', what:`${T[k].n} ${L}`, why, cost:c, dur:d, end:Tm+d, kind:'t', k, lvl:L, p:labP.i}); };
+      const launchR = (R, why)=>{ const c=levelCost(T[R.k],R.lvl); pay(labP,c); const d=researchTime(R.k,R.lvl), k=R.k, L=R.lvl; sim.rq=Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ sim.tech[k]=Math.max(sim.tech[k],L); }}); acts.push({q:'Recherche · '+planetRef(labP), what:`${T[k].n} ${L}`, why, cost:c, dur:d, end:Tm+d, kind:'t', k, lvl:L, p:labP.i}); };
       const tryResearch = phase=>{
         if(sim.rq>Tm || !nr.k || labBusy) return;
         const R = nr.list[0], key='t:'+R.k+R.lvl, c = levelCost(T[R.k],R.lvl), mine = goals.find(g=>g.key===key);
@@ -606,7 +620,7 @@ function simulateDay(){
         const starving = Tm - sim.rSince[key] >= Math.max(4, 4*iv)*3600e3;
         const g = (R.crit || starving || mine) ? setGoal(key, `${T[R.k].n} ${R.lvl}`, c, labP, Tm) : null;
         if(phase==='pre') return;
-        waits.push({q:'Recherche', what:`${T[R.k].n} ${R.lvl}`, eta:wait(labP,c), miss:missOf(labP,c)});
+        waits.push({q:'Recherche · '+planetRef(labP), what:`${T[R.k].n} ${R.lvl}`, eta:wait(labP,c), miss:missOf(labP,c)});
         for(const F of nr.list.slice(1)){
           const fd = researchTime(F.k,F.lvl);
           if(g && Tm+fd*1000 > g.deadline) continue;
@@ -616,10 +630,10 @@ function simulateDay(){
       tryResearch('pre');
       if(wantColony && !sim.colShip && sim.tech.impulse>=3 && dep.b.shipyard>=4 && dep.sq<=Tm && !(dep.bq>Tm && dep.bqKey==='shipyard')){
         const c = COL_SHIP_COST, key='ship:col', mine = goals.find(g=>g.key===key);
-        if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*S.settings.eco)*3600; dep.sq=Tm+d; sim.colShip=true; sim.colReady=Tm+d; acts.push({q:'Chantier spatial · '+dep.name, what:'1 Vaisseau de colonisation', why:'', cost:c, dur:d, end:Tm+d, kind:'ship'}); }
+        if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*S.settings.eco)*3600; dep.sq=Tm+d; sim.colShip=true; sim.colReady=Tm+d; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'', cost:c, dur:d, end:Tm+d, kind:'ship'}); }
         else { setGoal(key, 'le vaisseau de colonisation', c, dep, Tm); waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), miss:missOf(dep,c)}); }
       }
-      if(wantColony && sim.colShip && sim.colReady<=Tm){ sim.colSent=true; acts.push({q:'Flotte · '+dep.name, what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight, kind:'fleet'}); }
+      if(wantColony && sim.colShip && sim.colReady<=Tm){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight, kind:'fleet'}); }
       const hubP = P[Math.min(hubIndex(), P.length-1)];
       if(P.length>1) for(const q of P){
         if(q===hubP || (q.transferAt||0)>Tm) continue;
@@ -640,7 +654,7 @@ function simulateDay(){
         for(const [kk,n] of Object.entries(ships)) src.ships[kk]-=n;
         sim.ev.push({at:arrive, fn:()=>{ sent.forEach((x,j)=>hubP.st[j]+=x); }});
         sim.ev.push({at:back, fn:()=>{ for(const [kk,n] of Object.entries(ships)) src.ships[kk]=(src.ships[kk]||0)+n; }});
-        acts.push({q:'Flotte · '+q.name, what:`Rapatrier vers ${hubP.name} : ${fmt(sent[0])} M, ${fmt(sent[1])} C, ${fmt(sent[2])} D`, why:`${own?shipList(ships)+' de '+q.name:'Envoie '+shipList(ships)+' de '+hubP.name+' les chercher'} · mission Transporter · arrivée vers ${hm(arrive)}`, dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i});
+        acts.push({q:'Flotte · '+planetRef(q), what:`Rapatrier vers ${planetRef(hubP)} : ${fmt(sent[0])} M, ${fmt(sent[1])} C, ${fmt(sent[2])} D`, why:`${own?shipList(ships)+' de '+planetRef(q):'Envoie '+shipList(ships)+' de '+planetRef(hubP)+' les chercher'} · mission Transporter · arrivée vers ${hm(arrive)}`, dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i});
       }
       const fsl = fleetSlots(), fleetFull = fsl && fsl[0]>=fsl[1] && Tm < sim.fleetFreeAt;
       const maxExpo = fleetFull ? 0 : Math.max((S.slots && S.slots.expo ? S.slots.expo[1] : 0), Math.floor(Math.sqrt(sim.tech.astro)) + (S.settings.cls==='explorer'?2:0));
@@ -651,13 +665,13 @@ function simulateDay(){
         const fl = flight(p.coords, tgt, f.ships, 100); if(!fl) break;
         const total = 2*fl.secs + 3600, fuel = fl.fuel*2, c=[0,0,fuel];
         const dRate = Math.max(1, production(p).d), smallFuel = p.st[2] >= fuel && fuel/dRate*3600 <= 15*60;
-        if(!smallFuel && !can(p,c,reserveOf(p,Tm))){ waits.push({q:'Flotte · '+p.name, what:'Expédition', eta:wait(p,c), miss:missOf(p,c)}); break; }
+        if(!smallFuel && !can(p,c,reserveOf(p,Tm))){ waits.push({q:'Flotte · '+planetRef(p), what:'Expédition', eta:wait(p,c), miss:missOf(p,c)}); break; }
         pay(p,c);
         for(const [k,n] of Object.entries(f.ships)){ p.ships[k]-=n; sim.away[k]=(sim.away[k]||0)+n; }
         const ret = Tm + total*1000, out = Object.assign({}, f.ships);
         expoBusy.push(ret);
         sim.ev.push({at:ret, fn:()=>{ for(const [k,n] of Object.entries(out)){ p.ships[k]=(p.ships[k]||0)+n; sim.away[k]-=n; } }});
-        acts.push({q:'Flotte · '+p.name, what:'Expédition : '+shipList(f.ships), why:`vers ${tgt}, retour vers ${hm(ret)} · ${fmt(fuel)} deut · soute ${fmt(f.cargo)} pour ${fmt(f.cap)} max`, cost:c, dur:total, end:ret, kind:'expo', ships:out, p:p.i});
+        acts.push({q:'Flotte · '+planetRef(p), what:'Expédition : '+shipList(f.ships), why:`vers ${tgt}, retour vers ${hm(ret)} · ${fmt(fuel)} deut · soute ${fmt(f.cargo)} pour ${fmt(f.cap)} max`, cost:c, dur:total, end:ret, kind:'expo', ships:out, p:p.i});
       }
       for(const p of P){
         if(p.b.shipyard<1 || p.sq>Tm) continue;
@@ -673,8 +687,8 @@ function simulateDay(){
         if(can(p,c,reserveOf(p,Tm))){
           pay(p,c); const d = n*2000/(2500*(1+p.b.shipyard)*Math.pow(2,p.b.nanite)*S.settings.eco)*3600, pp=p;
           pp.sq=Tm+d; pp.satPending=Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ pp.sats+=n; pp.satPending=0; }});
-          acts.push({q:'Chantier spatial · '+p.name, what:`${n} Satellites solaires`, why:`+${Math.round(n*satE)} énergie, ${Math.round(mse(...solarAlt)/Math.max(1,mse(...c)))}x moins cher que la centrale`, cost:c, dur:d, end:Tm+d, kind:'sats', n, p:p.i});
-        } else { const e=wait(p,c); soft.push({p, cost:c, eta:e}); waits.push({q:'Chantier spatial · '+p.name, what:`${n} Satellites solaires`, eta:e, miss:missOf(p,c)}); }
+          acts.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, why:`+${Math.round(n*satE)} énergie, ${Math.round(mse(...solarAlt)/Math.max(1,mse(...c)))}x moins cher que la centrale`, cost:c, dur:d, end:Tm+d, kind:'sats', n, p:p.i});
+        } else { const e=wait(p,c); soft.push({p, cost:c, eta:e}); waits.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, eta:e, miss:missOf(p,c)}); }
       }
       for(const p of P){
         if(p.bq>Tm) continue;
@@ -682,8 +696,8 @@ function simulateDay(){
         if(!cands.length) continue;
         const res = reserveOf(p,Tm);
         const ch = cands.find(x=>can(p, levelCost(B[x.k],x.lvl), res));
-        if(ch){ const c=levelCost(B[ch.k],ch.lvl); pay(p,c); const d=buildTime(ch.k,ch.lvl,p), k=ch.k, L=ch.lvl; p.bq=Tm+d; p.bqKey=k; sim.ev.push({at:Tm+d, fn:()=>{ p.b[k]=Math.max(p.b[k],L); }}); acts.push({q:'Bâtiment · '+p.name, what:`${B[k].n} ${L}`, why:ch.why, cost:c, dur:d, end:Tm+d, kind:'b', k, lvl:L, p:p.i}); }
-        else { const w=cands.map(x=>({x, eta:wait(p,levelCost(B[x.k],x.lvl))})).sort((a,b)=>a.eta-b.eta)[0]; waits.push({q:'Bâtiment · '+p.name, what:`${B[w.x.k].n} ${w.x.lvl}`, eta:w.eta, held:res.some(x=>x>0), miss:missOf(p,levelCost(B[w.x.k],w.x.lvl))}); soft.push({p, cost:levelCost(B[w.x.k],w.x.lvl), eta:w.eta}); }
+        if(ch){ const c=levelCost(B[ch.k],ch.lvl); pay(p,c); const d=buildTime(ch.k,ch.lvl,p), k=ch.k, L=ch.lvl; p.bq=Tm+d; p.bqKey=k; sim.ev.push({at:Tm+d, fn:()=>{ p.b[k]=Math.max(p.b[k],L); }}); acts.push({q:'Bâtiment · '+planetRef(p), what:`${B[k].n} ${L}`, why:ch.why, cost:c, dur:d, end:Tm+d, kind:'b', k, lvl:L, p:p.i}); }
+        else { const w=cands.map(x=>({x, eta:wait(p,levelCost(B[x.k],x.lvl))})).sort((a,b)=>a.eta-b.eta)[0]; waits.push({q:'Bâtiment · '+planetRef(p), what:`${B[w.x.k].n} ${w.x.lvl}`, eta:w.eta, held:res.some(x=>x>0), miss:missOf(p,levelCost(B[w.x.k],w.x.lvl))}); soft.push({p, cost:levelCost(B[w.x.k],w.x.lvl), eta:w.eta}); }
       }
       {
         const p = P[Math.min(hubIndex(), P.length-1)];
@@ -704,7 +718,7 @@ function simulateDay(){
             const n = Math.min(w.n, afford); if(n<1) continue;
             const cost = c.map(x=>x*n), d = shipTime(w.k,n,p), k=w.k;
             pay(p,cost); p.sq = Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ p.ships[k]=(p.ships[k]||0)+n; }});
-            acts.push({q:'Chantier spatial · '+p.name, what:'Construire '+shipList({[k]:n}), why:w.why, cost, dur:d, end:Tm+d, kind:'shipbuild', ships:{[k]:n}, p:p.i});
+            acts.push({q:'Chantier spatial · '+planetRef(p), what:'Construire '+shipList({[k]:n}), why:w.why, cost, dur:d, end:Tm+d, kind:'shipbuild', ships:{[k]:n}, p:p.i});
             break;
           }
         }
