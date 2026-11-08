@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Copilote OGame</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Copilote <span>OGame</span> <small class="ver" id="appVer"></small></h1>
+    <div class="uni" id="uniBadge"></div>
+  </header>
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-tab="today">Aujourd'hui</button>
+    <button role="tab" data-tab="empire">Empire</button>
+    <button role="tab" data-tab="tools">Outils</button>
+    <button role="tab" data-tab="settings">Réglages</button>
+  </nav>
+  <main id="view"></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="big-alert" id="bigAlert" hidden role="alert"><div class="box"><div class="txt"><h2>Terminé</h2><div class="msg" id="bigAlertMsg"></div></div><button class="btn" id="bigAlertOk">OK, vu</button></div></div>
+<script src="ids.js"></script>
+<script src="boot.js"></script>
+</body>
+</html>

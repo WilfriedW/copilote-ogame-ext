@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Copilote OGame",
+  "version": "1.8.3",
+  "description": "Read-only OGame companion: levels, production, advice and end-of-queue notifications in the side panel.",
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "notifications",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://*.ogame.gameforge.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.ogame.gameforge.com/game/index.php*"
+      ],
+      "js": [
+        "ids.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Copilote OGame",
+    "default_icon": {
+      "32": "icon32.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "32": "icon32.png",
+    "128": "icon128.png"
+  }
+}
