@@ -58,8 +58,9 @@ function loadApp(state, nowMs, want) {
 
   const window = { addEventListener() {}, chrome: undefined, __api: null, __game: null };
 
-  const src = fs.readFileSync(path.join(ROOT, 'ids.js'), 'utf8')
-    + '\n' + fs.readFileSync(path.join(ROOT, 'app.js'), 'utf8');
+  // même ordre que boot.js : ids, puis la file, puis l'application
+  const src = ['ids.js', 'queue.js', 'app.js']
+    .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
 
   const args = { document, window, chrome, LS, Date: FrozenDate,
     setInterval: () => 0, clearInterval: () => {} };

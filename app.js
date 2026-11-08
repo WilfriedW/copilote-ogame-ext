@@ -215,9 +215,9 @@ function flight(from, to, ships, pct){
 
 /* ---------- views ---------- */
 const view = document.getElementById('view');
-let tab = 'today';
-try{ tab = LS.getItem(KEY+'-tab') || 'today'; }catch(e){}
-if(!['today','empire','tools','settings'].includes(tab)) tab='today';
+let tab = 'queue';
+try{ tab = LS.getItem(KEY+'-tab') || 'queue'; }catch(e){}
+if(!['queue','empire','tools','settings'].includes(tab)) tab='queue';
 
 function header(){
   const s=S.settings;
@@ -352,7 +352,7 @@ function tickTimers(){
     if(changed || list.dataset.count !== String(visibleTimers().length)) renderTimers();
     else S.timers.forEach(tm=>{ const el=document.getElementById('cd-'+tm.id); if(el && !tm.done) el.textContent = clock((tm.end-now)/1000); });
   }
-  if(changed && tab==='today') REFRESH.today();
+  if(changed && tab==='queue') REFRESH.queue();
 }
 function clock(sec){ sec=Math.max(0,Math.round(sec)); const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60), s=sec%60; return (d?d+'j ':'') + `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
 /** Timers still worth showing: running, or finished but not yet acknowledged. */
@@ -874,15 +874,107 @@ function raidPlan(){
   return {home, loot, need, ships, fl, cargo, got, fuel, short: Math.max(0,left), net: got - fuel*S.settings.ratio[0]/S.settings.ratio[2]};
 }
 
+/* ---------- la file : état d'affichage et rendu ---------- */
+const FAMILY_LABEL = {mine:'Mine', recherche:'Recherche', chantier:'Chantier',
+  expedition:'Flotte', colonisation:'Colonie', abri:'Sécurité', recyclage:'Flotte',
+  espionnage:'Espionnage', raid:'Pillage', formevie:'Forme de vie', fraicheur:'Données'};
+
+let openId = null, lastNowId = null, lastNextIds = [];
+
+/** Dernière lecture de chaque donnée, pour la ligne de fraîcheur. */
+function seenOf(){
+  const top = f => S.planets.reduce((a,p)=>Math.max(a, f(p)||0), 0);
+  const seen = {};
+  const lv = Math.max(top(p=>p.bAt), S.techAt||0); if(lv) seen.levels = lv;
+  const sh = top(p=>p.shipsAt); if(sh) seen.ships = sh;
+  if(S.slots && S.slots.at) seen.slots = S.slots.at;
+  if(S.syncAt) seen.moves = S.syncAt;
+  return seen;
+}
+
+/** Une action mise en sommeil par un clic récent ne revient pas tout de suite. */
+function snoozed(a, now){
+  const at = (S.daily.done||{})[a.id];
+  return a.confirm==='snooze' && at && now - at < (a.snoozeHours||24)*3600e3;
+}
+
+/** Garde l'ordre précédent tant qu'un détail est ouvert, pour qu'il ne bouge pas sous le curseur. */
+function stabilize(r){
+  if(!openId){ lastNowId = r.now ? r.now.id : null; lastNextIds = r.next.map(a=>a.id); return r; }
+  const byId = new Map([r.now, r.banner].concat(r.next).filter(Boolean).map(a=>[a.id,a]));
+  const keptNow = (lastNowId && byId.get(lastNowId)) || r.now;
+  const pos = new Map(lastNextIds.map((id,i)=>[id,i]));
+  const rank = a => pos.has(a.id) ? pos.get(a.id) : 1e9;
+  const next = r.next.filter(a=>a!==keptNow).sort((a,b)=>rank(a)-rank(b));
+  return {now:keptNow, banner:r.banner, next, busy:r.busy};
+}
+
+/** Ce qui retient une action, en une poignée de mots. */
+function blockText(b){
+  if(!b) return 'maintenant';
+  if(b.kind==='eta') return b.secs<=0 ? 'payable' : 'dans '+dur(b.secs);
+  if(b.kind==='storage') return 'hangar trop petit';
+  if(b.kind==='stale') return 'page à ouvrir';
+  return 'en attente';
+}
+
+/** Ce qui manque, quand la projection le chiffre. */
+function missText(b){
+  const RN = ['métal','cristal','deutérium'];
+  const parts = ((b && b.res) || []).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean);
+  return parts.length ? 'Il manque '+parts.join(' · ') : '';
+}
+
+function howHtml(a){
+  if(!a.how || !a.how.length) return '';
+  return `<details class="how"${openId===a.id?' open':''}><summary>Comment faire</summary><ol>${a.how.map(x=>`<li>${x}</li>`).join('')}</ol></details>`;
+}
+
+function detailHtml(a){
+  const t = a.detail;
+  if(!t || !t.ships) return '';
+  const rows = [['Destination', t.dest], ['Vitesse', t.pct+' %'], ['Retour', hm(t.backAt)]]
+    .concat(Object.keys(t.ships).map(k=>[SHIPS[k]?SHIPS[k].n:k, t.ships[k]]));
+  return `<div class="detail">${rows.map(([k,v])=>`<div class="rowx"><span>${esc(k)}</span><span>${esc(String(v))}</span></div>`).join('')}</div>`;
+}
+
+function goBtn(a){
+  if(a.confirm==='game' && a.launch) return `<button class="btn primary" data-launch='${esc(JSON.stringify(a.launch))}'>C'est lancé</button>`;
+  if(a.blocked && a.blocked.kind==='stale') return '';
+  return `<button class="btn primary" data-done="${esc(a.id)}">C'est fait</button>`;
+}
+
+function nowHtml(a){
+  if(!a) return `<p class="note">Rien à lancer pour l'instant. Garde l'onglet ouvert : je te préviens dès qu'une file se libère.</p>`;
+  return `<div class="now-act" data-id="${esc(a.id)}">
+    <div class="act-title">${esc(a.label)}</div>
+    ${a.why?`<p class="why">${esc(a.why)}</p>`:''}
+    ${a.cost?costHtml(a.cost):''}
+    ${a.blocked?`<p class="note">${esc(blockText(a.blocked))}${missText(a.blocked)?' · '+esc(missText(a.blocked)):''}</p>`:''}
+    ${detailHtml(a)}${howHtml(a)}
+    <div class="row">${goBtn(a)}</div>
+  </div>`;
+}
+
+function lineHtml(a){
+  const open = openId===a.id;
+  return `<li class="qline${open?' open':''}" data-id="${esc(a.id)}">
+    <span class="tag t-${esc(a.family)}">${esc(FAMILY_LABEL[a.family]||'À faire')}</span>
+    <div class="tx"><b>${esc(a.label)}</b>${a.why?`<small>${esc(a.why)}</small>`:''}</div>
+    <span class="when">${esc(blockText(a.blocked))}</span>
+    ${open?`<div class="pane">${a.blocked&&missText(a.blocked)?`<p class="note">${esc(missText(a.blocked))}</p>`:''}${detailHtml(a)}${howHtml(a)}<div class="row">${goBtn(a)}</div></div>`:''}
+  </li>`;
+}
+
 const VIEWS = {
-today(){
-  const d=S.day;
+queue(){
   return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Maintenant</h2><span class="note" id="tdStamp"></span></div><div id="tdNow"></div></div>
-    <div id="tdAlerts"></div>
-    <div class="card"><div class="row spread"><h2>Ta journée</h2><span class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${d.nightStart}h–${d.nightEnd}h <button class="btn sm ghost" data-goto="settings">Modifier</button></span></div><div id="tdDay"></div></div>
-    <div class="card"><div class="row spread"><h2>Minuteurs</h2><button class="btn sm ghost" id="tmSound">Tester le son</button></div>
+    <div id="qBanner"></div>
+    <div class="card" id="qNowCard"><div class="row spread"><h2>Maintenant</h2><span class="note" id="qStamp"></span></div><div id="qNow"></div></div>
+    <div class="card"><h2>Ensuite</h2><ul class="qlist" id="qNext"></ul></div>
+    <div class="card"><div class="row spread"><h2>En cours</h2><button class="btn sm ghost" id="tmSound">Tester le son</button></div>
       <ul class="timers" id="tmList"></ul>
+      <ul class="qlist" id="qBusy"></ul>
       <details><summary class="note">Ajouter un minuteur à la main</summary>
         <div class="timer-form" style="margin-top:8px">
           <label class="f">Quoi<select id="tmWhat">${timerOptions()}</select></label>
@@ -1117,28 +1209,31 @@ const gauge = (k,cls,label,v,sub) => `<div class="gauge"><span class="k"><i clas
 function factorPill(f){ return f>=1 ? `<span class="pill good">Énergie OK</span>` : `<span class="pill ${f<.8?'bad':'warn'}">Rendement ${Math.round(f*100)} %</span>`; }
 
 const REFRESH = {
-today(){
-  const plan = project(), s0 = plan.first;
-  const nowParts = [];
+queue(){
+  const now = Date.now();
+  const plan = project();
   const missions = dailyMissions().filter(m=>!missionDone(m));
-  const nowMs = missions.filter(m=>!m.info);
-  const infoMs = missions.filter(m=>m.info);
-  const taskHtml = m=>`<li class="task"><div><div class="q">${esc(m.q||'À faire')}</div><div class="w">${esc(m.what)}</div></div><button class="btn sm" data-done="${m.id}">Fait</button><div class="m"><span>${esc(m.why)}</span></div><details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
-  if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${s0.acts.map(a=>actHtml(a,true)).join('')}${nowMs.map(taskHtml).join('')}</ul>`);
-  const RN = ['métal','cristal','deutérium'];
-  const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
-  if(s0.waits.length) nowParts.push(`<ul class="acts">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${esc(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'hangar trop petit'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div></li>`).join('')}</ul>`);
-  if(plan.busy.length || infoMs.length) nowParts.push(`<ul class="acts">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${esc(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${hm(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${esc(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${esc(m.why)}</div></li>`).join('')}</ul>`);
-  if(!s0.acts.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.</p>`);
-  document.getElementById('tdNow').innerHTML = nowParts.join('') + `<p class="note"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p>`;
-  const alerts = adviceList().filter(a=>(a.sev==='bad'||a.sev==='warn') && !/Aucune recherche suivie|Prochaine étape/.test(a.what));
-  document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><h2>Alertes</h2><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('')}</ul></div>` : '';
-  const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
-  document.getElementById('tdDay').innerHTML =
-    `<div class="sumline"><span class="pill good">Production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} %</span><span class="note">en ${HORIZON_H} h, de ${fmt(plan.startV)} à ${fmt(plan.endV)} éq. métal/h</span></div>`
-    + (plan.ups.length ? `<p class="note" style="margin-top:6px">${esc(plan.ups.join(' · '))}</p>` : '');
+  const base = collect(plan, missions, now);
+  const stats = {
+    cargoEff: k => shipStats(k).cargoEff,
+    flightSecs: (f,t,s,p) => { const fl = flight(f,t,s,p); return fl ? fl.secs : Infinity; }
+  };
+  const extra = [
+    fleetsaveAction(S.planets, stats, nightWindow(now), now),
+    recycleAction(S.moves, now),
+    freshnessAction(seenOf(), now, base.some(a=>a.blocked))
+  ].filter(a => a && !snoozed(a, now));
+  const r = stabilize(rankActions(base.concat(extra), now));
+
+  document.getElementById('qBanner').innerHTML = r.banner
+    ? `<div class="card banner"><span class="pill bad">${esc(blockText(r.banner.blocked))}</span><b>${esc(r.banner.label)}</b>${r.banner.why?`<p class="why">${esc(r.banner.why)}</p>`:''}</div>` : '';
+  document.getElementById('qNow').innerHTML = nowHtml(r.now || r.next.find(a=>a.blocked) || null);
+  document.getElementById('qNext').innerHTML = r.next.slice(0, 5).map(lineHtml).join('')
+    || '<li class="note">Rien d\'autre en attente.</li>';
+  document.getElementById('qBusy').innerHTML = r.busy.map(a=>
+    `<li class="qline busy"><span class="tag t-${a.family}">${FAMILY_LABEL[a.family]||'En cours'}</span><div class="tx"><b>${esc(a.label)}</b></div><span class="when">fin ${hm(a.running.endsAt)}</span></li>`).join('');
+  document.getElementById('qStamp').textContent = S.syncAt ? `synchro ${hm(S.syncAt)}` : (S.lastImport ? `import ${hm(S.lastImport)}` : '');
   renderTimers();
-  document.getElementById('tdStamp').textContent = S.syncAt ? `synchro ${hm(S.syncAt)}` : (S.lastImport ? `import ${hm(S.lastImport)}` : '');
 },
 empire(){ REFRESH.planets(); REFRESH.research(); },
 tools(){ REFRESH[S.ui.tool||'colony'](); },
@@ -1327,6 +1422,12 @@ function bind(){
   on('ioImport','click',()=>{ try{ const d=JSON.parse(document.getElementById('ioText').value); if(!d.planets||!d.settings) throw 0; S=Object.assign(sample(),d); S.sample=false; save(); render(); toast('Données importées'); }catch(e){ msg('Texte invalide : colle une sauvegarde complète'); } });
   on('ioReset','click',e=>{ const b=e.currentTarget; if(b.dataset.armed){ S=sample(); save(); render(); toast('Réinitialisé'); } else { b.dataset.armed='1'; b.textContent='Confirmer la réinitialisation'; b.classList.remove('ghost'); } });
 }
+view.addEventListener('click', e=>{
+  const line = e.target.closest('.qline, .now-act');
+  if(!line || e.target.closest('button, a, summary, input, select')) return;
+  openId = (openId === line.dataset.id) ? null : line.dataset.id;
+  REFRESH.queue();
+});
 view.addEventListener('click',e=>{
   const ab=e.target.closest('[data-addb]'); if(ab){ const [p,k,l]=ab.dataset.addb.split(':'); S.plan.push({type:'b',p:+p,k,lvl:+l}); save(); toast('Ajouté au plan'); }
   const rm=e.target.closest('[data-rm]'); if(rm){ S.plan.splice(+rm.dataset.rm,1); save(); refresh(); }
@@ -1462,7 +1563,7 @@ view.addEventListener('click', e=>{
   if(rmT){ S.timers = S.timers.filter(t=>t.id!==rmT.dataset.tmrm); save(); stopFlash(); renderTimers(); }
 });
 setInterval(tickTimers, 1000);
-setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); }, 30000);
+setInterval(()=>{ if(tab==='queue'||tab==='empire') REFRESH[tab](); }, 30000);
 
 
 /* ---------- live sync from the extension ---------- */

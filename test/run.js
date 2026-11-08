@@ -270,6 +270,24 @@ t('la projection ne publie plus les instants suivants', () => {
   assert.ok(Array.isArray(plan.busy));
 });
 
+t('l\'écran À faire se rend sans erreur sur un empire réel', () => {
+  const app = loadApp(fixtureState(), NOW, ['REFRESH']);
+  assert.doesNotThrow(() => app.REFRESH.queue());
+});
+
+t('l\'écran À faire se rend sur une installation vierge', () => {
+  const vierge = fixtureState();
+  vierge.sample = true;
+  vierge.syncAt = 0;
+  vierge.planets = [vierge.planets[0]];
+  for (const k of Object.keys(vierge.planets[0].b)) vierge.planets[0].b[k] = 0;
+  vierge.planets[0].ships = {};
+  vierge.planets[0].stock = { m: 500, c: 500, d: 0, at: 0 };
+  for (const k of Object.keys(vierge.tech)) vierge.tech[k] = 0;
+  const app = loadApp(vierge, NOW, ['REFRESH']);
+  assert.doesNotThrow(() => app.REFRESH.queue());
+});
+
 /* ---------- résultat ---------- */
 
 if (failures.length) {

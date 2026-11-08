@@ -103,7 +103,8 @@ function collect(plan, missions, now) {
   for (const m of missions || []) {
     const family = MISSION_FAMILY[m.q] || slug(m.q) || 'autre';
     out.push(action({
-      id: family + ':' + slug(m.id), family, label: m.what, why: m.why || '',
+      // l'identifiant reste celui de la mission : S.daily.done et missionDone s'en servent
+      id: m.id, family, label: m.what, why: m.why || '',
       how: m.how && m.how.length ? m.how : null,
       loss: m.sev === 'bad' || m.id === 'fleetslots',
       confirm: 'snooze', snoozeHours: m.every == null ? 24 : m.every,
