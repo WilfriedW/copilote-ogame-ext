@@ -6,7 +6,7 @@ const path = require('path');
 const assert = require('assert');
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'queue.js'), 'utf8');
-const EXPORTS = ['rankActions', 'collect'];
+const EXPORTS = ['rankActions', 'collect', 'fleetsaveAction', 'recycleAction'];
 
 /** Évalue queue.js et renvoie ses fonctions, avec les globales injectées. */
 function load(globals) {
@@ -146,6 +146,73 @@ t('une planète unique : aucune source ne plante', () => {
 
 t('les identifiants sont stables d\'un appel à l\'autre', () => {
   assert.equal(Q.collect(avecActe, [], 0)[0].id, Q.collect(avecActe, [], 5000)[0].id);
+});
+
+/* ---------- mise à l'abri et recyclage ---------- */
+
+const T0 = Date.UTC(2026, 10, 8, 22, 30, 0);
+const stats = {
+  cargoEff: k => ({ lc: 25000, sc: 5000 })[k] || 0,
+  // 1 h à 100 %, proportionnellement plus long en dessous
+  flightSecs: (from, to, ships, pct) => 3600 * (100 / pct)
+};
+const nuitProche = { start: 23, end: 7, isNight: () => false,
+  startMs: T0 + 0.5 * 3600e3, endMs: T0 + 8.5 * 3600e3 };
+const nuitEnCours = { start: 23, end: 7, isNight: () => true,
+  startMs: T0 - 2 * 3600e3, endMs: T0 + 3 * 3600e3 };
+const flotteOk = [
+  { name: 'Mère', coords: '1:142:8', ships: { lc: 30 }, stock: { m: 9e5, c: 9e5, d: 5e4 } },
+  { name: 'Colonie', coords: '1:142:6', ships: {}, stock: { m: 0, c: 0, d: 0 } }
+];
+
+t('rien à sauver sans transporteur : on se tait', () => {
+  assert.equal(Q.fleetsaveAction(
+    [{ name: 'Mère', coords: '1:142:8', ships: {}, stock: { m: 9e5, c: 9e5, d: 0 } }],
+    stats, nuitProche, T0), null);
+});
+
+t('avec des transporteurs, l\'action nomme la flotte et l\'heure de retour', () => {
+  const fs = Q.fleetsaveAction(flotteOk, stats, nuitProche, T0);
+  assert.equal(fs.family, 'abri');
+  assert.ok(fs.detail.ships.lc > 0);
+  assert.ok(fs.detail.backAt > nuitProche.endMs);
+  assert.equal(fs.confirm, 'snooze');
+  assert.equal(fs.loss, true);
+  assert.ok(fs.how && fs.how.length);
+});
+
+t('il fait déjà nuit : pas de rendez-vous du soir', () => {
+  assert.equal(Q.fleetsaveAction(flotteOk, stats, nuitEnCours, T0), null);
+});
+
+t('trop tôt dans la journée : pas encore de rendez-vous du soir', () => {
+  const loin = Object.assign({}, nuitProche, { startMs: T0 + 6 * 3600e3 });
+  assert.equal(Q.fleetsaveAction(flotteOk, stats, loin, T0), null);
+});
+
+t('fenêtre de nuit dégénérée : pas de boucle, pas d\'Infinity', () => {
+  const dege = { start: 7, end: 7, isNight: () => false, startMs: null, endMs: null };
+  assert.equal(Q.fleetsaveAction(flotteOk, stats, dege, T0), null);
+});
+
+t('une seule planète : la mise à l\'abri passe par une expédition', () => {
+  const seule = [{ name: 'Mère', coords: '1:142:8', ships: { lc: 10 }, stock: { m: 5e5, c: 2e5, d: 1e4 } }];
+  const fs = Q.fleetsaveAction(seule, stats, nuitProche, T0);
+  assert.equal(fs.detail.mission, 'expedition');
+  assert.equal(fs.detail.dest, '1:142:16');
+});
+
+t('après le retour d\'une expédition, un rappel de recyclage sans chiffres', () => {
+  const rec = Q.recycleAction([{ mission: 15, ret: true, arrival: (T0 - 20 * 60e3) / 1000, dest: '1:142:16' }], T0);
+  assert.equal(rec.family, 'recyclage');
+  assert.equal(rec.cost, null);
+  assert.ok(rec.how && rec.how.length);
+  assert.equal(rec.confirm, 'snooze');
+});
+
+t('aucune expédition rentrée récemment : pas de rappel de recyclage', () => {
+  assert.equal(Q.recycleAction([], T0), null);
+  assert.equal(Q.recycleAction([{ mission: 15, ret: true, arrival: (T0 - 5 * 3600e3) / 1000 }], T0), null);
 });
 
 /* ---------- la projection ---------- */

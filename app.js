@@ -483,6 +483,18 @@ const ROADMAPS = {
 };
 const FOCUS = {ecocol:'Économie + colonie', eco:'Économie pure', fleet:'Flotte et expéditions'};
 const hm = ms => { const d=new Date(ms), today=new Date(); const t=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); return d.toDateString()===today.toDateString() ? t : (new Date(today.getTime()+864e5).toDateString()===d.toDateString() ? 'demain '+t : d.toLocaleDateString('fr-FR',{weekday:'short'})+' '+t); };
+/**
+ * Fenêtre de nuit à venir, sous la forme attendue par fleetsaveAction.
+ * @param {number} now horodatage courant
+ * @returns {{start:number, end:number, startMs:number|null, endMs:number|null, isNight:function}}
+ */
+function nightWindow(now){
+  const a = +S.day.nightStart, b = +S.day.nightEnd;
+  if(a === b) return {start:a, end:b, startMs:null, endMs:null, isNight};
+  const s = new Date(now); s.setHours(a,0,0,0); if(s.getTime() <= now) s.setDate(s.getDate()+1);
+  const e = new Date(s); e.setHours(b,0,0,0); if(e.getTime() <= s.getTime()) e.setDate(e.getDate()+1);
+  return {start:a, end:b, startMs:s.getTime(), endMs:e.getTime(), isNight};
+}
 function isNight(ms){ const d=new Date(ms), h=d.getHours()+d.getMinutes()/60, a=+S.day.nightStart, b=+S.day.nightEnd; if(a===b) return false; return a>b ? (h>=a || h<b) : (h>=a && h<b); }
 const TICK_MIN = 60, HORIZON_H = 24;
 /** Pas de simulation sur l'horizon, en sautant la fenêtre de nuit. */
@@ -777,9 +789,6 @@ function dailyMissions(){
   if(rt.length) out.push({id:'raid', q:'Pillage', every:12, sev:'good', what:`Espionner ${rt.length>1?'ces inactifs':'cet inactif'} : ${rt.map(r=>r.coords).join(', ')}`, why:`Inactifs proches et moins forts que toi : pas d'avertissement hors-la-loi. Détail dans Outils › Cibles.`, how:['Galaxie : clique sur l\'œil de la ligne pour envoyer une sonde.', 'Rapport sans flotte ni défense et avec des ressources : mission Attaquer, assez de soute pour la moitié de son stock.']});
   else out.push({id:'inactive', q:'Pillage', every:24, sev:'info', what:'Repérer des inactifs à piller', why:'Les joueurs marqués (i) ou (I) ne se défendent plus. À piller dès qu\'ils sont dans ta tranche de points.',
     how:['Galaxie : parcours ton système et les voisins, note les noms gris (i)/(I).', 'Espionne-les. Si le jeu affiche « joueur plus puissant », réponds <b>Non</b> : tu perdrais ta protection pendant 7 jours.', 'Sans flotte ni défense et avec des ressources : mission Attaquer avec assez de soute.']});
-  const ns = +S.day.nightStart, nd = new Date(now); nd.setHours(ns,0,0,0); if(nd.getTime() <= now) nd.setDate(nd.getDate()+1);
-  const nightAt = nd.getTime() - 3600e3;
-  if(!isNight(now) && nightAt - now <= (+S.day.horizon||24)*3600e3) out.push({id:'night', q:'Sécurité', at:nightAt, every:24, sev:'warn', what:`Avant la nuit (${ns} h) : mettre tes ressources à l'abri`, why:'Une planète pleine pendant ton sommeil est une cible.', how:['Dépense tout ce que tu peux (files longues, satellites).', 'Envoie le reste avec tes transporteurs en mission longue (transport vers une colonie à vitesse 10 %, ou expédition).', 'Au réveil, rappelle ou récupère la flotte.']});
   return out;
 }
 function missionDone(m){ const d = S.daily.done[m.id]; return d && (Date.now() - d) < m.every*3600e3 && (m.every<24 || new Date(d).toDateString()===new Date().toDateString()); }

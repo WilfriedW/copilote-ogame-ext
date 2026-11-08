@@ -114,6 +114,106 @@ function collect(plan, missions, now) {
   return out;
 }
 
+/* ---------- mise à l'abri et recyclage ---------- */
+
+/* Vitesses de vol proposées par le jeu, de la plus rapide à la plus lente. */
+const SPEEDS = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10];
+
+/**
+ * Que faire de tes ressources avant de dormir.
+ * Apparaît dans l'heure qui précède la nuit, et seulement si des transporteurs
+ * sont à quai. Choisit la vitesse la plus rapide qui fait quand même rentrer la
+ * flotte après ton réveil.
+ * @param {object[]} planets planètes avec `coords`, `ships`, `stock`
+ * @param {{cargoEff:function, flightSecs:function}} stats soute et durées de vol
+ * @param {{start:number, startMs:number, endMs:number, isNight:function}} night fenêtre de nuit
+ * @param {number} now horodatage courant
+ * @returns {object|null} action, ou null s'il n'y a rien à proposer
+ */
+function fleetsaveAction(planets, stats, night, now) {
+  if (!night || !night.startMs || !night.endMs) return null;
+  if (night.isNight && night.isNight(now)) return null;
+  if (now < night.startMs - 3600e3 || now >= night.startMs) return null;
+
+  const list = (planets || []).filter(Boolean);
+  const load = p => { const s = p.stock || {}; return (s.m || 0) + (s.c || 0) + (s.d || 0); };
+  const from = list.slice().sort((a, b) => load(b) - load(a))[0];
+  if (!from || load(from) <= 0) return null;
+
+  const need = load(from), ships = {};
+  let cap = 0;
+  for (const k of ['lc', 'sc']) {
+    const have = (from.ships || {})[k] || 0, unit = stats.cargoEff(k);
+    if (!have || !unit || cap >= need) continue;
+    const n = Math.min(have, Math.ceil((need - cap) / unit));
+    if (n > 0) { ships[k] = n; cap += n * unit; }
+  }
+  if (!Object.keys(ships).length) return null;
+
+  // Vers une autre planète si tu en as une ; sinon une expédition, qui garde la
+  // flotte en l'air aussi bien. La durée vient de `stats`, pas d'ici.
+  const other = list.find(p => p !== from && p.coords);
+  const c = String(from.coords || '').split(':').map(Number);
+  const dest = other ? other.coords : (c.length === 3 && c.every(x => !isNaN(x)) ? c[0] + ':' + c[1] + ':16' : null);
+  if (!dest) return null;
+  const mission = other ? 'transport' : 'expedition';
+
+  let pct = null, backAt = null;
+  for (const s of SPEEDS) {
+    const secs = stats.flightSecs(from.coords, dest, ships, s);
+    if (!isFinite(secs) || secs <= 0) continue;
+    const back = now + 2 * secs * 1000;
+    if (back > night.endMs) { pct = s; backAt = back; break; }
+  }
+  if (backAt == null) {
+    const secs = stats.flightSecs(from.coords, dest, ships, 10);
+    if (!isFinite(secs) || secs <= 0) return null;
+    pct = 10; backAt = now + 2 * secs * 1000;
+  }
+
+  const fleet = Object.keys(ships).map(k => ships[k] + ' ' + (k === 'lc' ? 'grand' : 'petit') +
+    ' transporteur' + (ships[k] > 1 ? 's' : '')).join(' et ');
+  return action({
+    id: 'abri:nuit', family: 'abri',
+    label: 'Mets tes ressources à l\'abri avant ' + night.start + ' h',
+    why: 'Une planète pleine pendant ton sommeil est une cible. Envoie ' + fleet +
+      ' vers ' + dest + ' à ' + pct + ' %.',
+    how: [
+      'Dépense d\'abord tout ce que tu peux : lance une construction longue et une recherche.',
+      'Charge le reste dans tes transporteurs et envoie-les vers ' + dest +
+        (mission === 'transport' ? ' en mission Transporter.' : ' en mission Expédition.'),
+      'Règle la vitesse sur ' + pct + ' % : la flotte rentre après ton réveil, hors de portée pendant la nuit.'
+    ],
+    loss: true, confirm: 'snooze', snoozeHours: 24,
+    detail: { ships, dest, pct, mission, backAt, load: need, from: from.name }
+  });
+}
+
+/**
+ * Rappel d'aller voir si une expédition a laissé un champ de débris.
+ * Sans chiffres : l'extension ne voit pas les champs de débris, qui ne sont ni
+ * sur la page affichée ni dans les fichiers publics de l'univers.
+ * @param {object[]} moves mouvements de flotte connus
+ * @param {number} now horodatage courant
+ * @returns {object|null}
+ */
+function recycleAction(moves, now) {
+  const rentree = (moves || []).some(m => m && m.mission === 15 && m.ret &&
+    m.arrival * 1000 <= now && now - m.arrival * 1000 <= 3600e3);
+  if (!rentree) return null;
+  return action({
+    id: 'recyclage:expedition', family: 'recyclage',
+    label: 'Va voir si ton expédition a laissé un champ de débris',
+    why: 'Une expédition qui tombe sur une flotte la détruit et laisse des débris sur place. Personne ne te prévient : il faut aller regarder.',
+    how: [
+      'Un recycleur est un vaisseau qui ramasse les débris. Il faut en construire au chantier spatial avant de pouvoir recycler.',
+      'Galaxie : va sur la position de ton expédition. Un champ de débris s\'affiche sous le numéro de position.',
+      'S\'il y en a, envoie tes recycleurs dessus en mission Recycler. Sinon il n\'y a rien à faire.'
+    ],
+    confirm: 'snooze', snoozeHours: 2
+  });
+}
+
 /* ---------- classement ---------- */
 
 /**
