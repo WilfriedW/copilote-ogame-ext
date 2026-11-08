@@ -5,8 +5,12 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 
+const { loadApp, fixtureState } = require('./harness');
+const REF = require('./fixtures/projection-avant.json');
+const NOW = Date.UTC(2026, 10, 8, 14, 0, 0);
+
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'queue.js'), 'utf8');
-const EXPORTS = ['rankActions', 'collect', 'fleetsaveAction', 'recycleAction', 'freshnessAction'];
+const EXPORTS = ['rankActions', 'collect', 'fleetsaveAction', 'recycleAction', 'freshnessAction', 'shouldExpand'];
 
 /** Évalue queue.js et renvoie ses fonctions, avec les globales injectées. */
 function load(globals) {
@@ -250,11 +254,39 @@ t('une seule ligne de fraîcheur à la fois, la donnée la plus ancienne', () =>
   assert.equal(deux.blocked.page, 'Recherche');
 });
 
+/* ---------- l'apprentissage ---------- */
+
+t('une famille jamais faite s\'affiche dépliée', () => {
+  assert.equal(Q.shouldExpand({ family: 'abri', how: ['a'] }, {}), true);
+});
+
+t('une famille déjà faite se replie', () => {
+  assert.equal(Q.shouldExpand({ family: 'abri', how: ['a'] }, { abri: 1 }), false);
+});
+
+t('une famille voisine ne fait pas taire l\'autre', () => {
+  assert.equal(Q.shouldExpand({ family: 'abri', how: ['a'] }, { expedition: 1 }), true);
+});
+
+t('sans étapes, rien à déplier', () => {
+  assert.equal(Q.shouldExpand({ family: 'mine', how: null }, {}), false);
+});
+
+t('une mémoire absente ne plante pas', () => {
+  assert.equal(Q.shouldExpand({ family: 'abri', how: ['a'] }, null), true);
+});
+
+t('la colonisation et les formes de vie partent comme déjà faites', () => {
+  const app = loadApp(fixtureState(), NOW, ['sample']);
+  const learned = app.sample().learned;
+  assert.equal(Q.shouldExpand({ family: 'colonisation', how: ['a'] }, learned), false);
+  assert.equal(Q.shouldExpand({ family: 'formevie', how: ['a'] }, learned), false);
+  assert.equal(Q.shouldExpand({ family: 'abri', how: ['a'] }, learned), true);
+  assert.equal(Q.shouldExpand({ family: 'recyclage', how: ['a'] }, learned), true);
+});
+
 /* ---------- la projection ---------- */
 
-const { loadApp, fixtureState } = require('./harness');
-const REF = require('./fixtures/projection-avant.json');
-const NOW = Date.UTC(2026, 10, 8, 14, 0, 0);
 const what = l => (l || []).map(x => x.what);
 
 t('la projection propose les mêmes actions qu\'avant le passage au pas interne', () => {

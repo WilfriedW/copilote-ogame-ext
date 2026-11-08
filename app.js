@@ -72,6 +72,8 @@ function sample(){
     lf:{found:['humans','rocktal']},
     roles:{}, raid:null, raids:{},
     daily:{done:{}},
+    // 1, pas 0 : une valeur fausse relancerait l'explication à chaque fois
+    learned:{colonisation:1, formevie:1},
     colo:{from:0, objective:'balanced', bonus:0, target:'', kit:'std', tr:'sc', built:false, fields:'', fpos:''},
   };
 }
@@ -89,6 +91,7 @@ S.ui = Object.assign(sample().ui, S.ui);
 S.lf = Object.assign(sample().lf, S.lf);
 S.roles = S.roles || {}; S.raids = S.raids || {};
 S.daily = Object.assign(sample().daily, S.daily);
+S.learned = Object.assign(sample().learned, S.learned);
 function save(){ try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 
 const IS_EXT = !!(window.chrome && window.chrome.runtime && window.chrome.runtime.id);
@@ -927,7 +930,8 @@ function missText(b){
 
 function howHtml(a){
   if(!a.how || !a.how.length) return '';
-  return `<details class="how"${openId===a.id?' open':''}><summary>Comment faire</summary><ol>${a.how.map(x=>`<li>${x}</li>`).join('')}</ol></details>`;
+  const open = openId===a.id || shouldExpand(a, S.learned);
+  return `<details class="how"${open?' open':''}><summary>Comment faire</summary><ol>${a.how.map(x=>`<li>${x}</li>`).join('')}</ol></details>`;
 }
 
 function detailHtml(a){
@@ -939,9 +943,10 @@ function detailHtml(a){
 }
 
 function goBtn(a){
-  if(a.confirm==='game' && a.launch) return `<button class="btn primary" data-launch='${esc(JSON.stringify(a.launch))}'>C'est lancé</button>`;
+  const fam = ` data-family="${esc(a.family)}"`;
+  if(a.confirm==='game' && a.launch) return `<button class="btn primary"${fam} data-launch='${esc(JSON.stringify(a.launch))}'>C'est lancé</button>`;
   if(a.blocked && a.blocked.kind==='stale') return '';
-  return `<button class="btn primary" data-done="${esc(a.id)}">C'est fait</button>`;
+  return `<button class="btn primary"${fam} data-done="${esc(a.id)}">C'est fait</button>`;
 }
 
 function nowHtml(a){
@@ -957,7 +962,7 @@ function nowHtml(a){
 }
 
 function lineHtml(a){
-  const open = openId===a.id;
+  const open = openId===a.id || shouldExpand(a, S.learned);
   return `<li class="qline${open?' open':''}" data-id="${esc(a.id)}">
     <span class="tag t-${esc(a.family)}">${esc(FAMILY_LABEL[a.family]||'À faire')}</span>
     <div class="tx"><b>${esc(a.label)}</b>${a.why?`<small>${esc(a.why)}</small>`:''}</div>
@@ -1445,7 +1450,7 @@ view.addEventListener('click', e=>{
   }
 });
 view.addEventListener('click', e=>{
-  const dn = e.target.closest('[data-done]'); if(dn){ S.daily.done[dn.dataset.done] = Date.now(); save(); refresh(); toast('Bien joué'); return; }
+  const dn = e.target.closest('[data-done]'); if(dn){ S.daily.done[dn.dataset.done] = Date.now(); learn(dn); save(); refresh(); toast('Bien joué'); return; }
   const rpp = e.target.closest('[data-raidprep]'); if(rpp){ S.raid = {coords:rpp.dataset.raidprep, name:rpp.dataset.raidname, m:0, c:0, d:0, safe:false}; save(); render(); return; }
   const rpc = e.target.closest('[data-raidclose]'); if(rpc){ S.raid = null; save(); render(); return; }
   const ct = e.target.closest('[data-cotarget]'); if(ct){ S.colo.target = ct.dataset.cotarget; save(); render(); toast('Destination de colonie mise à jour'); return; }
@@ -1453,7 +1458,7 @@ view.addEventListener('click', e=>{
   const tl = e.target.closest('[data-tool]'); if(tl){ S.ui.tool = tl.dataset.tool; save(); render(); return; }
   const go = e.target.closest('[data-goto]'); if(go){ tab = go.dataset.goto; try{ LS.setItem(KEY+'-tab',tab); }catch(err){} render(); return; }
   const sent = e.target.closest('[data-sent]'); if(sent){ S.colo.sentAt = Date.now(); S.colo.built = false; save(); refresh(); toast('Colonisation en route'); return; }
-  const la = e.target.closest('[data-launch]');
+  const la = e.target.closest('[data-launch]'); if(la) learn(la);
   if(la){
     const a = JSON.parse(la.dataset.launch), tm = {id:Math.random().toString(36).slice(2,8), manual:true, end:Date.now()+a.dur*1000, done:false};
     if(a.kind==='t'){ tm.kind='t'; tm.k=a.k; tm.lvl=a.lvl; }
@@ -1470,6 +1475,8 @@ view.addEventListener('click', e=>{
     S.timers.push(tm); save(); a.kind==='raid' ? render() : refresh(); toast(`Suivi : ${a.what}`);
   }
 });
+/** Retient qu'une famille d'actions vient d'être exécutée : l'explication disparaît. */
+function learn(btn){ const f = btn && btn.dataset.family; if(f){ S.learned[f] = Date.now(); } }
 function on(id,ev,fn){ const el=document.getElementById(id); if(el) el.addEventListener(ev,fn); }
 function msg(t){ const m=document.getElementById('ioMsg'); if(m) m.textContent=t; }
 function changed(){ S.sample=false; save(); refresh(); }

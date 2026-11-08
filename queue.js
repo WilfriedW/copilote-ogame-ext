@@ -271,6 +271,19 @@ function freshnessAction(seen, now, hasBlockedSource) {
   });
 }
 
+/* ---------- l'apprentissage ---------- */
+
+/**
+ * Une action d'une famille jamais exécutée s'explique ; ensuite elle se tait.
+ * @param {object} a action
+ * @param {object} learned {famille: horodatage du premier clic}
+ * @returns {boolean}
+ */
+function shouldExpand(a, learned) {
+  if (!a || !a.how || !a.how.length) return false;
+  return !((learned || {})[a.family]);
+}
+
 /* ---------- classement ---------- */
 
 /**
