@@ -729,6 +729,71 @@ function actHtml(a, withBtn){
   return `<li><div><div class="q">${esc(a.q)}</div><div class="w">${esc(a.what)}</div></div>${btn||'<span></span>'}<div class="m">${m}</div></li>`;
 }
 
+/* ---------- mise à l'abri ---------- */
+/* Vitesses proposées par le jeu, de la plus rapide à la plus lente. */
+const FS_SPEEDS = [100,90,80,70,60,50,40,30,20,10];
+/* En dessous, un vol coûte plus qu'il ne protège. */
+const FS_MIN = 10000;
+
+/** Fin de la prochaine nuit, ou null si la fenêtre est vide. */
+function wakeTime(now){
+  const a = +S.day.nightStart, b = +S.day.nightEnd;
+  if(a === b) return null;
+  const s = new Date(now); s.setHours(a,0,0,0); if(s.getTime() <= now) s.setDate(s.getDate()+1);
+  const e = new Date(s); e.setHours(b,0,0,0); if(e.getTime() <= s.getTime()) e.setDate(e.getDate()+1);
+  return e.getTime();
+}
+
+/**
+ * Ce qu'il faut envoyer en l'air avant de dormir.
+ * Charge la planète la plus exposée dans ses transporteurs et choisit la
+ * vitesse la plus rapide qui fait quand même rentrer la flotte après ton
+ * réveil : plus c'est lent, plus c'est sûr, mais plus tu attends au matin.
+ * @param {number} now horodatage courant
+ * @returns {object|null} {from, ships, dest, mission, pct, back, fuel, load, cargo}
+ */
+function fleetsavePlan(now){
+  const wake = wakeTime(now);
+  if(!wake) return null;
+
+  const load = p => { const st = stockNow(p); return st[0]+st[1]+st[2]; };
+  const from = S.planets.slice().sort((a,b)=>load(b)-load(a))[0];
+  if(!from) return null;
+  const need = load(from);
+  if(need < FS_MIN) return null;
+
+  const ships = {}; let cargo = 0;
+  for(const k of ['lc','sc']){
+    const have = (from.ships||{})[k] || 0, unit = shipStats(k).cargoEff;
+    if(!have || !unit || cargo >= need) continue;
+    const n = Math.min(have, Math.ceil((need-cargo)/unit));
+    if(n>0){ ships[k] = n; cargo += n*unit; }
+  }
+  if(!Object.keys(ships).length) return null;
+
+  // Vers une autre planète si tu en as une, sinon une expédition : elle garde
+  // la flotte en l'air aussi bien, et ne demande pas de destination amie.
+  const other = S.planets.find(p => p !== from && p.coords);
+  const c = parseC(from.coords);
+  const dest = other ? other.coords : (c ? `${c[0]}:${c[1]}:16` : null);
+  if(!dest) return null;
+
+  let pct = null, back = null, fuel = 0;
+  for(const s of FS_SPEEDS){
+    const fl = flight(from.coords, dest, ships, s);
+    if(!fl) continue;
+    const b = now + 2*fl.secs*1000;
+    if(b > wake){ pct = s; back = b; fuel = fl.fuel; break; }
+  }
+  if(back == null){
+    const fl = flight(from.coords, dest, ships, 10);
+    if(!fl) return null;
+    pct = 10; back = now + 2*fl.secs*1000; fuel = fl.fuel;
+  }
+  return {from, ships, dest, mission: other ? 'transport' : 'expedition',
+          pct, back, fuel, load: need, cargo};
+}
+
 /* ---------- daily missions ---------- */
 const LIFEFORMS = {humans:{n:'Humains', why:'polyvalents'}, rocktal:{n:'Roctas', why:'mineurs : production et bâtiments moins chers'}, mechas:{n:'Mécas', why:'vaisseaux et chantier spatial'}, kaelesh:{n:'Kaeleshs', why:'expéditions et recherche'}};
 function bestLifeform(){
@@ -773,7 +838,23 @@ function dailyMissions(){
     how:['Galaxie : parcours ton système et les voisins, note les noms gris (i)/(I).', 'Espionne-les. Si le jeu affiche « joueur plus puissant », réponds <b>Non</b> : tu perdrais ta protection pendant 7 jours.', 'Sans flotte ni défense et avec des ressources : mission Attaquer avec assez de soute.']});
   const ns = +S.day.nightStart, nd = new Date(now); nd.setHours(ns,0,0,0); if(nd.getTime() <= now) nd.setDate(nd.getDate()+1);
   const nightAt = nd.getTime() - 3600e3;
-  if(!isNight(now) && nightAt - now <= (+S.day.horizon||24)*3600e3) out.push({id:'night', q:'Sécurité', at:nightAt, every:24, sev:'warn', what:`Avant la nuit (${ns} h) : mettre tes ressources à l'abri`, why:'Une planète pleine pendant ton sommeil est une cible.', how:['Dépense tout ce que tu peux (files longues, satellites).', 'Envoie le reste avec tes transporteurs en mission longue (transport vers une colonie à vitesse 10 %, ou expédition).', 'Au réveil, rappelle ou récupère la flotte.']});
+  if(!isNight(now) && nightAt - now <= (+S.day.horizon||24)*3600e3){
+    const fs = fleetsavePlan(now);
+    const m = {id:'night', q:'Sécurité', at:nightAt, every:24, sev:'warn',
+      what:`Avant la nuit (${ns} h) : mettre tes ressources à l'abri`,
+      why:'Une planète pleine pendant ton sommeil est une cible.',
+      how:['Dépense tout ce que tu peux (files longues, satellites).', 'Envoie le reste avec tes transporteurs en mission longue (transport vers une colonie à vitesse 10 %, ou expédition).', 'Au réveil, rappelle ou récupère la flotte.']};
+    if(fs){
+      m.what = `Avant la nuit (${ns} h) : envoie ${shipList(fs.ships)} vers ${fs.dest}`;
+      m.why = `${fmt(fs.load)} ressources à l'abri sur ${fs.from.name}. Une planète pleine pendant ton sommeil est une cible.`;
+      m.how = [
+        'Dépense d\'abord ce que tu peux : lance une construction longue et une recherche.',
+        `Charge le reste dans ${shipList(fs.ships)} sur ${esc(fs.from.name)}, destination ${fs.dest}, mission ${fs.mission==='transport'?'Transporter':'Expédition'}.`,
+        `Règle la vitesse sur ${fs.pct} % : la flotte rentre vers ${hm(fs.back)}, après ton réveil. Coût : ${fmt(fs.fuel)} deutérium.`
+      ];
+    }
+    out.push(m);
+  }
   return out;
 }
 function missionDone(m){ const d = S.daily.done[m.id]; return d && (Date.now() - d) < m.every*3600e3 && (m.every<24 || new Date(d).toDateString()===new Date().toDateString()); }
