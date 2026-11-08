@@ -484,9 +484,10 @@ const ROADMAPS = {
 const FOCUS = {ecocol:'Économie + colonie', eco:'Économie pure', fleet:'Flotte et expéditions'};
 const hm = ms => { const d=new Date(ms), today=new Date(); const t=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); return d.toDateString()===today.toDateString() ? t : (new Date(today.getTime()+864e5).toDateString()===d.toDateString() ? 'demain '+t : d.toLocaleDateString('fr-FR',{weekday:'short'})+' '+t); };
 function isNight(ms){ const d=new Date(ms), h=d.getHours()+d.getMinutes()/60, a=+S.day.nightStart, b=+S.day.nightEnd; if(a===b) return false; return a>b ? (h>=a || h<b) : (h>=a && h<b); }
-/** Connection times over the planning horizon, skipping the night window. */
+const TICK_MIN = 60, HORIZON_H = 24;
+/** Pas de simulation sur l'horizon, en sautant la fenêtre de nuit. */
 function sessionTimes(now){
-  const out=[now], end=now+(+S.day.horizon||24)*3600e3, step=Math.max(15,+S.day.interval||90)*60e3;
+  const out=[now], end=now+HORIZON_H*3600e3, step=TICK_MIN*60e3;
   let t=now;
   while(out.length<80){
     t+=step;
@@ -538,8 +539,13 @@ function pickBuildings(p, ctx){
   }
   return out;
 }
-/** Simulates the day: production, queues, and what to launch at each connection. */
-function simulateDay(){
+/**
+ * Projette la journée pour savoir quoi faire maintenant.
+ * La boucle complète sur l'horizon alimente les réserves et les échéances ;
+ * seul son premier instant est publié.
+ * @returns {{now:number, first:object, busy:object[], startV:number, endV:number, ups:string[]}}
+ */
+function project(){
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
   const P = S.planets.map((p,i)=>({i, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now}));
@@ -557,7 +563,7 @@ function simulateDay(){
     else if(t.kind==='x' && t.k==='sats' && P[t.p]){ const p=P[t.p]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+p.name, what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
     else if(t.kind==='x' && t.k==='colship'){ const p=P[+S.colo.from]||P[0]; p.sq=t.end; sim.colShip=true; sim.colReady=t.end; busy.push({q:'Chantier spatial', what:'Vaisseau de colonisation', end:t.end}); }
   }
-  const iv = Math.max(15,+S.day.interval||90)/60;
+  const iv = TICK_MIN/60;
   S.tech = sim.tech; S.planets = P;
   try{
     const startV = P.reduce((a,p)=>{ const r=production(p); return a+mse(r.m,r.c,r.d); },0);
@@ -712,13 +718,13 @@ function simulateDay(){
       tryResearch('post');
       sessions.push({T:Tm, acts, waits, goals:goals.map(g=>({key:g.key, label:g.label, deadline:g.deadline, res:g.res}))});
     }
-    const end = now + (+S.day.horizon||24)*3600e3;
+    const end = now + HORIZON_H*3600e3;
     advance(end);
     const endV = P.reduce((a,p)=>{ const r=production(p); return a+mse(r.m,r.c,r.d); },0);
     const ups = [];
     P.forEach((p,i)=>{ for(const k of Object.keys(B)){ const a=real.planets[i].b[k], b=p.b[k]; if(b>a) ups.push(`${B_SHORT[k]} ${a}→${b}${P.length>1?' ('+p.name+')':''}`); } });
     for(const k of Object.keys(T)){ const a=real.tech[k], b=sim.tech[k]; if(b>a) ups.push(`${T[k].n.replace('Technologie ','')} ${a}→${b}`); }
-    return {now, sessions, busy, startV, endV, ups};
+    return {now, first: sessions[0], busy, startV, endV, ups};
   } finally { S.tech = real.tech; S.planets = real.planets; }
 }
 function actHtml(a, withBtn){
@@ -1103,12 +1109,10 @@ function factorPill(f){ return f>=1 ? `<span class="pill good">Énergie OK</span
 
 const REFRESH = {
 today(){
-  const plan = simulateDay(), s0 = plan.sessions[0];
+  const plan = project(), s0 = plan.first;
   const nowParts = [];
   const missions = dailyMissions().filter(m=>!missionDone(m));
-  const timed = missions.filter(m=>m.at && m.at > plan.now), slotMs = new Map();
-  for(const m of timed){ let host = null; for(const x of plan.sessions) if(x.T <= m.at) host = x; if(host && host!==s0){ if(!slotMs.has(host)) slotMs.set(host, []); slotMs.get(host).push(m); } else m.at = 0; }
-  const nowMs = missions.filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
+  const nowMs = missions.filter(m=>!m.info);
   const infoMs = missions.filter(m=>m.info);
   const taskHtml = m=>`<li class="task"><div><div class="q">${esc(m.q||'À faire')}</div><div class="w">${esc(m.what)}</div></div><button class="btn sm" data-done="${m.id}">Fait</button><div class="m"><span>${esc(m.why)}</span></div><details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${s0.acts.map(a=>actHtml(a,true)).join('')}${nowMs.map(taskHtml).join('')}</ul>`);
@@ -1116,31 +1120,14 @@ today(){
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
   if(s0.waits.length) nowParts.push(`<ul class="acts">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${esc(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'hangar trop petit'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div></li>`).join('')}</ul>`);
   if(plan.busy.length || infoMs.length) nowParts.push(`<ul class="acts">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${esc(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${hm(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${esc(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${esc(m.why)}</div></li>`).join('')}</ul>`);
-  const nextS = plan.sessions.slice(1).find(x=>x.acts.length);
-  if(!s0.acts.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
+  if(!s0.acts.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.</p>`);
   document.getElementById('tdNow').innerHTML = nowParts.join('') + `<p class="note"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p>`;
   const alerts = adviceList().filter(a=>(a.sev==='bad'||a.sev==='warn') && !/Aucune recherche suivie|Prochaine étape/.test(a.what));
   document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><h2>Alertes</h2><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('')}</ul></div>` : '';
-  const later = plan.sessions.slice(1).filter(x=>x.acts.length || slotMs.has(x));
-  const slot = x=>`<div class="slot"><div class="time">${hm(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${x.acts.map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
-  const phases = [], horizonEnd = plan.now + (+S.day.horizon||24)*3600e3;
-  for(const x of plan.sessions){ const key = x.goals.map(g=>g.key).join('|') || 'free'; const last = phases[phases.length-1]; if(last && last.key===key) continue; if(last) last.to = x.T; phases.push({key, from:x.T, to:horizonEnd, goals:x.goals}); }
-  const nightStartAfter = t=>{ const d = new Date(t); d.setHours(+S.day.nightStart,0,0,0); if(d.getTime() <= t) d.setDate(d.getDate()+1); return d.getTime(); };
-  for(const ph of phases){ const n = nightStartAfter(ph.from); if(n < ph.to) ph.to = n; }
-  const launchedAt = label => { for(const x of plan.sessions) if(x.acts.some(a=>a.what===label || (label==='le vaisseau de colonisation' && a.kind==='ship'))) return x.T; return null; };
-  const phaseHtml = ph => {
-    if(ph.key==='free') return `<li><span class="pill good">Soutenu</span><span class="what">${hm(ph.from)} → ${hm(ph.to)}</span><span class="why">Rien de gros à financer : dépense tout à chaque connexion, mines et bâtiments à la chaîne.</span></li>`;
-    const txt = ph.goals.map(g=>{ const at = launchedAt(g.label); return `on garde le ${g.res} pour ${g.label}${at?`, lancement vers ${hm(at)}`:''}`; }).join(' ; ');
-    return `<li><span class="pill warn">Tempo</span><span class="what">${hm(ph.from)} → ${hm(ph.to)}</span><span class="why">${esc(txt.charAt(0).toUpperCase()+txt.slice(1))}. Les bâtiments n'utilisent que le surplus. Bon moment pour la flotte : expéditions, espionnage d'inactifs.</span></li>`;
-  };
-  const strategy = `<ul class="advice" style="margin-bottom:14px">${phases.slice(0,5).map(phaseHtml).join('')}</ul>`;
-  document.getElementById('tdDay').innerHTML = strategy + (later.length
-    ? `<div class="tl">${later.slice(0,6).map(slot).join('')}</div>${later.length>6?`<details style="margin-top:12px"><summary class="note">Voir les ${later.length-6} connexions suivantes</summary><div class="tl" style="margin-top:12px">${later.slice(6).map(slot).join('')}</div></details>`:''}`
-    : `<p class="note">Aucune action prévue sur la période : tes files sont occupées ou tes ressources trop faibles.</p>`)
-    + `<div class="sumline" style="margin-top:14px"><span class="pill good">Production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} %</span><span class="note">en ${S.day.horizon} h, de ${fmt(plan.startV)} à ${fmt(plan.endV)} éq. métal/h</span></div>`
-    + (plan.ups.length ? `<p class="note" style="margin-top:6px">${esc(plan.ups.join(' · '))}</p>` : '')
-    + `<p class="note" style="margin-top:6px">Connexions sans action masquées. Hors plan : formes de vie, flotte, défense. Avant une longue absence, dépense ou mets tes ressources à l'abri.</p>`;
+  document.getElementById('tdDay').innerHTML =
+    `<div class="sumline"><span class="pill good">Production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} %</span><span class="note">en ${HORIZON_H} h, de ${fmt(plan.startV)} à ${fmt(plan.endV)} éq. métal/h</span></div>`
+    + (plan.ups.length ? `<p class="note" style="margin-top:6px">${esc(plan.ups.join(' · '))}</p>` : '');
   renderTimers();
   document.getElementById('tdStamp').textContent = S.syncAt ? `synchro ${hm(S.syncAt)}` : (S.lastImport ? `import ${hm(S.lastImport)}` : '');
 },

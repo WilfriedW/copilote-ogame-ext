@@ -1,0 +1,99 @@
+{
+  "T": 1794146400000,
+  "acts": [
+    {
+      "q": "Chantier spatial · Planète mère",
+      "what": "1 Vaisseau de colonisation",
+      "why": "",
+      "cost": [
+        10000,
+        20000,
+        10000
+      ],
+      "dur": 8640,
+      "end": 1794146408640,
+      "kind": "ship"
+    },
+    {
+      "q": "Flotte · Colonie",
+      "what": "Rapatrier vers Planète mère : 7 000 M, 7 000 C, 7 000 D",
+      "why": "Envoie 1 grand transporteur de Planète mère les chercher · mission Transporter · arrivée vers 05:27",
+      "dur": 5264,
+      "end": 1794151664000,
+      "kind": "transfer",
+      "ships": {
+        "lc": 1
+      },
+      "p": 0
+    },
+    {
+      "q": "Flotte · Planète mère",
+      "what": "Expédition : 1 grand transporteur, 2 petits transporteurs, 1 sonde d'espionnage",
+      "why": "vers 1:142:16, retour vers 06:48 · 16 deut · soute 43 750 pour 40 000 max",
+      "cost": [
+        0,
+        0,
+        16
+      ],
+      "dur": 10136,
+      "end": 1794156536000,
+      "kind": "expo",
+      "ships": {
+        "lc": 1,
+        "sc": 2,
+        "pr": 1
+      },
+      "p": 0
+    },
+    {
+      "q": "Bâtiment · Planète mère",
+      "what": "Centrale électrique solaire 15",
+      "why": "Énergie négative : tes mines tournent au ralenti",
+      "cost": [
+        21894,
+        8757,
+        0
+      ],
+      "dur": 6305.348571428572,
+      "end": 1794146406305.3486,
+      "kind": "b",
+      "k": "solar",
+      "lvl": 15,
+      "p": 0
+    },
+    {
+      "q": "Bâtiment · Colonie",
+      "what": "Mine de métal 5",
+      "why": "Meilleur rendement : amorti en 4h 26m",
+      "cost": [
+        303,
+        75,
+        0
+      ],
+      "dur": 120.96,
+      "end": 1794146400120.96,
+      "kind": "b",
+      "k": "metal",
+      "lvl": 5,
+      "p": 1
+    },
+    {
+      "q": "Recherche",
+      "what": "Technologie Énergie 4",
+      "why": "",
+      "cost": [
+        0,
+        6400,
+        3200
+      ],
+      "dur": 3840,
+      "end": 1794146403840,
+      "kind": "t",
+      "k": "energy",
+      "lvl": 4,
+      "p": 0
+    }
+  ],
+  "waits": [],
+  "goals": []
+}

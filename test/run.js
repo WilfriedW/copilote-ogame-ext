@@ -75,6 +75,26 @@ t('file vide : rien ne plante', () => {
   assert.equal(r.banner, null);
 });
 
+/* ---------- la projection ---------- */
+
+const { loadApp, fixtureState } = require('./harness');
+const REF = require('./fixtures/projection-avant.json');
+const NOW = Date.UTC(2026, 10, 8, 14, 0, 0);
+const what = l => (l || []).map(x => x.what);
+
+t('la projection propose les mêmes actions qu\'avant le passage au pas interne', () => {
+  const first = loadApp(fixtureState(), NOW, ['project']).project().first;
+  assert.deepEqual(what(first.acts), what(REF.acts));
+  assert.deepEqual(what(first.waits), what(REF.waits));
+});
+
+t('la projection ne publie plus les instants suivants', () => {
+  const plan = loadApp(fixtureState(), NOW, ['project']).project();
+  assert.equal(plan.sessions, undefined);
+  assert.ok(plan.first && Array.isArray(plan.first.acts));
+  assert.ok(Array.isArray(plan.busy));
+});
+
 /* ---------- résultat ---------- */
 
 if (failures.length) {
