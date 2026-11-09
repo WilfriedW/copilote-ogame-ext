@@ -198,6 +198,16 @@ t('le trajet \u00e0 vide est un Stationner, pas un Transporter', () => {
     'Transporter repartirait tout seul : ' + a.why);
 });
 
+t('le texte dit que les transporteurs resteront bas\u00e9s sur la colonie', () => {
+  const g = app(flotteAuHub, JOUR);
+  const a = transfert(g);
+  // Le Transporter de retour repart de la colonie : il y revient \u00e0 vide.
+  // La principale ne les r\u00e9cup\u00e8re pas ; il faut que le joueur le sache
+  // avant de d\u00e9garnir sa flotte d'exp\u00e9dition.
+  assert.ok(/bas\u00e9s sur Colonie|restent sur Colonie|reviendront sur Colonie/.test(a.why),
+    'le texte doit dire o\u00f9 ils vivront d\u00e9sormais : ' + a.why);
+});
+
 t('avec ses propres vaisseaux, la colonie envoie directement', () => {
   const g = app(flotteSurPlace, JOUR);
   const a = transfert(g);

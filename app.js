@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.9.1';
+const APP_VERSION = '1.9.2';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -671,11 +671,14 @@ function simulateDay(){
         const ships = {}; if(lc) ships.lc=lc; if(sc) ships.sc=sc;
         const fl = flight(q.coords, hubP.coords, ships, 100); if(!fl) continue;
         const cap = lc*lcC + sc*scC, k = Math.min(1, cap/sum), sent = amt.map(x=>Math.floor(x*k));
-        const legs = own ? 1 : 2, arrive = Tm + legs*fl.secs*1000, back = own ? Tm + 2*fl.secs*1000 : arrive;
+        // Un Transporter revient toujours à son point de départ, donc un trajet
+        // de plus que l'aller chargé — et après un Stationner ce point de départ
+        // est la colonie : les vaisseaux y restent, la principale ne les revoit pas.
+        const legs = own ? 1 : 2, arrive = Tm + legs*fl.secs*1000, back = Tm + (legs+1)*fl.secs*1000;
         sent.forEach((x,j)=>q.st[j]-=x); q.st[2] = Math.max(0, q.st[2]-fl.fuel); q.transferAt = back;
         for(const [kk,n] of Object.entries(ships)) src.ships[kk]-=n;
         sim.ev.push({at:arrive, fn:()=>{ sent.forEach((x,j)=>hubP.st[j]+=x); }});
-        sim.ev.push({at:back, fn:()=>{ for(const [kk,n] of Object.entries(ships)) src.ships[kk]=(src.ships[kk]||0)+n; }});
+        sim.ev.push({at:back, fn:()=>{ for(const [kk,n] of Object.entries(ships)) q.ships[kk]=(q.ships[kk]||0)+n; }});
         // Une mission part toujours de la planète où est la flotte. Sans
         // transporteur sur la colonie, il faut d'abord l'y amener À VIDE — en
         // Stationner, pas en Transporter : Transporter repartirait tout seul
@@ -688,7 +691,7 @@ function simulateDay(){
              why:`${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${hm(arrive)}`,
              dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i}
           : {q:'Flotte · '+planetRef(hubP), what:`Envoie ${shipList(ships)} vers ${planetRef(q)}`,
-             why:`À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner — ils y restent, arrivée vers ${hm(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge}, arrivée vers ${hm(arrive)}.`,
+             why:`À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${hm(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge}, arrivée vers ${hm(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.`,
              dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i});
       }
       const fsl = fleetSlots(), fleetFull = fsl && fsl[0]>=fsl[1] && Tm < sim.fleetFreeAt;
