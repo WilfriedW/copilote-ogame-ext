@@ -188,6 +188,16 @@ t('le texte dit qu\'il faut d\'abord envoyer les vaisseaux à vide', () => {
     'et elle part à vide : ' + a.why);
 });
 
+t('le trajet \u00e0 vide est un Stationner, pas un Transporter', () => {
+  const g = app(flotteAuHub, JOUR);
+  const a = transfert(g);
+  // Une mission Transporter revient toute seule \u00e0 vide : les vaisseaux ne
+  // seraient plus l\u00e0 pour charger. Seul Stationner les laisse sur place.
+  assert.ok(/Stationner/.test(a.why), 'la mission aller doit \u00eatre Stationner : ' + a.why);
+  assert.ok(!/Mission Transporter/.test(a.why),
+    'Transporter repartirait tout seul : ' + a.why);
+});
+
 t('avec ses propres vaisseaux, la colonie envoie directement', () => {
   const g = app(flotteSurPlace, JOUR);
   const a = transfert(g);

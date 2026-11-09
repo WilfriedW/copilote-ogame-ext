@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.9.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -676,10 +676,11 @@ function simulateDay(){
         for(const [kk,n] of Object.entries(ships)) src.ships[kk]-=n;
         sim.ev.push({at:arrive, fn:()=>{ sent.forEach((x,j)=>hubP.st[j]+=x); }});
         sim.ev.push({at:back, fn:()=>{ for(const [kk,n] of Object.entries(ships)) src.ships[kk]=(src.ships[kk]||0)+n; }});
-        // Une mission Transporter part toujours de la planète où est la flotte.
-        // Sans transporteur sur la colonie, la première mission va donc À VIDE
-        // de la planète d'accueil vers la colonie : c'est elle qu'on annonce,
-        // et le minuteur prévient quand les vaisseaux s'y posent.
+        // Une mission part toujours de la planète où est la flotte. Sans
+        // transporteur sur la colonie, il faut d'abord l'y amener À VIDE — en
+        // Stationner, pas en Transporter : Transporter repartirait tout seul
+        // et les vaisseaux ne seraient plus là pour charger. C'est ce premier
+        // trajet qu'on annonce, et le minuteur prévient quand ils se posent.
         const charge = `${fmt(sent[0])} M, ${fmt(sent[1])} C, ${fmt(sent[2])} D`;
         const aller = Tm + fl.secs*1000;
         acts.push(own
@@ -687,7 +688,7 @@ function simulateDay(){
              why:`${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${hm(arrive)}`,
              dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i}
           : {q:'Flotte · '+planetRef(hubP), what:`Envoie ${shipList(ships)} vers ${planetRef(q)}`,
-             why:`À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Transporter, arrivée vers ${hm(aller)}. Tu les renvoies ensuite chargés de ${charge}, retour vers ${hm(arrive)}.`,
+             why:`À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner — ils y restent, arrivée vers ${hm(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge}, arrivée vers ${hm(arrive)}.`,
              dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i});
       }
       const fsl = fleetSlots(), fleetFull = fsl && fsl[0]>=fsl[1] && Tm < sim.fleetFreeAt;
