@@ -247,6 +247,35 @@ t('une case trop ch\u00e8re \u00e0 l\'instant T devient une attente, pas un sile
   assert.ok(w.miss[0] > 0, 'avec ce qui manque : ' + JSON.stringify(w.miss));
 });
 
+t('un prix relev\u00e9 pour un niveau d\u00e9pass\u00e9 n\'est plus utilis\u00e9', () => {
+  // le joueur a monté la case deux fois depuis : le prix lu alors ne vaut
+  // plus rien, et l'afficher annoncerait un niveau déjà construit.
+  const g = vieSur({ 11101: { ...CASE_OK, lvl: 26, next: 25 } });
+  const s0 = g.simulateDay().sessions[0];
+  assert.ok(!s0.acts.some(a => a.kind === 'lf'), 'pas de prix périmé dans le plan');
+  assert.ok(!s0.waits.some(x => /Secteur résidentiel/.test(x.what)), 'ni en attente');
+});
+
+t('un prix p\u00e9rim\u00e9 fait redemander une case', () => {
+  const g = app(s => {
+    s.syncAt = SOIR;
+    s.planets.forEach(p => { p.lf = { 11101: { ...CASE_OK, lvl: 26, next: 25 } }; });
+  }, SOIR, null, true);
+  const m = g.dailyMissions().find(x => x.id === 'lfb');
+  assert.ok(m && /Clique une case/.test(m.what), 'il redemande le prix : ' + (m && m.what));
+});
+
+t('une page visit\u00e9e sans aucune case ne se r\u00e9clame plus', () => {
+  // la recherche de forme de vie demande un bâtiment : tant qu'il manque,
+  // la page est vide. Rien à relever, donc rien à rappeler.
+  const g = app(s => {
+    s.syncAt = SOIR;
+    s.planets.forEach(p => { p.lfSeen = { lfresearch: SOIR }; });
+  }, SOIR, null, true);
+  assert.ok(!g.dailyMissions().some(x => x.id === 'lfr'),
+    'le copilote est passé, il n\'y avait rien : il se tait');
+});
+
 t('une case verrouill\u00e9e par un pr\u00e9requis reste exclue', () => {
   // « Prérequis non remplis » n'est pas une question de ressources : aucune
   // attente ne la débloquera, l'annoncer serait un faux espoir.

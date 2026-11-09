@@ -85,6 +85,7 @@ async function merge(s) {
       cur.lf = { ...(cur.lf || {}) };
       for (const [id, v] of Object.entries(s.lf)) cur.lf[id] = { ...(cur.lf[id] || {}), ...v, at: s.at };
     }
+    if (s.lfSeen) cur.lfSeen = { ...(cur.lfSeen || {}), ...s.lfSeen };
     if (s.stock.m != null) cur.stock = { ...s.stock, at: s.at };
     if (s.energy != null) { cur.energy = s.energy; cur.energyLevels = JSON.stringify(cur.b); }
     if (s.ships && Object.keys(s.ships).length) {

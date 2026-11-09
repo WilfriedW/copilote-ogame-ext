@@ -85,6 +85,11 @@
         state: /pas assez/i.test(tip) ? 'short' : /pr[ée]requis/i.test(tip) ? 'locked' : 'ok'
       };
     });
+    // Être passé sur une page vide est une information : la file demande un
+    // bâtiment que le joueur n'a pas, il n'y a rien à relever.
+    const lfPage = /lfbuildings/i.test(component) ? 'lfbuilding'
+      : /lfresearch/i.test(component) ? 'lfresearch' : null;
+
     const det = document.getElementById('technologydetails');
     const detId = det ? +det.dataset.technologyId : 0;
     if (detId >= 11000) {
@@ -167,6 +172,7 @@
       movePage: /movement/i.test(component),
       artefacts,
       lf,
+      lfSeen: lfPage ? { [lfPage]: Date.now() } : null,
       slots,
       timers: unique
     };

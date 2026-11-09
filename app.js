@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.12.1';
+const APP_VERSION = '1.12.2';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -181,6 +181,19 @@ const LF_NAMES = Object.assign({}, typeof OG_LF_BUILD !== 'undefined' ? OG_LF_BU
   typeof OG_LF_TECH !== 'undefined' ? OG_LF_TECH : {});
 
 /**
+ * Le prix relevé vaut-il encore ? Il a été lu pour un niveau précis ; dès que
+ * la case monte, il décrit un palier déjà franchi. La liste donne le niveau
+ * courant à chaque visite, le panneau de détail ne se rouvre pas tout seul :
+ * c'est la comparaison des deux qui dit si le chiffre est encore bon.
+ * @param {object} v case relevée
+ * @returns {boolean}
+ */
+function lfPriced(v){
+  return !!(v && v.cost && v.cost.some(x=>x>0) && v.secs > 0
+    && v.next === (v.lvl || 0) + 1);
+}
+
+/**
  * Cases de forme de vie proposables sur une planète, la moins chère d'abord.
  * Une case n'est proposable que si le jeu l'a dite constructible ET en a
  * affiché le prix : sans prix, on ne sait pas quand elle sera payable, et
@@ -191,8 +204,7 @@ const LF_NAMES = Object.assign({}, typeof OG_LF_BUILD !== 'undefined' ? OG_LF_BU
  */
 function lfCandidates(p, queue){
   return Object.entries(p.lf || {})
-    .filter(([id,v]) => lfQueue(id) === queue && v && v.state !== 'locked'
-      && v.cost && v.cost.some(x=>x>0) && v.secs > 0)
+    .filter(([id,v]) => lfQueue(id) === queue && v && v.state !== 'locked' && lfPriced(v))
     .map(([id,v]) => ({id:+id, cost:v.cost, secs:v.secs, next:v.next || (v.lvl||0)+1,
       nom: v.nom || v.name || LF_NAMES[id] || 'Forme de vie',
       why:'La case la moins chère de cette file.'}))
@@ -985,9 +997,11 @@ function dailyMissions(){
     // dans la liste.
     const lfState = (p, q) => {
       const cases = Object.entries(p.lf || {}).filter(([id])=>lfQueue(id)===q);
-      if(!cases.length) return {need:'page', n:0};
+      // Page déjà ouverte et vide : la file demande un bâtiment que le joueur
+      // n'a pas encore. Rien à relever, donc rien à lui rappeler.
+      if(!cases.length) return {need:(p.lfSeen||{})[q] ? null : 'page', n:0};
       const libres = cases.filter(([,v])=>v && v.state !== 'locked');
-      if(libres.some(([,v])=>v.cost && v.secs)) return {need:null, n:cases.length};
+      if(libres.some(([,v])=>lfPriced(v))) return {need:null, n:cases.length};
       return {need: libres.length ? 'prix' : null, n:cases.length};
     };
     const lfCard = (q, id, quoi, page) => {
@@ -1767,6 +1781,7 @@ function applyGame(g){
     if(gp.name) p.name = gp.name;
     if(gp.coords) p.coords = gp.coords;
     if(gp.lf) p.lf = Object.assign({}, p.lf, gp.lf);
+    if(gp.lfSeen) p.lfSeen = Object.assign({}, p.lfSeen, gp.lfSeen);
     if(gp.tmax != null) p.tmax = gp.tmax;
     Object.assign(p.b, gp.b || {});
     if(gp.sats != null) p.sats = gp.sats;
