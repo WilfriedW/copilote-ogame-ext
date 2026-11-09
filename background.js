@@ -112,8 +112,25 @@ async function merge(s) {
   if (!api || !api.at || api.host !== game.meta.host) apiRefresh(false);
 }
 
+/**
+ * Ouvre une page du jeu dans l'onglet OGame déjà ouvert, sinon dans un nouvel
+ * onglet. On ne navigue que vers OGame : l'URL vient du panneau, on la vérifie
+ * quand même avant de l'envoyer à un onglet.
+ * @param {string} url page du jeu
+ */
+function goToGame(url) {
+  if (!OGAME.test(url || '')) return;
+  chrome.tabs.query({}, tabs => {
+    const t = tabs.find(x => OGAME.test(x.url || ''));
+    if (!t) return void chrome.tabs.create({ url });
+    chrome.tabs.update(t.id, { url, active: true });
+    chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
+  });
+}
+
 chrome.runtime.onMessage.addListener(msg => {
   if (msg && msg.type === 'snapshot' && msg.data) merge(msg.data);
+  if (msg && msg.type === 'go' && msg.url) goToGame(msg.url);
   if (msg && msg.type === 'alert' && msg.text) showAlertWindow(msg.text);
   if (msg && msg.type === 'apiRefresh') apiRefresh(!!msg.force);
 });

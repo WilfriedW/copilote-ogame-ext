@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.10.0';
+const APP_VERSION = '1.11.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -142,6 +142,38 @@ function qHtml(q){
   const i = String(q || '').indexOf(' · ');
   return i < 0 ? esc(q || '') : esc(q.slice(0, i)) + ' ' + planetTag(q.slice(i + 3));
 }
+/* Le copilote n'ouvre que des pages du jeu : il ne remplit aucun formulaire,
+   ne clique sur rien et ne lance rien à ta place. Un lien, pas un robot. */
+const GO_KIND = {t:'research', ship:'shipyard', shipbuild:'shipyard', sats:'shipyard',
+  transfer:'fleetdispatch', fleet:'fleetdispatch', expo:'fleetdispatch', raid:'galaxy'};
+const GO_MISSION = {lfb:'lfbuilding', lfr:'lfresearch', artefacts:'lfresearch',
+  discovery:'galaxy', raid:'galaxy', inactive:'galaxy', 'raid-go':'galaxy', 'colo-taken':'galaxy',
+  fleetslots:'movement', 'colo-fly':'movement', 'colo-eval':'overview', night:'fleetdispatch'};
+/* Les bâtiments se répartissent sur deux pages ; les hangars sont côté Ressources. */
+const GO_FACILITIES = new Set(['robot','shipyard','lab','nanite']);
+
+/** URL d'une page du jeu sur une planète, ou null tant que le serveur est inconnu. */
+function goUrl(comp, pi){
+  if(!S.host || !comp) return null;
+  const gid = (S.planets[pi] || {}).gid;
+  return `https://${S.host}/game/index.php?page=ingame&component=${comp}${gid ? `&cp=${gid}` : ''}`;
+}
+/** URL où se fait une action du plan, ou null. */
+function actGo(a){
+  if(!a) return null;
+  if(a.kind === 'b') return goUrl(GO_FACILITIES.has(a.k) ? 'facilities' : 'supplies', a.p);
+  // une recherche se lance depuis la planète qui porte le laboratoire
+  const pi = a.kind === 't' ? S.planets.indexOf(labPlanet()) : a.p;
+  return goUrl(GO_KIND[a.kind], pi);
+}
+/** URL où se fait une mission du jour, ou null. */
+function missionGo(m){
+  if(!m) return null;
+  const tag = (m.tags || [])[0];
+  return goUrl(GO_MISSION[m.id], tag ? S.planets.findIndex(p=>planetRef(p) === tag) : hubIndex());
+}
+/** Attribut de lien pour une carte, vide quand on ne sait pas où l'envoyer. */
+function goAttr(url){ return url ? ` data-go="${esc(url)}"` : ''; }
 function labPlanet(){ return S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
 function labLevel(){ return Math.max(0, ...S.planets.map(p=>p.b.lab)); }
 /** Research time in seconds. */
@@ -665,10 +697,10 @@ function simulateDay(){
       tryResearch('pre');
       if(wantColony && !sim.colShip && sim.tech.impulse>=3 && dep.b.shipyard>=4 && dep.sq<=Tm && !(dep.bq>Tm && dep.bqKey==='shipyard')){
         const c = COL_SHIP_COST, key='ship:col', mine = goals.find(g=>g.key===key);
-        if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*S.settings.eco)*3600; dep.sq=Tm+d; sim.colShip=true; sim.colReady=Tm+d; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'', cost:c, dur:d, end:Tm+d, kind:'ship'}); }
+        if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*S.settings.eco)*3600; dep.sq=Tm+d; sim.colShip=true; sim.colReady=Tm+d; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'', cost:c, dur:d, end:Tm+d, kind:'ship', p:dep.i}); }
         else { setGoal(key, 'le vaisseau de colonisation', c, dep, Tm); waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), miss:missOf(dep,c)}); }
       }
-      if(wantColony && sim.colShip && sim.colReady<=Tm){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight, kind:'fleet'}); }
+      if(wantColony && sim.colShip && sim.colReady<=Tm){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight, kind:'fleet', p:dep.i}); }
       const hubP = P[Math.min(hubIndex(), P.length-1)];
       if(P.length>1) for(const q of P){
         if(q===hubP || (q.transferAt||0)>Tm) continue;
@@ -803,7 +835,7 @@ function actHtml(a, withBtn){
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,p:a.p,n:a.n,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
-  return `<li><div><div class="q">${qHtml(a.q)}</div><div class="w">${esc(a.what)}</div></div>${btn||'<span></span>'}<div class="m">${m}</div></li>`;
+  return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}</div><div class="w">${esc(a.what)}</div></div>${btn||'<span></span>'}<div class="m">${m}</div></li>`;
 }
 
 /* ---------- mise à l'abri ---------- */
@@ -1279,7 +1311,7 @@ today(){
   for(const m of timed){ let host = null; for(const x of plan.sessions) if(x.T <= m.at) host = x; if(host && host!==s0){ if(!slotMs.has(host)) slotMs.set(host, []); slotMs.get(host).push(m); } else m.at = 0; }
   const nowMs = missions.filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
   const infoMs = missions.filter(m=>m.info);
-  const taskHtml = m=>`<li class="task"><div><div class="q">${qHtml(m.q||'À faire')}</div><div class="w">${esc(m.what)}</div></div><button class="btn sm" data-done="${m.id}">Fait</button><div class="m">${(m.tags||[]).map(planetTag).join('')}<span>${esc(m.why)}</span></div><details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
+  const taskHtml = m=>`<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}</div><div class="w">${esc(m.what)}</div></div><button class="btn sm" data-done="${m.id}">Fait</button><div class="m">${(m.tags||[]).map(planetTag).join('')}<span>${esc(m.why)}</span></div><details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${s0.acts.map(a=>actHtml(a,true)).join('')}${nowMs.map(taskHtml).join('')}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
@@ -1500,6 +1532,16 @@ function bind(){
   on('ioImport','click',()=>{ try{ const d=JSON.parse(document.getElementById('ioText').value); if(!d.planets||!d.settings) throw 0; S=Object.assign(sample(),d); S.sample=false; save(); render(); toast('Données importées'); }catch(e){ msg('Texte invalide : colle une sauvegarde complète'); } });
   on('ioReset','click',e=>{ const b=e.currentTarget; if(b.dataset.armed){ S=sample(); save(); render(); toast('Réinitialisé'); } else { b.dataset.armed='1'; b.textContent='Confirmer la réinitialisation'; b.classList.remove('ghost'); } });
 }
+// Un clic sur la carte ouvre la page du jeu. Les boutons gardent leur rôle :
+// « Lancé » et « Fait » ne doivent jamais faire changer de page par surprise.
+view.addEventListener('click', e=>{
+  // « Comment faire » se lit sans partir : seul le corps de la carte navigue.
+  if(e.target.closest('button, a, summary, input, select, .how')) return;
+  const li = e.target.closest('li[data-go]'); if(!li) return;
+  const url = li.dataset.go;
+  if(IS_EXT) chrome.runtime.sendMessage({type:'go', url});
+  else window.open(url, '_blank', 'noopener');
+});
 view.addEventListener('click',e=>{
   const ab=e.target.closest('[data-addb]'); if(ab){ const [p,k,l]=ab.dataset.addb.split(':'); S.plan.push({type:'b',p:+p,k,lvl:+l}); save(); toast('Ajouté au plan'); }
   const rm=e.target.closest('[data-rm]'); if(rm){ S.plan.splice(+rm.dataset.rm,1); save(); refresh(); }
@@ -1644,6 +1686,7 @@ function applyGame(g){
   if(!g) return;
   const m = g.meta || {};
   if(m.playerId) S.me = m.playerId;
+  if(m.host) S.host = m.host;
   S.explored = g.explored || S.explored || {};
   if(m.eco) S.settings.eco = m.eco;
   if(m.fleet) S.settings.fleet = m.fleet;

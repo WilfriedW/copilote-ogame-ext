@@ -20,7 +20,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -217,6 +217,60 @@ t('avec ses propres vaisseaux, la colonie envoie directement', () => {
   assert.ok(a, 'un rapatriement est proposé');
   assert.ok(/Colonie/.test(a.q), 'l\'action se passe sur la colonie : ' + a.q);
   assert.ok(/Rapatrier vers Planète mère/.test(a.what), a.what);
+});
+
+/* ---------- ouvrir la bonne page du jeu ---------- */
+
+/** Un empire synchronisé : on connaît le serveur et l'identifiant des planètes. */
+const relie = s => {
+  s.host = 's199-fr.ogame.gameforge.com';
+  s.planets[0].gid = '33601';
+  s.planets[1].gid = '33602';
+};
+
+t('une mine renvoie sur la page Ressources de sa planète', () => {
+  const g = app(relie);
+  assert.equal(g.actGo({ kind: 'b', k: 'metal', p: 1 }),
+    'https://s199-fr.ogame.gameforge.com/game/index.php?page=ingame&component=supplies&cp=33602');
+});
+
+t('un labo renvoie sur Installations, pas sur Ressources', () => {
+  const g = app(relie);
+  assert.ok(/component=facilities/.test(g.actGo({ kind: 'b', k: 'lab', p: 0 })),
+    'le laboratoire est une installation : ' + g.actGo({ kind: 'b', k: 'lab', p: 0 }));
+});
+
+t('une recherche renvoie sur la planète qui porte le labo', () => {
+  // le labo est sur la planète mère dans l'état de test
+  const g = app(relie);
+  const url = g.actGo({ kind: 't', k: 'astro' });
+  assert.ok(/component=research/.test(url), url);
+  assert.ok(/cp=33601/.test(url), 'la recherche se lance depuis le labo : ' + url);
+});
+
+t('sans synchronisation, aucune carte n\'est cliquable', () => {
+  // le serveur n'est connu qu'après un passage dans le jeu : inventer une URL
+  // enverrait le joueur sur un univers qui n'est pas le sien.
+  const g = app();
+  assert.equal(g.actGo({ kind: 'b', k: 'metal', p: 0 }), null);
+});
+
+t('chaque lien dit sur quelle planète aller', () => {
+  const g = app(relie);
+  g.REFRESH.today();
+  const liens = (g.html().tdNow || '').match(/data-go="[^"]*"/g) || [];
+  assert.ok(liens.length, 'des liens sont attendus');
+  // sans cp=, le jeu ouvre la page de la planète couramment sélectionnée :
+  // le joueur se retrouve au bon endroit sur la mauvaise planète.
+  const sansPlanete = liens.filter(l => !/cp=\d+/.test(l));
+  assert.deepEqual(sansPlanete, [], 'liens sans planète : ' + sansPlanete.join(' '));
+});
+
+t('les cartes rendues portent leur lien', () => {
+  const g = app(relie);
+  g.REFRESH.today();
+  assert.ok(/data-go="https:\/\/s199-fr/.test(g.html().tdNow || ''),
+    'au moins une carte doit \u00eatre cliquable');
 });
 
 /* ---------- savoir sur quelle planète agir ---------- */

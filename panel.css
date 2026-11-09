@@ -130,6 +130,10 @@ details.card>summary .note{text-transform:none;letter-spacing:0;font-family:var(
 .tl .time small{display:block;font:500 11px var(--f-mono);color:var(--muted)}
 .sumline{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .acts li.task{border-left:3px solid var(--accent)}
+/* Carte cliquable : elle ouvre la page du jeu correspondante. */
+.acts li[data-go]{cursor:pointer}
+.acts li[data-go]:hover{outline:1px solid var(--accent)}
+.acts li[data-go] button{cursor:pointer}
 /* Pastille de planète : couleur stable par rang, pour repérer d'un coup d'œil
    où agir. --pc est posé en ligne par planetTag(). */
 .ptag{display:inline-block;vertical-align:1px;padding:1px 7px;border-radius:999px;font:700 10px/1.6 var(--f-body);letter-spacing:.03em;text-transform:none;white-space:nowrap;color:var(--pc);background:color-mix(in srgb,var(--pc) 16%,transparent);border:1px solid color-mix(in srgb,var(--pc) 40%,transparent)}
