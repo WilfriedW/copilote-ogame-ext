@@ -247,6 +247,25 @@ t('une case trop ch\u00e8re \u00e0 l\'instant T devient une attente, pas un sile
   assert.ok(w.miss[0] > 0, 'avec ce qui manque : ' + JSON.stringify(w.miss));
 });
 
+t('une case de forme de vie ne passe pas devant un b\u00e2timent qui attend', () => {
+  // Les deux files sont indépendantes, mais le stock est commun. Une case à
+  // 20 000 métal vide ce que la mine met de côté : elle doit s'effacer, comme
+  // le chantier spatial le fait déjà.
+  const g = app(s => {
+    // la centrale de la planète mère est à moins d'une heure de ses ressources
+    s.planets[0].stock = { m: 20000, c: 8000, d: 1000, at: SOIR };
+    s.planets[0].lf = { 11101: { ...CASE_OK, cost: [20000, 0, 0], secs: 60 } };
+  }, SOIR);
+  const s0 = g.simulateDay().sessions[0];
+  const mere = w => /Planète mère/.test(w.q);
+  assert.ok(s0.waits.some(w => mere(w) && /Centrale/.test(w.what)),
+    'la centrale de la planète mère doit bien être en attente');
+  assert.ok(!s0.acts.some(a => a.kind === 'lf'),
+    'la forme de vie ne doit pas prendre le stock que la centrale économise');
+  assert.ok(s0.waits.some(w => mere(w) && /Secteur résidentiel/.test(w.what)),
+    'elle attend son tour au lieu de disparaître');
+});
+
 t('un prix relev\u00e9 pour un niveau d\u00e9pass\u00e9 n\'est plus utilis\u00e9', () => {
   // le joueur a monté la case deux fois depuis : le prix lu alors ne vaut
   // plus rien, et l'afficher annoncerait un niveau déjà construit.

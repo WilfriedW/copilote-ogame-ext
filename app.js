@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.12.2';
+const APP_VERSION = '1.12.3';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -826,7 +826,10 @@ function simulateDay(){
         for(const q of ['lfbuilding','lfresearch']){
           if(p.lfq[q]>Tm) continue;
           const ch = lfCandidates(p, q)[0]; if(!ch) continue;
-          const res = reserveOf(p,Tm);
+          // Les deux files tournent à part, mais puisent au même stock : une
+          // case s'efface devant ce qu'un bâtiment proche est en train de
+          // réunir, comme le chantier spatial le fait déjà.
+          const res = reserveOf(p,Tm).map((x,j)=>x+softRes(p)[j]);
           if(can(p, ch.cost, res)){
             pay(p, ch.cost); p.lfq[q] = Tm + ch.secs*1000;
             const id = ch.id, lvl = ch.next;
