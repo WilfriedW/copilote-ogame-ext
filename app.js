@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.13.0';
+const APP_VERSION = '1.13.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -708,6 +708,9 @@ function simulateDay(){
     for(const Tm of sessionTimes(now)){
       advance(Tm);
       const acts=[], waits=[], soft=[];
+      /* Tout ce qu'un bâtiment de cette planète est en train de réunir, sans
+         limite de délai : ce que la production n'aura pas couvert d'ici là. */
+      const softAll = p=>{ const pr=production(p), r=[pr.m,pr.c,pr.d], out=[0,0,0]; for(const x of soft){ if(x.p!==p) continue; x.cost.forEach((c,j)=>out[j]+=Math.max(0, c - r[j]*(x.eta/3600+iv))); } return out; };
       const softRes = p=>{ const pr=production(p), r=[pr.m,pr.c,pr.d], out=[0,0,0]; for(const x of soft){ if(x.p!==p || !(x.eta<=3*3600)) continue; x.cost.forEach((c,j)=>out[j]+=Math.max(0, c - r[j]*(x.eta/3600+iv))); } return out; };
       const labP = P.reduce((a,p)=>p.b.lab>a.b.lab?p:a, P[0]);
       const dep = P[colShipAt()>=0 ? colShipAt() : Math.min(+S.colo.from||0, P.length-1)];
@@ -824,7 +827,12 @@ function simulateDay(){
         for(const p of P) for(const q of ['lfbuilding','lfresearch']){
           if(p.lfq[q]>Tm) continue;
           const ch = lfCandidates(p, q)[0]; if(!ch) continue;
-          const res = devant ? reserveOf(p,Tm) : reserveOf(p,Tm).map((x,j)=>x+softRes(p)[j]);
+          // softRes ne retient que les chantiers de moins de trois heures : c'est
+          // le bon arbitrage pour la flotte, qui part et revient. Pour les
+          // formes de vie, « après les bâtiments » doit valoir aussi pour une
+          // centrale à six heures, sinon le réglage ne protège presque rien.
+          const res = devant ? reserveOf(p,Tm)
+            : reserveOf(p,Tm).map((x,j)=>x+softAll(p)[j]);
           if(can(p, ch.cost, res)){
             pay(p, ch.cost); p.lfq[q] = Tm + ch.secs*1000;
             const id = ch.id, lvl = ch.next;

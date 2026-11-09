@@ -273,6 +273,21 @@ const disputeStock = s => {
   s.planets[0].lf = { 11101: { ...CASE_OK, cost: [20000, 0, 0], secs: 60 } };
 };
 
+t('\u00ab apr\u00e8s les b\u00e2timents \u00bb vaut aussi pour un b\u00e2timent lointain', () => {
+  // La centrale de la planète mère est à six heures de son compte. Le joueur
+  // qui a choisi « après les bâtiments » n'a pas demandé « après ceux de la
+  // prochaine heure » : une case ne doit pas lui manger cette épargne.
+  const g = app(s => {
+    s.planets[0].stock = { m: 20000, c: 4000, d: 1000, at: SOIR };
+    s.planets[0].lf = { 11101: { ...CASE_OK, cost: [20000, 0, 0], secs: 60 } };
+  }, SOIR);
+  const s0 = g.simulateDay().sessions[0];
+  assert.ok(s0.waits.some(w => /Planète mère/.test(w.q) && /Centrale/.test(w.what)),
+    'la centrale attend bien');
+  assert.ok(!s0.acts.some(a => a.kind === 'lf'),
+    'la case ne doit pas passer devant : ' + s0.acts.map(a => a.what).join(', '));
+});
+
 t('r\u00e9gl\u00e9es en priorit\u00e9, les formes de vie passent devant', () => {
   const g = app(s => { disputeStock(s); s.day.lf = 'first'; }, SOIR);
   assert.ok(g.simulateDay().sessions[0].acts.some(a => a.kind === 'lf'),
