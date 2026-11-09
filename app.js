@@ -654,7 +654,19 @@ function simulateDay(){
         for(const [kk,n] of Object.entries(ships)) src.ships[kk]-=n;
         sim.ev.push({at:arrive, fn:()=>{ sent.forEach((x,j)=>hubP.st[j]+=x); }});
         sim.ev.push({at:back, fn:()=>{ for(const [kk,n] of Object.entries(ships)) src.ships[kk]=(src.ships[kk]||0)+n; }});
-        acts.push({q:'Flotte · '+planetRef(q), what:`Rapatrier vers ${planetRef(hubP)} : ${fmt(sent[0])} M, ${fmt(sent[1])} C, ${fmt(sent[2])} D`, why:`${own?shipList(ships)+' de '+planetRef(q):'Envoie '+shipList(ships)+' de '+planetRef(hubP)+' les chercher'} · mission Transporter · arrivée vers ${hm(arrive)}`, dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i});
+        // Une mission Transporter part toujours de la planète où est la flotte.
+        // Sans transporteur sur la colonie, la première mission va donc À VIDE
+        // de la planète d'accueil vers la colonie : c'est elle qu'on annonce,
+        // et le minuteur prévient quand les vaisseaux s'y posent.
+        const charge = `${fmt(sent[0])} M, ${fmt(sent[1])} C, ${fmt(sent[2])} D`;
+        const aller = Tm + fl.secs*1000;
+        acts.push(own
+          ? {q:'Flotte · '+planetRef(q), what:`Rapatrier vers ${planetRef(hubP)} : ${charge}`,
+             why:`${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${hm(arrive)}`,
+             dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i}
+          : {q:'Flotte · '+planetRef(hubP), what:`Envoie ${shipList(ships)} vers ${planetRef(q)}`,
+             why:`À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Transporter, arrivée vers ${hm(aller)}. Tu les renvoies ensuite chargés de ${charge}, retour vers ${hm(arrive)}.`,
+             dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i});
       }
       const fsl = fleetSlots(), fleetFull = fsl && fsl[0]>=fsl[1] && Tm < sim.fleetFreeAt;
       const maxExpo = fleetFull ? 0 : Math.max((S.slots && S.slots.expo ? S.slots.expo[1] : 0), Math.floor(Math.sqrt(sim.tech.astro)) + (S.settings.cls==='explorer'?2:0));

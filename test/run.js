@@ -151,6 +151,51 @@ t('planetRef ne plante pas sans planète', () => {
   assert.equal(g.planetRef(null), '');
 });
 
+/* ---------- rapatrier des ressources ---------- */
+
+/** La colonie déborde, mais toute la flotte est sur la planète mère. */
+function flotteAuHub(s) {
+  s.planets[1].stock = { m: 60000, c: 40000, d: 5000, at: JOUR };
+  s.planets[1].ships = {};
+  s.planets[0].ships = { lc: 10, sc: 5 };
+}
+
+/** La colonie a ses propres transporteurs. */
+function flotteSurPlace(s) {
+  s.planets[1].stock = { m: 60000, c: 40000, d: 5000, at: JOUR };
+  s.planets[1].ships = { lc: 6 };
+  s.planets[0].ships = { sc: 2 };
+}
+
+const transfert = g => g.simulateDay().sessions[0].acts.find(a => a.kind === 'transfer');
+
+t('sans vaisseau sur la colonie, l\'action se passe là où est la flotte', () => {
+  const g = app(flotteAuHub, JOUR);
+  const a = transfert(g);
+  assert.ok(a, 'un rapatriement est proposé');
+  assert.ok(/Planète mère/.test(a.q),
+    'l\'étiquette doit désigner la planète d\'où partent les vaisseaux : ' + a.q);
+  assert.ok(!/^Flotte · Colonie/.test(a.q),
+    'surtout pas la colonie, où il n\'y a aucun vaisseau');
+});
+
+t('le texte dit qu\'il faut d\'abord envoyer les vaisseaux à vide', () => {
+  const g = app(flotteAuHub, JOUR);
+  const a = transfert(g);
+  assert.ok(/vers Colonie/.test(a.what),
+    'la première mission va vers la colonie : ' + a.what);
+  assert.ok(/vide/.test(a.what + a.why),
+    'et elle part à vide : ' + a.why);
+});
+
+t('avec ses propres vaisseaux, la colonie envoie directement', () => {
+  const g = app(flotteSurPlace, JOUR);
+  const a = transfert(g);
+  assert.ok(a, 'un rapatriement est proposé');
+  assert.ok(/Colonie/.test(a.q), 'l\'action se passe sur la colonie : ' + a.q);
+  assert.ok(/Rapatrier vers Planète mère/.test(a.what), a.what);
+});
+
 /* ---------- résultat ---------- */
 
 if (failures.length) {
