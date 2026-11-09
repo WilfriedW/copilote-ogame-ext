@@ -196,6 +196,43 @@ t('avec ses propres vaisseaux, la colonie envoie directement', () => {
   assert.ok(/Rapatrier vers Planète mère/.test(a.what), a.what);
 });
 
+/* ---------- des transporteurs à demeure sur les colonies ---------- */
+
+/** Une colonie qui produit bien, déborde, et n'a ni chantier ni vaisseau. */
+function colonieSansFlotte(s) {
+  const c = s.planets[1];
+  // solaire large : l'énergie ne doit pas masquer ce qu'on teste
+  c.b = Object.assign({}, c.b, { metal: 12, crystal: 10, deut: 8, solar: 20, robot: 2, shipyard: 0, smetal: 2, scrystal: 2 });
+  c.ships = {};
+  c.stock = { m: 70000, c: 50000, d: 9000, at: JOUR };
+  s.planets[0].ships = { lc: 10, sc: 5 };
+  s.planets[0].stock = { m: 200000, c: 150000, d: 40000, at: JOUR };
+}
+
+const surColonie = (g, motif) => g.simulateDay().sessions[0].acts
+  .filter(a => /Colonie/.test(a.q) && motif.test(a.what));
+
+t('une colonie qui déborde sans chantier se voit proposer un chantier spatial', () => {
+  const g = app(colonieSansFlotte, JOUR);
+  const bati = surColonie(g, /Chantier spatial|Usine de robots/);
+  assert.ok(bati.length, 'rien de proposé pour équiper la colonie : '
+    + g.simulateDay().sessions[0].acts.map(a => a.q + ' → ' + a.what).join(' / '));
+});
+
+t('une colonie équipée construit ses propres transporteurs', () => {
+  const g = app(s => { colonieSansFlotte(s); s.planets[1].b.shipyard = 2; }, JOUR);
+  const flotte = surColonie(g, /transporteur/);
+  assert.ok(flotte.length, 'aucun transporteur construit sur la colonie');
+  assert.ok(/Chantier spatial · Colonie/.test(flotte[0].q), flotte[0].q);
+});
+
+t('la planète principale garde sa logique habituelle', () => {
+  const g = app(colonieSansFlotte, JOUR);
+  const s0 = g.simulateDay().sessions[0];
+  const mere = s0.acts.filter(a => /Planète mère/.test(a.q));
+  assert.ok(mere.length, 'la planète mère a toujours des actions');
+});
+
 /* ---------- résultat ---------- */
 
 if (failures.length) {

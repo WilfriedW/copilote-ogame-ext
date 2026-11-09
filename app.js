@@ -527,6 +527,24 @@ function nextResearch(){
   }
   return {list, labNeed, k:list[0]&&list[0].k, lvl:list[0]&&list[0].lvl};
 }
+/**
+ * Une colonie qui déborde et n'a aucun transporteur doit pouvoir en construire.
+ * Sinon chaque rapatriement commence par un vol à vide depuis la planète
+ * d'accueil. Ne s'emploie que sur les planètes simulées, qui portent `st`.
+ * @param {object} p planète simulée
+ * @param {object} hub planète d'accueil
+ * @returns {boolean}
+ */
+function needsOwnCargo(p, hub){
+  if(!hub || p === hub) return false;
+  if(((p.ships||{}).lc||0) + ((p.ships||{}).sc||0) > 0) return false;
+  // `transferAt` est posé dès qu'un rapatriement part de cette planète : c'est
+  // le fait durable. Le stock, lui, vient d'être vidé par ce rapatriement —
+  // le tester seul ne renverrait jamais vrai.
+  if(p.transferAt) return true;
+  const cap = production(p).cap;
+  return [0,1,2].some(j => p.st[j] > cap[j]*0.7);
+}
 /** Building candidates for a simulated planet, most urgent first. */
 function pickBuildings(p, ctx){
   const pr = production(p), iv = ctx.iv, rates=[pr.m,pr.c,pr.d], sk=['smetal','scrystal','sdeut'], out=[];
@@ -543,6 +561,10 @@ function pickBuildings(p, ctx){
     else add('shipyard', 'Prérequis du vaisseau de colonisation');
   }
   if(ctx.labNeed && p===ctx.labP && p.b.lab<ctx.labNeed && !ctx.researchRunning) add('lab', 'Débloque la recherche suivante');
+  if(needsOwnCargo(p, ctx.hub) && p.b.shipyard < 2){
+    if(p.b.robot < 2) add('robot', 'Prérequis du chantier spatial');
+    else add('shipyard', 'Pour que cette colonie ait ses propres transporteurs');
+  }
   const robotTarget = Math.min(10, Math.floor(Math.max(p.b.metal,p.b.crystal)/2));
   if(p.b.robot < robotTarget && best){ const rc = levelCost(B.robot,p.b.robot+1); if(mse(...rc) <= 3*mse(...best.cost)) add('robot', 'Accélère toutes les constructions'); }
   for(const u of ranked.slice(0,2)){
@@ -704,15 +726,17 @@ function simulateDay(){
       }
       for(const p of P){
         if(p.bq>Tm) continue;
-        const cands = pickBuildings(p, {T:Tm, iv, wantColony, dep, labNeed:nr.labNeed, labP, researchRunning:sim.rq>Tm, goals});
+        const cands = pickBuildings(p, {T:Tm, iv, wantColony, dep, labNeed:nr.labNeed, labP, researchRunning:sim.rq>Tm, goals, hub:hubP});
         if(!cands.length) continue;
         const res = reserveOf(p,Tm);
         const ch = cands.find(x=>can(p, levelCost(B[x.k],x.lvl), res));
         if(ch){ const c=levelCost(B[ch.k],ch.lvl); pay(p,c); const d=buildTime(ch.k,ch.lvl,p), k=ch.k, L=ch.lvl; p.bq=Tm+d; p.bqKey=k; sim.ev.push({at:Tm+d, fn:()=>{ p.b[k]=Math.max(p.b[k],L); }}); acts.push({q:'Bâtiment · '+planetRef(p), what:`${B[k].n} ${L}`, why:ch.why, cost:c, dur:d, end:Tm+d, kind:'b', k, lvl:L, p:p.i}); }
         else { const w=cands.map(x=>({x, eta:wait(p,levelCost(B[x.k],x.lvl))})).sort((a,b)=>a.eta-b.eta)[0]; waits.push({q:'Bâtiment · '+planetRef(p), what:`${B[w.x.k].n} ${w.x.lvl}`, eta:w.eta, held:res.some(x=>x>0), miss:missOf(p,levelCost(B[w.x.k],w.x.lvl))}); soft.push({p, cost:levelCost(B[w.x.k],w.x.lvl), eta:w.eta}); }
       }
-      {
-        const p = P[Math.min(hubIndex(), P.length-1)];
+      // Chaque planète qui a un chantier peut construire : le hub pour la soute
+      // de l'empire, une colonie pour ses propres transporteurs.
+      for(const p of P){
+        const estHub = p === hubP;
         if(p.b.shipyard>=2 && p.sq<=Tm){
           const total = k=>P.reduce((a,q)=>a+(q.ships[k]||0),0) + (sim.away[k]||0);
           const pr = P.reduce((a,q)=>{ const r=production(q); return a+mse(r.m,r.c,r.d); },0);
@@ -721,9 +745,19 @@ function simulateDay(){
           const cargoNow = total('lc')*lcC + total('sc')*scC;
           const big = shipReqOk('lc',p) ? 'lc' : 'sc', unitC = big==='lc'?lcC:scC;
           const wants = [];
-          if(shipReqOk('pr',p) && total('pr')<5) wants.push({k:'pr', n:5-total('pr'), why:'Sondes pour espionner les inactifs avant de les piller'});
-          if(shipReqOk(big,p) && cargoNow < cargoTarget){ const miss = Math.ceil((cargoTarget-cargoNow)/unitC); wants.push({k:big, n:Math.max(1, Math.ceil(miss/4)), why:`Soute pour expéditions et pillages : ${fmt(cargoNow)} sur ${fmt(cargoTarget)} visés`}); }
-          if(shipReqOk('pf',p) && total('pf')<1) wants.push({k:'pf', n:1, why:'Un éclaireur double les gains des expéditions'});
+          if(estHub && shipReqOk('pr',p) && total('pr')<5) wants.push({k:'pr', n:5-total('pr'), why:'Sondes pour espionner les inactifs avant de les piller'});
+          if(estHub && shipReqOk(big,p) && cargoNow < cargoTarget){ const miss = Math.ceil((cargoTarget-cargoNow)/unitC); wants.push({k:big, n:Math.max(1, Math.ceil(miss/4)), why:`Soute pour expéditions et pillages : ${fmt(cargoNow)} sur ${fmt(cargoTarget)} visés`}); }
+          if(estHub && shipReqOk('pf',p) && total('pf')<1) wants.push({k:'pf', n:1, why:'Un éclaireur double les gains des expéditions'});
+          // Une colonie compte SA soute, pas celle de l'empire : sinon la flotte
+          // du hub suffit toujours et aucune colonie ne s'équipe jamais.
+          if(needsOwnCargo(p, hubP) && shipReqOk(big,p)){
+            const mien = (p.ships.lc||0)*lcC + (p.ships.sc||0)*scC;
+            const r = production(p), besoin = (r.m + r.c + r.d) * 6;
+            if(mien < besoin){
+              const miss = Math.min(10, Math.max(1, Math.ceil((besoin-mien)/unitC)));
+              wants.unshift({k:big, n:miss, why:`Transporteurs à demeure : cette colonie rapatrie sans attendre une flotte venue d'ailleurs`});
+            }
+          }
           const res = reserveOf(p,Tm).map((x,j)=>x+softRes(p)[j]);
           for(const w of wants){
             const c = SHIP_COST[w.k], afford = Math.min(...c.map((x,j)=>x>0 ? Math.floor((p.st[j]-res[j])/x) : Infinity));
