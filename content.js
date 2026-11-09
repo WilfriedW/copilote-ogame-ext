@@ -178,6 +178,47 @@
     };
   }
 
+  /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On
+     n'ajoute qu'une classe et une étiquette inerte : rien n'est cliqué, rien
+     n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
+  let hints = {};
+  const STYLE = `li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-offset:2px;border-radius:4px}
+.copilote-tag{position:absolute;left:0;bottom:0;z-index:5;pointer-events:none;background:#8aa9ff;color:#0c1120;
+font:700 11px/1.5 Arial,sans-serif;padding:1px 6px;border-radius:0 6px 0 4px;white-space:nowrap}`;
+
+  function paint() {
+    if (!document.getElementById('copilote-style')) {
+      const st = document.createElement('style');
+      st.id = 'copilote-style';
+      st.textContent = STYLE;
+      document.head.appendChild(st);
+    }
+    const want = hints[meta('planet-id')] || {};
+    document.querySelectorAll('li.technology.copilote-next').forEach(li => {
+      if (want[li.dataset.technology] === undefined) {
+        li.classList.remove('copilote-next');
+        const t = li.querySelector('.copilote-tag');
+        if (t) t.remove();
+      }
+    });
+    for (const [tech, label] of Object.entries(want)) {
+      const li = document.querySelector(`li.technology[data-technology="${tech}"]`);
+      if (!li || li.classList.contains('copilote-next')) continue;
+      li.classList.add('copilote-next');
+      const tag = document.createElement('span');
+      tag.className = 'copilote-tag';
+      tag.textContent = label;
+      li.appendChild(tag);
+    }
+  }
+
+  try {
+    chrome.storage.local.get('hints', v => { hints = (v && v.hints) || {}; paint(); });
+    chrome.storage.onChanged.addListener((ch, area) => {
+      if (area === 'local' && ch.hints) { hints = ch.hints.newValue || {}; paint(); }
+    });
+  } catch (e) {}
+
   let last = '', dirty = true;
   /** Sends the snapshot to the extension only when something changed. */
   function send() {
@@ -192,6 +233,6 @@
   }
 
   new MutationObserver(() => { dirty = true; }).observe(document.body, { childList: true, subtree: true });
-  send();
-  setInterval(send, 5000);
+  send(); paint();
+  setInterval(() => { send(); paint(); }, 5000);
 })();

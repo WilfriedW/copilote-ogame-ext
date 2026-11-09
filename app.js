@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.13.1';
+const APP_VERSION = '1.14.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -209,6 +209,35 @@ function lfCandidates(p, queue){
       nom: v.nom || v.name || LF_NAMES[id] || 'Forme de vie',
       why:'La case la moins chère de cette file.'}))
     .sort((a,b)=>mse(...a.cost)-mse(...b.cost));
+}
+/* Identifiants de tuile du jeu, dans l'autre sens : le plan raisonne en clés
+   (« metal »), la page du jeu en numéros (« 1 »). */
+const BUILD_ID = Object.fromEntries(Object.entries(OG_BUILD).map(([id,k])=>[k,id]));
+const TECH_ID = Object.fromEntries(Object.entries(OG_TECH).map(([id,k])=>[k,id]));
+
+/**
+ * Traduit les actions du plan en indices à surligner dans la page du jeu.
+ * Rangés par planète du jeu, puis par identifiant de tuile. Une action sans
+ * tuile — une expédition, un rapatriement — n'en produit aucun, et une
+ * planète que le jeu ne nous a pas encore nommée non plus : surligner au
+ * hasard serait pire que ne rien surligner.
+ * @param {object[]} acts actions de la session en cours
+ * @returns {object} { [planetId]: { [technologyId]: libellé } }
+ */
+function planHints(acts){
+  const out = {};
+  const put = (p, tech, lvl)=>{
+    const gid = p && p.gid;
+    if(!gid || !tech || !lvl) return;
+    (out[gid] = out[gid] || {})[tech] = `Copilote · niveau ${lvl}`;
+  };
+  for(const a of acts || []){
+    const p = S.planets[a.p];
+    if(a.kind === 'b') put(p, BUILD_ID[a.k], a.lvl);
+    else if(a.kind === 't') put(p, TECH_ID[a.k], a.lvl);
+    else if(a.kind === 'lf') put(p, a.id, a.lvl);
+  }
+  return out;
 }
 function labPlanet(){ return S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
 function labLevel(){ return Math.max(0, ...S.planets.map(p=>p.b.lab)); }
@@ -837,7 +866,7 @@ function simulateDay(){
             pay(p, ch.cost); p.lfq[q] = Tm + ch.secs*1000;
             const id = ch.id, lvl = ch.next;
             sim.ev.push({at:Tm + ch.secs*1000, fn:()=>{ if(p.lf[id]) p.lf[id] = Object.assign({}, p.lf[id], {lvl, cost:null}); }});
-            acts.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, why:ch.why, cost:ch.cost, dur:ch.secs, end:Tm+ch.secs*1000, kind:'lf', id:ch.id, p:p.i});
+            acts.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, why:ch.why, cost:ch.cost, dur:ch.secs, end:Tm+ch.secs*1000, kind:'lf', id:ch.id, lvl:ch.next, p:p.i});
           } else {
             const eta = wait(p, ch.cost);
             waits.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, eta, held:res.some(x=>x>0), miss:missOf(p, ch.cost)});
@@ -1402,6 +1431,9 @@ function factorPill(f){ return f>=1 ? `<span class="pill good">Énergie OK</span
 const REFRESH = {
 today(){
   const plan = simulateDay(), s0 = plan.sessions[0];
+  // La page du jeu surligne ce que le plan recommande. Elle n'en fait rien
+  // d'autre : aucun clic, aucun envoi, c'est un repère visuel.
+  if(IS_EXT) try{ chrome.storage.local.set({hints: planHints(s0.acts)}); }catch(e){}
   const nowParts = [];
   const missions = dailyMissions().filter(m=>!missionDone(m));
   const timed = missions.filter(m=>m.at && m.at > plan.now), slotMs = new Map();

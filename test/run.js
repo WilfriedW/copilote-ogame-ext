@@ -20,7 +20,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -421,6 +421,29 @@ t('une mine renvoie sur la page Ressources de sa planète', () => {
   const g = app(relie);
   assert.equal(g.actGo({ kind: 'b', k: 'metal', p: 1 }),
     'https://s199-fr.ogame.gameforge.com/game/index.php?page=ingame&component=supplies&cp=33602');
+});
+
+t('le plan se traduit en indices pour la page du jeu', () => {
+  const g = app(relie);
+  const h = g.planHints([
+    { kind: 'b', k: 'metal', lvl: 9, p: 1 },
+    { kind: 't', k: 'astro', lvl: 4, p: 0 },
+    { kind: 'lf', id: 11101, lvl: 25, p: 0 },
+    { kind: 'expo', p: 0 }
+  ]);
+  // les indices sont rangés par planète du jeu, puis par identifiant de tuile
+  assert.equal(h['33602']['1'], 'Copilote · niveau 9', 'la mine de métal porte l\'identifiant 1');
+  assert.equal(h['33601']['124'], 'Copilote · niveau 4', 'Astrophysique porte le 124');
+  assert.equal(h['33601']['11101'], 'Copilote · niveau 25');
+  assert.deepEqual(Object.keys(h['33601']).sort(), ['11101', '124'],
+    'une expédition n\'a pas de tuile à surligner');
+});
+
+t('sans plan\u00e8te connue du jeu, aucun indice', () => {
+  // avant la première synchro il n'y a pas d'identifiant : surligner au
+  // hasard vaudrait mieux ne rien surligner du tout.
+  const g = app();
+  assert.deepEqual(g.planHints([{ kind: 'b', k: 'metal', lvl: 9, p: 0 }]), {});
 });
 
 t('une case de forme de vie renvoie sur sa propre file', () => {
