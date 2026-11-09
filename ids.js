@@ -20,6 +20,35 @@ var OG_LF_TECH = {
   11203:'Moteurs à fusion', 11204:'Générateur de champ de camouflage'
 };
 
+/**
+ * File de jeu d'une case de forme de vie, d'après son identifiant.
+ * Chaque race occupe deux séries consécutives : bâtiments puis recherches,
+ * donc la centaine impaire construit et la paire cherche (111xx/112xx pour
+ * les Humains, 113xx/114xx pour la suivante).
+ * @param {number|string} id identifiant de la case
+ * @returns {string} lfbuilding | lfresearch
+ */
+function lfQueue(id){ return Math.floor(+id / 100) % 2 ? 'lfbuilding' : 'lfresearch'; }
+
+/**
+ * Durée ISO-8601 affichée par le jeu (« PT30M34S »), en secondes.
+ * @param {string|null} iso attribut datetime
+ * @returns {number} secondes, 0 si rien n'est affiché
+ */
+function lfSecs(iso){
+  const m = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(String(iso || ''));
+  return m ? (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) : 0;
+}
+/**
+ * Rang de la ressource d'une ligne de coût, d'après ses classes.
+ * @param {string} cls attribut class de la ligne
+ * @returns {number} 0 métal, 1 cristal, 2 deutérium, -1 autre chose
+ */
+function lfRes(cls){
+  const c = String(cls || '');
+  return /\bmetal\b/.test(c) ? 0 : /\bcrystal\b/.test(c) ? 1 : /deuter/.test(c) ? 2 : -1;
+}
+
 var OG_SHIPS = {202:'sc', 203:'lc', 204:'lf', 205:'hf', 206:'cr', 207:'bs', 208:'col', 209:'rec', 210:'pr', 211:'bb', 213:'ds', 215:'bc', 218:'rp', 219:'pf'};
 
 var OG_MISSIONS = {1:'attaque', 2:'attaque groupée', 3:'transport', 4:'stationnement', 5:'stationnement allié', 6:'espionnage', 7:'colonisation', 8:'recyclage', 9:'destruction de lune', 15:'expédition', 18:'exploration'};

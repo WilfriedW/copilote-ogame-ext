@@ -79,6 +79,12 @@ async function merge(s) {
       if (OG_BUILD[id]) cur.b[OG_BUILD[id]] = lvl;
       else if (id === '212') cur.sats = lvl;
     }
+    // Les formes de vie s'apprennent au fil des visites : on complète sans
+    // jamais effacer ce qu'une autre page avait déjà appris sur cette planète.
+    if (s.lf && Object.keys(s.lf).length) {
+      cur.lf = { ...(cur.lf || {}) };
+      for (const [id, v] of Object.entries(s.lf)) cur.lf[id] = { ...(cur.lf[id] || {}), ...v, at: s.at };
+    }
     if (s.stock.m != null) cur.stock = { ...s.stock, at: s.at };
     if (s.energy != null) { cur.energy = s.energy; cur.energyLevels = JSON.stringify(cur.b); }
     if (s.ships && Object.keys(s.ships).length) {

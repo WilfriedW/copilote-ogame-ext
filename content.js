@@ -11,8 +11,7 @@
   function queueOf(techId, where) {
     const id = +techId || 0;
     if (OG_TECH[techId] || /research/i.test(where) && !/lf/i.test(where)) return 'research';
-    if (id >= 11200 && id % 100 >= 1 && Math.floor(id / 100) % 10 === 2) return 'lfresearch';
-    if (id >= 11000) return 'lfbuilding';
+    if (id >= 11000) return lfQueue(id);
     if (/lfresearch/i.test(where)) return 'lfresearch';
     if (/lfbuilding/i.test(where)) return 'lfbuilding';
     if (/shipyard|defense|defence/i.test(where) || (id >= 200 && id < 600)) return 'shipyard';
@@ -72,6 +71,35 @@
       const type = queueOf(techId, box ? box.id : component);
       timers.push({ end, techId, type, label, planetId: OG_TECH[techId] ? null : planetId });
     });
+
+    /* Formes de vie : la liste donne le niveau et l'état de chaque case, et le
+       panneau de détail — ouvert par le joueur lui-même — donne le coût exact
+       du niveau suivant et sa durée, bonus compris. On ne clique sur rien. */
+    const lf = {};
+    document.querySelectorAll('li.technology[data-technology]').forEach(li => {
+      const id = +li.dataset.technology;
+      if (id < 11000) return;
+      const tip = String(li.dataset.tooltipTitle || '');
+      lf[id] = {
+        lvl: +(li.querySelector('.level[data-value]')?.dataset.value) || 0,
+        state: /pas assez/i.test(tip) ? 'short' : /pr[ée]requis/i.test(tip) ? 'locked' : 'ok'
+      };
+    });
+    const det = document.getElementById('technologydetails');
+    const detId = det ? +det.dataset.technologyId : 0;
+    if (detId >= 11000) {
+      const cost = [0, 0, 0];
+      det.querySelectorAll('.costs li.resource[data-value]').forEach(c => {
+        const j = lfRes(c.className);
+        if (j >= 0) cost[j] = +c.dataset.value || 0;
+      });
+      lf[detId] = Object.assign(lf[detId] || {}, {
+        name: clean(det.querySelector('h3')?.textContent),
+        next: +(det.querySelector('.information .level[data-value]')?.dataset.value) || 0,
+        cost,
+        secs: lfSecs(det.querySelector('.build_duration time[datetime]')?.getAttribute('datetime'))
+      });
+    }
 
     const ships = {};
     if (/fleetdispatch|shipyard/i.test(component)) {
@@ -138,6 +166,7 @@
       moves,
       movePage: /movement/i.test(component),
       artefacts,
+      lf,
       slots,
       timers: unique
     };

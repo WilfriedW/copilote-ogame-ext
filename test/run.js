@@ -20,7 +20,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -219,6 +219,84 @@ t('avec ses propres vaisseaux, la colonie envoie directement', () => {
   assert.ok(/Rapatrier vers Planète mère/.test(a.what), a.what);
 });
 
+/* ---------- les formes de vie dans le plan ---------- */
+
+/* Relevé sur le jeu : Secteur résidentiel 25 sur la planète mère. */
+const CASE_OK = { lvl: 24, state: 'ok', next: 25, cost: [13911, 3974, 0], secs: 1834,
+  nom: 'Secteur résidentiel' };
+const vieSur = (lf, modif) => app(s => {
+  s.planets[0].lf = lf;
+  if (modif) modif(s);
+}, SOIR);
+const premierLf = g => g.simulateDay().sessions[0].acts.find(a => a.kind === 'lf');
+
+t('une case de forme de vie payable entre dans le plan', () => {
+  const a = premierLf(vieSur({ 11101: CASE_OK }));
+  assert.ok(a, 'elle doit être proposée comme une construction ordinaire');
+  assert.deepEqual(a.cost, [13911, 3974, 0], 'au prix que le jeu affiche');
+  assert.equal(a.dur, 1834, 'et à la durée que le jeu affiche');
+  assert.ok(/Secteur résidentiel 25/.test(a.what), a.what);
+});
+
+t('une case que le jeu dit impayable n\'est pas propos\u00e9e', () => {
+  // « Pas assez de ressources » vient du jeu : le copilote n'a pas à insister.
+  const a = premierLf(vieSur({ 11101: { ...CASE_OK, state: 'short' } }));
+  assert.ok(!a, 'rien à proposer tant que le jeu dit non');
+});
+
+t('une case verrouill\u00e9e n\'est pas propos\u00e9e', () => {
+  const a = premierLf(vieSur({ 11104: { lvl: 0, state: 'locked' } }));
+  assert.ok(!a, 'un prérequis manquant n\'est pas une action');
+});
+
+t('sans prix connu, le copilote demande d\'ouvrir la page une fois', () => {
+  const g = app(s => {
+    s.syncAt = SOIR;
+    s.planets.forEach(p => { p.lf = { 11101: { lvl: 24, state: 'ok' } }; });
+  }, SOIR, null, true);
+  assert.ok(!premierLf(g), 'on ne propose pas ce qu\'on ne sait pas chiffrer');
+  const m = g.dailyMissions().find(x => x.id === 'lfb');
+  assert.ok(m && /relever/.test(m.what), 'il demande le relevé : ' + (m && m.what));
+});
+
+t('la carte ne r\u00e9clame plus rien quand tout est trop cher', () => {
+  const g = app(s => {
+    s.syncAt = SOIR;
+    s.planets.forEach(p => { p.lf = { 11101: { ...CASE_OK, state: 'short' } }; });
+  }, SOIR, null, true);
+  assert.ok(!g.dailyMissions().some(m => m.id === 'lfb'),
+    'le joueur n\'a pas de quoi : le lui rappeler toutes les deux heures ne sert à rien');
+});
+
+/* ---------- lire les formes de vie sur la page ---------- */
+
+t('chaque identifiant tombe dans la bonne file', () => {
+  const g = app();
+  // relevé : 111xx bâtiments des Humains, 112xx leurs recherches
+  assert.equal(g.lfQueue(11101), 'lfbuilding', 'Secteur résidentiel');
+  assert.equal(g.lfQueue(11201), 'lfresearch', 'Ambassadeurs intergalactiques');
+  // la race suivante décale de deux séries
+  assert.equal(g.lfQueue(11301), 'lfbuilding');
+  assert.equal(g.lfQueue(11401), 'lfresearch');
+});
+
+t('la durée de production se lit au format du jeu', () => {
+  const g = app();
+  assert.equal(g.lfSecs('PT30M34S'), 1834, 'relevé sur Secteur résidentiel 25');
+  assert.equal(g.lfSecs('PT1H2M3S'), 3723);
+  assert.equal(g.lfSecs('PT45S'), 45);
+  assert.equal(g.lfSecs(null), 0, 'pas de durée affichée : on ne devine pas');
+});
+
+t('chaque ligne de coût est rangée dans la bonne ressource', () => {
+  const g = app();
+  assert.equal(g.lfRes('resource metal icon sufficient tooltip'), 0);
+  assert.equal(g.lfRes('resource crystal icon insufficient tooltip'), 1);
+  assert.equal(g.lfRes('resource deuterium icon tooltip'), 2);
+  // une classe inconnue ne doit pas atterrir dans le métal par défaut
+  assert.equal(g.lfRes('resource energy icon'), -1);
+});
+
 /* ---------- ouvrir la bonne page du jeu ---------- */
 
 /** Un empire synchronisé : on connaît le serveur et l'identifiant des planètes. */
@@ -232,6 +310,12 @@ t('une mine renvoie sur la page Ressources de sa planète', () => {
   const g = app(relie);
   assert.equal(g.actGo({ kind: 'b', k: 'metal', p: 1 }),
     'https://s199-fr.ogame.gameforge.com/game/index.php?page=ingame&component=supplies&cp=33602');
+});
+
+t('une case de forme de vie renvoie sur sa propre file', () => {
+  const g = app(relie);
+  assert.ok(/component=lfbuildings/.test(g.actGo({ kind: 'lf', id: 11101, p: 0 })));
+  assert.ok(/component=lfresearch/.test(g.actGo({ kind: 'lf', id: 11201, p: 0 })));
 });
 
 t('un labo renvoie sur Installations, pas sur Ressources', () => {
@@ -292,21 +376,28 @@ t('les cartes rendues portent leur lien', () => {
 const avecFiles = timers => app(s => { s.syncAt = SOIR; s.timers = timers; }, SOIR, null, true);
 const mission = (g, id) => g.dailyMissions().find(m => m.id === id);
 
-t('la file de forme de vie vide nomme les planètes concernées', () => {
-  // un chantier tourne sur la planète mère, rien sur la colonie
-  const g = avecFiles([{ queue: 'lfbuilding', p: 0, end: SOIR + 36e5, done: false }]);
-  const m = mission(g, 'lfb');
-  assert.ok(m, 'la colonie n\'a rien en file : il faut le dire');
-  assert.deepEqual(m.tags, ['Colonie'],
-    'seule la colonie est en attente : ' + JSON.stringify(m.tags));
+t('le rel\u00e9v\u00e9 n\'est r\u00e9clam\u00e9 que pour les plan\u00e8tes jamais vues', () => {
+  // la mère est relevée, prix compris ; la colonie n'a jamais été ouverte
+  const g = app(s => {
+    s.syncAt = SOIR;
+    s.planets[0].lf = { 11101: { lvl: 24, state: 'ok', next: 25, cost: [13911, 3974, 0], secs: 1834 },
+      11201: { lvl: 1, state: 'ok', next: 2, cost: [5000, 5000, 0], secs: 900 } };
+  }, SOIR, null, true);
+  const m = g.dailyMissions().find(x => x.id === 'lfb');
+  assert.ok(m, 'la colonie reste à relever');
+  assert.deepEqual(m.tags, ['Colonie'], 'et elle seule : ' + JSON.stringify(m.tags));
 });
 
-t('toutes les files occupées : pas de carte', () => {
-  const g = avecFiles([
-    { queue: 'lfbuilding', p: 0, end: SOIR + 36e5, done: false },
-    { queue: 'lfbuilding', p: 1, end: SOIR + 36e5, done: false }
-  ]);
-  assert.ok(!mission(g, 'lfb'), 'rien à signaler quand les deux files tournent');
+t('une fois tout relev\u00e9, plus aucune carte de forme de vie', () => {
+  const vue = { 11101: { lvl: 24, state: 'ok', next: 25, cost: [13911, 3974, 0], secs: 1834 },
+    11201: { lvl: 1, state: 'ok', next: 2, cost: [5000, 5000, 0], secs: 900 } };
+  const g = app(s => {
+    s.syncAt = SOIR;
+    s.planets.forEach(p => { p.lf = { ...vue }; });
+  }, SOIR, null, true);
+  // le plan s'en charge d\u00e9sormais : le rappel n'a plus de raison d'\u00eatre
+  assert.ok(!g.dailyMissions().some(x => x.id === 'lfb' || x.id === 'lfr'),
+    'le plan a pris le relais');
 });
 
 t('l\'étiquette met la planète en pastille colorée', () => {

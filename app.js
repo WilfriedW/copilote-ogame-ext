@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.11.1';
+const APP_VERSION = '1.12.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -162,6 +162,7 @@ function goUrl(comp, pi){
 function actGo(a){
   if(!a) return null;
   if(a.kind === 'b') return goUrl(GO_FACILITIES.has(a.k) ? 'facilities' : 'supplies', a.p);
+  if(a.kind === 'lf') return goUrl(lfQueue(a.id) === 'lfresearch' ? 'lfresearch' : 'lfbuildings', a.p);
   // une recherche se lance depuis la planète qui porte le laboratoire
   const pi = a.kind === 't' ? S.planets.indexOf(labPlanet()) : a.p;
   return goUrl(GO_KIND[a.kind], pi);
@@ -174,6 +175,29 @@ function missionGo(m){
 }
 /** Attribut de lien pour une carte, vide quand on ne sait pas où l'envoyer. */
 function goAttr(url){ return url ? ` data-go="${esc(url)}"` : ''; }
+/* Noms relevés sur le jeu ; le panneau de détail en apporte d'autres au fil
+   des visites, et ceux-là priment puisqu'ils viennent de la partie en cours. */
+const LF_NAMES = Object.assign({}, typeof OG_LF_BUILD !== 'undefined' ? OG_LF_BUILD : {},
+  typeof OG_LF_TECH !== 'undefined' ? OG_LF_TECH : {});
+
+/**
+ * Cases de forme de vie proposables sur une planète, la moins chère d'abord.
+ * Une case n'est proposable que si le jeu l'a dite constructible ET en a
+ * affiché le prix : sans prix, on ne sait pas quand elle sera payable, et
+ * l'annoncer quand même ferait exactement ce qu'on veut éviter.
+ * @param {object} p planète simulée
+ * @param {string} queue lfbuilding | lfresearch
+ * @returns {object[]} candidats triés
+ */
+function lfCandidates(p, queue){
+  return Object.entries(p.lf || {})
+    .filter(([id,v]) => lfQueue(id) === queue && v && v.state === 'ok'
+      && v.cost && v.cost.some(x=>x>0) && v.secs > 0)
+    .map(([id,v]) => ({id:+id, cost:v.cost, secs:v.secs, next:v.next || (v.lvl||0)+1,
+      nom: v.nom || v.name || LF_NAMES[id] || 'Forme de vie',
+      why:'Le jeu l\'annonce constructible : c\'est la case la moins chère de cette file.'}))
+    .sort((a,b)=>mse(...a.cost)-mse(...b.cost));
+}
 function labPlanet(){ return S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
 function labLevel(){ return Math.max(0, ...S.planets.map(p=>p.b.lab)); }
 /** Research time in seconds. */
@@ -623,7 +647,7 @@ function pickBuildings(p, ctx){
 function simulateDay(){
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
-  const P = S.planets.map((p,i)=>({i, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now}));
+  const P = S.planets.map((p,i)=>({i, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}}));
   const expoBusy = [];
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}, fleetFreeAt: fleetReturns[0] || now+30*60e3};
@@ -635,6 +659,7 @@ function simulateDay(){
     else if(t.kind==='x' && t.k==='expo'){ expoBusy.push(t.end); busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[t.p]){ const p=P[t.p]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
     else if(t.kind==='x' && t.k==='fleet'){ busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[t.p]){ const p=P[t.p]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
     else if(t.kind==='x' && (t.k==='shipyard' || t.queue==='shipyard') && P[t.p]){ const p=P[t.p]; p.sq=Math.max(p.sq,t.end); busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); if(t.manual && t.ships) sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); }
+    else if(t.kind==='x' && (t.queue==='lfbuilding' || t.queue==='lfresearch') && P[t.p]){ const p=P[t.p]; p.lfq[t.queue]=Math.max(p.lfq[t.queue],t.end); busy.push({q:'Forme de vie · '+planetRef(p), what:timerLabel(t), end:t.end}); }
     else if(t.kind==='x' && t.k==='sats' && P[t.p]){ const p=P[t.p]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
     else if(t.kind==='x' && t.k==='colship'){ const p=P[+S.colo.from]||P[0]; p.sq=t.end; sim.colShip=true; sim.colReady=t.end; busy.push({q:'Chantier spatial', what:'Vaisseau de colonisation', end:t.end}); }
   }
@@ -782,6 +807,26 @@ function simulateDay(){
         if(ch){ const c=levelCost(B[ch.k],ch.lvl); pay(p,c); const d=buildTime(ch.k,ch.lvl,p), k=ch.k, L=ch.lvl; p.bq=Tm+d; p.bqKey=k; sim.ev.push({at:Tm+d, fn:()=>{ p.b[k]=Math.max(p.b[k],L); }}); acts.push({q:'Bâtiment · '+planetRef(p), what:`${B[k].n} ${L}`, why:ch.why, cost:c, dur:d, end:Tm+d, kind:'b', k, lvl:L, p:p.i}); }
         else { const w=cands.map(x=>({x, eta:wait(p,levelCost(B[x.k],x.lvl))})).sort((a,b)=>a.eta-b.eta)[0]; waits.push({q:'Bâtiment · '+planetRef(p), what:`${B[w.x.k].n} ${w.x.lvl}`, eta:w.eta, held:res.some(x=>x>0), miss:missOf(p,levelCost(B[w.x.k],w.x.lvl))}); soft.push({p, cost:levelCost(B[w.x.k],w.x.lvl), eta:w.eta}); }
       }
+      // Les deux files de forme de vie sont indépendantes de la file des
+      // bâtiments : elles tournent en parallèle, mais puisent au même stock.
+      // On ne propose que ce que le jeu a chiffré lui-même.
+      for(const p of P){
+        for(const q of ['lfbuilding','lfresearch']){
+          if(p.lfq[q]>Tm) continue;
+          const ch = lfCandidates(p, q)[0]; if(!ch) continue;
+          const res = reserveOf(p,Tm);
+          if(can(p, ch.cost, res)){
+            pay(p, ch.cost); p.lfq[q] = Tm + ch.secs*1000;
+            const id = ch.id, lvl = ch.next;
+            sim.ev.push({at:Tm + ch.secs*1000, fn:()=>{ if(p.lf[id]) p.lf[id] = Object.assign({}, p.lf[id], {lvl, cost:null}); }});
+            acts.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, why:ch.why, cost:ch.cost, dur:ch.secs, end:Tm+ch.secs*1000, kind:'lf', id:ch.id, p:p.i});
+          } else {
+            const eta = wait(p, ch.cost);
+            waits.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, eta, held:res.some(x=>x>0), miss:missOf(p, ch.cost)});
+            soft.push({p, cost:ch.cost, eta});
+          }
+        }
+      }
       // Chaque planète qui a un chantier peut construire : le hub pour la soute
       // de l'empire, une colonie pour ses propres transporteurs.
       for(const p of P){
@@ -834,7 +879,7 @@ function actHtml(a, withBtn){
   const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : ''].filter(Boolean).join('');
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
-  else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,p:a.p,n:a.n,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
+  else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,p:a.p,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
   return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}</div><div class="w">${esc(a.what)}</div></div>${btn||'<span></span>'}<div class="m">${m}</div></li>`;
 }
 
@@ -934,15 +979,23 @@ function dailyMissions(){
     how:['Galaxie : bouton <b>Découverte</b> en haut, ou icône ADN violette sur une ligne.', 'Fais-en sur plusieurs systèmes : le nombre par jour est limité.', 'Une race trouvée ? Coche-la dans Réglages › Formes de vie pour que Copilote en tienne compte.']});
   if(S.artefacts!=null && S.artefacts>=200) out.push({id:'artefacts', q:'Formes de vie', every:24, sev:'good', what:`${fmt(S.artefacts)} artefacts : choisis une technologie de forme de vie`, why:'Au palier 1, 200 artefacts permettent de choisir précisément la technologie d\'un slot au lieu du tirage aléatoire.', how:['Forme de vie › Recherche : sur un slot libre, choisis la technologie voulue.', 'Attention : changer un slot déjà pris oblige à réinitialiser tout le palier.']});
   if(IS_EXT && S.syncAt && now - S.syncAt < 3600e3){
-    // Chaque planète a sa propre file de forme de vie : dire « vide » sans dire
-    // laquelle laisse le joueur chercher. Le copilote ne voit une file qu'après
-    // un passage sur la page Forme de vie de la planète — d'où la réserve.
-    const lfIdle = q => S.planets.filter((p,i)=>!(S.timers||[]).some(t=>t.queue===q && !t.done && t.end>now && t.p===i));
-    const vu = 'Le copilote ne voit cette file qu\'après un passage sur la page Forme de vie de la planète.';
-    const lfb = lfIdle('lfbuilding');
-    if(lfb.length) out.push({id:'lfb', q:'Formes de vie', every:2, sev:'warn', tags:lfb.map(planetRef), what:`File des bâtiments de forme de vie vide : ${lfb.map(planetRef).join(', ')}`, why:`Le plan ne gère pas cette file : pense à la remplir toi-même. ${vu}`, how:['Sélectionne la planète dans la liste de gauche, puis menu Forme de vie.', 'Lance le bâtiment le moins cher qui augmente ta production.']});
-    const lfr = lfIdle('lfresearch');
-    if(lfr.length) out.push({id:'lfr', q:'Formes de vie', every:2, sev:'info', tags:lfr.map(planetRef), what:`Recherche de forme de vie à l'arrêt : ${lfr.map(planetRef).join(', ')}`, why:`Si un slot est débloqué, lance sa recherche : elle tourne en parallèle de la recherche classique. ${vu}`, how:['Sélectionne la planète, puis Forme de vie › Recherche.', '« Sélectionner » prend la technologie de ta race, « Aléatoire » pioche parmi tes races découvertes.']});
+    // Une fois que le copilote a lu les niveaux ET un prix, la file entre dans
+    // le plan comme une mine : plus rien à rappeler ici. Il ne reste donc que
+    // le cas où il lui manque le relevé — et ce rappel-là disparaît pour de bon
+    // dès que le joueur a ouvert la page une fois.
+    const lfToLook = q => S.planets.filter(p => {
+      const cases = Object.entries(p.lf || {}).filter(([id])=>lfQueue(id)===q);
+      if(!cases.length) return true;
+      const ok = cases.filter(([,v])=>v && v.state==='ok');
+      return ok.length > 0 && !ok.some(([,v])=>v.cost && v.secs);
+    });
+    const lfHow = ['Ouvre la page sur cette planète, puis clique une case.',
+      'Le copilote y lit le niveau, le prix et la durée affichés par le jeu.',
+      'Ensuite elle entre dans le plan comme une mine, avec le « il manque » et l\'heure.'];
+    const lfb = lfToLook('lfbuilding');
+    if(lfb.length) out.push({id:'lfb', q:'Formes de vie', every:12, sev:'info', tags:lfb.map(planetRef), what:`Bâtiments de forme de vie à relever : ${lfb.map(planetRef).join(', ')}`, why:'Le copilote ne connaît ni les niveaux ni les prix de cette file tant qu\'il ne les a pas vus affichés.', how:lfHow});
+    const lfr = lfToLook('lfresearch');
+    if(lfr.length) out.push({id:'lfr', q:'Formes de vie', every:12, sev:'info', tags:lfr.map(planetRef), what:`Recherches de forme de vie à relever : ${lfr.map(planetRef).join(', ')}`, why:'Le copilote ne connaît ni les niveaux ni les prix de cette file tant qu\'il ne les a pas vus affichés.', how:lfHow});
   }
   const occ = API && API.planets ? occupied() : null;
   if(occ && parseC(S.colo.target) && occ.has(S.colo.target) && occ.get(S.colo.target)!==S.me && !colSentNow()){ const alt = colonyCandidates()[0]; out.unshift({id:'colo-taken', q:'Colonie', every:6, sev:'bad', what:`${S.colo.target} est déjà occupée`, why:alt?`Meilleure position libre proche : ${alt.coords} (${alt.bonus||'pas de bonus'}, ~${alt.fields} cases).`:'Choisis une autre position dans Outils › Cibles.', how:['Outils › Cibles › Où coloniser : clique sur Choisir pour changer la destination.']}); }
@@ -1576,6 +1629,7 @@ view.addEventListener('click', e=>{
     else if(a.kind==='transfer' || a.kind==='raid'){ tm.kind='x'; tm.k='fleet'; tm.ships=a.ships; tm.p=a.p; tm.label=a.kind==='raid' ? `Retour du pillage ${a.coords}` : 'Arrivée du rapatriement'; }
     else if(a.kind==='expo'){ tm.kind='x'; tm.k='expo'; tm.ships=a.ships; tm.p=a.p; tm.label="Retour d'expédition"; }
     else if(a.kind==='sats'){ tm.kind='x'; tm.k='sats'; tm.n=a.n; tm.p=a.p; tm.label=a.what; }
+    else if(a.kind==='lf'){ tm.kind='x'; tm.k='other'; tm.queue=lfQueue(a.id); tm.p=a.p; tm.label=a.what; }
     else { tm.kind='x'; tm.k='colship'; tm.label='Vaisseau de colonisation'; }
     const p = S.planets[a.p] || S.planets[+S.colo.from] || S.planets[0];
     const cost = a.cost || COL_SHIP_COST;
@@ -1701,6 +1755,7 @@ function applyGame(g){
     p.gid = id;
     if(gp.name) p.name = gp.name;
     if(gp.coords) p.coords = gp.coords;
+    if(gp.lf) p.lf = Object.assign({}, p.lf, gp.lf);
     if(gp.tmax != null) p.tmax = gp.tmax;
     Object.assign(p.b, gp.b || {});
     if(gp.sats != null) p.sats = gp.sats;
