@@ -431,10 +431,11 @@ t('le plan se traduit en indices pour la page du jeu', () => {
     { kind: 'lf', id: 11101, lvl: 25, p: 0 },
     { kind: 'expo', p: 0 }
   ]);
-  // les indices sont rangés par planète du jeu, puis par identifiant de tuile
-  assert.equal(h['33602']['1'], 'Copilote · niveau 9', 'la mine de métal porte l\'identifiant 1');
-  assert.equal(h['33601']['124'], 'Copilote · niveau 4', 'Astrophysique porte le 124');
-  assert.equal(h['33601']['11101'], 'Copilote · niveau 25');
+  // Rangés par planète du jeu, puis par identifiant de tuile, et la valeur est
+  // le niveau visé : la page du jeu décide comment l'écrire dans ses tuiles.
+  assert.equal(h['33602']['1'], 9, 'la mine de métal porte l\'identifiant 1');
+  assert.equal(h['33601']['124'], 4, 'Astrophysique porte le 124');
+  assert.equal(h['33601']['11101'], 25);
   assert.deepEqual(Object.keys(h['33601']).sort(), ['11101', '124'],
     'une expédition n\'a pas de tuile à surligner');
 });

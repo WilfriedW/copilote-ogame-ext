@@ -183,8 +183,9 @@
      n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
   let hints = {};
   const STYLE = `li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-offset:2px;border-radius:4px}
-.copilote-tag{position:absolute;left:0;bottom:0;z-index:5;pointer-events:none;background:#8aa9ff;color:#0c1120;
-font:700 11px/1.5 Arial,sans-serif;padding:1px 6px;border-radius:0 6px 0 4px;white-space:nowrap}`;
+.copilote-tag{position:absolute;top:3px;right:3px;z-index:5;pointer-events:none;max-width:calc(100% - 6px);
+overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
+border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}`;
 
   function paint() {
     if (!document.getElementById('copilote-style')) {
@@ -201,13 +202,16 @@ font:700 11px/1.5 Arial,sans-serif;padding:1px 6px;border-radius:0 6px 0 4px;whi
         if (t) t.remove();
       }
     });
-    for (const [tech, label] of Object.entries(want)) {
+    for (const [tech, lvl] of Object.entries(want)) {
       const li = document.querySelector(`li.technology[data-technology="${tech}"]`);
       if (!li || li.classList.contains('copilote-next')) continue;
       li.classList.add('copilote-next');
+      // Court exprès : la tuile est petite et affiche déjà son niveau courant
+      // en bas. L'infobulle porte la phrase entière.
       const tag = document.createElement('span');
       tag.className = 'copilote-tag';
-      tag.textContent = label;
+      tag.textContent = '→ ' + lvl;
+      tag.title = 'Copilote : monter au niveau ' + lvl;
       li.appendChild(tag);
     }
   }

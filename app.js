@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.14.0';
+const APP_VERSION = '1.14.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -217,19 +217,20 @@ const TECH_ID = Object.fromEntries(Object.entries(OG_TECH).map(([id,k])=>[k,id])
 
 /**
  * Traduit les actions du plan en indices à surligner dans la page du jeu.
- * Rangés par planète du jeu, puis par identifiant de tuile. Une action sans
+ * Rangés par planète du jeu, puis par identifiant de tuile, la valeur étant
+ * le niveau visé — la page du jeu décide comment l'écrire. Une action sans
  * tuile — une expédition, un rapatriement — n'en produit aucun, et une
  * planète que le jeu ne nous a pas encore nommée non plus : surligner au
  * hasard serait pire que ne rien surligner.
  * @param {object[]} acts actions de la session en cours
- * @returns {object} { [planetId]: { [technologyId]: libellé } }
+ * @returns {object} { [planetId]: { [technologyId]: niveau visé } }
  */
 function planHints(acts){
   const out = {};
   const put = (p, tech, lvl)=>{
     const gid = p && p.gid;
     if(!gid || !tech || !lvl) return;
-    (out[gid] = out[gid] || {})[tech] = `Copilote · niveau ${lvl}`;
+    (out[gid] = out[gid] || {})[tech] = lvl;
   };
   for(const a of acts || []){
     const p = S.planets[a.p];
