@@ -20,7 +20,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -438,6 +438,19 @@ t('le plan se traduit en indices pour la page du jeu', () => {
   assert.equal(h['33601']['11101'], 25);
   assert.deepEqual(Object.keys(h['33601']).sort(), ['11101', '124'],
     'une expédition n\'a pas de tuile à surligner');
+});
+
+t('l\'\u00e9puration du jeu est \u00e9teinte par d\u00e9faut', () => {
+  // On ne touche pas à l'affichage du jeu sans que le joueur l'ait demandé.
+  const g = app(relie);
+  assert.equal(g.gameSkin([]).lean, false);
+});
+
+t('une fois demand\u00e9e, l\'\u00e9puration part avec les indices', () => {
+  const g = app(s => { relie(s); s.settings.lean = true; });
+  const skin = g.gameSkin([{ kind: 'b', k: 'metal', lvl: 9, p: 1 }]);
+  assert.equal(skin.lean, true);
+  assert.equal(skin.hints['33602']['1'], 9, 'les indices voyagent dans le même envoi');
 });
 
 t('sans plan\u00e8te connue du jeu, aucun indice', () => {

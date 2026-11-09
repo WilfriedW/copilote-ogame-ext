@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.14.1';
+const APP_VERSION = '1.15.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -240,6 +240,13 @@ function planHints(acts){
   }
   return out;
 }
+/**
+ * Ce que la page du jeu doit afficher de notre part : les repères, et si le
+ * joueur a demandé qu'on allège sa mise en page.
+ * @param {object[]} acts actions de la session en cours
+ * @returns {object} charge utile pour le script de page
+ */
+function gameSkin(acts){ return {hints: planHints(acts), lean: !!S.settings.lean}; }
 function labPlanet(){ return S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
 function labLevel(){ return Math.max(0, ...S.planets.map(p=>p.b.lab)); }
 /** Research time in seconds. */
@@ -1410,6 +1417,7 @@ settings(){
       <div class="grid">
         <label class="f">Géologue (+10 % production)<select id="sGeo" data-set="geo"><option value="0" ${!s.geo?'selected':''}>Non</option><option value="1" ${s.geo?'selected':''}>Oui</option></select></label>
         <label class="f">Ingénieur (+10 % énergie)<select id="sEng" data-set="eng"><option value="0" ${!s.eng?'selected':''}>Non</option><option value="1" ${s.eng?'selected':''}>Oui</option></select></label>
+        <label class="f">Épurer la page du jeu<select id="sLean" data-set="lean"><option value="1" ${s.lean?'selected':''}>Oui</option><option value="0" ${!s.lean?'selected':''}>Non</option></select></label>
         <label class="f">Collecteur : +25 % soute transporteurs<select id="sColCargo" data-set="colCargo"><option value="1" ${s.colCargo?'selected':''}>Oui</option><option value="0" ${!s.colCargo?'selected':''}>Non</option></select></label>
         <label class="f">Ratio d'échange M:C:D<input id="sRatio" data-set="ratio" value="${s.ratio.join(':')}"></label>
       </div>
@@ -1434,7 +1442,7 @@ today(){
   const plan = simulateDay(), s0 = plan.sessions[0];
   // La page du jeu surligne ce que le plan recommande. Elle n'en fait rien
   // d'autre : aucun clic, aucun envoi, c'est un repère visuel.
-  if(IS_EXT) try{ chrome.storage.local.set({hints: planHints(s0.acts)}); }catch(e){}
+  if(IS_EXT) try{ chrome.storage.local.set({skin: gameSkin(s0.acts)}); }catch(e){}
   const nowParts = [];
   const missions = dailyMissions().filter(m=>!missionDone(m));
   const timed = missions.filter(m=>m.at && m.at > plan.now), slotMs = new Map();
@@ -1649,7 +1657,7 @@ function bind(){
     const k=el.dataset.set, s=S.settings;
     if(k==='ratio'){ const r=el.value.split(':').map(Number); if(r.length===3 && r.every(x=>x>0)) s.ratio=r; }
     else if(k==='cls') s.cls=el.value;
-    else if(['geo','eng','colCargo'].includes(k)) s[k]=el.value==='1';
+    else if(['geo','eng','colCargo','lean'].includes(k)) s[k]=el.value==='1';
     else s[k]=Math.max(k==='top1'?0:1, parseFloat(el.value)||0);
     changed();
   }));

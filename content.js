@@ -181,7 +181,15 @@
   /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On
      n'ajoute qu'une classe et une étiquette inerte : rien n'est cliqué, rien
      n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
-  let hints = {};
+  let hints = {}, lean = false;
+  /* Chaque règle vise un bloc nommé, repéré sur la page, et ne fait que le
+     masquer. Elles ne s'appliquent que si le joueur a coché « Épurer », et
+     décocher les retire toutes d'un coup. */
+  const LEAN = `html.copilote-lean #mmonetbar,
+html.copilote-lean #siteHeader,
+html.copilote-lean #siteFooter{display:none}
+html.copilote-lean #middle .maincontent > div > header{display:none}`;
+
   const STYLE = `li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-offset:2px;border-radius:4px}
 .copilote-tag{position:absolute;top:3px;right:3px;z-index:5;pointer-events:none;max-width:calc(100% - 6px);
 overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
@@ -191,9 +199,10 @@ border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}`;
     if (!document.getElementById('copilote-style')) {
       const st = document.createElement('style');
       st.id = 'copilote-style';
-      st.textContent = STYLE;
+      st.textContent = STYLE + '\n' + LEAN;
       document.head.appendChild(st);
     }
+    document.documentElement.classList.toggle('copilote-lean', lean);
     const want = hints[meta('planet-id')] || {};
     document.querySelectorAll('li.technology.copilote-next').forEach(li => {
       if (want[li.dataset.technology] === undefined) {
@@ -217,9 +226,10 @@ border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}`;
   }
 
   try {
-    chrome.storage.local.get('hints', v => { hints = (v && v.hints) || {}; paint(); });
+    const take = skin => { hints = (skin && skin.hints) || {}; lean = !!(skin && skin.lean); };
+    chrome.storage.local.get('skin', v => { take(v && v.skin); paint(); });
     chrome.storage.onChanged.addListener((ch, area) => {
-      if (area === 'local' && ch.hints) { hints = ch.hints.newValue || {}; paint(); }
+      if (area === 'local' && ch.skin) { take(ch.skin.newValue); paint(); }
     });
   } catch (e) {}
 
