@@ -2,15 +2,22 @@ var OG_BUILD = {1:'metal', 2:'crystal', 3:'deut', 4:'solar', 12:'fusion', 14:'ro
 
 var OG_TECH = {106:'espionage', 108:'computer', 109:'weapons', 110:'shielding', 111:'armour', 113:'energy', 114:'hyper', 115:'combustion', 117:'impulse', 118:'hyperdrive', 120:'laser', 121:'ion', 122:'plasma', 123:'irn', 124:'astro'};
 
-/* Bâtiments de forme de vie, relevés sur le jeu. Les Humains occupent la
-   série 111xx ; les autres races ont leur propre série, à relever de même
-   plutôt qu'à deviner — un identifiant inventé pointerait sur le mauvais
-   bâtiment sans rien signaler. */
+/* Formes de vie, relevé sur le jeu : chaque race occupe deux séries, les
+   bâtiments puis les recherches. Les Humains ont 111xx et 112xx. Les séries
+   des autres races restent à relever plutôt qu'à déduire — un identifiant
+   inventé pointerait sur la mauvaise technologie sans rien signaler. */
 var OG_LF_BUILD = {
   11101:'Secteur résidentiel', 11102:'Ferme biosphérique', 11103:'Centre de recherche',
   11104:'Académie des sciences', 11105:'Centre de neurocalibrage', 11106:'Fusion à haute énergie',
   11107:'Réserve alimentaire', 11108:'Extraction par fusion', 11109:'Tour d\'habitation',
   11110:'Laboratoire de biotechnologie', 11111:'Métropolis', 11112:'Bouclier planétaire'
+};
+
+/* Recherches des Humains. Le jeu n'affiche que les slots ouverts : cette
+   liste s'arrête là où le relevé s'arrêtait, elle n'est pas complète. */
+var OG_LF_TECH = {
+  11201:'Ambassadeurs intergalactiques', 11202:'Extracteurs à haute performance',
+  11203:'Moteurs à fusion', 11204:'Générateur de champ de camouflage'
 };
 
 var OG_SHIPS = {202:'sc', 203:'lc', 204:'lf', 205:'hf', 206:'cr', 207:'bs', 208:'col', 209:'rec', 210:'pr', 211:'bb', 213:'ds', 215:'bc', 218:'rp', 219:'pf'};
