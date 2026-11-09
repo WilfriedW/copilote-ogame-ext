@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.11.0';
+const APP_VERSION = '1.11.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -146,7 +146,7 @@ function qHtml(q){
    ne clique sur rien et ne lance rien à ta place. Un lien, pas un robot. */
 const GO_KIND = {t:'research', ship:'shipyard', shipbuild:'shipyard', sats:'shipyard',
   transfer:'fleetdispatch', fleet:'fleetdispatch', expo:'fleetdispatch', raid:'galaxy'};
-const GO_MISSION = {lfb:'lfbuilding', lfr:'lfresearch', artefacts:'lfresearch',
+const GO_MISSION = {lfb:'lfbuildings', lfr:'lfresearch', artefacts:'lfresearch',
   discovery:'galaxy', raid:'galaxy', inactive:'galaxy', 'raid-go':'galaxy', 'colo-taken':'galaxy',
   fleetslots:'movement', 'colo-fly':'movement', 'colo-eval':'overview', night:'fleetdispatch'};
 /* Les bâtiments se répartissent sur deux pages ; les hangars sont côté Ressources. */

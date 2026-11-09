@@ -266,6 +266,19 @@ t('chaque lien dit sur quelle planète aller', () => {
   assert.deepEqual(sansPlanete, [], 'liens sans planète : ' + sansPlanete.join(' '));
 });
 
+t('la carte des bâtiments de forme de vie pointe sur lfbuildings', () => {
+  // Relevé sur le jeu : les bâtiments sont au pluriel, la recherche au
+  // singulier. Un nom approchant ouvre la vue d'ensemble sans rien signaler.
+  const g = app(s => { relie(s); s.syncAt = SOIR; s.timers = []; }, SOIR, null, true);
+  assert.ok(g.dailyMissions().some(m => m.id === 'lfb'), 'la carte des bâtiments doit exister');
+  g.REFRESH.today();
+  const rendu = g.html().tdNow || '';
+  assert.ok(/component=lfbuildings&amp;cp=/.test(rendu),
+    'le lien des bâtiments de forme de vie : ' + (rendu.match(/component=lf\w+/g) || []).join(' '));
+  assert.ok(/component=lfresearch&amp;cp=/.test(rendu),
+    'le lien de la recherche de forme de vie : ' + (rendu.match(/component=lf\w+/g) || []).join(' '));
+});
+
 t('les cartes rendues portent leur lien', () => {
   const g = app(relie);
   g.REFRESH.today();
