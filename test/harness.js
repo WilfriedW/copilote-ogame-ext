@@ -29,7 +29,7 @@ function fakeEl() {
  * @param {string[]} want noms des symboles d'app.js à récupérer
  * @returns {object} les symboles demandés
  */
-function loadApp(state, nowMs, want, api) {
+function loadApp(state, nowMs, want, api, ext) {
   const store = { 'ogame-copilot-v1': JSON.stringify(state) };
   const LS = {
     getItem: k => (k in store ? store[k] : null),
@@ -55,10 +55,12 @@ function loadApp(state, nowMs, want, api) {
 
   const chrome = {
     storage: { local: { get(k, cb) { if (cb) cb({}); }, set() {} }, onChanged: { addListener() {} } },
-    runtime: { sendMessage() {} }
+    runtime: { sendMessage() {}, id: ext ? 'test-extension' : undefined }
   };
 
-  const window = { addEventListener() {}, chrome: undefined, __api: api || null, __game: null };
+  // IS_EXT se lit sur window.chrome.runtime.id : seuls les tests qui veulent
+  // le mode extension le demandent, les autres restent en mode page.
+  const window = { addEventListener() {}, chrome: ext ? chrome : undefined, __api: api || null, __game: null };
 
   // même ordre que boot.js
   const src = ['ids.js', 'app.js']

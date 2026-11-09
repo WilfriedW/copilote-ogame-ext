@@ -5,6 +5,7 @@
   --fg:#e5e9f6; --muted:#8e98b8; --accent:#8aa9ff; --accent-ink:#0c1120;
   --metal:#b9c3d9; --crystal:#6fd2ff; --deut:#4fdeb0; --energy:#ffc95c;
   --good:#4fdeb0; --warn:#ffc95c; --bad:#ff7a8a;
+  --p0:#74b9ff; --p1:#ffa94d; --p2:#63e6a8; --p3:#ff8fb1; --p4:#ffe066; --p5:#c4a0ff;
   --f-display:"Oxanium","Segoe UI",system-ui,sans-serif;
   --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
@@ -15,12 +16,14 @@
   --bg:#eef1f8; --surface:#ffffff; --surface-2:#f3f5fb; --line:#d6dcec;
   --fg:#141a2c; --muted:#5b6585; --accent:#3d5fd6; --accent-ink:#ffffff;
   --metal:#59657f; --crystal:#0e86b8; --deut:#0f9a70; --energy:#b07800;
+  --p0:#1b6cc9; --p1:#b35c00; --p2:#0b8a5a; --p3:#c0336a; --p4:#8a6a00; --p5:#6b3fc9;
   --good:#0f9a70; --warn:#b07800; --bad:#c8354a; color-scheme:light}}
 :root[data-theme="light"]{
   --bg:#eef1f8; --surface:#ffffff; --surface-2:#f3f5fb; --line:#d6dcec;
   --fg:#141a2c; --muted:#5b6585; --accent:#3d5fd6; --accent-ink:#ffffff;
   --metal:#59657f; --crystal:#0e86b8; --deut:#0f9a70; --energy:#b07800;
   --good:#0f9a70; --warn:#b07800; --bad:#c8354a; color-scheme:light}
+  --p0:#1b6cc9; --p1:#b35c00; --p2:#0b8a5a; --p3:#c0336a; --p4:#8a6a00; --p5:#6b3fc9;
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -127,6 +130,9 @@ details.card>summary .note{text-transform:none;letter-spacing:0;font-family:var(
 .tl .time small{display:block;font:500 11px var(--f-mono);color:var(--muted)}
 .sumline{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .acts li.task{border-left:3px solid var(--accent)}
+/* Pastille de planète : couleur stable par rang, pour repérer d'un coup d'œil
+   où agir. --pc est posé en ligne par planetTag(). */
+.ptag{display:inline-block;vertical-align:1px;padding:1px 7px;border-radius:999px;font:700 10px/1.6 var(--f-body);letter-spacing:.03em;text-transform:none;white-space:nowrap;color:var(--pc);background:color-mix(in srgb,var(--pc) 16%,transparent);border:1px solid color-mix(in srgb,var(--pc) 40%,transparent)}
 .acts .how{grid-column:1/-1;font-size:12px;color:var(--muted)}
 .acts .how ol{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
 .ms li{grid-template-columns:auto 1fr auto}

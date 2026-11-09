@@ -15,12 +15,12 @@ const SOIR = new Date(2026, 10, 8, 22, 30, 0).getTime();
 const REVEIL = new Date(2026, 10, 9, 7, 0, 0).getTime();
 
 /** Charge l'application avec un état modifié à la volée. */
-function app(modifier, now, api) {
+function app(modifier, now, api, ext) {
   const s = fixtureState();
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef'], api);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -103,9 +103,12 @@ t('sans transporteur, le rappel reste utile mais générique', () => {
   assert.ok(/Dépense/.test(nuit.how.join(' ')), 'il conseille au moins de dépenser');
 });
 
-t('l\'onglet Aujourd\'hui se rend toujours sans erreur', () => {
+t('l\'onglet Aujourd\'hui affiche les pastilles de planète', () => {
   const g = app(s => { s.planets[0].ships = { lc: 30 }; });
-  assert.doesNotThrow(() => g.REFRESH.today());
+  g.REFRESH.today();
+  const html = g.html().tdNow || '';
+  assert.ok(/class="ptag"/.test(html),
+    'les étiquettes doivent porter la pastille : ' + html.slice(0, 300));
 });
 
 /* ---------- savoir où aller ---------- */
@@ -188,24 +191,24 @@ t('le texte dit qu\'il faut d\'abord envoyer les vaisseaux à vide', () => {
     'et elle part à vide : ' + a.why);
 });
 
-t('le trajet \u00e0 vide est un Stationner, pas un Transporter', () => {
+t('le trajet à vide est un Stationner, pas un Transporter', () => {
   const g = app(flotteAuHub, JOUR);
   const a = transfert(g);
-  // Une mission Transporter revient toute seule \u00e0 vide : les vaisseaux ne
-  // seraient plus l\u00e0 pour charger. Seul Stationner les laisse sur place.
-  assert.ok(/Stationner/.test(a.why), 'la mission aller doit \u00eatre Stationner : ' + a.why);
+  // Une mission Transporter revient toute seule à vide : les vaisseaux ne
+  // seraient plus là pour charger. Seul Stationner les laisse sur place.
+  assert.ok(/Stationner/.test(a.why), 'la mission aller doit être Stationner : ' + a.why);
   assert.ok(!/Mission Transporter/.test(a.why),
     'Transporter repartirait tout seul : ' + a.why);
 });
 
-t('le texte dit que les transporteurs resteront bas\u00e9s sur la colonie', () => {
+t('le texte dit que les transporteurs resteront basés sur la colonie', () => {
   const g = app(flotteAuHub, JOUR);
   const a = transfert(g);
-  // Le Transporter de retour repart de la colonie : il y revient \u00e0 vide.
-  // La principale ne les r\u00e9cup\u00e8re pas ; il faut que le joueur le sache
-  // avant de d\u00e9garnir sa flotte d'exp\u00e9dition.
-  assert.ok(/bas\u00e9s sur Colonie|restent sur Colonie|reviendront sur Colonie/.test(a.why),
-    'le texte doit dire o\u00f9 ils vivront d\u00e9sormais : ' + a.why);
+  // Le Transporter de retour repart de la colonie : il y revient à vide.
+  // La principale ne les récupère pas ; il faut que le joueur le sache
+  // avant de dégarnir sa flotte d'expédition.
+  assert.ok(/basés sur Colonie|restent sur Colonie|reviendront sur Colonie/.test(a.why),
+    'le texte doit dire où ils vivront désormais : ' + a.why);
 });
 
 t('avec ses propres vaisseaux, la colonie envoie directement', () => {
@@ -216,9 +219,42 @@ t('avec ses propres vaisseaux, la colonie envoie directement', () => {
   assert.ok(/Rapatrier vers Planète mère/.test(a.what), a.what);
 });
 
-/* ---------- espionner co\u00fbte un emplacement de flotte ---------- */
+/* ---------- savoir sur quelle planète agir ---------- */
 
-/** Trois inactifs plus faibles que moi, dans mon syst\u00e8me. */
+/** Mode extension, synchro fraîche, et une file de forme de vie au choix. */
+const avecFiles = timers => app(s => { s.syncAt = SOIR; s.timers = timers; }, SOIR, null, true);
+const mission = (g, id) => g.dailyMissions().find(m => m.id === id);
+
+t('la file de forme de vie vide nomme les planètes concernées', () => {
+  // un chantier tourne sur la planète mère, rien sur la colonie
+  const g = avecFiles([{ queue: 'lfbuilding', p: 0, end: SOIR + 36e5, done: false }]);
+  const m = mission(g, 'lfb');
+  assert.ok(m, 'la colonie n\'a rien en file : il faut le dire');
+  assert.deepEqual(m.tags, ['Colonie'],
+    'seule la colonie est en attente : ' + JSON.stringify(m.tags));
+});
+
+t('toutes les files occupées : pas de carte', () => {
+  const g = avecFiles([
+    { queue: 'lfbuilding', p: 0, end: SOIR + 36e5, done: false },
+    { queue: 'lfbuilding', p: 1, end: SOIR + 36e5, done: false }
+  ]);
+  assert.ok(!mission(g, 'lfb'), 'rien à signaler quand les deux files tournent');
+});
+
+t('l\'étiquette met la planète en pastille colorée', () => {
+  const g = app();
+  assert.ok(/class="ptag"/.test(g.qHtml('Bâtiment · Colonie')),
+    'la planète doit être une pastille : ' + g.qHtml('Bâtiment · Colonie'));
+  // la couleur suit le rang de la planète : elle ne bouge pas d'une carte à l'autre
+  assert.ok(/--pc:var\(--p0\)/.test(g.qHtml('Bâtiment · Planète mère')));
+  assert.ok(/--pc:var\(--p1\)/.test(g.qHtml('Bâtiment · Colonie')));
+  assert.equal(g.qHtml('Flotte'), 'Flotte', 'sans planète, rien à colorer');
+});
+
+/* ---------- espionner coûte un emplacement de flotte ---------- */
+
+/** Trois inactifs plus faibles que moi, dans mon système. */
 const INACTIFS = {
   planets: [['1:140:6', 'a'], ['1:145:10', 'b'], ['1:138:6', 'c']],
   players: { a: ['Alpha', 'i'], b: ['Beta', 'i'], c: ['Gamma', 'I'], moi: ['Moi', ''] },
@@ -231,25 +267,25 @@ const avecSlots = (used, max) => app(s => {
 }, SOIR, INACTIFS);
 const espionnage = g => g.dailyMissions().find(m => m.id === 'raid');
 
-t('emplacements de flotte pleins : aucun espionnage propos\u00e9', () => {
+t('emplacements de flotte pleins : aucun espionnage proposé', () => {
   const g = avecSlots(8, 8);
-  // Chaque sonde prend un emplacement : la mission \u00e9chouerait avec
-  // \u00ab Nombre maximal de flottes atteint \u00bb.
-  assert.ok(!espionnage(g), 'rien \u00e0 espionner sans emplacement libre');
+  // Chaque sonde prend un emplacement : la mission échouerait avec
+  // « Nombre maximal de flottes atteint ».
+  assert.ok(!espionnage(g), 'rien à espionner sans emplacement libre');
   assert.ok(!g.dailyMissions().find(m => m.id === 'inactive'),
-    'et surtout pas \u00ab rep\u00e9rer des inactifs \u00bb : ils sont d\u00e9j\u00e0 rep\u00e9r\u00e9s');
+    'et surtout pas « repérer des inactifs » : ils sont déjà repérés');
 });
 
-t('un seul emplacement libre : une seule cible propos\u00e9e', () => {
+t('un seul emplacement libre : une seule cible proposée', () => {
   const m = espionnage(avecSlots(7, 8));
   assert.ok(m, 'un espionnage reste possible');
   assert.equal((m.what.match(/\d+:\d+:\d+/g) || []).length, 1,
     'une seule cible tient dans l\'emplacement libre : ' + m.what);
 });
 
-t('assez d\'emplacements : les trois cibles sont propos\u00e9es', () => {
+t('assez d\'emplacements : les trois cibles sont proposées', () => {
   const m = espionnage(avecSlots(2, 8));
-  assert.ok(m, 'un espionnage est propos\u00e9');
+  assert.ok(m, 'un espionnage est proposé');
   assert.equal((m.what.match(/\d+:\d+:\d+/g) || []).length, 3, m.what);
 });
 

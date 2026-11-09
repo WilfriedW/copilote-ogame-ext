@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.9.3';
+const APP_VERSION = '1.10.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -129,6 +129,19 @@ function planetRef(p){
   return homonyme && p.coords ? `${p.name} [${p.coords}]` : p.name;
 }
 /** La planète au meilleur laboratoire : c'est de là qu'on lance une recherche. */
+/* Autant de couleurs que de planètes raisonnablement suivies ; au-delà, on
+   boucle plutôt que de risquer deux teintes indistinguables. */
+const PLANET_COLORS = 6;
+/** Pastille colorée d'une planète, couleur stable sur son rang dans la liste. */
+function planetTag(name){
+  const i = S.planets.findIndex(p => p.name === name || planetRef(p) === name);
+  return `<span class="ptag" style="--pc:var(--p${(i < 0 ? 0 : i) % PLANET_COLORS})">${esc(name)}</span>`;
+}
+/** Étiquette « Catégorie · Planète » : la planète devient une pastille. */
+function qHtml(q){
+  const i = String(q || '').indexOf(' · ');
+  return i < 0 ? esc(q || '') : esc(q.slice(0, i)) + ' ' + planetTag(q.slice(i + 3));
+}
 function labPlanet(){ return S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
 function labLevel(){ return Math.max(0, ...S.planets.map(p=>p.b.lab)); }
 /** Research time in seconds. */
@@ -790,7 +803,7 @@ function actHtml(a, withBtn){
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,p:a.p,n:a.n,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
-  return `<li><div><div class="q">${esc(a.q)}</div><div class="w">${esc(a.what)}</div></div>${btn||'<span></span>'}<div class="m">${m}</div></li>`;
+  return `<li><div><div class="q">${qHtml(a.q)}</div><div class="w">${esc(a.what)}</div></div>${btn||'<span></span>'}<div class="m">${m}</div></li>`;
 }
 
 /* ---------- mise à l'abri ---------- */
@@ -889,9 +902,15 @@ function dailyMissions(){
     how:['Galaxie : bouton <b>Découverte</b> en haut, ou icône ADN violette sur une ligne.', 'Fais-en sur plusieurs systèmes : le nombre par jour est limité.', 'Une race trouvée ? Coche-la dans Réglages › Formes de vie pour que Copilote en tienne compte.']});
   if(S.artefacts!=null && S.artefacts>=200) out.push({id:'artefacts', q:'Formes de vie', every:24, sev:'good', what:`${fmt(S.artefacts)} artefacts : choisis une technologie de forme de vie`, why:'Au palier 1, 200 artefacts permettent de choisir précisément la technologie d\'un slot au lieu du tirage aléatoire.', how:['Forme de vie › Recherche : sur un slot libre, choisis la technologie voulue.', 'Attention : changer un slot déjà pris oblige à réinitialiser tout le palier.']});
   if(IS_EXT && S.syncAt && now - S.syncAt < 3600e3){
-    const lfq = q => (S.timers||[]).some(t=>t.queue===q && !t.done && t.end>now);
-    if(!lfq('lfbuilding')) out.push({id:'lfb', q:'Formes de vie', every:2, sev:'warn', what:'File des bâtiments de forme de vie vide', why:'Le plan ne gère pas cette file : pense à la remplir toi-même.', how:['Menu Forme de vie : lance le bâtiment le moins cher qui augmente ta production.']});
-    if(!lfq('lfresearch')) out.push({id:'lfr', q:'Formes de vie', every:2, sev:'info', what:'Recherche de forme de vie à l\'arrêt ?', why:'Si un slot est débloqué, lance sa recherche : elle tourne en parallèle de la recherche classique.', how:['Forme de vie › Recherche : « Sélectionner » prend la technologie de ta race, « Aléatoire » pioche parmi tes races découvertes.']});
+    // Chaque planète a sa propre file de forme de vie : dire « vide » sans dire
+    // laquelle laisse le joueur chercher. Le copilote ne voit une file qu'après
+    // un passage sur la page Forme de vie de la planète — d'où la réserve.
+    const lfIdle = q => S.planets.filter((p,i)=>!(S.timers||[]).some(t=>t.queue===q && !t.done && t.end>now && t.p===i));
+    const vu = 'Le copilote ne voit cette file qu\'après un passage sur la page Forme de vie de la planète.';
+    const lfb = lfIdle('lfbuilding');
+    if(lfb.length) out.push({id:'lfb', q:'Formes de vie', every:2, sev:'warn', tags:lfb.map(planetRef), what:`File des bâtiments de forme de vie vide : ${lfb.map(planetRef).join(', ')}`, why:`Le plan ne gère pas cette file : pense à la remplir toi-même. ${vu}`, how:['Sélectionne la planète dans la liste de gauche, puis menu Forme de vie.', 'Lance le bâtiment le moins cher qui augmente ta production.']});
+    const lfr = lfIdle('lfresearch');
+    if(lfr.length) out.push({id:'lfr', q:'Formes de vie', every:2, sev:'info', tags:lfr.map(planetRef), what:`Recherche de forme de vie à l'arrêt : ${lfr.map(planetRef).join(', ')}`, why:`Si un slot est débloqué, lance sa recherche : elle tourne en parallèle de la recherche classique. ${vu}`, how:['Sélectionne la planète, puis Forme de vie › Recherche.', '« Sélectionner » prend la technologie de ta race, « Aléatoire » pioche parmi tes races découvertes.']});
   }
   const occ = API && API.planets ? occupied() : null;
   if(occ && parseC(S.colo.target) && occ.has(S.colo.target) && occ.get(S.colo.target)!==S.me && !colSentNow()){ const alt = colonyCandidates()[0]; out.unshift({id:'colo-taken', q:'Colonie', every:6, sev:'bad', what:`${S.colo.target} est déjà occupée`, why:alt?`Meilleure position libre proche : ${alt.coords} (${alt.bonus||'pas de bonus'}, ~${alt.fields} cases).`:'Choisis une autre position dans Outils › Cibles.', how:['Outils › Cibles › Où coloniser : clique sur Choisir pour changer la destination.']}); }
@@ -1260,12 +1279,12 @@ today(){
   for(const m of timed){ let host = null; for(const x of plan.sessions) if(x.T <= m.at) host = x; if(host && host!==s0){ if(!slotMs.has(host)) slotMs.set(host, []); slotMs.get(host).push(m); } else m.at = 0; }
   const nowMs = missions.filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
   const infoMs = missions.filter(m=>m.info);
-  const taskHtml = m=>`<li class="task"><div><div class="q">${esc(m.q||'À faire')}</div><div class="w">${esc(m.what)}</div></div><button class="btn sm" data-done="${m.id}">Fait</button><div class="m"><span>${esc(m.why)}</span></div><details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
+  const taskHtml = m=>`<li class="task"><div><div class="q">${qHtml(m.q||'À faire')}</div><div class="w">${esc(m.what)}</div></div><button class="btn sm" data-done="${m.id}">Fait</button><div class="m">${(m.tags||[]).map(planetTag).join('')}<span>${esc(m.why)}</span></div><details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${s0.acts.map(a=>actHtml(a,true)).join('')}${nowMs.map(taskHtml).join('')}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
-  if(s0.waits.length) nowParts.push(`<ul class="acts">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${esc(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'hangar trop petit'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div></li>`).join('')}</ul>`);
-  if(plan.busy.length || infoMs.length) nowParts.push(`<ul class="acts">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${esc(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${hm(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${esc(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${esc(m.why)}</div></li>`).join('')}</ul>`);
+  if(s0.waits.length) nowParts.push(`<ul class="acts">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'hangar trop petit'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div></li>`).join('')}</ul>`);
+  if(plan.busy.length || infoMs.length) nowParts.push(`<ul class="acts">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${hm(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`).join('')}</ul>`);
   const nextS = plan.sessions.slice(1).find(x=>x.acts.length);
   if(!s0.acts.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
   document.getElementById('tdNow').innerHTML = nowParts.join('') + `<p class="note"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p>`;
