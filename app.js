@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.12.0';
+const APP_VERSION = '1.12.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -191,11 +191,11 @@ const LF_NAMES = Object.assign({}, typeof OG_LF_BUILD !== 'undefined' ? OG_LF_BU
  */
 function lfCandidates(p, queue){
   return Object.entries(p.lf || {})
-    .filter(([id,v]) => lfQueue(id) === queue && v && v.state === 'ok'
+    .filter(([id,v]) => lfQueue(id) === queue && v && v.state !== 'locked'
       && v.cost && v.cost.some(x=>x>0) && v.secs > 0)
     .map(([id,v]) => ({id:+id, cost:v.cost, secs:v.secs, next:v.next || (v.lvl||0)+1,
       nom: v.nom || v.name || LF_NAMES[id] || 'Forme de vie',
-      why:'Le jeu l\'annonce constructible : c\'est la case la moins chère de cette file.'}))
+      why:'La case la moins chère de cette file.'}))
     .sort((a,b)=>mse(...a.cost)-mse(...b.cost));
 }
 function labPlanet(){ return S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
@@ -979,23 +979,34 @@ function dailyMissions(){
     how:['Galaxie : bouton <b>Découverte</b> en haut, ou icône ADN violette sur une ligne.', 'Fais-en sur plusieurs systèmes : le nombre par jour est limité.', 'Une race trouvée ? Coche-la dans Réglages › Formes de vie pour que Copilote en tienne compte.']});
   if(S.artefacts!=null && S.artefacts>=200) out.push({id:'artefacts', q:'Formes de vie', every:24, sev:'good', what:`${fmt(S.artefacts)} artefacts : choisis une technologie de forme de vie`, why:'Au palier 1, 200 artefacts permettent de choisir précisément la technologie d\'un slot au lieu du tirage aléatoire.', how:['Forme de vie › Recherche : sur un slot libre, choisis la technologie voulue.', 'Attention : changer un slot déjà pris oblige à réinitialiser tout le palier.']});
   if(IS_EXT && S.syncAt && now - S.syncAt < 3600e3){
-    // Une fois que le copilote a lu les niveaux ET un prix, la file entre dans
-    // le plan comme une mine : plus rien à rappeler ici. Il ne reste donc que
-    // le cas où il lui manque le relevé — et ce rappel-là disparaît pour de bon
-    // dès que le joueur a ouvert la page une fois.
-    const lfToLook = q => S.planets.filter(p => {
+    // Trois situations, trois messages : page jamais ouverte, page lue mais
+    // aucun prix affiché, ou tout est su — et alors c'est le plan qui parle.
+    // Un prix ne s'obtient qu'en ouvrant une case : le jeu ne l'affiche pas
+    // dans la liste.
+    const lfState = (p, q) => {
       const cases = Object.entries(p.lf || {}).filter(([id])=>lfQueue(id)===q);
-      if(!cases.length) return true;
-      const ok = cases.filter(([,v])=>v && v.state==='ok');
-      return ok.length > 0 && !ok.some(([,v])=>v.cost && v.secs);
-    });
-    const lfHow = ['Ouvre la page sur cette planète, puis clique une case.',
-      'Le copilote y lit le niveau, le prix et la durée affichés par le jeu.',
-      'Ensuite elle entre dans le plan comme une mine, avec le « il manque » et l\'heure.'];
-    const lfb = lfToLook('lfbuilding');
-    if(lfb.length) out.push({id:'lfb', q:'Formes de vie', every:12, sev:'info', tags:lfb.map(planetRef), what:`Bâtiments de forme de vie à relever : ${lfb.map(planetRef).join(', ')}`, why:'Le copilote ne connaît ni les niveaux ni les prix de cette file tant qu\'il ne les a pas vus affichés.', how:lfHow});
-    const lfr = lfToLook('lfresearch');
-    if(lfr.length) out.push({id:'lfr', q:'Formes de vie', every:12, sev:'info', tags:lfr.map(planetRef), what:`Recherches de forme de vie à relever : ${lfr.map(planetRef).join(', ')}`, why:'Le copilote ne connaît ni les niveaux ni les prix de cette file tant qu\'il ne les a pas vus affichés.', how:lfHow});
+      if(!cases.length) return {need:'page', n:0};
+      const libres = cases.filter(([,v])=>v && v.state !== 'locked');
+      if(libres.some(([,v])=>v.cost && v.secs)) return {need:null, n:cases.length};
+      return {need: libres.length ? 'prix' : null, n:cases.length};
+    };
+    const lfCard = (q, id, quoi, page) => {
+      const vus = S.planets.map(p=>({p, st:lfState(p,q)})).filter(x=>x.st.need);
+      if(!vus.length) return;
+      const page0 = vus.filter(x=>x.st.need==='page').map(x=>planetRef(x.p));
+      const prix = vus.filter(x=>x.st.need==='prix');
+      const quoiFaire = page0.length
+        ? `Ouvre ${page} sur ${page0.join(', ')}, puis clique une case.`
+        : `Clique une case ${quoi} sur ${prix.map(x=>planetRef(x.p)).join(', ')}.`;
+      out.push({id, q:'Formes de vie', every:12, sev:'info', tags:vus.map(x=>planetRef(x.p)),
+        what:quoiFaire,
+        why:`${vus.map(x=>`${planetRef(x.p)} : ${x.st.n ? `${x.st.n} case${x.st.n>1?'s':''} lue${x.st.n>1?'s':''}, aucun prix` : 'page jamais ouverte'}`).join(' · ')}. Le prix n'apparaît qu'en ouvrant une case ; sans lui le copilote ne sait pas quand tu pourras la payer.`,
+        how:['Ouvre la page sur cette planète, puis clique une case.',
+          'Le copilote lit le niveau, le prix et la durée affichés par le jeu.',
+          'Ensuite elle entre dans le plan comme une mine, avec le « il manque » et l\'heure.']});
+    };
+    lfCard('lfbuilding', 'lfb', 'de bâtiment', 'les bâtiments de forme de vie');
+    lfCard('lfresearch', 'lfr', 'de recherche', 'les recherches de forme de vie');
   }
   const occ = API && API.planets ? occupied() : null;
   if(occ && parseC(S.colo.target) && occ.has(S.colo.target) && occ.get(S.colo.target)!==S.me && !colSentNow()){ const alt = colonyCandidates()[0]; out.unshift({id:'colo-taken', q:'Colonie', every:6, sev:'bad', what:`${S.colo.target} est déjà occupée`, why:alt?`Meilleure position libre proche : ${alt.coords} (${alt.bonus||'pas de bonus'}, ~${alt.fields} cases).`:'Choisis une autre position dans Outils › Cibles.', how:['Outils › Cibles › Où coloniser : clique sur Choisir pour changer la destination.']}); }

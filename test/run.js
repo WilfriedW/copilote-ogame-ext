@@ -238,10 +238,34 @@ t('une case de forme de vie payable entre dans le plan', () => {
   assert.ok(/Secteur résidentiel 25/.test(a.what), a.what);
 });
 
-t('une case que le jeu dit impayable n\'est pas propos\u00e9e', () => {
-  // « Pas assez de ressources » vient du jeu : le copilote n'a pas à insister.
-  const a = premierLf(vieSur({ 11101: { ...CASE_OK, state: 'short' } }));
-  assert.ok(!a, 'rien à proposer tant que le jeu dit non');
+t('une case trop ch\u00e8re \u00e0 l\'instant T devient une attente, pas un silence', () => {
+  // « Pas assez de ressources » décrit la seconde où le joueur a vu la page.
+  // Le plan, lui, sait quand le stock sera là : c'est tout son intérêt.
+  const g = vieSur({ 11101: { ...CASE_OK, state: 'short', cost: [400000, 0, 0] } });
+  const w = g.simulateDay().sessions[0].waits.find(x => /Secteur résidentiel/.test(x.what));
+  assert.ok(w, 'elle doit figurer en attente');
+  assert.ok(w.miss[0] > 0, 'avec ce qui manque : ' + JSON.stringify(w.miss));
+});
+
+t('une case verrouill\u00e9e par un pr\u00e9requis reste exclue', () => {
+  // « Prérequis non remplis » n'est pas une question de ressources : aucune
+  // attente ne la débloquera, l'annoncer serait un faux espoir.
+  const g = vieSur({ 11101: { ...CASE_OK, state: 'locked' } });
+  const s0 = g.simulateDay().sessions[0];
+  assert.ok(!s0.acts.some(a => a.kind === 'lf'), 'pas proposée');
+  assert.ok(!s0.waits.some(x => /Secteur résidentiel/.test(x.what)), 'pas en attente non plus');
+});
+
+t('page lue mais aucun prix : la carte demande d\'ouvrir une case', () => {
+  const g = app(s => {
+    s.syncAt = SOIR;
+    s.planets.forEach(p => { p.lf = { 11101: { lvl: 24, state: 'short' } }; });
+  }, SOIR, null, true);
+  const m = g.dailyMissions().find(x => x.id === 'lfb');
+  assert.ok(m, 'le copilote connaît les niveaux mais pas les prix : il doit le dire');
+  assert.ok(/case/.test(m.what + m.why),
+    'et demander d\'ouvrir une case, pas de relever la page : ' + m.what);
+  assert.ok(/1 case/.test(m.why), 'en disant ce qu\'il a déjà lu : ' + m.why);
 });
 
 t('une case verrouill\u00e9e n\'est pas propos\u00e9e', () => {
@@ -256,7 +280,8 @@ t('sans prix connu, le copilote demande d\'ouvrir la page une fois', () => {
   }, SOIR, null, true);
   assert.ok(!premierLf(g), 'on ne propose pas ce qu\'on ne sait pas chiffrer');
   const m = g.dailyMissions().find(x => x.id === 'lfb');
-  assert.ok(m && /relever/.test(m.what), 'il demande le relevé : ' + (m && m.what));
+  assert.ok(m && /Clique une case/.test(m.what),
+    'il demande d\'ouvrir une case : ' + (m && m.what));
 });
 
 t('la carte ne r\u00e9clame plus rien quand tout est trop cher', () => {
