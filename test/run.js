@@ -233,6 +233,18 @@ t('la planète principale garde sa logique habituelle', () => {
   assert.ok(mere.length, 'la planète mère a toujours des actions');
 });
 
+/* ---------- la version ---------- */
+
+t('app.js et manifest.json annoncent la même version', () => {
+  const fs = require('fs'), path = require('path');
+  const root = path.join(__dirname, '..');
+  const dansApp = fs.readFileSync(path.join(root, 'app.js'), 'utf8')
+    .match(/APP_VERSION = '([^']+)'/)[1];
+  const dansManifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8')).version;
+  assert.equal(dansApp, dansManifest,
+    'le panneau afficherait ' + dansApp + ' alors que Chrome a chargé ' + dansManifest);
+});
+
 /* ---------- résultat ---------- */
 
 if (failures.length) {
