@@ -2,6 +2,17 @@ var OG_BUILD = {1:'metal', 2:'crystal', 3:'deut', 4:'solar', 12:'fusion', 14:'ro
 
 var OG_TECH = {106:'espionage', 108:'computer', 109:'weapons', 110:'shielding', 111:'armour', 113:'energy', 114:'hyper', 115:'combustion', 117:'impulse', 118:'hyperdrive', 120:'laser', 121:'ion', 122:'plasma', 123:'irn', 124:'astro'};
 
+/* Bâtiments de forme de vie, relevés sur le jeu. Les Humains occupent la
+   série 111xx ; les autres races ont leur propre série, à relever de même
+   plutôt qu'à deviner — un identifiant inventé pointerait sur le mauvais
+   bâtiment sans rien signaler. */
+var OG_LF_BUILD = {
+  11101:'Secteur résidentiel', 11102:'Ferme biosphérique', 11103:'Centre de recherche',
+  11104:'Académie des sciences', 11105:'Centre de neurocalibrage', 11106:'Fusion à haute énergie',
+  11107:'Réserve alimentaire', 11108:'Extraction par fusion', 11109:'Tour d\'habitation',
+  11110:'Laboratoire de biotechnologie', 11111:'Métropolis', 11112:'Bouclier planétaire'
+};
+
 var OG_SHIPS = {202:'sc', 203:'lc', 204:'lf', 205:'hf', 206:'cr', 207:'bs', 208:'col', 209:'rec', 210:'pr', 211:'bb', 213:'ds', 215:'bc', 218:'rp', 219:'pf'};
 
 var OG_MISSIONS = {1:'attaque', 2:'attaque groupée', 3:'transport', 4:'stationnement', 5:'stationnement allié', 6:'espionnage', 7:'colonisation', 8:'recyclage', 9:'destruction de lune', 15:'expédition', 18:'exploration'};
