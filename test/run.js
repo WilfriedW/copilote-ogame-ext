@@ -266,6 +266,29 @@ t('une case de forme de vie ne passe pas devant un b\u00e2timent qui attend', ()
     'elle attend son tour au lieu de disparaître');
 });
 
+/* Le même décor que le test précédent : la centrale de la planète mère est
+   à moins d'une heure de ses ressources, et une case coûte tout le métal. */
+const disputeStock = s => {
+  s.planets[0].stock = { m: 20000, c: 8000, d: 1000, at: SOIR };
+  s.planets[0].lf = { 11101: { ...CASE_OK, cost: [20000, 0, 0], secs: 60 } };
+};
+
+t('r\u00e9gl\u00e9es en priorit\u00e9, les formes de vie passent devant', () => {
+  const g = app(s => { disputeStock(s); s.day.lf = 'first'; }, SOIR);
+  assert.ok(g.simulateDay().sessions[0].acts.some(a => a.kind === 'lf'),
+    'le joueur a demandé qu\'elles passent en premier');
+});
+
+t('d\u00e9sactiv\u00e9es, elles dispara\u00eessent compl\u00e8tement', () => {
+  const g = app(s => { disputeStock(s); s.day.lf = 'off'; s.syncAt = SOIR; }, SOIR, null, true);
+  const s0 = g.simulateDay().sessions[0];
+  assert.ok(!s0.acts.some(a => a.kind === 'lf'), 'rien de proposé');
+  assert.ok(!s0.waits.some(w => /Secteur résidentiel/.test(w.what)), 'rien en attente');
+  // et surtout plus de rappel d'aller relever les pages : il ne servirait à rien
+  assert.ok(!g.dailyMissions().some(m => m.id === 'lfb' || m.id === 'lfr'),
+    'ni de rappel de relevé');
+});
+
 t('un prix relev\u00e9 pour un niveau d\u00e9pass\u00e9 n\'est plus utilis\u00e9', () => {
   // le joueur a monté la case deux fois depuis : le prix lu alors ne vaut
   // plus rien, et l'afficher annoncerait un niveau déjà construit.

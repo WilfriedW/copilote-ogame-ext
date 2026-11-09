@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.12.3';
+const APP_VERSION = '1.13.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -576,6 +576,11 @@ const ROADMAPS = {
   eco:[['energy',8],['laser',10],['ion',5],['plasma',6],['impulse',3],['astro',3],['computer',4],['plasma',10]],
   fleet:[['combustion',6,'c'],['impulse',3,'c'],['espionage',4],['computer',6],['astro',4],['hyper',3],['hyperdrive',2],['impulse',5],['astro',6],['energy',8]],
 };
+/* Place des formes de vie dans la journée. Par défaut elles passent après les
+   bâtiments et s'effacent devant ce qu'un chantier proche épargne. */
+const LF_MODE = {after:'Après les bâtiments', first:'Avant tout le reste', off:'Ne pas s\'en occuper'};
+function lfMode(){ return LF_MODE[S.day.lf] ? S.day.lf : 'after'; }
+
 const FOCUS = {ecocol:'Économie + colonie', eco:'Économie pure', fleet:'Flotte et expéditions'};
 const hm = ms => { const d=new Date(ms), today=new Date(); const t=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); return d.toDateString()===today.toDateString() ? t : (new Date(today.getTime()+864e5).toDateString()===d.toDateString() ? 'demain '+t : d.toLocaleDateString('fr-FR',{weekday:'short'})+' '+t); };
 function isNight(ms){ const d=new Date(ms), h=d.getHours()+d.getMinutes()/60, a=+S.day.nightStart, b=+S.day.nightEnd; if(a===b) return false; return a>b ? (h>=a || h<b) : (h>=a && h<b); }
@@ -810,26 +815,16 @@ function simulateDay(){
           acts.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, why:`+${Math.round(n*satE)} énergie, ${Math.round(mse(...solarAlt)/Math.max(1,mse(...c)))}x moins cher que la centrale`, cost:c, dur:d, end:Tm+d, kind:'sats', n, p:p.i});
         } else { const e=wait(p,c); soft.push({p, cost:c, eta:e}); waits.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, eta:e, miss:missOf(p,c)}); }
       }
-      for(const p of P){
-        if(p.bq>Tm) continue;
-        const cands = pickBuildings(p, {T:Tm, iv, wantColony, dep, labNeed:nr.labNeed, labP, researchRunning:sim.rq>Tm, goals, hub:hubP});
-        if(!cands.length) continue;
-        const res = reserveOf(p,Tm);
-        const ch = cands.find(x=>can(p, levelCost(B[x.k],x.lvl), res));
-        if(ch){ const c=levelCost(B[ch.k],ch.lvl); pay(p,c); const d=buildTime(ch.k,ch.lvl,p), k=ch.k, L=ch.lvl; p.bq=Tm+d; p.bqKey=k; sim.ev.push({at:Tm+d, fn:()=>{ p.b[k]=Math.max(p.b[k],L); }}); acts.push({q:'Bâtiment · '+planetRef(p), what:`${B[k].n} ${L}`, why:ch.why, cost:c, dur:d, end:Tm+d, kind:'b', k, lvl:L, p:p.i}); }
-        else { const w=cands.map(x=>({x, eta:wait(p,levelCost(B[x.k],x.lvl))})).sort((a,b)=>a.eta-b.eta)[0]; waits.push({q:'Bâtiment · '+planetRef(p), what:`${B[w.x.k].n} ${w.x.lvl}`, eta:w.eta, held:res.some(x=>x>0), miss:missOf(p,levelCost(B[w.x.k],w.x.lvl))}); soft.push({p, cost:levelCost(B[w.x.k],w.x.lvl), eta:w.eta}); }
-      }
       // Les deux files de forme de vie sont indépendantes de la file des
       // bâtiments : elles tournent en parallèle, mais puisent au même stock.
-      // On ne propose que ce que le jeu a chiffré lui-même.
-      for(const p of P){
-        for(const q of ['lfbuilding','lfresearch']){
+      // Passées avant, elles servent les premières et ignorent ce qu'un
+      // bâtiment épargne ; passées après, elles s'effacent devant lui.
+      const lfPass = devant=>{
+        if(lfMode()==='off') return;
+        for(const p of P) for(const q of ['lfbuilding','lfresearch']){
           if(p.lfq[q]>Tm) continue;
           const ch = lfCandidates(p, q)[0]; if(!ch) continue;
-          // Les deux files tournent à part, mais puisent au même stock : une
-          // case s'efface devant ce qu'un bâtiment proche est en train de
-          // réunir, comme le chantier spatial le fait déjà.
-          const res = reserveOf(p,Tm).map((x,j)=>x+softRes(p)[j]);
+          const res = devant ? reserveOf(p,Tm) : reserveOf(p,Tm).map((x,j)=>x+softRes(p)[j]);
           if(can(p, ch.cost, res)){
             pay(p, ch.cost); p.lfq[q] = Tm + ch.secs*1000;
             const id = ch.id, lvl = ch.next;
@@ -841,7 +836,18 @@ function simulateDay(){
             soft.push({p, cost:ch.cost, eta});
           }
         }
+      };
+      if(lfMode()==='first') lfPass(true);
+      for(const p of P){
+        if(p.bq>Tm) continue;
+        const cands = pickBuildings(p, {T:Tm, iv, wantColony, dep, labNeed:nr.labNeed, labP, researchRunning:sim.rq>Tm, goals, hub:hubP});
+        if(!cands.length) continue;
+        const res = reserveOf(p,Tm);
+        const ch = cands.find(x=>can(p, levelCost(B[x.k],x.lvl), res));
+        if(ch){ const c=levelCost(B[ch.k],ch.lvl); pay(p,c); const d=buildTime(ch.k,ch.lvl,p), k=ch.k, L=ch.lvl; p.bq=Tm+d; p.bqKey=k; sim.ev.push({at:Tm+d, fn:()=>{ p.b[k]=Math.max(p.b[k],L); }}); acts.push({q:'Bâtiment · '+planetRef(p), what:`${B[k].n} ${L}`, why:ch.why, cost:c, dur:d, end:Tm+d, kind:'b', k, lvl:L, p:p.i}); }
+        else { const w=cands.map(x=>({x, eta:wait(p,levelCost(B[x.k],x.lvl))})).sort((a,b)=>a.eta-b.eta)[0]; waits.push({q:'Bâtiment · '+planetRef(p), what:`${B[w.x.k].n} ${w.x.lvl}`, eta:w.eta, held:res.some(x=>x>0), miss:missOf(p,levelCost(B[w.x.k],w.x.lvl))}); soft.push({p, cost:levelCost(B[w.x.k],w.x.lvl), eta:w.eta}); }
       }
+      if(lfMode()==='after') lfPass(false);
       // Chaque planète qui a un chantier peut construire : le hub pour la soute
       // de l'empire, une colonie pour ses propres transporteurs.
       for(const p of P){
@@ -1008,6 +1014,7 @@ function dailyMissions(){
       return {need: libres.length ? 'prix' : null, n:cases.length};
     };
     const lfCard = (q, id, quoi, page) => {
+      if(lfMode()==='off') return;
       const vus = S.planets.map(p=>({p, st:lfState(p,q)})).filter(x=>x.st.need);
       if(!vus.length) return;
       const page0 = vus.filter(x=>x.st.need==='page').map(x=>planetRef(x.p));
@@ -1345,6 +1352,7 @@ settings(){
         <label class="f">Je me connecte toutes les<select id="dInt" data-day="interval">${[30,60,90,120,180].map(v=>`<option value="${v}" ${+d.interval===v?'selected':''}>${v} min</option>`).join('')}</select></label>
         <label class="f">Nuit : de (heure)<input id="dNs" type="number" min="0" max="23" data-day="nightStart" value="${d.nightStart}"></label>
         <label class="f">à (heure)<input id="dNe" type="number" min="0" max="23" data-day="nightEnd" value="${d.nightEnd}"></label>
+        <label class="f">Formes de vie<select id="dLf" data-day="lf">${Object.entries(LF_MODE).map(([k,l])=>`<option value="${k}" ${lfMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
         <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
       </div>
     </div>
@@ -1578,7 +1586,7 @@ function bind(){
   view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ const r=parseReport(el.value); if(r.some(x=>x!=null)){ S.raid.m=r[0]||0; S.raid.c=r[1]||0; S.raid.d=r[2]||0; save(); render(); } return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); save(); REFRESH.explore(); }));
   view.querySelectorAll('[data-lf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.lf, f=new Set(S.lf.found); el.checked ? f.add(k) : f.delete(k); S.lf.found=[...f]; save(); render(); }));
   view.querySelectorAll('[data-day]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
-    const k = el.dataset.day; S.day[k] = k==='focus' ? el.value : Math.max(0, parseInt(el.value)||0); save(); refresh();
+    const k = el.dataset.day; S.day[k] = (k==='focus' || k==='lf') ? el.value : Math.max(0, parseInt(el.value)||0); save(); refresh();
   }));
   view.querySelectorAll('[data-colo]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k = el.dataset.colo;
