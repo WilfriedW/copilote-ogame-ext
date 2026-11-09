@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.9.2';
+const APP_VERSION = '1.9.3';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -895,10 +895,15 @@ function dailyMissions(){
   }
   const occ = API && API.planets ? occupied() : null;
   if(occ && parseC(S.colo.target) && occ.has(S.colo.target) && occ.get(S.colo.target)!==S.me && !colSentNow()){ const alt = colonyCandidates()[0]; out.unshift({id:'colo-taken', q:'Colonie', every:6, sev:'bad', what:`${S.colo.target} est déjà occupée`, why:alt?`Meilleure position libre proche : ${alt.coords} (${alt.bonus||'pas de bonus'}, ~${alt.fields} cases).`:'Choisis une autre position dans Outils › Cibles.', how:['Outils › Cibles › Où coloniser : clique sur Choisir pour changer la destination.']}); }
-  const rt = raidTargets().filter(r=>!r.outlaw && !(S.raids[r.coords] && now-S.raids[r.coords].at<6*3600e3)).slice(0,3);
+  // Chaque sonde occupe un emplacement de flotte jusqu'à son retour : en
+  // proposer plus que d'emplacements libres, c'est envoyer le joueur sur un
+  // « Nombre maximal de flottes atteint ». Emplacements inconnus : on en
+  // suppose assez, comme avant.
+  const rtAll = raidTargets().filter(r=>!r.outlaw && !(S.raids[r.coords] && now-S.raids[r.coords].at<6*3600e3));
+  const libres = fs ? Math.max(0, fs[1]-fs[0]) : 3, rt = rtAll.slice(0, Math.min(3, libres));
   if(S.raid && S.raid.safe && (S.raid.m||S.raid.c||S.raid.d)) out.unshift({id:'raid-go', q:'Pillage', every:1, sev:'good', what:`Pillage de ${S.raid.coords} prêt`, why:'Les ressources sont saisies et la cible est sans défense : lance-le depuis Outils › Cibles.', how:['Outils › Cibles : vérifie la flotte proposée, puis envoie-la en mission Attaquer.', 'Clique sur Lancé pour suivre le retour.']});
-  if(rt.length) out.push({id:'raid', q:'Pillage', every:12, sev:'good', what:`Espionner ${rt.length>1?'ces inactifs':'cet inactif'} : ${rt.map(r=>r.coords).join(', ')}`, why:`Inactifs proches et moins forts que toi : pas d'avertissement hors-la-loi. Détail dans Outils › Cibles.`, how:['Galaxie : clique sur l\'œil de la ligne pour envoyer une sonde.', 'Rapport sans flotte ni défense et avec des ressources : mission Attaquer, assez de soute pour la moitié de son stock.']});
-  else out.push({id:'inactive', q:'Pillage', every:24, sev:'info', what:'Repérer des inactifs à piller', why:'Les joueurs marqués (i) ou (I) ne se défendent plus. À piller dès qu\'ils sont dans ta tranche de points.',
+  if(rt.length) out.push({id:'raid', q:'Pillage', every:12, sev:'good', what:`Espionner ${rt.length>1?'ces inactifs':'cet inactif'} : ${rt.map(r=>r.coords).join(', ')}`, why:`Inactifs proches et moins forts que toi : pas d'avertissement hors-la-loi.${rtAll.length>rt.length?` ${rtAll.length} repérés, mais ${libres} emplacement${libres>1?'s':''} de flotte libre${libres>1?'s':''}.`:''} Détail dans Outils › Cibles.`, how:['Galaxie : clique sur l\'œil de la ligne pour envoyer une sonde.', 'Chaque sonde occupe un emplacement de flotte jusqu\'à son retour.', 'Rapport sans flotte ni défense et avec des ressources : mission Attaquer, assez de soute pour la moitié de son stock.']});
+  else if(!rtAll.length) out.push({id:'inactive', q:'Pillage', every:24, sev:'info', what:'Repérer des inactifs à piller', why:'Les joueurs marqués (i) ou (I) ne se défendent plus. À piller dès qu\'ils sont dans ta tranche de points.',
     how:['Galaxie : parcours ton système et les voisins, note les noms gris (i)/(I).', 'Espionne-les. Si le jeu affiche « joueur plus puissant », réponds <b>Non</b> : tu perdrais ta protection pendant 7 jours.', 'Sans flotte ni défense et avec des ressources : mission Attaquer avec assez de soute.']});
   const ns = +S.day.nightStart, nd = new Date(now); nd.setHours(ns,0,0,0); if(nd.getTime() <= now) nd.setDate(nd.getDate()+1);
   const nightAt = nd.getTime() - 3600e3;

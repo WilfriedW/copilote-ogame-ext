@@ -15,12 +15,12 @@ const SOIR = new Date(2026, 10, 8, 22, 30, 0).getTime();
 const REVEIL = new Date(2026, 10, 9, 7, 0, 0).getTime();
 
 /** Charge l'application avec un état modifié à la volée. */
-function app(modifier, now) {
+function app(modifier, now, api) {
   const s = fixtureState();
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef']);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef'], api);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -214,6 +214,43 @@ t('avec ses propres vaisseaux, la colonie envoie directement', () => {
   assert.ok(a, 'un rapatriement est proposé');
   assert.ok(/Colonie/.test(a.q), 'l\'action se passe sur la colonie : ' + a.q);
   assert.ok(/Rapatrier vers Planète mère/.test(a.what), a.what);
+});
+
+/* ---------- espionner co\u00fbte un emplacement de flotte ---------- */
+
+/** Trois inactifs plus faibles que moi, dans mon syst\u00e8me. */
+const INACTIFS = {
+  planets: [['1:140:6', 'a'], ['1:145:10', 'b'], ['1:138:6', 'c']],
+  players: { a: ['Alpha', 'i'], b: ['Beta', 'i'], c: ['Gamma', 'I'], moi: ['Moi', ''] },
+  scores: { a: [900], b: [800], c: [700], moi: [5000] }
+};
+const avecSlots = (used, max) => app(s => {
+  s.me = 'moi';
+  s.syncAt = SOIR;
+  s.slots = { fleet: [used, max], at: SOIR };
+}, SOIR, INACTIFS);
+const espionnage = g => g.dailyMissions().find(m => m.id === 'raid');
+
+t('emplacements de flotte pleins : aucun espionnage propos\u00e9', () => {
+  const g = avecSlots(8, 8);
+  // Chaque sonde prend un emplacement : la mission \u00e9chouerait avec
+  // \u00ab Nombre maximal de flottes atteint \u00bb.
+  assert.ok(!espionnage(g), 'rien \u00e0 espionner sans emplacement libre');
+  assert.ok(!g.dailyMissions().find(m => m.id === 'inactive'),
+    'et surtout pas \u00ab rep\u00e9rer des inactifs \u00bb : ils sont d\u00e9j\u00e0 rep\u00e9r\u00e9s');
+});
+
+t('un seul emplacement libre : une seule cible propos\u00e9e', () => {
+  const m = espionnage(avecSlots(7, 8));
+  assert.ok(m, 'un espionnage reste possible');
+  assert.equal((m.what.match(/\d+:\d+:\d+/g) || []).length, 1,
+    'une seule cible tient dans l\'emplacement libre : ' + m.what);
+});
+
+t('assez d\'emplacements : les trois cibles sont propos\u00e9es', () => {
+  const m = espionnage(avecSlots(2, 8));
+  assert.ok(m, 'un espionnage est propos\u00e9');
+  assert.equal((m.what.match(/\d+:\d+:\d+/g) || []).length, 3, m.what);
 });
 
 /* ---------- des transporteurs à demeure sur les colonies ---------- */

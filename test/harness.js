@@ -29,7 +29,7 @@ function fakeEl() {
  * @param {string[]} want noms des symboles d'app.js à récupérer
  * @returns {object} les symboles demandés
  */
-function loadApp(state, nowMs, want) {
+function loadApp(state, nowMs, want, api) {
   const store = { 'ogame-copilot-v1': JSON.stringify(state) };
   const LS = {
     getItem: k => (k in store ? store[k] : null),
@@ -58,7 +58,7 @@ function loadApp(state, nowMs, want) {
     runtime: { sendMessage() {} }
   };
 
-  const window = { addEventListener() {}, chrome: undefined, __api: null, __game: null };
+  const window = { addEventListener() {}, chrome: undefined, __api: api || null, __game: null };
 
   // même ordre que boot.js
   const src = ['ids.js', 'app.js']
