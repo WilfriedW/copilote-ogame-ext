@@ -53,8 +53,13 @@ function loadApp(state, nowMs, want, api, ext) {
     body: fakeEl()
   };
 
+  // ce que le panneau publie pour le script de page, pour pouvoir le relire
+  const written = {};
   const chrome = {
-    storage: { local: { get(k, cb) { if (cb) cb({}); }, set() {} }, onChanged: { addListener() {} } },
+    storage: {
+      local: { get(k, cb) { if (cb) cb({}); }, set(v) { Object.assign(written, v); } },
+      onChanged: { addListener() {} }
+    },
     runtime: { sendMessage() {}, id: ext ? 'test-extension' : undefined }
   };
 
@@ -72,6 +77,8 @@ function loadApp(state, nowMs, want, api, ext) {
   const out = new Function(...names, src + '\nreturn {' + want.join(', ') + '};')(
     ...names.map(n => args[n]));
   /** Ce que le rendu a écrit, par identifiant d'élément. */
+  /** Ce que le panneau a écrit dans le stockage de l'extension. */
+  out.stored = () => written;
   out.html = () => { const o = {}; for (const [k, el] of byId) o[k] = el.innerHTML || el.textContent || ''; return o; };
   return out;
 }

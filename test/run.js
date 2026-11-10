@@ -466,6 +466,18 @@ t('les d\u00e9bits de chaque plan\u00e8te partent vers la page', () => {
   assert.equal(r['33601'].length, 3, 'métal, cristal, deutérium');
 });
 
+t('le panneau publie bien la charge utile en se rendant', () => {
+  // Le tout est dans un try/catch pour ne jamais casser l'affichage : donc
+  // une erreur ici serait silencieuse, et la page resterait vide sans
+  // qu'aucune alerte ne le dise. D'où ce test de bout en bout.
+  const g = app(relie, SOIR, null, true);
+  g.REFRESH.today();
+  const skin = g.stored().skin;
+  assert.ok(skin, 'rien n\'a été publié : la page du jeu n\'aurait aucun repère');
+  assert.ok(skin.rates['33601'], 'les débits de la planète mère');
+  assert.ok(Object.keys(skin.hints).length, 'au moins un repère à poser');
+});
+
 t('l\'\u00e9puration du jeu est \u00e9teinte par d\u00e9faut', () => {
   // On ne touche pas à l'affichage du jeu sans que le joueur l'ait demandé.
   const g = app(relie);

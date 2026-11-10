@@ -20,7 +20,24 @@ function scopeAll() {
   chrome.tabs.query({}, tabs => tabs.forEach(t => scopeToTab(t.id, t.url)));
 }
 
-chrome.runtime.onInstalled.addListener(scopeAll);
+/**
+ * Réinjecte le script de page dans les onglets OGame déjà ouverts.
+ * Recharger ou mettre à jour l'extension coupe le script des onglets en
+ * cours sans le remplacer : la page continue de tourner sans repères, sans
+ * rien signaler, jusqu'à ce que le joueur pense à la rafraîchir.
+ */
+function reinject() {
+  chrome.tabs.query({ url: 'https://*.ogame.gameforge.com/game/index.php*' }, tabs => {
+    if (chrome.runtime.lastError) return;
+    for (const t of tabs || []) {
+      chrome.scripting
+        .executeScript({ target: { tabId: t.id }, files: ['ids.js', 'content.js'] })
+        .catch(() => {});
+    }
+  });
+}
+
+chrome.runtime.onInstalled.addListener(() => { scopeAll(); reinject(); });
 chrome.runtime.onStartup.addListener(scopeAll);
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => { if (info.url || info.status === 'loading' || info.status === 'complete') scopeToTab(tabId, tab.url); });
 chrome.tabs.onActivated.addListener(({ tabId }) => chrome.tabs.get(tabId, t => { if (!chrome.runtime.lastError) scopeToTab(tabId, t && t.url); }));
