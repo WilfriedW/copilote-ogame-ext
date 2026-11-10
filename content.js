@@ -224,7 +224,11 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
       : isFinite(worst) ? 'Payable dans ' + hms(worst)
       : 'Hors de portée au rythme actuel de cette planète';
     if (!txt) { if (vieux) vieux.remove(); return; }
-    const el = vieux || costs.appendChild(document.createElement('p'));
+    // Au-dessus de la boîte de coût, pas dedans : cette boîte a sa hauteur et
+    // rognait la ligne sans rien laisser voir. Ici elle tombe dans le vide au
+    // milieu du panneau de détail.
+    const host = costs.parentNode || costs;
+    const el = vieux || host.insertBefore(document.createElement('p'), costs);
     el.className = 'copilote-eta';
     if (el.textContent !== txt) el.textContent = txt;
   }

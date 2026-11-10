@@ -3,6 +3,7 @@
    l'évalue ici comme le ferait le navigateur, avec un DOM factice. */
 const assert = require('assert');
 const { loadApp, fixtureState } = require('./harness');
+const { runPage } = require('./page');
 
 let passed = 0;
 const failures = [];
@@ -406,6 +407,51 @@ t('chaque ligne de coût est rangée dans la bonne ressource', () => {
   assert.equal(g.lfRes('resource deuterium icon tooltip'), 2);
   // une classe inconnue ne doit pas atterrir dans le métal par défaut
   assert.equal(g.lfRes('resource energy icon'), -1);
+});
+
+/* ---------- ce que le script pose sur la page du jeu ---------- */
+
+/* Relevé sur la page Recherche : Astrophysique 5, cristal insuffisant. */
+const ASTRO = {
+  planetId: '33657643',
+  costs: [
+    { cls: 'resource metal icon sufficient tooltip js_hideTipOnMobile', value: 37515 },
+    { cls: 'resource crystal icon insufficient tooltip js_hideTipOnMobile', value: 75031 },
+    { cls: 'resource deuterium icon sufficient tooltip js_hideTipOnMobile', value: 37515 }
+  ],
+  stock: [709703, 36384, 48432]
+};
+const SKIN = { hints: {}, rates: { '33657643': [12000, 6000, 3000] }, lean: false };
+
+t('la page annonce le d\u00e9lai de la ressource qui manque', () => {
+  // 75 031 - 36 384 = 38 647 cristal à 6 000/h
+  assert.equal(runPage({ ...ASTRO, skin: SKIN }).eta, 'Payable dans 6h 27m');
+});
+
+t('la ligne sort de la bo\u00eete de co\u00fbt, qui la rognait', () => {
+  const r = runPage({ ...ASTRO, skin: SKIN });
+  assert.equal(r.etaParent, 'technologydetails',
+    'posée dans .costs, elle était créée mais invisible');
+});
+
+t('rien \u00e0 annoncer quand tout est pay\u00e9', () => {
+  assert.equal(runPage({ ...ASTRO, skin: SKIN, stock: [999999, 999999, 999999] }).eta, null);
+});
+
+t('sans d\u00e9bit connu, pas de d\u00e9lai invent\u00e9', () => {
+  const r = runPage({ ...ASTRO, skin: { hints: {}, rates: {}, lean: false } });
+  assert.equal(r.eta, null, 'le panneau n\'a pas publié ce débit');
+});
+
+t('une production nulle est annonc\u00e9e comme telle', () => {
+  const r = runPage({ ...ASTRO, skin: { hints: {}, rates: { '33657643': [12000, 0, 3000] }, lean: false } });
+  assert.ok(/Hors de port\u00e9e/.test(r.eta), r.eta);
+});
+
+t('le t\u00e9moin d\'\u00e9tat dit ce que la page a re\u00e7u', () => {
+  const d = runPage({ ...ASTRO, skin: SKIN }).dataset.copilote;
+  assert.ok(/debits=33657643/.test(d), d);
+  assert.ok(/ici=33657643/.test(d), d);
 });
 
 /* ---------- ouvrir la bonne page du jeu ---------- */
