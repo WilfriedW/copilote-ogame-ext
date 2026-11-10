@@ -776,6 +776,31 @@ t('feuille de route épuisée : Astrophysique entre dans le plan pour les expéd
     'Astrophysique est proposée ou attendue : ' + (rech.map(a => a.what).join(', ') || 'rien'));
 });
 
+t('la carte du plafond dit d\'où vient le chiffre', () => {
+  // Sans ce témoin, « je ne vois pas de changement » est indécidable : le
+  // plafond lu dans le jeu et le plafond déduit d'Astrophysique donnent la
+  // même carte, mais seul le premier prouve que la page a été lue.
+  const lu = app(s => { flotteDExpedition(s); s.tech.astro = 8;
+    s.slots = { fleet: [3, 9], expo: [1, 2], at: JOUR }; }, JOUR);
+  const m = lu.dailyMissions().find(x => x.id === 'expomax');
+  assert.ok(/1\/2/.test(m.why), 'le chiffre lu dans le jeu : ' + m.why);
+  assert.ok(/3\/9/.test(m.why), 'et les emplacements de flotte : ' + m.why);
+
+  const deduit = app(s => { flotteDExpedition(s); s.tech.astro = 8; s.slots = null; }, JOUR);
+  const d = deduit.dailyMissions().find(x => x.id === 'expomax');
+  assert.ok(/Astrophysique/.test(d.why) && !/\d\/\d/.test(d.why),
+    'sans lecture du jeu, la carte le dit au lieu d\'inventer un chiffre : ' + d.why);
+});
+
+t('le plafond lu hier vaut toujours aujourd\'hui', () => {
+  // Le nombre d'expéditions simultanées ne change qu'avec Astrophysique : le
+  // jeter au bout de trois heures ramenait le plan à la formule, c'est-à-dire
+  // au bug. Seul le nombre d'expéditions *en cours* se périme.
+  const g = app(s => { flotteDExpedition(s); s.tech.astro = 9;
+    s.slots = { fleet: [0, 9], expo: [0, 2], at: JOUR - 20 * 3600e3 }; }, JOUR);
+  assert.equal(expeditions(g).length, 2, 'toujours deux, pas la formule');
+});
+
 /* ---------- la version ---------- */
 
 t('app.js et manifest.json annoncent la même version', () => {

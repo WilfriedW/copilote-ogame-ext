@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.17.0';
+const APP_VERSION = '1.17.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1063,8 +1063,12 @@ function fleetSlots(){ return S.slots && S.slots.fleet && S.syncAt && Date.now()
    que le jeu refusait. */
 function expoCap(astro){
   const f = a => Math.floor(Math.sqrt(Math.max(0, a))) + (S.settings.cls==='explorer' ? 2 : 0);
-  const frais = S.slots && S.slots.expo && S.syncAt && Date.now()-(S.slots.at||S.syncAt) < 3*3600e3;
-  const base = frais ? S.slots.expo[1] : f(S.tech.astro);
+  /* Pas de péremption sur ce chiffre : le nombre d'expéditions simultanées ne
+     bouge qu'avec Astrophysique. Seul le nombre d'expéditions en cours se périme,
+     et il ne sert pas ici. Le jeter au bout de trois heures ramenait le plan à
+     la formule dès que le joueur n'avait pas rouvert la page Flotte. */
+  const lu = S.slots && S.slots.expo && S.slots.expo[1] > 0;
+  const base = lu ? S.slots.expo[1] : f(S.tech.astro);
   return Math.max(0, base + f(astro == null ? S.tech.astro : astro) - f(S.tech.astro));
 }
 /** Niveau d'Astrophysique qui donnera une expédition simultanée de plus. */
@@ -1096,9 +1100,15 @@ function dailyMissions(){
   const fs = fleetSlots();
   if(fs && fs[0]>=fs[1]) out.push({id:'fleetslots', info:true, q:'Flotte', every:3, sev:'warn', what:`Emplacements de flotte pleins (${fs[0]}/${fs[1]})`, why:'Chaque mission en vol (découvertes comprises) prend un emplacement. Aucune expédition possible avant un retour.', how:['Attends le premier retour (Mouvements de flotte).', 'Garde 1 emplacement libre pour les expéditions : envoie un peu moins de découvertes à la fois.', `Technologie Ordinateur ${S.tech.computer+1} ajoute un emplacement.`]});
   const nExp = expoCap(), veut = expoWanted();
+  /* D'où vient le plafond, en clair : lu sur la page de flotte, ou déduit
+     d'Astrophysique faute de l'avoir lue. Sans ça, les deux cas donnent la même
+     carte et « rien n'a changé » est indécidable. */
+  const sExp = S.slots && S.slots.expo ? `lu dans le jeu : ${S.slots.expo[0]}/${S.slots.expo[1]}` : null;
+  const sFl = fs ? `emplacements de flotte ${fs[0]}/${fs[1]}` : null;
+  const source = sExp ? ` (${[sExp, sFl].filter(Boolean).join(`, `)})` : ` (déduit d'Astrophysique ${S.tech.astro} : la page de flotte n'a pas encore été lue)`;
   if(veut > nExp) out.push({id:'expomax', info:true, q:'Exploration', every:12, sev:'warn',
     what:`Plafond atteint : ${nExp} expédition${nExp>1?'s':''} à la fois`,
-    why:`Ta flotte au sol en remplirait au moins ${veut}. Le nombre d'expéditions simultanées ne dépend que d'Astrophysique : ${nExp+1} à partir du niveau ${astroForExpo()}.`,
+    why:`Ta flotte au sol en remplirait au moins ${veut}. Le nombre d'expéditions simultanées ne dépend que d'Astrophysique : ${nExp+1} à partir du niveau ${astroForExpo()}.${source}`,
     how:[`Recherche : Astrophysique ${S.tech.astro+1}${astroForExpo()>S.tech.astro+1 ? ` (le palier utile est ${astroForExpo()})` : ''}.`,
       'Chaque niveau pair ajoute aussi un emplacement de colonie.',
       'En attendant, les transporteurs en trop servent au rapatriement ou à la mise à l'+"'"+'abri du soir.']});
