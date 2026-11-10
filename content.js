@@ -265,6 +265,16 @@ color:#cfe0ff;font:700 12px/1.5 Arial,sans-serif}`;
       li.appendChild(tag);
     }
     paintEta();
+    // Témoin lisible depuis la console de la page : le script vit dans un
+    // monde isolé, donc ses variables y sont invisibles. L'heure dit s'il
+    // tourne encore, le reste dit ce qu'il a reçu du panneau.
+    document.documentElement.dataset.copilote = [
+      new Date().toTimeString().slice(0, 8),
+      'planetes=' + (Object.keys(hints).join('|') || '-'),
+      'debits=' + (Object.keys(rates).join('|') || '-'),
+      'ici=' + meta('planet-id'),
+      'epure=' + (lean ? 1 : 0)
+    ].join(' ');
   }
 
   try {
