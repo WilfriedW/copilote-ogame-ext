@@ -20,7 +20,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -438,6 +438,32 @@ t('le plan se traduit en indices pour la page du jeu', () => {
   assert.equal(h['33601']['11101'], 25);
   assert.deepEqual(Object.keys(h['33601']).sort(), ['11101', '124'],
     'une expédition n\'a pas de tuile à surligner');
+});
+
+t('le d\u00e9lai se d\u00e9duit du manque et du d\u00e9bit', () => {
+  const g = app();
+  assert.equal(g.etaSecs(0, 1000), 0, 'rien ne manque : c\'est payable tout de suite');
+  assert.equal(g.etaSecs(2000, 1000), 7200, '2 000 manquants à 1 000/h');
+  // une production nulle ou négative n'y arrivera jamais : il faut le dire
+  // plutôt que d'afficher un délai rassurant et faux.
+  assert.equal(g.etaSecs(2000, 0), Infinity);
+  assert.equal(g.etaSecs(2000, -50), Infinity);
+});
+
+t('le d\u00e9lai s\'\u00e9crit en heures et minutes', () => {
+  const g = app();
+  assert.equal(g.hms(7200), '2h 00m');
+  // arrondi vers le haut : le bouton doit être cliquable avant l'heure dite
+  assert.equal(g.hms(90), '2m');
+  assert.equal(g.hms(30), '1m');
+  assert.equal(g.hms(Infinity), 'jamais à ce rythme');
+});
+
+t('les d\u00e9bits de chaque plan\u00e8te partent vers la page', () => {
+  const g = app(relie);
+  const r = g.gameSkin([]).rates;
+  assert.ok(r['33601'] && r['33601'][0] > 0, 'la planète mère produit du métal');
+  assert.equal(r['33601'].length, 3, 'métal, cristal, deutérium');
 });
 
 t('l\'\u00e9puration du jeu est \u00e9teinte par d\u00e9faut', () => {

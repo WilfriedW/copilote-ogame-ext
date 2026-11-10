@@ -181,7 +181,7 @@
   /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On
      n'ajoute qu'une classe et une étiquette inerte : rien n'est cliqué, rien
      n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
-  let hints = {}, lean = false;
+  let hints = {}, rates = {}, lean = false;
   /* Chaque règle vise un bloc nommé, repéré sur la page, et ne fait que le
      masquer. Elles ne s'appliquent que si le joueur a coché « Épurer », et
      décocher les retire toutes d'un coup. */
@@ -190,10 +190,46 @@ html.copilote-lean #siteHeader,
 html.copilote-lean #siteFooter{display:none}
 html.copilote-lean #middle .maincontent > div > header{display:none}`;
 
+  /* Stock affiché par le jeu, hors du snapshot : la surcouche en a besoin
+     à chaque passage, pas seulement quand on envoie une photo. */
+  const rawRes = id => {
+    const e = document.getElementById('resources_' + id);
+    return e && e.dataset.raw != null ? +e.dataset.raw : null;
+  };
+
+  /* Sous le coût d'un détail, le temps qu'il reste à attendre. Le jeu colore
+     en rouge ce qui manque mais ne dit pas combien de temps ; le panneau,
+     lui, connaît le débit de chaque planète. */
+  function paintEta() {
+    const det = document.getElementById('technologydetails');
+    if (!det) return;
+    const costs = det.querySelector('.costs');
+    const vieux = det.querySelector('.copilote-eta');
+    if (!costs) { if (vieux) vieux.remove(); return; }
+    const r = rates[meta('planet-id')];
+    const have = [rawRes('metal'), rawRes('crystal'), rawRes('deuterium')];
+    let worst = 0;
+    det.querySelectorAll('.costs li.resource[data-value]').forEach(li => {
+      const j = lfRes(li.className);
+      if (j < 0 || have[j] == null) return;
+      const eta = etaSecs((+li.dataset.value || 0) - have[j], r ? r[j] : 0);
+      if (eta > worst) worst = eta;
+    });
+    const txt = !r || worst <= 0 ? ''
+      : isFinite(worst) ? 'Payable dans ' + hms(worst)
+      : 'Hors de portée au rythme actuel de cette planète';
+    if (!txt) { if (vieux) vieux.remove(); return; }
+    const el = vieux || costs.appendChild(document.createElement('p'));
+    el.className = 'copilote-eta';
+    if (el.textContent !== txt) el.textContent = txt;
+  }
+
   const STYLE = `li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-offset:2px;border-radius:4px}
 .copilote-tag{position:absolute;top:3px;right:3px;z-index:5;pointer-events:none;max-width:calc(100% - 6px);
 overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
-border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}`;
+border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+.copilote-eta{margin:6px 0 0;padding:3px 8px;border-left:3px solid #8aa9ff;background:rgba(138,169,255,.12);
+color:#cfe0ff;font:700 12px/1.5 Arial,sans-serif}`;
 
   function paint() {
     if (!document.getElementById('copilote-style')) {
@@ -223,10 +259,15 @@ border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}`;
       tag.title = 'Copilote : monter au niveau ' + lvl;
       li.appendChild(tag);
     }
+    paintEta();
   }
 
   try {
-    const take = skin => { hints = (skin && skin.hints) || {}; lean = !!(skin && skin.lean); };
+    const take = skin => {
+      hints = (skin && skin.hints) || {};
+      rates = (skin && skin.rates) || {};
+      lean = !!(skin && skin.lean);
+    };
     chrome.storage.local.get('skin', v => { take(v && v.skin); paint(); });
     chrome.storage.onChanged.addListener((ch, area) => {
       if (area === 'local' && ch.skin) { take(ch.skin.newValue); paint(); }

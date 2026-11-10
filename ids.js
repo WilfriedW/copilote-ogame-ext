@@ -21,6 +21,30 @@ var OG_LF_TECH = {
 };
 
 /**
+ * Délai avant d'avoir réuni ce qui manque, au débit horaire donné.
+ * @param {number} manque quantité manquante
+ * @param {number} parHeure production horaire
+ * @returns {number} secondes, 0 si rien ne manque, Infinity si la production
+ *   n'y arrivera pas
+ */
+function etaSecs(manque, parHeure){
+  if(!(manque > 0)) return 0;
+  return parHeure > 0 ? manque / parHeure * 3600 : Infinity;
+}
+/**
+ * Délai lisible : « 2h 14m », « 7m », ou l'aveu que ça n'arrivera pas.
+ * @param {number} secs secondes
+ * @returns {string}
+ */
+function hms(secs){
+  if(!isFinite(secs)) return 'jamais à ce rythme';
+  // Arrondi vers le haut : mieux vaut que le bouton soit cliquable avant
+  // l'heure annoncée que l'inverse.
+  const h = Math.floor(secs / 3600), m = Math.ceil((secs % 3600) / 60);
+  return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${Math.max(1, m)}m`;
+}
+
+/**
  * File de jeu d'une case de forme de vie, d'après son identifiant.
  * Chaque race occupe deux séries consécutives : bâtiments puis recherches,
  * donc la centaine impaire construit et la paire cherche (111xx/112xx pour

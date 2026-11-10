@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.15.0';
+const APP_VERSION = '1.16.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -241,12 +241,18 @@ function planHints(acts){
   return out;
 }
 /**
- * Ce que la page du jeu doit afficher de notre part : les repères, et si le
- * joueur a demandé qu'on allège sa mise en page.
+ * Ce que la page du jeu doit afficher de notre part : les repères, les débits
+ * de chaque planète, et si le joueur a demandé qu'on allège sa mise en page.
  * @param {object[]} acts actions de la session en cours
  * @returns {object} charge utile pour le script de page
  */
-function gameSkin(acts){ return {hints: planHints(acts), lean: !!S.settings.lean}; }
+function gameSkin(acts){
+  // Les débits suivent les indices : la page du jeu sait lire un coût et un
+  // stock, mais pas à quelle vitesse une planète produit.
+  const rates = {};
+  for(const p of S.planets){ if(!p.gid) continue; const pr = production(p); rates[p.gid] = [pr.m, pr.c, pr.d]; }
+  return {hints: planHints(acts), rates, lean: !!S.settings.lean};
+}
 function labPlanet(){ return S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
 function labLevel(){ return Math.max(0, ...S.planets.map(p=>p.b.lab)); }
 /** Research time in seconds. */
