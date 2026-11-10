@@ -801,6 +801,81 @@ t('le plafond lu hier vaut toujours aujourd\'hui', () => {
   assert.equal(expeditions(g).length, 2, 'toujours deux, pas la formule');
 });
 
+t('les expéditions déjà en vol sont comptées sur les mouvements du jeu', () => {
+  // Le jeu dit « Expéditions 2/2 » et liste deux vols (mission 15), mais un
+  // seul retour avait un minuteur. Le plan en déduisait un emplacement libre
+  // et proposait une troisième expédition que le jeu refuse.
+  const g = app(s => {
+    flotteDExpedition(s);
+    s.tech.astro = 4;
+    s.slots = { fleet: [4, 7], expo: [2, 2], at: JOUR };
+    const r1 = Math.floor(JOUR / 1000) + 4 * 3600, r2 = r1 + 600;
+    s.moves = [
+      { arrival: r1 - 1200, dest: '1:88:16', mission: 15, origin: '1:142:8', ret: false },
+      { arrival: r1, dest: '1:88:16', mission: 15, origin: '1:142:8', ret: true },
+      { arrival: r2 - 1200, dest: '1:92:16', mission: 15, origin: '1:142:6', ret: false },
+      { arrival: r2, dest: '1:92:16', mission: 15, origin: '1:142:6', ret: true }
+    ];
+    // un seul des deux retours a son minuteur : c'est le cas réel
+    s.timers = [{ id: 'g1', game: true, queue: 'fleet', end: r1 * 1000, done: false,
+      kind: 'x', k: 'expo', label: "Retour d'expédition" }];
+  }, JOUR);
+  assert.equal(expeditions(g).length, 0,
+    'les deux emplacements sont pris jusqu\'au premier retour');
+});
+
+t('un retour compté une seule fois, minuteur et mouvement confondus', () => {
+  // Le minuteur du jeu porte l'heure d'arrivée du mouvement : les additionner
+  // bloquerait une expédition que le joueur peut lancer.
+  const g = app(s => {
+    flotteDExpedition(s);
+    s.tech.astro = 4;
+    s.slots = { fleet: [1, 7], expo: [1, 2], at: JOUR };
+    const r = Math.floor(JOUR / 1000) + 4 * 3600;
+    s.moves = [
+      { arrival: r - 1200, dest: '1:88:16', mission: 15, origin: '1:142:8', ret: false },
+      { arrival: r, dest: '1:88:16', mission: 15, origin: '1:142:8', ret: true }
+    ];
+    s.timers = [{ id: 'g1', game: true, queue: 'fleet', end: r * 1000, done: false,
+      kind: 'x', k: 'expo', label: "Retour d'expédition" }];
+  }, JOUR);
+  assert.equal(expeditions(g).length, 1, 'un emplacement reste libre');
+});
+
+t('expéditions à moitié vides : des transporteurs, pas de la recherche', () => {
+  // Deux emplacements, deux flottes, mais chacune très loin de la soute qu'une
+  // expédition peut ramener : un emplacement de plus ne rapporterait rien.
+  // Dire « fais Astrophysique » ici enverrait le joueur dépenser pour rien.
+  const g = app(s => {
+    s.settings.eco = 8;               // soute utile par expédition très haute
+    s.tech.astro = 4;
+    s.planets[0].ships = { lc: 2 };
+    s.planets[1].ships = { sc: 21 };
+    s.syncAt = JOUR;
+    s.slots = { fleet: [2, 7], expo: [2, 2], at: JOUR };
+  }, JOUR);
+  const c = g.dailyMissions().find(x => x.id === 'expocargo');
+  assert.ok(c, 'la carte existe');
+  assert.ok(/transporteur/i.test(c.how.join(' ')), 'elle envoie au chantier : ' + c.how.join(' '));
+  assert.ok(!g.dailyMissions().find(x => x.id === 'expomax'),
+    'et pas en même temps celle qui réclame Astrophysique');
+});
+
+t('soutes pleines : c\'est bien le plafond qui limite', () => {
+  // Même plafond, mais des flottes qui saturent la soute : là, un emplacement
+  // de plus rapporte vraiment, et c'est Astrophysique qu'il faut.
+  const g = app(s => {
+    s.settings.eco = 1;
+    s.tech.astro = 4;
+    s.planets[0].ships = { lc: 40 };
+    s.planets[1].ships = {};
+    s.syncAt = JOUR;
+    s.slots = { fleet: [0, 7], expo: [0, 2], at: JOUR };
+  }, JOUR);
+  assert.ok(g.dailyMissions().find(x => x.id === 'expomax'), 'la carte du plafond');
+  assert.ok(!g.dailyMissions().find(x => x.id === 'expocargo'), 'pas celle des soutes');
+});
+
 /* ---------- la version ---------- */
 
 t('app.js et manifest.json annoncent la même version', () => {

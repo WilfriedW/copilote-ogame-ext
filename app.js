@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.17.1';
+const APP_VERSION = '1.18.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -148,7 +148,7 @@ const GO_KIND = {t:'research', ship:'shipyard', shipbuild:'shipyard', sats:'ship
   transfer:'fleetdispatch', fleet:'fleetdispatch', expo:'fleetdispatch', raid:'galaxy'};
 const GO_MISSION = {lfb:'lfbuildings', lfr:'lfresearch', artefacts:'lfresearch',
   discovery:'galaxy', raid:'galaxy', inactive:'galaxy', 'raid-go':'galaxy', 'colo-taken':'galaxy',
-  expomax:'research', fleetslots:'movement', 'colo-fly':'movement', 'colo-eval':'overview', night:'fleetdispatch'};
+  expomax:'research', expocargo:'shipyard', fleetslots:'movement', 'colo-fly':'movement', 'colo-eval':'overview', night:'fleetdispatch'};
 /* Les bâtiments se répartissent sur deux pages ; les hangars sont côté Ressources. */
 const GO_FACILITIES = new Set(['robot','shipyard','lab','nanite']);
 
@@ -746,6 +746,18 @@ function simulateDay(){
     else if(t.kind==='x' && t.k==='sats' && P[t.p]){ const p=P[t.p]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
     else if(t.kind==='x' && t.k==='colship'){ const p=P[+S.colo.from]||P[0]; p.sq=t.end; sim.colShip=true; sim.colReady=t.end; busy.push({q:'Chantier spatial', what:'Vaisseau de colonisation', end:t.end}); }
   }
+  /* Les expéditions en vol, prises sur les mouvements de flotte du jeu
+     (mission 15, trajet de retour). Les compter sur les seuls minuteurs les
+     sous-comptait : un retour sans minuteur et le plan voyait un emplacement
+     libre là où le jeu affichait « Expéditions 2/2 », donc proposait une
+     expédition de plus qu'il n'en existe. Le minuteur du jeu porte l'heure
+     d'arrivée du mouvement, d'où le dédoublonnage — après la boucle, pour que
+     ce que les minuteurs ont posé soit déjà là. */
+  for(const m of S.moves||[]){
+    if(m.mission !== 15 || !m.ret) continue;
+    const fin = m.arrival*1000;
+    if(fin > now && !expoBusy.includes(fin)) expoBusy.push(fin);
+  }
   const iv = Math.max(15,+S.day.interval||90)/60;
   S.tech = sim.tech; S.planets = P;
   try{
@@ -1106,6 +1118,21 @@ function dailyMissions(){
   const sExp = S.slots && S.slots.expo ? `lu dans le jeu : ${S.slots.expo[0]}/${S.slots.expo[1]}` : null;
   const sFl = fs ? `emplacements de flotte ${fs[0]}/${fs[1]}` : null;
   const source = sExp ? ` (${[sExp, sFl].filter(Boolean).join(`, `)})` : ` (déduit d'Astrophysique ${S.tech.astro} : la page de flotte n'a pas encore été lue)`;
+  const flottes = S.planets.map(p=>expoFleet(Object.assign({}, p.ships))).filter(Boolean);
+  /* Une expédition ne rapporte jamais plus que la soute envoyée. Quand toutes
+     les flottes sont loin de ce plafond, un emplacement de plus ne rapporte
+     rien : réclamer Astrophysique enverrait dépenser pour rien. Ce sont des
+     transporteurs qu'il manque. */
+  if(veut <= nExp && nExp >= 1 && flottes.length && flottes.every(f=>f.cargo < f.cap*0.7)){
+    const best = flottes.reduce((a,f)=>f.cargo>a.cargo?f:a);
+    const manque = Math.ceil((best.cap-best.cargo)/shipStats('lc').cargoEff);
+    out.push({id:'expocargo', info:true, q:'Exploration', every:24, sev:'warn',
+      what:`Tes expéditions partent à ${Math.round(best.cargo/best.cap*100)} % de leur soute utile`,
+      why:`Une expédition ne rapporte jamais plus que la soute envoyée : ${fmt(best.cargo)} embarqués pour ${fmt(best.cap)} ramenables. Un emplacement de plus n'y changerait rien — des transporteurs, si.`,
+      how:[`Chantier spatial : environ ${manque} grands transporteurs de plus pour saturer une expédition.`,
+        `Astrophysique n'ajoute un emplacement qu'au niveau ${astroForExpo()} : inutile tant que les soutes repartent à moitié vides.`,
+        'Les transporteurs servent aussi au rapatriement et à la mise à l'+"'"+'abri du soir.']});
+  }
   if(veut > nExp) out.push({id:'expomax', info:true, q:'Exploration', every:12, sev:'warn',
     what:`Plafond atteint : ${nExp} expédition${nExp>1?'s':''} à la fois`,
     why:`Ta flotte au sol en remplirait au moins ${veut}. Le nombre d'expéditions simultanées ne dépend que d'Astrophysique : ${nExp+1} à partir du niveau ${astroForExpo()}.${source}`,
