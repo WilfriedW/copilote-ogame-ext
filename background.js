@@ -21,23 +21,31 @@ function scopeAll() {
 }
 
 /**
- * Réinjecte le script de page dans les onglets OGame déjà ouverts.
+ * Réinjecte le script de page dans les onglets OGame qui ne l'ont plus.
  * Recharger ou mettre à jour l'extension coupe le script des onglets en
  * cours sans le remplacer : la page continue de tourner sans repères, sans
- * rien signaler, jusqu'à ce que le joueur pense à la rafraîchir.
+ * rien signaler, jusqu'à ce que le joueur pense à la rafraîchir. On sonde
+ * d'abord le marqueur que pose le script, pour ne jamais en empiler deux.
  */
 function reinject() {
   chrome.tabs.query({ url: 'https://*.ogame.gameforge.com/game/index.php*' }, tabs => {
     if (chrome.runtime.lastError) return;
     for (const t of tabs || []) {
       chrome.scripting
-        .executeScript({ target: { tabId: t.id }, files: ['ids.js', 'content.js'] })
+        .executeScript({ target: { tabId: t.id }, func: () => !!window.__copilote })
+        .then(res => {
+          if (res && res[0] && res[0].result) return null;
+          return chrome.scripting.executeScript({ target: { tabId: t.id }, files: ['ids.js', 'content.js'] });
+        })
         .catch(() => {});
     }
   });
 }
 
 chrome.runtime.onInstalled.addListener(() => { scopeAll(); reinject(); });
+// Au démarrage du service worker aussi : un simple rechargement de
+// l'extension ne déclenche pas forcément onInstalled.
+reinject();
 chrome.runtime.onStartup.addListener(scopeAll);
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => { if (info.url || info.status === 'loading' || info.status === 'complete') scopeToTab(tabId, tab.url); });
 chrome.tabs.onActivated.addListener(({ tabId }) => chrome.tabs.get(tabId, t => { if (!chrome.runtime.lastError) scopeToTab(tabId, t && t.url); }));

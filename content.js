@@ -1,4 +1,9 @@
 (() => {
+  // Marqueur de présence : l'extension s'en sert pour savoir si cet onglet a
+  // déjà son script avant d'en réinjecter un, et ne jamais en empiler deux.
+  if (window.__copilote) return;
+  window.__copilote = 1;
+
   const meta = n => document.querySelector(`meta[name="ogame-${n}"]`)?.content;
   const clean = s => String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
