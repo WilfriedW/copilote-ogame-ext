@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.16.4';
+const APP_VERSION = '1.17.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -148,7 +148,7 @@ const GO_KIND = {t:'research', ship:'shipyard', shipbuild:'shipyard', sats:'ship
   transfer:'fleetdispatch', fleet:'fleetdispatch', expo:'fleetdispatch', raid:'galaxy'};
 const GO_MISSION = {lfb:'lfbuildings', lfr:'lfresearch', artefacts:'lfresearch',
   discovery:'galaxy', raid:'galaxy', inactive:'galaxy', 'raid-go':'galaxy', 'colo-taken':'galaxy',
-  fleetslots:'movement', 'colo-fly':'movement', 'colo-eval':'overview', night:'fleetdispatch'};
+  expomax:'research', fleetslots:'movement', 'colo-fly':'movement', 'colo-eval':'overview', night:'fleetdispatch'};
 /* Les bâtiments se répartissent sur deux pages ; les hangars sont côté Ressources. */
 const GO_FACILITIES = new Set(['robot','shipyard','lab','nanite']);
 
@@ -654,6 +654,29 @@ function nextResearch(){
     if(r.lab){ labNeed = Math.max(labNeed, r.lab); continue; }
     if(!list.some(x=>x.k===r.k)) list.push({k:r.k, lvl:r.lvl, crit:flag==='c'});
   }
+  /* Les deux plafonds que le joueur touche tous les jours ont chacun leur
+     recherche. La feuille de route cesse de parler d'Astrophysique dès qu'on l'a
+     dépassée : plus rien ne dit alors comment envoyer une expédition de plus. */
+  const plafonds = [];
+  if(expoWanted() > expoCap()){
+    const cap = expoCap(), need = astroForExpo();
+    plafonds.push(['astro', need === S.tech.astro+1
+      ? `Fait passer de ${cap} à ${cap+1} expéditions simultanées.`
+      : `Étape vers Astrophysique ${need}, qui donnera une ${cap+1}ᵉ expédition simultanée.`]);
+  }
+  const fsl = fleetSlots();
+  if(fsl && fsl[0] >= fsl[1]) plafonds.push(['computer', 'Un emplacement de flotte de plus : tes missions se marchent dessus.']);
+  for(const [k, why] of plafonds){
+    const r = resolveTech(k, S.tech[k]+1, 0); if(!r) continue;
+    if(r.lab){ labNeed = Math.max(labNeed, r.lab); continue; }
+    const w = r.k === k ? why : `Prérequis pour ${T[k].n}.`;
+    const deja = list.find(x=>x.k===r.k);
+    if(deja){ if(!deja.why) deja.why = w; continue; }
+    // Derrière ce que la feuille de route juge critique, et devant le reste
+    // seulement quand les expéditions sont la stratégie choisie.
+    const i = S.day.focus==='fleet' ? list.findIndex(x=>!x.crit) : -1;
+    list.splice(i<0 ? list.length : i, 0, {k:r.k, lvl:r.lvl, crit:false, why:w});
+  }
   return {list, labNeed, k:list[0]&&list[0].k, lvl:list[0]&&list[0].lvl};
 }
 /**
@@ -710,7 +733,7 @@ function simulateDay(){
   const P = S.planets.map((p,i)=>({i, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}}));
   const expoBusy = [];
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
-  const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}, fleetFreeAt: fleetReturns[0] || now+30*60e3};
+  const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
   const busy = [];
   for(const t of S.timers||[]){
     if(t.done || t.end<=now) continue;
@@ -764,7 +787,7 @@ function simulateDay(){
         if(can(labP,c,reserveOf(labP,Tm))){ pay(labP,c); const d=buildTime('lab',labP.b.lab+1,labP), L=labP.b.lab+1, pp=labP; pp.bq=Tm+d; pp.bqKey='lab'; sim.ev.push({at:Tm+d, fn:()=>{ pp.b.lab=Math.max(pp.b.lab,L); }}); acts.push({q:'Bâtiment · '+planetRef(pp), what:`${B.lab.n} ${L}`, why:'Débloque la recherche suivante', cost:c, dur:d, end:Tm+d, kind:'b', k:'lab', lvl:L, p:pp.i}); }
       }
       const labBusy = labP.bq>Tm && labP.bqKey==='lab';
-      const launchR = (R, why)=>{ const c=levelCost(T[R.k],R.lvl); pay(labP,c); const d=researchTime(R.k,R.lvl), k=R.k, L=R.lvl; sim.rq=Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ sim.tech[k]=Math.max(sim.tech[k],L); }}); acts.push({q:'Recherche · '+planetRef(labP), what:`${T[k].n} ${L}`, why, cost:c, dur:d, end:Tm+d, kind:'t', k, lvl:L, p:labP.i}); };
+      const launchR = (R, why)=>{ const c=levelCost(T[R.k],R.lvl); pay(labP,c); const d=researchTime(R.k,R.lvl), k=R.k, L=R.lvl; sim.rq=Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ sim.tech[k]=Math.max(sim.tech[k],L); }}); acts.push({q:'Recherche · '+planetRef(labP), what:`${T[k].n} ${L}`, why: why || R.why || '', cost:c, dur:d, end:Tm+d, kind:'t', k, lvl:L, p:labP.i}); };
       const tryResearch = phase=>{
         if(sim.rq>Tm || !nr.k || labBusy) return;
         const R = nr.list[0], key='t:'+R.k+R.lvl, c = levelCost(T[R.k],R.lvl), mine = goals.find(g=>g.key===key);
@@ -827,9 +850,14 @@ function simulateDay(){
              why:`À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${hm(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge}, arrivée vers ${hm(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.`,
              dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i});
       }
-      const fsl = fleetSlots(), fleetFull = fsl && fsl[0]>=fsl[1] && Tm < sim.fleetFreeAt;
-      const maxExpo = fleetFull ? 0 : Math.max((S.slots && S.slots.expo ? S.slots.expo[1] : 0), Math.floor(Math.sqrt(sim.tech.astro)) + (S.settings.cls==='explorer'?2:0));
-      for(let guard=0; guard<3 && expoBusy.filter(e=>e>Tm).length < maxExpo; guard++){
+      const fsl = fleetSlots();
+      /* Une expédition occupe aussi un emplacement de flotte : en proposer plus
+         qu'il n'y a de place, c'est envoyer le joueur dans « Nombre maximal de
+         flottes atteint ». Les retours déjà connus rendent la place le moment
+         venu. */
+      const libres = fsl ? Math.max(0, fsl[1]-fsl[0]) + fleetReturns.filter(e=>e<=Tm).length : 3;
+      const maxExpo = expoCap(sim.tech.astro);
+      for(let lance=0; lance<Math.min(3, libres) && expoBusy.filter(e=>e>Tm).length < maxExpo; lance++){
         const cands = P.map(p=>({p, f:expoFleet(p.ships)})).filter(x=>x.f).sort((a,b)=>b.f.cargo-a.f.cargo);
         if(!cands.length) break;
         const {p, f} = cands[0], [g,sy] = parseC(p.coords)||[1,1,1], tgt = `${g}:${sy}:16`;
@@ -1029,10 +1057,31 @@ function bestLifeform(){
 }
 /** Fleet slots [used, max] from the last sync, or null. */
 function fleetSlots(){ return S.slots && S.slots.fleet && S.syncAt && Date.now()-(S.slots.at||S.syncAt) < 3*3600e3 ? S.slots.fleet : null; }
-function freeExpoSlots(){
-  const max = Math.max((S.slots && S.slots.expo ? S.slots.expo[1] : 0), Math.floor(Math.sqrt(S.tech.astro)) + (S.settings.cls==='explorer'?2:0));
-  const busy = (S.timers||[]).filter(t=>t.kind==='x' && t.k==='expo' && !t.done && t.end>Date.now()).length;
-  return Math.max(0, max - busy);
+/* Expéditions simultanées. Le chiffre du jeu fait foi quand il est frais : la
+   formule ne sert plus qu'à prévoir ce qu'un niveau d'Astrophysique y
+   ajouterait. La prendre au maximum des deux faisait proposer une expédition
+   que le jeu refusait. */
+function expoCap(astro){
+  const f = a => Math.floor(Math.sqrt(Math.max(0, a))) + (S.settings.cls==='explorer' ? 2 : 0);
+  const frais = S.slots && S.slots.expo && S.syncAt && Date.now()-(S.slots.at||S.syncAt) < 3*3600e3;
+  const base = frais ? S.slots.expo[1] : f(S.tech.astro);
+  return Math.max(0, base + f(astro == null ? S.tech.astro : astro) - f(S.tech.astro));
+}
+/** Niveau d'Astrophysique qui donnera une expédition simultanée de plus. */
+function astroForExpo(){ return Math.pow(Math.floor(Math.sqrt(Math.max(0, S.tech.astro)))+1, 2); }
+/* Expéditions que la flotte au sol pourrait remplir, plafond ignoré. Comptées
+   jusqu'à douze : au-delà, seul « plus que le plafond » compte. */
+function expoWanted(){
+  let n = 0;
+  for(const p of S.planets){
+    const reste = Object.assign({}, p.ships);
+    while(n < 12){
+      const f = expoFleet(reste); if(!f) break;
+      for(const [k,c] of Object.entries(f.ships)) reste[k] = (reste[k]||0) - c;
+      n++;
+    }
+  }
+  return n;
 }
 /** Context-aware to-do items that sit outside the build and research queues. */
 function dailyMissions(){
@@ -1046,6 +1095,13 @@ function dailyMissions(){
   }
   const fs = fleetSlots();
   if(fs && fs[0]>=fs[1]) out.push({id:'fleetslots', info:true, q:'Flotte', every:3, sev:'warn', what:`Emplacements de flotte pleins (${fs[0]}/${fs[1]})`, why:'Chaque mission en vol (découvertes comprises) prend un emplacement. Aucune expédition possible avant un retour.', how:['Attends le premier retour (Mouvements de flotte).', 'Garde 1 emplacement libre pour les expéditions : envoie un peu moins de découvertes à la fois.', `Technologie Ordinateur ${S.tech.computer+1} ajoute un emplacement.`]});
+  const nExp = expoCap(), veut = expoWanted();
+  if(veut > nExp) out.push({id:'expomax', info:true, q:'Exploration', every:12, sev:'warn',
+    what:`Plafond atteint : ${nExp} expédition${nExp>1?'s':''} à la fois`,
+    why:`Ta flotte au sol en remplirait au moins ${veut}. Le nombre d'expéditions simultanées ne dépend que d'Astrophysique : ${nExp+1} à partir du niveau ${astroForExpo()}.`,
+    how:[`Recherche : Astrophysique ${S.tech.astro+1}${astroForExpo()>S.tech.astro+1 ? ` (le palier utile est ${astroForExpo()})` : ''}.`,
+      'Chaque niveau pair ajoute aussi un emplacement de colonie.',
+      'En attendant, les transporteurs en trop servent au rapatriement ou à la mise à l'+"'"+'abri du soir.']});
   const _unused = S.planets.some(p=>((p.ships||{}).sc||0)+((p.ships||{}).lc||0)>0);
   out.push({id:'discovery', q:'Exploration', every:24, sev:'info', what:'Missions de découverte (formes de vie)', why:`Elles rapportent des artefacts et de nouvelles races. Trouvées : ${(S.lf.found||[]).map(k=>LIFEFORMS[k].n).join(', ')}.${S.artefacts!=null?` Artefacts : ${fmt(S.artefacts)}.`:''}`,
     how:['Galaxie : bouton <b>Découverte</b> en haut, ou icône ADN violette sur une ligne.', 'Fais-en sur plusieurs systèmes : le nombre par jour est limité.', 'Une race trouvée ? Coche-la dans Réglages › Formes de vie pour que Copilote en tienne compte.']});
@@ -1563,7 +1619,7 @@ fleet(){
   const s=S.settings, cap = EXPO_CAPS[s.top1][1]*s.eco*(s.cls==='explorer'?1.5:1)*(S.expo.pf?2:1);
   const lc=shipStats('lc'), sc=shipStats('sc'), pf=shipStats('pf');
   const need = Math.max(0, cap - (S.expo.pf?pf.cargoEff:0));
-  const nExp = Math.floor(Math.sqrt(S.tech.astro)) + (s.cls==='explorer'?2:0);
+  const nExp = expoCap();
   document.getElementById('expoOut').innerHTML =
     gauge('m','m','Métal max',fmt(cap)) + gauge('c','c','Cristal max',fmt(cap*2/3)) + gauge('d','d','Deut. max',fmt(cap/3)) +
     gauge('e','e','Grands transp.',nf.format(Math.ceil(need/lc.cargoEff)),`ou ${nf.format(Math.ceil(need/sc.cargoEff))} petits`);

@@ -716,6 +716,66 @@ t('la planète principale garde sa logique habituelle', () => {
   assert.ok(mere.length, 'la planète mère a toujours des actions');
 });
 
+/* ---------- le plafond des expéditions ---------- */
+
+/** Une flotte au sol capable de remplir plusieurs expéditions d'un coup. */
+function flotteDExpedition(s) {
+  s.planets[0].ships = { lc: 20, pr: 1 };
+  s.planets[0].stock = { m: 2000000, c: 1500000, d: 800000, at: JOUR };
+  s.planets[1].ships = {};
+  s.syncAt = JOUR;
+}
+const expeditions = g => g.simulateDay().sessions[0].acts.filter(a => a.kind === 'expo');
+
+t('le nombre d\'expéditions affiché par le jeu l\'emporte sur la formule', () => {
+  // Astrophysique 9 ferait croire à trois expéditions ; le jeu en annonce deux,
+  // et c'est lui qui refuse la troisième.
+  const g = app(s => { flotteDExpedition(s); s.tech.astro = 9;
+    s.slots = { fleet: [0, 9], expo: [0, 2], at: JOUR }; }, JOUR);
+  assert.equal(expeditions(g).length, 2);
+});
+
+t('pas plus d\'expéditions que d\'emplacements de flotte libres', () => {
+  // Une expédition occupe aussi un emplacement de flotte : trois proposées sur
+  // un seul emplacement libre, c'est « Nombre maximal de flottes atteint ».
+  const g = app(s => { flotteDExpedition(s); s.tech.astro = 9;
+    s.slots = { fleet: [8, 9], expo: [0, 3], at: JOUR }; }, JOUR);
+  assert.equal(expeditions(g).length, 1);
+});
+
+t('au plafond, le plan dit quelle recherche l\'augmente', () => {
+  const g = app(s => { flotteDExpedition(s); s.tech.astro = 8;
+    s.slots = { fleet: [0, 9], expo: [2, 2], at: JOUR }; }, JOUR);
+  const m = g.dailyMissions().find(x => x.id === 'expomax');
+  assert.ok(m, 'la carte du plafond existe');
+  assert.ok(/Astrophysique 9/.test(m.why + m.how.join(' ')),
+    'elle nomme le niveau qui débloque la troisième : ' + m.why);
+});
+
+t('la flotte au sol dans le plafond : aucune carte de plafond', () => {
+  const g = app(s => { s.planets[0].ships = { pr: 4 }; s.planets[1].ships = {};
+    s.syncAt = JOUR; s.slots = { fleet: [0, 9], expo: [0, 2], at: JOUR }; }, JOUR);
+  assert.ok(!g.dailyMissions().find(x => x.id === 'expomax'),
+    'sans transporteur, rien à débloquer');
+});
+
+t('feuille de route épuisée : Astrophysique entre dans le plan pour les expéditions', () => {
+  const g = app(s => {
+    flotteDExpedition(s);
+    s.day.focus = 'fleet';
+    // toute la feuille de route « flotte » est derrière lui, sauf Astrophysique
+    Object.assign(s.tech, { combustion: 6, impulse: 5, espionage: 4, computer: 6,
+      hyper: 3, hyperdrive: 2, energy: 8, astro: 8 });
+    s.planets[0].b = Object.assign({}, s.planets[0].b, { lab: 10 });
+    s.slots = { fleet: [0, 9], expo: [0, 2], at: JOUR };
+  }, JOUR);
+  const j = g.simulateDay();
+  const rech = j.sessions.flatMap(x => x.acts).filter(a => a.kind === 't')
+    .concat(j.sessions.flatMap(x => x.waits).filter(w => /Recherche/.test(w.q)));
+  assert.ok(rech.some(a => /Astrophysique/.test(a.what)),
+    'Astrophysique est proposée ou attendue : ' + (rech.map(a => a.what).join(', ') || 'rien'));
+});
+
 /* ---------- la version ---------- */
 
 t('app.js et manifest.json annoncent la même version', () => {
