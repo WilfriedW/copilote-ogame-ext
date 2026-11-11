@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.21.0';
+const APP_VERSION = '1.22.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -647,7 +647,9 @@ const T_EFFET = {
   ion:       'ouvre les recherches suivantes',
   hyper:     'ouvre la propulsion hyperespace',
   plasma:    'ajoute 1 % de métal, 0,66 % de cristal et 0,33 % de deutérium sur toutes tes planètes à la fois',
-  astro:     'commande le nombre de planètes autorisées et d\'expéditions simultanées',
+  // Un niveau d'Astrophysique n'ajoute pas une expédition : il faut un carré
+  // parfait. Le dire, parce que c'est exactement ce que le joueur croit.
+  astro:     'ouvre une planète de plus un palier sur deux ; les expéditions simultanées, elles, n\'augmentent qu\'aux carrés parfaits (9, 16…)',
   computer:  'ajoute un emplacement de flotte par niveau',
   espionage: 'rend les rapports d\'espionnage plus complets',
   combustion:'ajoute 10 % de vitesse aux vaisseaux à combustion, transporteurs compris',
@@ -781,19 +783,28 @@ function nextResearch(){
      économie pure le plan ne colonise pas, donc ne rien promettre : le conseil
      s'en charge, sans engager le plan. */
   if(S.day.focus !== 'eco' && S.tech.astro && S.planets.length >= maxPlanets())
-    plafonds.push(['astro', `Autorisera une ${maxPlanets()+1}ᵉ planète.`]);
-  for(const [k, why] of plafonds){
+    plafonds.push(['astro', `Autorisera une ${maxPlanets()+1}ᵉ planète : une production complète, soit des dizaines de fois ce qu'ajoute un niveau de Plasma, pour trois fois moins cher. D'où sa place en tête.`, true]);
+  /* `tete` : ce plafond ne se range pas derrière la feuille de route, il la
+     double. Une planète de plus vaut une production entière, quand les
+     recherches qu'elle doublait ne font que grossir les mines existantes —
+     attendre la fin de la chaîne vers Plasma revenait à payer trois fois le
+     prix pour dix fois moins. */
+  for(const [k, why, tete] of plafonds){
     const r = resolveTech(k, S.tech[k]+1, 0); if(!r) continue;
     if(r.lab){ labNeed = Math.max(labNeed, r.lab); continue; }
     const w = r.k === k ? why : `Prérequis pour ${T[k].n}.`;
     const deja = list.find(x=>x.k===r.k);
     // Les deux raisons sont vraies : le plafond s'ajoute à celle de la feuille
     // de route au lieu de l'écraser ou d'être perdu.
-    if(deja){ deja.why = deja.why ? deja.why+' '+w : w; continue; }
+    if(deja){
+      deja.why = deja.why ? deja.why+' '+w : w;
+      if(tete && list.indexOf(deja) > 0){ deja.crit = true; list.splice(list.indexOf(deja), 1); list.unshift(deja); }
+      continue;
+    }
     // Derrière ce que la feuille de route juge critique, et devant le reste
     // seulement quand les expéditions sont la stratégie choisie.
-    const i = S.day.focus==='fleet' ? list.findIndex(x=>!x.crit) : -1;
-    list.splice(i<0 ? list.length : i, 0, {k:r.k, lvl:r.lvl, crit:false, why:w});
+    const i = tete ? 0 : (S.day.focus==='fleet' ? list.findIndex(x=>!x.crit) : -1);
+    list.splice(i<0 ? list.length : i, 0, {k:r.k, lvl:r.lvl, crit:!!tete, why:w});
   }
   return {list, labNeed, k:list[0]&&list[0].k, lvl:list[0]&&list[0].lvl};
 }

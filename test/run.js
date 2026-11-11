@@ -1094,6 +1094,46 @@ t('le péage chiffre ce que sa destination rapportera', () => {
     'Énergie ne produit rien : son pourquoi doit chiffrer Plasma, et dit « ' + r.why + ' »');
 });
 
+/* ---------- une planète passe avant les mines ---------- */
+
+/** Trois planètes et Astrophysique 4 : tous les emplacements sont pris. */
+function pleinDePlanetes(s) {
+  s.day.focus = 'ecocol';
+  s.tech.astro = 4;
+  const troisieme = JSON.parse(JSON.stringify(s.planets[1]));
+  troisieme.id = 'colo2'; troisieme.name = 'Colonie 2'; troisieme.coords = '1:142:4';
+  s.planets.push(troisieme);
+}
+
+t('en focus colonie, le palier qui ouvre une planète passe devant la chaîne Plasma', () => {
+  const g = app(pleinDePlanetes);
+  assert.equal(g.maxPlanets(), 3, 'trois emplacements, trois planètes');
+  const l = g.nextResearch().list;
+  assert.equal(l[0].k, 'astro', 'la file commence par ' + l.map(x => x.k + ' ' + x.lvl).join(', '));
+  assert.ok(l[0].crit, 'et le plan met des ressources de côté pour elle');
+  assert.ok(/4ᵉ planète/.test(l[0].why || ''), 'en disant pourquoi : « ' + l[0].why + ' »');
+});
+
+t('un emplacement libre, le palier ne double personne', () => {
+  const g = app(s => { s.day.focus = 'ecocol'; s.tech.astro = 4; });
+  assert.ok(g.S.planets.length < g.maxPlanets(), 'il reste un emplacement');
+  assert.notEqual(g.nextResearch().list[0].k, 'astro',
+    'rien ne presse : la colonie se prépare, elle ne demande aucune recherche');
+});
+
+t('en économie pure le palier ne double pas la file', () => {
+  const g = app(s => { pleinDePlanetes(s); s.day.focus = 'eco'; });
+  const l = g.nextResearch().list;
+  assert.notEqual(l[0].k, 'astro', 'ce focus ne colonise pas : la file garde son ordre');
+});
+
+t('Astrophysique ne promet pas une expédition à chaque niveau', () => {
+  const g = app(pleinDePlanetes);
+  const w = g.nextResearch().list[0].why;
+  assert.ok(/carré|9/.test(w),
+    'le joueur croit qu\'un niveau d\'Astro ajoute une expédition ; le pourquoi doit dire que le palier est un carré parfait : « ' + w + ' »');
+});
+
 /* ---------- la version ---------- */
 
 t('app.js et manifest.json annoncent la même version', () => {
