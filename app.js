@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.22.0';
+const APP_VERSION = '1.22.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -769,6 +769,14 @@ function nextResearch(){
      recherche. La feuille de route cesse de parler d'Astrophysique dès qu'on l'a
      dépassée : plus rien ne dit alors comment envoyer une expédition de plus. */
   const plafonds = [];
+  /* Le plafond des planètes vient en premier : passé le dernier palier
+     d'Astrophysique de la feuille de route, plus rien ne disait comment en
+     gagner une, et une colonie vaut plus que n'importe quelle recherche. Son
+     texte remplace l'effet générique ; les plafonds suivants le complètent. En
+     économie pure le plan ne colonise pas, donc ne rien promettre ici : le
+     conseil s'en charge, sans engager le plan. */
+  if(S.day.focus !== 'eco' && S.tech.astro && S.planets.length >= maxPlanets())
+    plafonds.push(['astro', `Autorisera une ${maxPlanets()+1}ᵉ planète : une production complète, soit des dizaines de fois ce qu'ajoute un niveau de Plasma, pour trois fois moins cher. D'où sa place en tête. Les expéditions simultanées, elles, n'augmenteront qu'au niveau ${astroForExpo()}.`, true]);
   if(expoWanted() > expoCap()){
     const cap = expoCap(), need = astroForExpo();
     plafonds.push(['astro', need === S.tech.astro+1
@@ -777,13 +785,6 @@ function nextResearch(){
   }
   const fsl = fleetSlots();
   if(fsl && fsl[0] >= fsl[1]) plafonds.push(['computer', 'Un emplacement de flotte de plus : tes missions se marchent dessus.']);
-  /* Le troisième plafond : le nombre de planètes. Passé le dernier palier
-     d'Astrophysique de la feuille de route, plus rien ne disait comment en
-     gagner une — et une colonie vaut plus que n'importe quelle recherche. En
-     économie pure le plan ne colonise pas, donc ne rien promettre : le conseil
-     s'en charge, sans engager le plan. */
-  if(S.day.focus !== 'eco' && S.tech.astro && S.planets.length >= maxPlanets())
-    plafonds.push(['astro', `Autorisera une ${maxPlanets()+1}ᵉ planète : une production complète, soit des dizaines de fois ce qu'ajoute un niveau de Plasma, pour trois fois moins cher. D'où sa place en tête.`, true]);
   /* `tete` : ce plafond ne se range pas derrière la feuille de route, il la
      double. Une planète de plus vaut une production entière, quand les
      recherches qu'elle doublait ne font que grossir les mines existantes —
@@ -797,7 +798,9 @@ function nextResearch(){
     // Les deux raisons sont vraies : le plafond s'ajoute à celle de la feuille
     // de route au lieu de l'écraser ou d'être perdu.
     if(deja){
-      deja.why = deja.why ? deja.why+' '+w : w;
+      // Un plafond « tête » dit déjà, en plus précis, ce que disait l'effet
+      // générique de la feuille de route : il le remplace au lieu de le répéter.
+      deja.why = tete ? w : (deja.why ? deja.why+' '+w : w);
       if(tete && list.indexOf(deja) > 0){ deja.crit = true; list.splice(list.indexOf(deja), 1); list.unshift(deja); }
       continue;
     }

@@ -1134,6 +1134,19 @@ t('Astrophysique ne promet pas une expédition à chaque niveau', () => {
     'le joueur croit qu\'un niveau d\'Astro ajoute une expédition ; le pourquoi doit dire que le palier est un carré parfait : « ' + w + ' »');
 });
 
+t('le pourquoi d\'Astrophysique ne dit pas deux fois la même chose', () => {
+  const g = app(s => {
+    pleinDePlanetes(s); s.tech.astro = 6; s.planets[0].b.lab = 8;
+    const q = JSON.parse(JSON.stringify(s.planets[1]));
+    q.id = 'colo3'; q.name = 'Colonie 3'; q.coords = '1:142:2'; s.planets.push(q);
+  });
+  assert.equal(g.maxPlanets(), 4, 'quatre emplacements, quatre planètes');
+  const w = g.nextResearch().list[0].why;
+  assert.ok(!/un palier sur deux/.test(w),
+    'l\'effet générique répète le plafond, qui est plus précis : « ' + w + ' »');
+  assert.ok(/planète/.test(w), 'mais la planète gagnée reste dite');
+});
+
 /* ---------- la version ---------- */
 
 t('app.js et manifest.json annoncent la même version', () => {
