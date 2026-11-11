@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.19.1';
+const APP_VERSION = '1.20.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -159,8 +159,25 @@ function goUrl(comp, pi){
   return `https://${S.host}/game/index.php?page=ingame&component=${comp}${gid ? `&cp=${gid}` : ''}`;
 }
 /** URL où se fait une action du plan, ou null. */
+const SHIP_ID = Object.fromEntries(Object.entries(OG_SHIPS).map(([id,k])=>[k,id]));
+/* Le jeu remplit lui-même son formulaire de flotte quand on arrive par un lien
+   qui porte les paramètres — c'est ce que fait sa propre page Galaxie quand on
+   clique l'icône d'attaque. L'extension n'écrit donc rien dans la page : elle
+   ouvre un lien, le jeu fait le reste. Sans destination ni mission, rien à
+   préparer, on retombe sur la page nue. */
+function fleetUrl(a){
+  const c = a && a.dest ? parseC(a.dest) : null;
+  if(!S.host || !c || !a.mission) return null;
+  const gid = (S.planets[a.p] || {}).gid;
+  const q = ['page=ingame', 'component=fleetdispatch'];
+  if(gid) q.push('cp='+gid);
+  q.push('galaxy='+c[0], 'system='+c[1], 'position='+c[2], 'type=1', 'mission='+a.mission);
+  for(const [k,n] of Object.entries(a.ships||{})) if(n>0 && SHIP_ID[k]) q.push('am'+SHIP_ID[k]+'='+n);
+  return `https://${S.host}/game/index.php?${q.join('&')}`;
+}
 function actGo(a){
   if(!a) return null;
+  const prep = fleetUrl(a); if(prep) return prep;
   if(a.kind === 'b') return goUrl(GO_FACILITIES.has(a.k) ? 'facilities' : 'supplies', a.p);
   if(a.kind === 'lf') return goUrl(lfQueue(a.id) === 'lfresearch' ? 'lfresearch' : 'lfbuildings', a.p);
   // une recherche se lance depuis la planète qui porte le laboratoire
@@ -171,6 +188,7 @@ function actGo(a){
 function missionGo(m){
   if(!m) return null;
   const tag = (m.tags || [])[0];
+  const prep = fleetUrl(m); if(prep) return prep;
   return goUrl(GO_MISSION[m.id], tag ? S.planets.findIndex(p=>planetRef(p) === tag) : hubIndex());
 }
 /** Attribut de lien pour une carte, vide quand on ne sait pas où l'envoyer. */
@@ -823,7 +841,7 @@ function simulateDay(){
         if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*S.settings.eco)*3600; dep.sq=Tm+d; sim.colShip=true; sim.colReady=Tm+d; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'', cost:c, dur:d, end:Tm+d, kind:'ship', p:dep.i}); }
         else { setGoal(key, 'le vaisseau de colonisation', c, dep, Tm); waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), miss:missOf(dep,c)}); }
       }
-      if(wantColony && sim.colShip && sim.colReady<=Tm){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight, kind:'fleet', p:dep.i}); }
+      if(wantColony && sim.colShip && sim.colReady<=Tm){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight, kind:'fleet', p:dep.i, dest:target, mission:7, ships:{col:1}}); }
       const hubP = P[Math.min(hubIndex(), P.length-1)];
       if(P.length>1) for(const q of P){
         if(q===hubP || (q.transferAt||0)>Tm) continue;
@@ -857,10 +875,10 @@ function simulateDay(){
         acts.push(own
           ? {q:'Flotte · '+planetRef(q), what:`Rapatrier vers ${planetRef(hubP)} : ${charge}`,
              why:`${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${hm(arrive)}`,
-             dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i, dest:hubP.coords, res:sent}
+             dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i, dest:hubP.coords, res:sent, mission:3}
           : {q:'Flotte · '+planetRef(hubP), what:`Envoie ${shipList(ships)} vers ${planetRef(q)}`,
              why:`À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${hm(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge}, arrivée vers ${hm(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.`,
-             dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i, dest:q.coords});
+             dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i, dest:q.coords, mission:4});
       }
       const fsl = fleetSlots();
       /* Une expédition occupe aussi un emplacement de flotte : en proposer plus
@@ -882,7 +900,7 @@ function simulateDay(){
         const ret = Tm + total*1000, out = Object.assign({}, f.ships);
         expoBusy.push(ret);
         sim.ev.push({at:ret, fn:()=>{ for(const [k,n] of Object.entries(out)){ p.ships[k]=(p.ships[k]||0)+n; sim.away[k]-=n; } }});
-        acts.push({q:'Flotte · '+planetRef(p), what:'Expédition : '+shipList(f.ships), why:`vers ${tgt}, retour vers ${hm(ret)} · ${fmt(fuel)} deut · soute ${fmt(f.cargo)} pour ${fmt(f.cap)} max`, cost:c, dur:total, end:ret, kind:'expo', ships:out, p:p.i, dest:tgt});
+        acts.push({q:'Flotte · '+planetRef(p), what:'Expédition : '+shipList(f.ships), why:`vers ${tgt}, retour vers ${hm(ret)} · ${fmt(fuel)} deut · soute ${fmt(f.cargo)} pour ${fmt(f.cap)} max`, cost:c, dur:total, end:ret, kind:'expo', ships:out, p:p.i, dest:tgt, mission:15});
       }
       for(const p of P){
         if(p.b.shipyard<1 || p.sq>Tm) continue;
@@ -993,9 +1011,13 @@ function simulateDay(){
    Les coordonnées sont découpées comme les trois champs du jeu. */
 function copyChips(a){
   const out = [];
-  for(const [k,n] of Object.entries((a && a.ships) || {})) if(n>0) out.push([SHIPS[k] ? SHIPS[k].n : k, String(n)]);
-  const c = a && a.dest ? parseC(a.dest) : null;
-  if(c) [['galaxie',c[0]],['système',c[1]],['position',c[2]]].forEach(x=>out.push([x[0], String(x[1])]));
+  // Ce que le lien fait remplir par le jeu n'a pas à être retapé ; les
+  // ressources, elles, restent à saisir à la main.
+  if(!fleetUrl(a)){
+    for(const [k,n] of Object.entries((a && a.ships) || {})) if(n>0) out.push([SHIPS[k] ? SHIPS[k].n : k, String(n)]);
+    const c = a && a.dest ? parseC(a.dest) : null;
+    if(c) [['galaxie',c[0]],['système',c[1]],['position',c[2]]].forEach(x=>out.push([x[0], String(x[1])]));
+  }
   const RES = ['métal','cristal','deutérium'];
   ((a && a.res) || []).forEach((x,j)=>{ if(x>0) out.push([RES[j], String(Math.floor(x))]); });
   if(!out.length) return '';
@@ -1212,12 +1234,13 @@ function dailyMissions(){
       how:['Dépense tout ce que tu peux (files longues, satellites).', 'Envoie le reste avec tes transporteurs en mission longue (transport vers une colonie à vitesse 10 %, ou expédition).', 'Au réveil, rappelle ou récupère la flotte.']};
     if(fs){
       m.what = `Avant la nuit (${ns} h) : envoie ${shipList(fs.ships)} vers ${fs.dest}`;
-      m.ships = fs.ships; m.dest = fs.dest;
+      m.ships = fs.ships; m.dest = fs.dest; m.p = S.planets.indexOf(fs.from);
+      m.mission = fs.mission === 'expedition' ? 15 : 3;
       m.why = `${fmt(fs.load)} ressources à l'abri sur ${fs.from.name}. Une planète pleine pendant ton sommeil est une cible.`;
       m.how = [
         'Dépense d\'abord ce que tu peux : lance une construction longue et une recherche.',
         `Charge le reste dans ${shipList(fs.ships)} sur ${esc(fs.from.name)}, destination ${fs.dest}, mission ${fs.mission==='transport'?'Transporter':'Expédition'}.`,
-        `Règle la vitesse sur ${fs.pct} % : la flotte rentre vers ${hm(fs.back)}, après ton réveil. Coût : ${fmt(fs.fuel)} deutérium.`
+        `Règle la vitesse sur ${fs.pct} % — c'est la seule chose que le lien ne prépare pas. La flotte rentre vers ${hm(fs.back)}, après ton réveil. Coût : ${fmt(fs.fuel)} deutérium.`
       ];
     }
     out.push(m);
@@ -1571,7 +1594,7 @@ today(){
   if(plan.busy.length || infoMs.length) nowParts.push(`<ul class="acts">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${hm(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`).join('')}</ul>`);
   const nextS = plan.sessions.slice(1).find(x=>x.acts.length);
   if(!s0.acts.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
-  document.getElementById('tdNow').innerHTML = nowParts.join('') + `<p class="note"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. Les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p>`;
+  document.getElementById('tdNow').innerHTML = nowParts.join('') + `<p class="note"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p>`;
   const alerts = adviceList().filter(a=>(a.sev==='bad'||a.sev==='warn') && !/Aucune recherche suivie|Prochaine étape/.test(a.what));
   document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><h2>Alertes</h2><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('')}</ul></div>` : '';
   const later = plan.sessions.slice(1).filter(x=>x.acts.length || slotMs.has(x));
@@ -1616,7 +1639,7 @@ explore(){
     rpEl.innerHTML = rp.need<=0 ? '<p class="note">Saisis les ressources du rapport pour calculer la flotte.</p>' : `<div class="res">${gauge('m','m','Butin possible',fmt(rp.need),`${S.settings.cls==='explorer'?'75':'50'} % du stock`)}${gauge('c','c','Ramené',fmt(rp.got),okShips?shipList(rp.ships):'aucun transporteur')}${gauge('d','d','Carburant',fmt(rp.fuel),'aller-retour')}${gauge('e','e','Vol',rp.fl?dur(rp.fl.secs):'–','aller')}</div>
       ${!S.raid.safe ? '<p class="pill warn" style="margin-top:8px">Coche la case seulement si le rapport ne montre ni flotte ni défense. Sinon, ne l\'attaque pas.</p>' : ''}
       ${rp.short>0 ? `<p class="note">Il te manque ${fmt(rp.short)} de soute à ${esc(rp.home.name)} : le reste attendra un second passage.</p>` : ''}
-      ${S.raid.safe && okShips && rp.net>0 ? `<ul class="acts" style="margin-top:8px">${actHtml({q:'Flotte · '+rp.home.name, what:`Attaquer ${S.raid.coords} avec ${shipList(rp.ships)}`, why:`Galaxie ou Flotte → ${S.raid.coords} → mission Attaquer · retour vers ${hm(Date.now()+2*rp.fl.secs*1000)}`, cost:[0,0,rp.fuel], dur:2*rp.fl.secs, end:Date.now()+2*rp.fl.secs*1000, kind:'raid', ships:rp.ships, p:hubIndex(), coords:S.raid.coords}, true)}</ul>` : ''}`;
+      ${S.raid.safe && okShips && rp.net>0 ? `<ul class="acts" style="margin-top:8px">${actHtml({q:'Flotte · '+rp.home.name, what:`Attaquer ${S.raid.coords} avec ${shipList(rp.ships)}`, why:`Galaxie ou Flotte → ${S.raid.coords} → mission Attaquer · retour vers ${hm(Date.now()+2*rp.fl.secs*1000)}`, cost:[0,0,rp.fuel], dur:2*rp.fl.secs, end:Date.now()+2*rp.fl.secs*1000, kind:'raid', ships:rp.ships, p:hubIndex(), coords:S.raid.coords, dest:S.raid.coords, mission:1}, true)}</ul>` : ''}`;
   }
   const ex = exploreSystems();
   document.getElementById('exExplore').innerHTML = `<ul class="advice">${ex.map(x=>`<li><span class="pill info">${x.left} pos.</span><span class="what">Système ${x.sys}</span><span class="why">${x.dist===0?'Ton système':`À ${x.dist} système${x.dist>1?'s':''}`} : ${x.left} position${x.left>1?'s':''} pas explorée${x.left>1?'s':''} depuis 7 jours.</span></li>`).join('')}</ul><p class="note">Missions de découverte : bouton Découverte dans Galaxie. Copilote retient les positions explorées quand il voit tes missions dans Mouvements de flotte. Pour les expéditions, alterne la position 16 de systèmes voisins si les résultats baissent.</p>`;

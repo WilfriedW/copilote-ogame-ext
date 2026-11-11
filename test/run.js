@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -930,6 +930,82 @@ t('les pastilles ont leur propre ligne, annoncée', () => {
   const h = app().copyChips({ res: [0, 0, 8957] });
   assert.ok(/class="cp"/.test(h), 'une ligne à part : ' + h);
   assert.ok(/À recopier/.test(h), 'qui s\'annonce : ' + h);
+});
+
+/* ---------- laisser le jeu remplir son propre formulaire ---------- */
+
+t('une expédition ouvre la page de flotte déjà préparée par le jeu', () => {
+  // Le jeu remplit son formulaire quand on arrive par un lien qui porte les
+  // paramètres : c'est ce que fait sa propre page Galaxie. L'extension n'écrit
+  // rien dans la page — elle ouvre un lien, le jeu fait le reste.
+  const u = app(relie).actGo({ kind: 'expo', p: 1, dest: '1:79:16', mission: 15,
+    ships: { sc: 21, pr: 1 } });
+  assert.ok(/component=fleetdispatch/.test(u), u);
+  assert.ok(/[?&]cp=33602(&|$)/.test(u), 'depuis la bonne planète : ' + u);
+  assert.ok(/[?&]galaxy=1&system=79&position=16/.test(u), 'vers la bonne case : ' + u);
+  assert.ok(/[?&]mission=15(&|$)/.test(u), 'en expédition : ' + u);
+  assert.ok(/[?&]am202=21(&|$)/.test(u) && /[?&]am210=1(&|$)/.test(u),
+    'avec les vaisseaux comptés : ' + u);
+});
+
+t('un rapatriement part en Transporter, un vol à vide en Stationner', () => {
+  const g = app(s => {
+    relie(s);
+    const c = s.planets[1];
+    c.b = Object.assign({}, c.b, { metal: 14, crystal: 12, solar: 18, shipyard: 2 });
+    c.ships = { lc: 10 };
+    c.stock = { m: 90000, c: 60000, d: 9000, at: JOUR };
+  }, JOUR);
+  const r = g.simulateDay().sessions[0].acts.find(a => a.kind === 'transfer' && a.res);
+  assert.ok(r, 'un rapatriement est proposé');
+  assert.equal(r.mission, 3, 'mission Transporter');
+  assert.ok(/mission=3(&|$)/.test(g.actGo(r)), g.actGo(r));
+});
+
+t('sans destination, le lien reste la simple page de flotte', () => {
+  assert.equal(app(relie).actGo({ kind: 'fleet', p: 0 }),
+    'https://s199-fr.ogame.gameforge.com/game/index.php?page=ingame&component=fleetdispatch&cp=33601');
+});
+
+t('la mise à l\'abri du soir ouvre aussi un formulaire préparé', () => {
+  const g = app(s => { relie(s); s.planets[0].ships = { lc: 30 }; });
+  const n = g.dailyMissions().find(m => m.id === 'night');
+  assert.ok(n, 'le rappel du soir existe');
+  const u = g.missionGo(n);
+  assert.ok(/component=fleetdispatch/.test(u) && /am203=/.test(u), 'avec la flotte : ' + u);
+  assert.ok(/mission=3(&|$)/.test(u), 'en Transporter : ' + u);
+});
+
+t('le vaisseau de colonisation part en mission Coloniser', () => {
+  const g = app(s => {
+    relie(s);
+    s.colo.target = '1:142:9';
+    s.colo.built = true;
+    s.planets[0].ships = { col: 1, lc: 4 };
+  }, JOUR);
+  const a = g.simulateDay().sessions.flatMap(x => x.acts)
+    .find(x => /colonisation/.test(x.what) && x.kind === 'fleet');
+  assert.ok(a, 'l\'envoi est proposé');
+  assert.ok(/mission=7(&|$)/.test(g.actGo(a) || ''), g.actGo(a));
+  assert.ok(/galaxy=1&system=142&position=9/.test(g.actGo(a) || ''), g.actGo(a));
+});
+
+t('ce que le lien prépare ne se retape pas', () => {
+  // Vaisseaux et coordonnées arrivent remplis par le jeu : les proposer en
+  // plus à la copie, c'est du bruit. Les ressources, elles, restent à saisir.
+  const g = app(relie);
+  const h = g.copyChips({ kind: 'transfer', p: 1, dest: '1:142:8', mission: 3,
+    ships: { lc: 3 }, res: [4200, 0, 0] });
+  assert.ok(!/galaxie|système|position/.test(h), 'plus de coordonnées : ' + h);
+  assert.ok(!/Grand transporteur/.test(h), 'plus de vaisseaux : ' + h);
+  assert.ok(/data-copy="4200"/.test(h), 'mais toujours le métal : ' + h);
+});
+
+t('sans lien préparé, tout reste copiable', () => {
+  // Au chantier spatial il n\'y a pas de formulaire de flotte à préparer :
+  // la quantité se tape à la main.
+  const h = app(relie).copyChips({ kind: 'ship', p: 0, ships: { lc: 3 } });
+  assert.ok(/Grand transporteur/.test(h) && /data-copy="3"/.test(h), h);
 });
 
 /* ---------- la version ---------- */
