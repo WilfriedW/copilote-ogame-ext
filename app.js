@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.20.0';
+const APP_VERSION = '1.21.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -426,8 +426,14 @@ function adviceList(){
   const ready = next.find(m=>!milestoneMissing(m).length);
   if(ready) out.push({sev:'info', what:`${ready.t==='t'?'Rechercher':'Construire'} ${milestoneLabel(ready)}`, why:`${ready.why} Étape ${MILESTONES.indexOf(ready)+1} sur ${MILESTONES.length} du début de partie.`});
   else if(next[0]) out.push({sev:'warn', what:`Prochaine étape : ${milestoneLabel(next[0])}`, why:`Il manque : ${milestoneMissing(next[0]).join(', ')}.`});
-  const maxPl = 1 + Math.ceil(S.tech.astro/2);
+  const maxPl = maxPlanets();
   if(S.tech.astro && S.planets.length<maxPl) out.push({sev:'info', what:`Coloniser (${S.planets.length}/${maxPl} planètes)`, why:'Chaque colonie ajoute une production complète. Prépare-la dans l\'onglet Colonie : position, vaisseaux et ressources à emporter.'});
+  else if(S.tech.astro){
+    // Emplacements pleins : le palier suivant d'Astrophysique est la seule façon
+    // d'en gagner un, et son coût décide s'il vaut mieux creuser les mines.
+    const need = astroForPlanet(), c = rangeCost(T.astro, S.tech.astro, need);
+    out.push({sev:'info', what:`Astrophysique ${need} pour une ${maxPl+1}ᵉ planète`, why:`Tes ${maxPl} emplacements sont pris. Y arriver coûte ${fmt(c[0])} métal, ${fmt(c[1])} cristal et ${fmt(c[2])} deutérium ; une colonie ajoute ensuite une production complète.`});
+  }
   S.plan.forEach(it=>{
     const p = it.type==='b' ? S.planets[it.p] : S.planets[0]; if(!p) return;
     const from = it.type==='b' ? p.b[it.k] : S.tech[it.k]; if(from>=it.lvl) return;
@@ -632,6 +638,65 @@ const SHIP_PLURAL = {sc:'petits transporteurs', lc:'grands transporteurs', pf:'�
 function shipList(ships){ return Object.entries(ships||{}).filter(([,n])=>n>0).map(([k,n])=>`${n} ${n>1 ? SHIP_PLURAL[k] : SHIPS[k].n.toLowerCase()}`).join(', '); }
 
 /* ---------- daily planner ---------- */
+/* Ce que chaque recherche rapporte, en une proposition qui se compose : « …, qui
+   ajoute 1 % de métal… ». Le joueur voyait « Technologie Énergie 8 » sans rien
+   d'autre, donc sans moyen de savoir que c'est un péage ni vers quoi il mène. */
+const T_EFFET = {
+  energy:    'ouvre les recherches suivantes',
+  laser:     'ouvre les recherches suivantes',
+  ion:       'ouvre les recherches suivantes',
+  hyper:     'ouvre la propulsion hyperespace',
+  plasma:    'ajoute 1 % de métal, 0,66 % de cristal et 0,33 % de deutérium sur toutes tes planètes à la fois',
+  astro:     'commande le nombre de planètes autorisées et d\'expéditions simultanées',
+  computer:  'ajoute un emplacement de flotte par niveau',
+  espionage: 'rend les rapports d\'espionnage plus complets',
+  combustion:'ajoute 10 % de vitesse aux vaisseaux à combustion, transporteurs compris',
+  impulse:   'ajoute 20 % de vitesse aux vaisseaux à impulsion',
+  hyperdrive:'ajoute 30 % de vitesse aux vaisseaux à hyperespace',
+  irn:       'ajoute les laboratoires de tes autres planètes à la vitesse de recherche',
+};
+/* Celles-ci ne font rien par elles-mêmes. On les traverse pour trouver la
+   destination réelle d'un péage, au lieu de renvoyer le joueur vers un autre
+   péage. */
+const T_PEAGE = {energy:1, laser:1, ion:1, hyper:1};
+const majus = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Vrai si `k` exige `need`, directement ou par ses prérequis. */
+function requiresTech(k, need, d){
+  const rt = (T[k].req || {}).t || {};
+  if(rt[need]) return true;
+  return d < 6 && Object.keys(rt).some(x => requiresTech(x, need, d+1));
+}
+/** Première recherche utile, plus loin dans la feuille de route, qui exige `k`. */
+function roadmapGoal(rm, i){
+  for(let j = i+1; j < rm.length; j++)
+    if(!T_PEAGE[rm[j][0]] && requiresTech(rm[j][0], rm[i][0], 0)) return rm[j];
+  return null;
+}
+/**
+ * Amortissement d'un niveau de recherche, en heures, ou null si la recherche ne
+ * produit rien. Les bâtiments annoncent le leur depuis toujours ; la recherche,
+ * jamais, alors que le modèle connaît déjà le bonus de Plasma. Les guides
+ * répètent « Plasma d'abord » ; seul le chiffre dit si c'est vrai ici.
+ * @param {string} k clé de recherche
+ * @param {number} lvl niveau visé
+ * @returns {number|null} heures de production pour rembourser le niveau
+ */
+function techPayback(k, lvl){
+  if(k !== 'plasma' || !S.planets.length) return null;
+  // Le gain est linéaire en Plasma : on le mesure sur un niveau, à bâtiments
+  // égaux. `production` ne sait pas surcharger la recherche, d'où l'aller-retour.
+  const garde = S.tech.plasma;
+  const total = t => { S.tech.plasma = t; let m=0,c=0,d=0;
+    for(const p of S.planets){ const pr = production(p); m+=pr.m; c+=pr.c; d+=pr.d; }
+    return mse(m, c, d); };
+  let gain;
+  try { gain = total(garde + 1) - total(garde); } finally { S.tech.plasma = garde; }
+  return gain > 0 ? mse(...levelCost(T[k], lvl)) / gain : null;
+}
+/** Niveau d'Astrophysique qui autorisera une planète de plus. */
+function astroForPlanet(){ return S.tech.astro + (S.tech.astro % 2 ? 2 : 1); }
+
 const ROADMAPS = {
   ecocol:[['impulse',3,'c'],['astro',3,'c'],['computer',2],['espionage',4],['energy',8],['laser',10],['ion',5],['plasma',4],['astro',5],['computer',6],['plasma',8],['astro',7]],
   eco:[['energy',8],['laser',10],['ion',5],['plasma',6],['impulse',3],['astro',3],['computer',4],['plasma',10]],
@@ -665,13 +730,39 @@ function resolveTech(k, lvl, depth){
   if(req.lab && labLevel()<req.lab) return {lab:req.lab};
   return {k, lvl:S.tech[k]+1};
 }
+/**
+ * Pourquoi lancer ce niveau : l'étape, la destination du péage, l'effet qu'on
+ * finira par toucher et, quand il se chiffre, l'amortissement.
+ * @param {{k:string,lvl:number}} r prochain niveau réellement lançable
+ * @param {string} k recherche visée par la feuille de route
+ * @param {number} l niveau visé par la feuille de route
+ * @param {Array|null} goal entrée de feuille de route que ce péage dessert
+ * @returns {string}
+ */
+function techWhy(r, k, l, goal){
+  const bouts = [];
+  if(r.k !== k) bouts.push(`Prérequis pour ${T[k].n} ${l}`);
+  else if(r.lvl < l) bouts.push(`Étape vers ${T[k].n} ${l}`);
+  if(goal) bouts.push(`${bouts.length ? 'prérequis' : 'Prérequis'} de ${T[goal[0]].n} ${goal[1]}`);
+  const effet = T_EFFET[goal ? goal[0] : k];
+  let out = bouts.join(', ');
+  out = out ? (effet ? `${out}, qui ${effet}.` : out+'.') : (effet ? majus(effet)+'.' : '');
+  /* L'amortissement de l'étape en cours quand elle produit ; sinon celui du
+     premier niveau de la destination, qui est la seule raison de payer le
+     péage. Sans ce chiffre, « Énergie 8 » ne se compare à aucune mine. */
+  const pb = techPayback(r.k, r.lvl);
+  if(pb) return `${out} Amorti en ${dur(pb*3600)}.`.trim();
+  const g = goal && goal[0] !== r.k ? techPayback(goal[0], S.tech[goal[0]]+1) : null;
+  return g ? `${out} Son premier niveau s'amortira en ${dur(g*3600)}.`.trim() : out;
+}
 function nextResearch(){
   let labNeed = 0; const list = [];
-  for(const [k,l,flag] of ROADMAPS[S.day.focus] || ROADMAPS.ecocol){
-    const r = resolveTech(k, l, 0); if(!r) continue;
-    if(r.lab){ labNeed = Math.max(labNeed, r.lab); continue; }
-    if(!list.some(x=>x.k===r.k)) list.push({k:r.k, lvl:r.lvl, crit:flag==='c'});
-  }
+  const rm = ROADMAPS[S.day.focus] || ROADMAPS.ecocol;
+  rm.forEach(([k,l,flag], i)=>{
+    const r = resolveTech(k, l, 0); if(!r) return;
+    if(r.lab){ labNeed = Math.max(labNeed, r.lab); return; }
+    if(!list.some(x=>x.k===r.k)) list.push({k:r.k, lvl:r.lvl, crit:flag==='c', why:techWhy(r, k, l, roadmapGoal(rm, i))});
+  });
   /* Les deux plafonds que le joueur touche tous les jours ont chacun leur
      recherche. La feuille de route cesse de parler d'Astrophysique dès qu'on l'a
      dépassée : plus rien ne dit alors comment envoyer une expédition de plus. */
@@ -684,12 +775,21 @@ function nextResearch(){
   }
   const fsl = fleetSlots();
   if(fsl && fsl[0] >= fsl[1]) plafonds.push(['computer', 'Un emplacement de flotte de plus : tes missions se marchent dessus.']);
+  /* Le troisième plafond : le nombre de planètes. Passé le dernier palier
+     d'Astrophysique de la feuille de route, plus rien ne disait comment en
+     gagner une — et une colonie vaut plus que n'importe quelle recherche. En
+     économie pure le plan ne colonise pas, donc ne rien promettre : le conseil
+     s'en charge, sans engager le plan. */
+  if(S.day.focus !== 'eco' && S.tech.astro && S.planets.length >= maxPlanets())
+    plafonds.push(['astro', `Autorisera une ${maxPlanets()+1}ᵉ planète.`]);
   for(const [k, why] of plafonds){
     const r = resolveTech(k, S.tech[k]+1, 0); if(!r) continue;
     if(r.lab){ labNeed = Math.max(labNeed, r.lab); continue; }
     const w = r.k === k ? why : `Prérequis pour ${T[k].n}.`;
     const deja = list.find(x=>x.k===r.k);
-    if(deja){ if(!deja.why) deja.why = w; continue; }
+    // Les deux raisons sont vraies : le plafond s'ajoute à celle de la feuille
+    // de route au lieu de l'écraser ou d'être perdu.
+    if(deja){ deja.why = deja.why ? deja.why+' '+w : w; continue; }
     // Derrière ce que la feuille de route juge critique, et devant le reste
     // seulement quand les expéditions sont la stratégie choisie.
     const i = S.day.focus==='fleet' ? list.findIndex(x=>!x.crit) : -1;
@@ -817,7 +917,7 @@ function simulateDay(){
         if(can(labP,c,reserveOf(labP,Tm))){ pay(labP,c); const d=buildTime('lab',labP.b.lab+1,labP), L=labP.b.lab+1, pp=labP; pp.bq=Tm+d; pp.bqKey='lab'; sim.ev.push({at:Tm+d, fn:()=>{ pp.b.lab=Math.max(pp.b.lab,L); }}); acts.push({q:'Bâtiment · '+planetRef(pp), what:`${B.lab.n} ${L}`, why:'Débloque la recherche suivante', cost:c, dur:d, end:Tm+d, kind:'b', k:'lab', lvl:L, p:pp.i}); }
       }
       const labBusy = labP.bq>Tm && labP.bqKey==='lab';
-      const launchR = (R, why)=>{ const c=levelCost(T[R.k],R.lvl); pay(labP,c); const d=researchTime(R.k,R.lvl), k=R.k, L=R.lvl; sim.rq=Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ sim.tech[k]=Math.max(sim.tech[k],L); }}); acts.push({q:'Recherche · '+planetRef(labP), what:`${T[k].n} ${L}`, why: why || R.why || '', cost:c, dur:d, end:Tm+d, kind:'t', k, lvl:L, p:labP.i}); };
+      const launchR = (R, why)=>{ const c=levelCost(T[R.k],R.lvl); pay(labP,c); const d=researchTime(R.k,R.lvl), k=R.k, L=R.lvl; sim.rq=Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ sim.tech[k]=Math.max(sim.tech[k],L); }}); acts.push({q:'Recherche · '+planetRef(labP), what:`${T[k].n} ${L}`, why: [why, R.why].filter(Boolean).join(' '), cost:c, dur:d, end:Tm+d, kind:'t', k, lvl:L, p:labP.i}); };
       const tryResearch = phase=>{
         if(sim.rq>Tm || !nr.k || labBusy) return;
         const R = nr.list[0], key='t:'+R.k+R.lvl, c = levelCost(T[R.k],R.lvl), mine = goals.find(g=>g.key===key);
@@ -1169,11 +1269,23 @@ function dailyMissions(){
         `Astrophysique n'ajoute un emplacement qu'au niveau ${astroForExpo()} : inutile tant que les soutes repartent à moitié vides.`,
         'Les transporteurs servent aussi au rapatriement et à la mise à l'+"'"+'abri du soir.']});
   }
+  /* Le plafond des planètes, là où le joueur lit son plan. Le conseil de l'onglet
+     Suivi le disait déjà, mais personne ne va l'y chercher — et une colonie vaut
+     plus que n'importe quelle recherche de la feuille de route. */
+  if(S.tech.astro && S.planets.length >= maxPlanets()){
+    const need = astroForPlanet(), c = rangeCost(T.astro, S.tech.astro, need);
+    out.push({id:'colomax', info:true, q:'Colonie', every:24, sev:'warn',
+      what:`Plafond atteint : ${maxPlanets()} planètes`,
+      why:`Astrophysique ${need} en autoriserait une ${maxPlanets()+1}ᵉ, pour ${fmt(c[0])} métal, ${fmt(c[1])} cristal et ${fmt(c[2])} deutérium. Une colonie ajoute une production complète : aucune recherche ne rapporte autant.`,
+      how:[`Recherche : Astrophysique ${S.tech.astro+1}${need>S.tech.astro+1 ? ` (le palier utile est ${need})` : ''}.`,
+        'Puis prépare la colonie dans l\'onglet Cibles › Colonie : position, vaisseaux et ressources à emporter.',
+        S.day.focus==='eco' ? 'En « Économie pure » le plan ne colonise pas de lui-même : passe en « Économie + colonie » pour qu\'il s\'en charge.' : 'Le plan construira le vaisseau de colonisation de lui-même.']});
+  }
   if(veut > nExp) out.push({id:'expomax', info:true, q:'Exploration', every:12, sev:'warn',
     what:`Plafond atteint : ${nExp} expédition${nExp>1?'s':''} à la fois`,
     why:`Ta flotte au sol en remplirait au moins ${veut}. Le nombre d'expéditions simultanées ne dépend que d'Astrophysique : ${nExp+1} à partir du niveau ${astroForExpo()}.${source}`,
     how:[`Recherche : Astrophysique ${S.tech.astro+1}${astroForExpo()>S.tech.astro+1 ? ` (le palier utile est ${astroForExpo()})` : ''}.`,
-      'Chaque niveau pair ajoute aussi un emplacement de colonie.',
+      `Astrophysique ${astroForPlanet()} ajouterait aussi un emplacement de colonie.`,
       'En attendant, les transporteurs en trop servent au rapatriement ou à la mise à l'+"'"+'abri du soir.']});
   const _unused = S.planets.some(p=>((p.ships||{}).sc||0)+((p.ships||{}).lc||0)>0);
   out.push({id:'discovery', q:'Exploration', every:24, sev:'info', what:'Missions de découverte (formes de vie)', why:`Elles rapportent des artefacts et de nouvelles races. Trouvées : ${(S.lf.found||[]).map(k=>LIFEFORMS[k].n).join(', ')}.${S.artefacts!=null?` Artefacts : ${fmt(S.artefacts)}.`:''}`,

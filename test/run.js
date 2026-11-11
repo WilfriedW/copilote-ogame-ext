@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -1006,6 +1006,92 @@ t('sans lien préparé, tout reste copiable', () => {
   // la quantité se tape à la main.
   const h = app(relie).copyChips({ kind: 'ship', p: 0, ships: { lc: 3 } });
   assert.ok(/Grand transporteur/.test(h) && /data-copy="3"/.test(h), h);
+});
+
+/* ---------- pourquoi cette recherche ---------- */
+
+t('un prérequis de recherche dit vers quelle recherche il mène', () => {
+  const g = app(s => { s.day.focus = 'eco'; });
+  const r = g.nextResearch().list[0];
+  assert.equal(r.k, 'energy', 'la feuille de route éco commence par Énergie');
+  assert.ok(/Plasma/.test(r.why || ''),
+    'Énergie ' + r.lvl + ' est un péage : son pourquoi doit nommer Plasma, et dit « ' + (r.why || '(rien)') + ' »');
+});
+
+t('la recherche visée dit ce qu\'elle rapporte', () => {
+  const g = app(s => {
+    s.day.focus = 'eco';
+    Object.assign(s.tech, { energy: 8, laser: 10, ion: 5 });
+    s.planets[0].b.lab = 6;
+  });
+  const r = g.nextResearch().list[0];
+  assert.equal(r.k, 'plasma');
+  assert.ok(/métal/.test(r.why || ''), 'Plasma doit annoncer son bonus de production, et dit « ' + (r.why || '(rien)') + ' »');
+});
+
+t('Plasma annonce son amortissement, chiffré sur l\'empire du joueur', () => {
+  const g = app(s => {
+    s.day.focus = 'eco';
+    Object.assign(s.tech, { energy: 8, laser: 10, ion: 5 });
+    s.planets[0].b.lab = 6;
+  });
+  const h = g.techPayback('plasma', 1);
+  assert.ok(h > 0 && isFinite(h), 'un amortissement en heures, et non ' + h);
+  assert.ok(/[Aa]morti/.test(g.nextResearch().list[0].why || ''),
+    'la carte Plasma doit le dire : « ' + g.nextResearch().list[0].why + ' »');
+  assert.equal(g.techPayback('energy', 8), null, 'une recherche qui ne produit rien n\'a pas d\'amortissement');
+});
+
+/* ---------- le plafond du nombre de planètes ---------- */
+
+t('toutes les planètes prises, un conseil nomme le palier d\'Astrophysique', () => {
+  const g = app(s => { s.tech.astro = 2; });
+  assert.equal(g.maxPlanets(), 2, 'Astro 2 autorise deux planètes, et le joueur en a deux');
+  const c = g.adviceList().find(a => /Astrophysique 3/.test(a.what + ' ' + a.why));
+  assert.ok(c, 'aucun conseil ne dit qu\'Astrophysique 3 ouvrirait une planète de plus');
+});
+
+t('en focus colonie, le plan propose le palier qui ouvre une planète', () => {
+  const g = app(s => { s.day.focus = 'ecocol'; s.tech.astro = 2; });
+  const r = g.nextResearch().list.find(x => x.k === 'astro');
+  assert.ok(r, 'Astrophysique doit être dans la file');
+  assert.ok(/3ᵉ planète/.test(r.why || ''),
+    'le pourquoi doit nommer la planète gagnée, et dit « ' + (r.why || '(rien)') + ' »');
+});
+
+t('en économie pure le plan ne pousse pas vers une colonie', () => {
+  const g = app(s => { s.day.focus = 'eco'; s.tech.astro = 2; });
+  const r = g.nextResearch().list.find(x => x.k === 'astro');
+  assert.ok(!r || !/ᵉ planète/.test(r.why || ''),
+    'ce focus ne colonise pas : lui vendre une planète de plus serait incohérent');
+});
+
+t('le plafond des planètes a sa carte dans le plan du jour', () => {
+  const g = app(s => { s.tech.astro = 2; });
+  const c = g.dailyMissions().find(m => m.id === 'colomax');
+  assert.ok(c, 'aucune carte ne dit que les deux emplacements de planète sont pris');
+  assert.ok(/Astrophysique 3/.test(c.why + ' ' + c.how.join(' ')), 'elle doit nommer le palier : « ' + c.why + ' »');
+  assert.ok(/\d/.test(c.why), 'et son coût');
+});
+
+t('un emplacement de planète libre, pas de carte de plafond', () => {
+  const g = app(s => { s.tech.astro = 3; });
+  assert.equal(g.maxPlanets(), 3, 'un emplacement reste libre');
+  assert.ok(!g.dailyMissions().some(m => m.id === 'colomax'));
+});
+
+t('en économie pure la carte dit que le plan ne colonisera pas seul', () => {
+  const g = app(s => { s.day.focus = 'eco'; s.tech.astro = 2; });
+  const c = g.dailyMissions().find(m => m.id === 'colomax');
+  assert.ok(/Économie pure/.test(c.how.join(' ')),
+    'sinon le joueur attend une colonie que ce focus ne lancera jamais');
+});
+
+t('le péage chiffre ce que sa destination rapportera', () => {
+  const g = app(s => { s.day.focus = 'eco'; });
+  const r = g.nextResearch().list[0];
+  assert.ok(/amortira/.test(r.why || ''),
+    'Énergie ne produit rien : son pourquoi doit chiffrer Plasma, et dit « ' + r.why + ' »');
 });
 
 /* ---------- la version ---------- */
