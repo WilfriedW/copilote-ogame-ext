@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.18.0';
+const APP_VERSION = '1.19.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -857,10 +857,10 @@ function simulateDay(){
         acts.push(own
           ? {q:'Flotte · '+planetRef(q), what:`Rapatrier vers ${planetRef(hubP)} : ${charge}`,
              why:`${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${hm(arrive)}`,
-             dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i}
+             dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i, dest:hubP.coords, res:sent}
           : {q:'Flotte · '+planetRef(hubP), what:`Envoie ${shipList(ships)} vers ${planetRef(q)}`,
              why:`À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${hm(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge}, arrivée vers ${hm(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.`,
-             dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i});
+             dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i, dest:q.coords});
       }
       const fsl = fleetSlots();
       /* Une expédition occupe aussi un emplacement de flotte : en proposer plus
@@ -882,7 +882,7 @@ function simulateDay(){
         const ret = Tm + total*1000, out = Object.assign({}, f.ships);
         expoBusy.push(ret);
         sim.ev.push({at:ret, fn:()=>{ for(const [k,n] of Object.entries(out)){ p.ships[k]=(p.ships[k]||0)+n; sim.away[k]-=n; } }});
-        acts.push({q:'Flotte · '+planetRef(p), what:'Expédition : '+shipList(f.ships), why:`vers ${tgt}, retour vers ${hm(ret)} · ${fmt(fuel)} deut · soute ${fmt(f.cargo)} pour ${fmt(f.cap)} max`, cost:c, dur:total, end:ret, kind:'expo', ships:out, p:p.i});
+        acts.push({q:'Flotte · '+planetRef(p), what:'Expédition : '+shipList(f.ships), why:`vers ${tgt}, retour vers ${hm(ret)} · ${fmt(fuel)} deut · soute ${fmt(f.cargo)} pour ${fmt(f.cap)} max`, cost:c, dur:total, end:ret, kind:'expo', ships:out, p:p.i, dest:tgt});
       }
       for(const p of P){
         if(p.b.shipyard<1 || p.sq>Tm) continue;
@@ -987,8 +987,21 @@ function simulateDay(){
     return {now, sessions, busy, startV, endV, ups};
   } finally { S.tech = real.tech; S.planets = real.planets; }
 }
+/* Les valeurs à retaper dans le jeu, en pastilles cliquables. Le presse-papier
+   reste du côté du joueur : c'est lui qui colle, l'extension ne remplit aucun
+   champ — ce serait jouer à sa place, et c'est ce qui fait bannir un compte.
+   Les coordonnées sont découpées comme les trois champs du jeu. */
+function copyChips(a){
+  const out = [];
+  for(const [k,n] of Object.entries((a && a.ships) || {})) if(n>0) out.push([SHIPS[k] ? SHIPS[k].n : k, String(n)]);
+  const c = a && a.dest ? parseC(a.dest) : null;
+  if(c) [['galaxie',c[0]],['système',c[1]],['position',c[2]]].forEach(x=>out.push([x[0], String(x[1])]));
+  const RES = ['métal','cristal','deutérium'];
+  ((a && a.res) || []).forEach((x,j)=>{ if(x>0) out.push([RES[j], String(Math.floor(x))]); });
+  return out.map(([l,v])=>`<button class="chip" data-copy="${esc(v)}" title="Copier ${esc(v)}">${esc(l)} <b>${esc(v)}</b></button>`).join('');
+}
 function actHtml(a, withBtn){
-  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : ''].filter(Boolean).join('');
+  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : '', copyChips(a)].filter(Boolean).join('');
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,p:a.p,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
@@ -1198,6 +1211,7 @@ function dailyMissions(){
       how:['Dépense tout ce que tu peux (files longues, satellites).', 'Envoie le reste avec tes transporteurs en mission longue (transport vers une colonie à vitesse 10 %, ou expédition).', 'Au réveil, rappelle ou récupère la flotte.']};
     if(fs){
       m.what = `Avant la nuit (${ns} h) : envoie ${shipList(fs.ships)} vers ${fs.dest}`;
+      m.ships = fs.ships; m.dest = fs.dest;
       m.why = `${fmt(fs.load)} ressources à l'abri sur ${fs.from.name}. Une planète pleine pendant ton sommeil est une cible.`;
       m.how = [
         'Dépense d\'abord ce que tu peux : lance une construction longue et une recherche.',
@@ -1548,7 +1562,7 @@ today(){
   for(const m of timed){ let host = null; for(const x of plan.sessions) if(x.T <= m.at) host = x; if(host && host!==s0){ if(!slotMs.has(host)) slotMs.set(host, []); slotMs.get(host).push(m); } else m.at = 0; }
   const nowMs = missions.filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
   const infoMs = missions.filter(m=>m.info);
-  const taskHtml = m=>`<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}</div><div class="w">${esc(m.what)}</div></div><button class="btn sm" data-done="${m.id}">Fait</button><div class="m">${(m.tags||[]).map(planetTag).join('')}<span>${esc(m.why)}</span></div><details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
+  const taskHtml = m=>`<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}</div><div class="w">${esc(m.what)}</div></div><button class="btn sm" data-done="${m.id}">Fait</button><div class="m">${(m.tags||[]).map(planetTag).join('')}<span>${esc(m.why)}</span>${copyChips(m)}</div><details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${s0.acts.map(a=>actHtml(a,true)).join('')}${nowMs.map(taskHtml).join('')}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
@@ -1796,6 +1810,14 @@ view.addEventListener('click', e=>{
   }
 });
 view.addEventListener('click', e=>{
+  const cp = e.target.closest('[data-copy]');
+  if(cp){
+    const v = cp.dataset.copy;
+    // Le presse-papier, pas le champ : c'est le joueur qui colle.
+    (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject())
+      .then(()=>toast('Copié : '+v)).catch(()=>toast('Copie impossible : '+v));
+    return;
+  }
   const dn = e.target.closest('[data-done]'); if(dn){ S.daily.done[dn.dataset.done] = Date.now(); save(); refresh(); toast('Bien joué'); return; }
   const rpp = e.target.closest('[data-raidprep]'); if(rpp){ S.raid = {coords:rpp.dataset.raidprep, name:rpp.dataset.raidname, m:0, c:0, d:0, safe:false}; save(); render(); return; }
   const rpc = e.target.closest('[data-raidclose]'); if(rpc){ S.raid = null; save(); render(); return; }

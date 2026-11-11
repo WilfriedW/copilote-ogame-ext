@@ -137,6 +137,11 @@ details.card>summary .note{text-transform:none;letter-spacing:0;font-family:var(
 /* Pastille de planète : couleur stable par rang, pour repérer d'un coup d'œil
    où agir. --pc est posé en ligne par planetTag(). */
 .ptag{display:inline-block;vertical-align:1px;padding:1px 7px;border-radius:999px;font:700 10px/1.6 var(--f-body);letter-spacing:.03em;text-transform:none;white-space:nowrap;color:var(--pc);background:color-mix(in srgb,var(--pc) 16%,transparent);border:1px solid color-mix(in srgb,var(--pc) 40%,transparent)}
+/* Pastilles à copier : une valeur à retaper dans le jeu, un clic.
+   Discrètes par défaut — elles accompagnent l’action, elles ne la remplacent pas. */
+.chip{font:inherit;font-size:11px;color:var(--muted);background:transparent;border:1px dashed var(--line);border-radius:999px;padding:1px 8px;cursor:pointer;white-space:nowrap}
+.chip b{font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums}
+.chip:hover{border-style:solid;border-color:var(--accent);color:var(--accent)}
 .acts .how{grid-column:1/-1;font-size:12px;color:var(--muted)}
 .acts .how ol{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
 .ms li{grid-template-columns:auto 1fr auto}

@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -874,6 +874,45 @@ t('soutes pleines : c\'est bien le plafond qui limite', () => {
   }, JOUR);
   assert.ok(g.dailyMissions().find(x => x.id === 'expomax'), 'la carte du plafond');
   assert.ok(!g.dailyMissions().find(x => x.id === 'expocargo'), 'pas celle des soutes');
+});
+
+/* ---------- recopier sans jouer à sa place ---------- */
+
+t('une expédition porte sa destination', () => {
+  const g = app(s => { flotteDExpedition(s); s.tech.astro = 4;
+    s.slots = { fleet: [0, 7], expo: [0, 2], at: JOUR }; }, JOUR);
+  const e = expeditions(g)[0];
+  assert.ok(e, 'une expédition est proposée');
+  assert.ok(/^\d+:\d+:16$/.test(e.dest || ''), 'la destination voyage avec l\'action : ' + e.dest);
+});
+
+t('un rapatriement porte sa destination et sa charge', () => {
+  const g = app(s => {
+    const c = s.planets[1];
+    c.b = Object.assign({}, c.b, { metal: 14, crystal: 12, solar: 18, shipyard: 2 });
+    c.ships = { lc: 10 };
+    c.stock = { m: 90000, c: 60000, d: 9000, at: JOUR };
+  }, JOUR);
+  const r = g.simulateDay().sessions[0].acts.find(a => a.kind === 'transfer' && a.res);
+  assert.ok(r, 'un rapatriement chargé est proposé');
+  assert.ok(/^\d+:\d+:\d+$/.test(r.dest || ''), 'vers des coordonnées : ' + r.dest);
+  assert.ok(r.res[0] > 0, 'avec le métal à saisir : ' + JSON.stringify(r.res));
+});
+
+t('les pastilles donnent ce qu\'il faut retaper, découpé comme les champs du jeu', () => {
+  const h = app().copyChips({ ships: { sc: 21 }, dest: '1:79:16', res: [4200, 0, 0] });
+  assert.ok(/data-copy="21"/.test(h), 'le nombre de vaisseaux : ' + h);
+  // Le jeu a trois champs de coordonnées : une pastille par champ, sinon le
+  // collage ne tombe pas dans le bon.
+  assert.ok(/data-copy="1"/.test(h), 'la galaxie : ' + h);
+  assert.ok(/data-copy="79"/.test(h), 'le système : ' + h);
+  assert.ok(/data-copy="16"/.test(h), 'la position : ' + h);
+  assert.ok(/data-copy="4200"/.test(h), 'le métal, en chiffres bruts : ' + h);
+  assert.ok(!/4 200|4 200/.test(h), 'jamais d\'espace dans une valeur à coller : ' + h);
+});
+
+t('rien à recopier pour un bâtiment : pas de pastille', () => {
+  assert.equal(app().copyChips({ kind: 'b', k: 'metal', lvl: 20, cost: [1, 2, 3] }), '');
 });
 
 /* ---------- la version ---------- */
