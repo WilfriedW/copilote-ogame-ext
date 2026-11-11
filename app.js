@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.22.1';
+const APP_VERSION = '1.23.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -17,7 +17,7 @@ const B = {
   scrystal:{n:'Hangar de cristal', c:[1000,500,0], f:2},
   sdeut:   {n:'Réservoir de deutérium', c:[1000,1000,0], f:2},
 };
-const B_SHORT = {metal:'Métal',crystal:'Cristal',deut:'Deut.',solar:'Solaire',fusion:'Fusion',robot:'Robots',shipyard:'Chantier',lab:'Labo',nanite:'Nanites',smetal:'Hangar M',scrystal:'Hangar C',sdeut:'Réserv. D'};
+const B_SHORT = {crawl:'Foreuses', metal:'Métal',crystal:'Cristal',deut:'Deut.',solar:'Solaire',fusion:'Fusion',robot:'Robots',shipyard:'Chantier',lab:'Labo',nanite:'Nanites',smetal:'Hangar M',scrystal:'Hangar C',sdeut:'Réserv. D'};
 
 const T = {
   energy:    {n:'Technologie Énergie', c:[0,800,400], f:2, req:{lab:1}},
@@ -57,6 +57,25 @@ const DRIVE_BONUS = {combustion:.1, impulse:.2, hyperdrive:.3};
 
 const EXPO_CAPS = [[1e4,40000],[1e5,500000],[1e6,1200000],[5e6,1800000],[25e6,2400000],[50e6,3000000],[75e6,3600000],[1e8,4200000],[Infinity,5000000]];
 const EXPO_LABELS = ['< 10 000','< 100 000','< 1 M','< 5 M','< 25 M','< 50 M','< 75 M','< 100 M','≥ 100 M'];
+/**
+ * Tranche de plafond d'expédition. Elle dépend des points du n°1 de l'univers :
+ * le classement public les donne, le réglage manuel ne sert plus que si
+ * l'API n'a pas encore répondu.
+ * @returns {number} indice dans EXPO_CAPS
+ */
+function top1Tier(){
+  const sc = API && API.scores ? Object.values(API.scores) : null;
+  // Le réglage manuel est relu du stockage local : il peut être hors bornes.
+  const regle = Math.min(Math.max(0, Math.trunc(+S.settings.top1) || 0), EXPO_CAPS.length-1);
+  if(!sc || !sc.length) return regle;
+  // `reduce` et pas un spread : le classement d'un univers plein compte des
+  // dizaines de milliers de joueurs, assez pour casser la pile.
+  const pts = sc.reduce((m,x)=>Math.max(m, (x && x[0]) || 0), 0);
+  const i = EXPO_CAPS.findIndex(([lim])=>pts < lim);
+  return i<0 ? EXPO_CAPS.length-1 : i;
+}
+/** Trouvaille maximale d'une expédition, en équivalent métal. Estimation. */
+function expoFind(pf){ return EXPO_CAPS[top1Tier()][1]*S.settings.eco*(S.settings.cls==='explorer'?1.5:1)*(pf?2:1); }
 
 function sample(){
   return {
@@ -281,17 +300,49 @@ function researchTime(key, L){
   return Math.max(1, h*3600);
 }
 function storageCap(L){ return 5000*Math.floor(2.5*Math.exp(20*L/33)); }
+/**
+ * Plus petit niveau de hangar dont la capacité couvre `amount`. Un hangar trop
+ * petit n'interdit pas la dépense : les ressources livrées par transport
+ * dépassent la capacité, seule la production locale s'arrête au plafond. Ce
+ * niveau est donc une option — l'autre étant de caler la livraison juste avant.
+ * @param {number} amount montant à loger
+ * @returns {number} niveau de hangar
+ */
+function storageLevelFor(amount){ let L = 0; while(L < 40 && storageCap(L) < amount) L++; return L; }
+/**
+ * Foreuses utiles sur une planète : huit par niveau de mine cumulé. Au-delà,
+ * une foreuse de plus ne rapporte rien.
+ * @returns {number}
+ */
+function crawlerMax(metal, crystal, deut){ return 8*(metal+crystal+deut); }
+/**
+ * Bonus de production des foreuses, en fraction de la production de base :
+ * +0,02 % par foreuse, ×1,5 pour un Collectionneur, ×1,5 encore en surcharge
+ * à 150 % (énergie doublée), plafonné à 50 %.
+ * @returns {number}
+ */
+function crawlerBonus(n, cls, overload){
+  return Math.min(Math.max(0, n)*0.0002*(cls==='collector'?1.5:1)*(overload?1.5:1), 0.5);
+}
+const CRAWLER_COST = [2000, 2000, 1000];
+const CRAWLER_ENERGY = 50;
 
 /** Hourly production and energy balance for a planet, with optional level overrides. */
 function production(p, ov){
   const b = Object.assign({}, p.b, ov||{}), s=S.settings, e=S.settings.eco, t=S.tech;
   const g = L => L*Math.pow(1.1,L);
+  /* Une foreuse produit et consomme comme une mine : elle entre dans le même
+     bilan, sinon son bonus serait gratuit et le classement la mettrait en tête
+     pour de mauvaises raisons. */
+  const nCraw = Math.min(Math.max(0, (ov && ov.crawlers != null) ? ov.crawlers : (p.crawlers||0)),
+                         crawlerMax(b.metal, b.crystal, b.deut));
+  const craw = crawlerBonus(nCraw, s.cls, p.overload);
   let eProd = Math.floor(20*g(b.solar)) + Math.floor(30*b.fusion*Math.pow(1.05+0.01*t.energy, b.fusion)) + p.sats*Math.max(1,Math.floor(p.tmax/4+20));
   let eBonus = 1 + (s.cls==='collector'?.1:0) + (s.eng?.1:0);
   eProd = Math.floor(eProd*eBonus) + (p.eAdj||0);
-  const eCons = Math.ceil(10*g(b.metal)) + Math.ceil(10*g(b.crystal)) + Math.ceil(20*g(b.deut));
+  const eCons = Math.ceil(10*g(b.metal)) + Math.ceil(10*g(b.crystal)) + Math.ceil(20*g(b.deut)) + nCraw*CRAWLER_ENERGY*(p.overload?2:1);
   const factor = eCons===0 ? 1 : Math.min(1, eProd/eCons);
-  const common = (s.cls==='collector'?.25:0) + (s.geo?.1:0);
+  const common = (s.cls==='collector'?.25:0) + (s.geo?.1:0) + craw;
   const pos = (parseC(p.coords)||[])[2]||0, posM = POS_BONUS_M[pos]||0, posC = POS_BONUS_C[pos]||0;
   const m = 30*e + 30*g(b.metal)*e*factor*(1 + .01*t.plasma + common + posM);
   const c = 15*e + 20*g(b.crystal)*e*factor*(1 + .0066*t.plasma + common + posC);
@@ -307,12 +358,30 @@ function stockNow(p){
           Math.min(Math.max(p.stock.c, pr.cap[1]), p.stock.c + pr.c*h),
           Math.min(Math.max(p.stock.d, pr.cap[2]), p.stock.d + pr.d*h)];
 }
-/** Seconds until `cost` is affordable on planet p. */
+/**
+ * Délai avant que `cost` soit payable sur la planète p.
+ * Un coût plus grand qu'un hangar n'est pas impossible : la production locale
+ * s'y arrête, pas une livraison. `small` nomme alors les deux sorties — le
+ * niveau de hangar qui logerait le montant, ou un transport calé juste avant.
+ * @returns {{sec:number, storage?:number, small?:object[]}}
+ */
 function waitFor(p, cost){
-  const st = stockNow(p), pr = production(p), rates=[pr.m,pr.c,pr.d];
-  let w = 0;
-  for(let i=0;i<3;i++){ const miss = cost[i]-st[i]; if(miss>0){ if(cost[i]>pr.cap[i] && i<3) return {sec:Infinity, storage:i}; w = Math.max(w, rates[i]>0 ? miss/rates[i]*3600 : Infinity); } }
-  return {sec:w};
+  const st = stockNow(p), pr = production(p), rates=[pr.m,pr.c,pr.d], sk=['smetal','scrystal','sdeut'];
+  let w = 0; const small = [];
+  for(let i=0;i<3;i++){
+    if(cost[i] > pr.cap[i]) small.push({res:i, k:sk[i], lvl:storageLevelFor(cost[i])});
+    const miss = cost[i]-st[i];
+    if(miss>0) w = Math.max(w, rates[i]>0 ? miss/rates[i]*3600 : Infinity);
+  }
+  return small.length ? {sec:Infinity, storage:small[0].res, small} : {sec:w};
+}
+/** Les hangars à atteindre, nommés : « Hangar C 5 ». */
+function storageShort(w){ return (w.small||[]).map(x=>`${B_SHORT[x.k]} ${x.lvl}`).join(' et '); }
+/** La phrase complète, avec l'autre sortie. */
+function storageNote(w){
+  const l = storageShort(w);
+  return l ? `Hangar trop petit : ${l}, ou fais arriver le transport juste avant de lancer — une livraison n'est pas plafonnée.`
+           : 'Hangar trop petit pour ce coût.';
 }
 function reqOk(req, p){
   const miss=[];
@@ -323,7 +392,9 @@ function reqOk(req, p){
   return miss;
 }
 
-/** Ranks next building upgrades on a planet by payback time. */
+/** Le libellé d'une option du classement : une mine a un niveau, les foreuses un nombre. */
+function upLabel(u){ return u.key==='crawl' ? `${u.n} foreuse${u.n>1?'s':''} (${u.lvl} en tout)` : `${B_SHORT[u.key]} ${u.lvl}`; }
+/** Ranks next building upgrades and crawlers on a planet by payback time. */
 function rankUpgrades(p){
   const base = production(p), baseV = mse(base.m, base.c, base.d), out=[];
   for(const k of ['metal','crystal','deut']){
@@ -336,6 +407,21 @@ function rankUpgrades(p){
   if(base.factor<1){
     const pr = production(p,{solar:p.b.solar+1}), cost=levelCost(B.solar,p.b.solar+1), gain=mse(pr.m,pr.c,pr.d)-baseV;
     out.push({key:'solar', lvl:p.b.solar+1, extraSolar:0, cost, gain, payback: gain>0?mse(...cost)/gain:Infinity, time:buildTime('solar',p.b.solar+1,p)});
+  }
+  /* Les foreuses sont une dépense productive comme une autre : elles se classent
+     par amortissement, à côté des mines. Aujourd'hui loin derrière ; elles
+     passeront devant quand un niveau de mine coûtera assez cher. */
+  const cmax = crawlerMax(p.b.metal, p.b.crystal, p.b.deut), have = p.crawlers||0;
+  if(have < cmax && shipReqOk('crawl', p)){
+    const n = Math.max(1, Math.min(cmax-have, Math.ceil(cmax/10)));
+    // Cinquante d'énergie par foreuse : comme pour une mine, la centrale qu'elles
+    // obligent à monter fait partie de leur prix.
+    const ov = {crawlers:have+n}; let cost = CRAWLER_COST.map(x=>x*n), extra = 0;
+    let pr = production(p, ov);
+    while(pr.factor<1 && extra<15){ extra++; ov.solar = p.b.solar+extra; const sc=levelCost(B.solar, p.b.solar+extra); cost=cost.map((x,i)=>x+sc[i]); pr=production(p,ov); }
+    const gain = mse(pr.m,pr.c,pr.d)-baseV;
+    out.push({key:'crawl', n, lvl:have+n, extraSolar:extra, cost, gain,
+              payback: gain>0 ? mse(...cost)/gain : Infinity, time:shipTime('crawl', n, p)});
   }
   return out.sort((a,b)=>a.payback-b.payback);
 }
@@ -419,7 +505,7 @@ function adviceList(){
     const best = r.find(u=>u.payback<Infinity);
     if(best && pr.factor>=1){
       const w = waitFor(p, best.cost);
-      out.push({sev:'info', what:`Construire ${B_SHORT[best.key]} ${best.lvl}${best.extraSolar?` puis solaire ${p.b.solar+best.extraSolar}`:''}${where}`, why:`Meilleur amortissement de tes mines : ${dur(best.payback*3600)}. ${w.sec===0?'Tu peux le lancer maintenant.':w.storage!=null?'Hangar trop petit pour ce coût.':`Payable dans ${dur(w.sec)}.`}`});
+      out.push({sev:'info', what:`${best.key==='crawl'?'Construire':'Construire'} ${upLabel(best)}${best.extraSolar?` puis solaire ${p.b.solar+best.extraSolar}`:''}${where}`, why:`Meilleur amortissement de tes mines : ${dur(best.payback*3600)}. ${w.sec===0?'Tu peux le lancer maintenant.':w.storage!=null?storageNote(w):`Payable dans ${dur(w.sec)}.`}`});
     }
   });
   const next = MILESTONES.filter(m=>!milestoneDone(m));
@@ -625,7 +711,7 @@ function coloVerdict(fields, pos){
 function expoFleet(avail){
   avail = avail || {};
   const s = S.settings, pf = (avail.pf||0) > 0 ? 1 : 0;
-  const cap = EXPO_CAPS[s.top1][1]*s.eco*(s.cls==='explorer'?1.5:1)*(pf?2:1);
+  const cap = expoFind(pf);
   let need = Math.max(0, cap - (pf ? shipStats('pf').cargoEff : 0));
   const lcC = shipStats('lc').cargoEff, scC = shipStats('sc').cargoEff;
   const lc = Math.min(avail.lc||0, Math.ceil(need/lcC)); need -= lc*lcC;
@@ -634,8 +720,8 @@ function expoFleet(avail){
   const ships = {}; if(lc) ships.lc=lc; if(sc) ships.sc=sc; if(pf) ships.pf=1; if((avail.pr||0)>0) ships.pr=1;
   return {ships, cap, cargo: lc*lcC + sc*scC + (pf?shipStats('pf').cargoEff:0)};
 }
-const SHIP_PLURAL = {sc:'petits transporteurs', lc:'grands transporteurs', pf:'éclaireurs', lf:'chasseurs légers', hf:'chasseurs lourds', cr:'croiseurs', bs:'vaisseaux de bataille', bc:'traqueurs', bb:'bombardiers', ds:'destructeurs', rp:'faucheurs', rec:'recycleurs', col:'vaisseaux de colonisation', pr:"sondes d'espionnage"};
-function shipList(ships){ return Object.entries(ships||{}).filter(([,n])=>n>0).map(([k,n])=>`${n} ${n>1 ? SHIP_PLURAL[k] : SHIPS[k].n.toLowerCase()}`).join(', '); }
+const SHIP_PLURAL = {crawl:'foreuses', sc:'petits transporteurs', lc:'grands transporteurs', pf:'éclaireurs', lf:'chasseurs légers', hf:'chasseurs lourds', cr:'croiseurs', bs:'vaisseaux de bataille', bc:'traqueurs', bb:'bombardiers', ds:'destructeurs', rp:'faucheurs', rec:'recycleurs', col:'vaisseaux de colonisation', pr:"sondes d'espionnage"};
+function shipList(ships){ return Object.entries(ships||{}).filter(([,n])=>n>0).map(([k,n])=>`${n} ${n>1 || !SHIPS[k] ? SHIP_PLURAL[k] : SHIPS[k].n.toLowerCase()}`).join(', '); }
 
 /* ---------- daily planner ---------- */
 /* Ce que chaque recherche rapporte, en une proposition qui se compose : « …, qui
@@ -700,7 +786,13 @@ function techPayback(k, lvl){
 function astroForPlanet(){ return S.tech.astro + (S.tech.astro % 2 ? 2 : 1); }
 
 const ROADMAPS = {
-  ecocol:[['impulse',3,'c'],['astro',3,'c'],['computer',2],['espionage',4],['energy',8],['laser',10],['ion',5],['plasma',4],['astro',5],['computer',6],['plasma',8],['astro',7]],
+  /* Une planète de plus bat n'importe quelle recherche à ce stade : Astrophysique
+     5 coûte 262 500 éq. et ouvre une production entière, quand la chaîne vers
+     Plasma 4 coûte 785 800 pour 4 020/h. Plasma reste l'objectif de long terme,
+     et chaque colonie le rend plus rentable — son bonus porte sur toutes les
+     planètes. D'où le rythme : Astro 5 puis colonie, Astro 6 et 7 puis colonie,
+     Astro 8 et 9 puis colonie. */
+  ecocol:[['impulse',3,'c'],['astro',3,'c'],['computer',2],['espionage',4],['astro',5,'c'],['astro',7,'c'],['energy',8],['laser',10],['ion',5],['plasma',4],['astro',9],['computer',6],['plasma',8]],
   eco:[['energy',8],['laser',10],['ion',5],['plasma',6],['impulse',3],['astro',3],['computer',4],['plasma',10]],
   fleet:[['combustion',6,'c'],['impulse',3,'c'],['espionage',4],['computer',6],['astro',4],['hyper',3],['hyperdrive',2],['impulse',5],['astro',6],['energy',8]],
 };
@@ -761,6 +853,11 @@ function nextResearch(){
   let labNeed = 0; const list = [];
   const rm = ROADMAPS[S.day.focus] || ROADMAPS.ecocol;
   rm.forEach(([k,l,flag], i)=>{
+    /* Ordre de priorité : un emplacement de planète libre se colonise avant de
+       payer le palier suivant. Tant qu'il en reste un, Astrophysique n'ajoute
+       rien que la colonie n'apporte déjà — c'est quand ils sont tous pris que
+       le palier passe en tête, plus bas. */
+    if(k==='astro' && S.tech.astro >= 1 && S.day.focus !== 'eco' && S.planets.length < maxPlanets()) return;
     const r = resolveTech(k, l, 0); if(!r) return;
     if(r.lab){ labNeed = Math.max(labNeed, r.lab); return; }
     if(!list.some(x=>x.k===r.k)) list.push({k:r.k, lvl:r.lvl, crit:flag==='c', why:techWhy(r, k, l, roadmapGoal(rm, i))});
@@ -833,7 +930,7 @@ function needsOwnCargo(p, hub){
 function pickBuildings(p, ctx){
   const pr = production(p), iv = ctx.iv, rates=[pr.m,pr.c,pr.d], sk=['smetal','scrystal','sdeut'], out=[];
   const add = (k, why)=>{ if(!out.some(o=>o.k===k)) out.push({k, lvl:p.b[k]+1, why}); };
-  const ranked = rankUpgrades(p).filter(u=>u.payback<Infinity);
+  const ranked = rankUpgrades(p).filter(u=>u.payback<Infinity && B[u.key]);
   const satsSoon = p.satPending && p.satPending > ctx.T;
   if(pr.factor<1 && !satsSoon) add('solar', 'Énergie négative : tes mines tournent au ralenti');
   for(let j=0;j<3;j++) if(rates[j]>0 && p.st[j]+rates[j]*iv*2 >= pr.cap[j]*.98) add(sk[j], 'Hangar plein avant ta prochaine connexion');
@@ -1038,6 +1135,9 @@ function simulateDay(){
       // Passées avant, elles servent les premières et ignorent ce qu'un
       // bâtiment épargne ; passées après, elles s'effacent devant lui.
       const lfPass = devant=>{
+        /* ponytail: le coût en énergie d'une case non encore construite n'est pas
+           lu sur la page du jeu ; on se contente du bilan actuel. À remplacer par
+           la consommation lue dans l'infobulle quand le lecteur la relèvera. */
         if(lfMode()==='off') return;
         for(const p of P) for(const q of ['lfbuilding','lfresearch']){
           if(p.lfq[q]>Tm) continue;
@@ -1060,6 +1160,9 @@ function simulateDay(){
           }
         }
       };
+      /* Une case de forme de vie consomme de l'énergie comme une mine. Tant que
+         la planète est en négatif, la passer devant revient à payer un bâtiment
+         dont la production est déjà bridée : la centrale d'abord. */
       if(lfMode()==='first') lfPass(true);
       for(const p of P){
         if(p.bq>Tm) continue;
@@ -1078,14 +1181,22 @@ function simulateDay(){
         if(p.b.shipyard>=2 && p.sq<=Tm){
           const total = k=>P.reduce((a,q)=>a+(q.ships[k]||0),0) + (sim.away[k]||0);
           const pr = P.reduce((a,q)=>{ const r=production(q); return a+mse(r.m,r.c,r.d); },0);
-          const cap = EXPO_CAPS[S.settings.top1][1]*S.settings.eco*(total('pf')>0?2:1);
+          const cap = expoFind(total('pf')>0);
           const cargoTarget = Math.min(cap, pr*6), lcC = shipStats('lc').cargoEff, scC = shipStats('sc').cargoEff;
           const cargoNow = total('lc')*lcC + total('sc')*scC;
           const big = shipReqOk('lc',p) ? 'lc' : 'sc', unitC = big==='lc'?lcC:scC;
           const wants = [];
           if(estHub && shipReqOk('pr',p) && total('pr')<5) wants.push({k:'pr', n:5-total('pr'), why:'Sondes pour espionner les inactifs avant de les piller'});
+          /* Les foreuses ne passent par le chantier que si le classement les met
+             devant les mines : sinon elles prendraient la place d'un niveau de
+             mine moins cher au gain. */
+          const cw = rankUpgrades(p).find(u=>u.key==='crawl');
+          if(cw && rankUpgrades(p)[0] === cw) wants.unshift({k:'crawl', n:cw.n, why:`Meilleur amortissement de cette planète : ${dur(cw.payback*3600)}`});
           if(estHub && shipReqOk(big,p) && cargoNow < cargoTarget){ const miss = Math.ceil((cargoTarget-cargoNow)/unitC); wants.push({k:big, n:Math.max(1, Math.ceil(miss/4)), why:`Soute pour expéditions et pillages : ${fmt(cargoNow)} sur ${fmt(cargoTarget)} visés`}); }
-          if(estHub && shipReqOk('pf',p) && total('pf')<1) wants.push({k:'pf', n:1, why:'Un éclaireur double les gains des expéditions'});
+          /* L'Éclaireur est donné pour exclusif à l'Explorateur par les pages
+             Gameforge : le proposer à un Collectionneur envoyait vers un
+             chantier qui ne l'affiche pas. */
+          if(estHub && S.settings.cls==='explorer' && shipReqOk('pf',p) && total('pf')<1) wants.push({k:'pf', n:1, why:'Un éclaireur double les gains des expéditions (bonus communautaire, à vérifier en jeu)'});
           // Une colonie compte SA soute, pas celle de l'empire : sinon la flotte
           // du hub suffit toujours et aucune colonie ne s'équipe jamais.
           if(needsOwnCargo(p, hubP) && shipReqOk(big,p)){
@@ -1301,6 +1412,28 @@ function dailyMissions(){
     how:[`Recherche : Astrophysique ${S.tech.astro+1}${astroForExpo()>S.tech.astro+1 ? ` (le palier utile est ${astroForExpo()})` : ''}.`,
       `Astrophysique ${astroForPlanet()} ajouterait aussi un emplacement de colonie.`,
       'En attendant, les transporteurs en trop servent au rapatriement ou à la mise à l'+"'"+'abri du soir.']});
+  /* Le taux 3:2:1 sert déjà de pondération partout ; il sert aussi à échanger.
+     Quand une seule ressource retient la prochaine recherche et qu'une autre
+     dort en quantité, le Marchand débloque la file sans attendre la production. */
+  const NOMS_RES = ['métal', 'cristal', 'deutérium'];
+  const nr0 = nextResearch(), labP0 = labPlanet();
+  if(nr0.k && labP0 && !nr0.labNeed){
+    const c = levelCost(T[nr0.k], nr0.lvl), st = stockNow(labP0), r = S.settings.ratio;
+    const manque = [0,1,2].filter(j=>c[j] > st[j]);
+    if(manque.length === 1){
+      const j = manque[0], besoin = c[j] - st[j];
+      // Ce qu'il faudrait céder d'une autre ressource, au taux réglé.
+      const source = [0,1,2].filter(k=>k!==j && st[k] - (c[k]||0) > 0)
+        .map(k=>({k, donne: besoin * r[k] / r[j], reste: st[k] - (c[k]||0)}))
+        .filter(x=>x.reste >= x.donne).sort((a,b)=>b.reste-a.reste)[0];
+      if(source) out.push({id:'merchant', info:true, q:'Marchand', every:6, sev:'good',
+        what:`Échanger du ${NOMS_RES[source.k]} contre du ${NOMS_RES[j]} pour lancer ${T[nr0.k].n} ${nr0.lvl}`,
+        why:`Il manque ${fmt(besoin)} de ${NOMS_RES[j]} sur ${labP0.name}, et ${fmt(source.reste)} de ${NOMS_RES[source.k]} y dorment. Au taux ${r.join(':')}, ${fmt(source.donne)} suffisent.`,
+        how:['Marchand › Échange de ressources : choisis la ressource à céder, puis celle à recevoir.',
+          'Le taux du Marchand dépend de ton antimatière : vérifie qu\'il reste proche de ton taux réglé avant de valider.',
+          'Sans antimatière, fais venir la ressource manquante depuis une colonie.']});
+    }
+  }
   const _unused = S.planets.some(p=>((p.ships||{}).sc||0)+((p.ships||{}).lc||0)>0);
   out.push({id:'discovery', q:'Exploration', every:24, sev:'info', what:'Missions de découverte (formes de vie)', why:`Elles rapportent des artefacts et de nouvelles races. Trouvées : ${(S.lf.found||[]).map(k=>LIFEFORMS[k].n).join(', ')}.${S.artefacts!=null?` Artefacts : ${fmt(S.artefacts)}.`:''}`,
     how:['Galaxie : bouton <b>Découverte</b> en haut, ou icône ADN violette sur une ligne.', 'Fais-en sur plusieurs systèmes : le nombre par jour est limité.', 'Une race trouvée ? Coche-la dans Réglages › Formes de vie pour que Copilote en tienne compte.']});
@@ -1346,7 +1479,7 @@ function dailyMissions(){
   // suppose assez, comme avant.
   const rtAll = raidTargets().filter(r=>!r.outlaw && !(S.raids[r.coords] && now-S.raids[r.coords].at<6*3600e3));
   const libres = fs ? Math.max(0, fs[1]-fs[0]) : 3, rt = rtAll.slice(0, Math.min(3, libres));
-  if(S.raid && S.raid.safe && (S.raid.m||S.raid.c||S.raid.d)) out.unshift({id:'raid-go', q:'Pillage', every:1, sev:'good', what:`Pillage de ${S.raid.coords} prêt`, why:'Les ressources sont saisies et la cible est sans défense : lance-le depuis Outils › Cibles.', how:['Outils › Cibles : vérifie la flotte proposée, puis envoie-la en mission Attaquer.', 'Clique sur Lancé pour suivre le retour.']});
+  if(S.raid && S.raid.safe && !raidPlan().stale && (S.raid.m||S.raid.c||S.raid.d)) out.unshift({id:'raid-go', q:'Pillage', every:1, sev:'good', what:`Pillage de ${S.raid.coords} prêt`, why:'Les ressources sont saisies et la cible est sans défense : lance-le depuis Outils › Cibles.', how:['Outils › Cibles : vérifie la flotte proposée, puis envoie-la en mission Attaquer.', 'Clique sur Lancé pour suivre le retour.']});
   if(rt.length) out.push({id:'raid', q:'Pillage', every:12, sev:'good', what:`Espionner ${rt.length>1?'ces inactifs':'cet inactif'} : ${rt.map(r=>r.coords).join(', ')}`, why:`Inactifs proches et moins forts que toi : pas d'avertissement hors-la-loi.${rtAll.length>rt.length?` ${rtAll.length} repérés, mais ${libres} emplacement${libres>1?'s':''} de flotte libre${libres>1?'s':''}.`:''} Détail dans Outils › Cibles.`, how:['Galaxie : clique sur l\'œil de la ligne pour envoyer une sonde.', 'Chaque sonde occupe un emplacement de flotte jusqu\'à son retour.', 'Rapport sans flotte ni défense et avec des ressources : mission Attaquer, assez de soute pour la moitié de son stock.']});
   else if(!rtAll.length) out.push({id:'inactive', q:'Pillage', every:24, sev:'info', what:'Repérer des inactifs à piller', why:'Les joueurs marqués (i) ou (I) ne se défendent plus. À piller dès qu\'ils sont dans ta tranche de points.',
     how:['Galaxie : parcours ton système et les voisins, note les noms gris (i)/(I).', 'Espionne-les. Si le jeu affiche « joueur plus puissant », réponds <b>Non</b> : tu perdrais ta protection pendant 7 jours.', 'Sans flotte ni défense et avec des ressources : mission Attaquer avec assez de soute.']});
@@ -1358,6 +1491,16 @@ function dailyMissions(){
       what:`Avant la nuit (${ns} h) : mettre tes ressources à l'abri`,
       why:'Une planète pleine pendant ton sommeil est une cible.',
       how:['Dépense tout ce que tu peux (files longues, satellites).', 'Envoie le reste avec tes transporteurs en mission longue (transport vers une colonie à vitesse 10 %, ou expédition).', 'Au réveil, rappelle ou récupère la flotte.']};
+    /* La mise à l'abri protège la flotte et ce qu'elle emporte, pas les planètes
+       qu'elle laisse derrière : elles produisent huit heures de plus. Les nommer,
+       parce que c'est exactement ce que le pilleur d'inactifs vient chercher. */
+    const nuit = (+S.day.nightEnd - +S.day.nightStart + 24) % 24 || 8;
+    const exposees = S.planets.map(p=>{
+      const pr = production(p), st = stockNow(p);
+      const fin = [0,1,2].map(j=>Math.min(pr.cap[j], st[j] + [pr.m,pr.c,pr.d][j]*nuit));
+      return {p, eq: mse(fin[0], fin[1], fin[2])};
+    }).filter(x=>x.eq > 50000).sort((a,b)=>b.eq-a.eq);
+    if(exposees.length) m.how.push(`Resteront exposés au matin : ${exposees.map(x=>`${esc(planetRef(x.p))} (~${fmt(x.eq)} éq.)`).join(', ')}. Une défense minimale dissuade les pilleurs d'inactifs.`);
     if(fs){
       m.what = `Avant la nuit (${ns} h) : envoie ${shipList(fs.ships)} vers ${fs.dest}`;
       m.ships = fs.ships; m.dest = fs.dest; m.p = S.planets.indexOf(fs.from);
@@ -1430,8 +1573,8 @@ function exploreSystems(){
 }
 
 /* ---------- fleet building, roles, raids ---------- */
-const SHIP_COST = {sc:[2000,2000,0], lc:[6000,6000,0], pr:[0,1000,0], pf:[8000,15000,8000]};
-const SHIP_REQ = {sc:{b:{shipyard:2}, t:{combustion:2}}, lc:{b:{shipyard:4}, t:{combustion:6}}, pr:{b:{shipyard:3}, t:{combustion:3, espionage:2}}, pf:{b:{shipyard:5}, t:{hyperdrive:2}}};
+const SHIP_COST = {sc:[2000,2000,0], lc:[6000,6000,0], pr:[0,1000,0], pf:[8000,15000,8000], crawl:CRAWLER_COST};
+const SHIP_REQ = {sc:{b:{shipyard:2}, t:{combustion:2}}, lc:{b:{shipyard:4}, t:{combustion:6}}, pr:{b:{shipyard:3}, t:{combustion:3, espionage:2}}, pf:{b:{shipyard:5}, t:{hyperdrive:2}}, crawl:{b:{shipyard:5}, t:{combustion:4, armour:4}}};
 function shipReqOk(k, p){ const r = SHIP_REQ[k]; return Object.entries(r.b).every(([b,l])=>p.b[b]>=l) && Object.entries(r.t).every(([t,l])=>S.tech[t]>=l); }
 function shipTime(k, n, p){ const c = SHIP_COST[k]; return n*(c[0]+c[1])/(2500*(1+p.b.shipyard)*Math.pow(2,p.b.nanite)*S.settings.eco)*3600; }
 const ROLES = {hub:'Centre (recherche, flotte)', mines:'Mines', deut:'Deutérium', crystal:'Cristal et énergie'};
@@ -1446,6 +1589,9 @@ function parseReport(txt){
 /** Fleet and outcome for a raid on the selected target. */
 function raidPlan(){
   const r = S.raid; if(!r) return null;
+  /* Un rapport vieillit : la cible produit, et surtout elle peut avoir été
+     pillée entre-temps. Au-delà de deux heures il ne décrit plus rien. */
+  const stale = !r.at || Date.now()-r.at > 2*3600e3;
   const home = S.planets[hubIndex()], res = [+r.m||0, +r.c||0, +r.d||0];
   const rate = S.settings.cls==='explorer' ? .75 : .5, loot = res.map(x=>Math.floor(x*rate)), need = loot[0]+loot[1]+loot[2];
   const av = home.ships||{}, lcC = shipStats('lc').cargoEff, scC = shipStats('sc').cargoEff;
@@ -1453,7 +1599,7 @@ function raidPlan(){
   const ships = {}; if(lc) ships.lc = lc; if(sc) ships.sc = sc;
   const fl = (lc||sc) ? flight(home.coords, r.coords, ships, 100) : null;
   const cargo = lc*lcC + sc*scC, got = Math.min(need, cargo), fuel = fl ? fl.fuel*2 : 0;
-  return {home, loot, need, ships, fl, cargo, got, fuel, short: Math.max(0,left), net: got - fuel*S.settings.ratio[0]/S.settings.ratio[2]};
+  return {home, loot, need, ships, fl, cargo, got, fuel, stale, short: Math.max(0,left), net: got - fuel*S.settings.ratio[0]/S.settings.ratio[2]};
 }
 
 const VIEWS = {
@@ -1578,7 +1724,7 @@ fleet(){
   return `<section class="panel">
     <div class="card"><h2>Taille d'expédition</h2>
       <div class="grid">
-        <label class="f">Points du n°1 de l'univers<select id="top1" data-set="top1">${EXPO_LABELS.map((l,i)=>`<option value="${i}" ${S.settings.top1==i?'selected':''}>${l}</option>`).join('')}</select></label>
+        <label class="f">Points du n°1 de l'univers<select id="top1" data-set="top1">${EXPO_LABELS.map((l,i)=>`<option value="${i}" ${S.settings.top1==i?'selected':''}>${l}</option>`).join('')}</select>${API && API.scores ? `<span class="note">Lu dans le classement public : ${EXPO_LABELS[top1Tier()]}. Ce réglage ne sert plus.</span>` : '<span class="note">Sera lu dans le classement public dès que l\'extension aura joint l\'API du serveur.</span>'}</label>
         <label class="f">Éclaireur dans la flotte<select id="expoPf" data-expo="pf"><option value="1" ${ex.pf?'selected':''}>Oui</option><option value="0" ${!ex.pf?'selected':''}>Non</option></select></label>
       </div>
       <div class="res" id="expoOut"></div>
@@ -1716,7 +1862,7 @@ today(){
   if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${s0.acts.map(a=>actHtml(a,true)).join('')}${nowMs.map(taskHtml).join('')}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
-  if(s0.waits.length) nowParts.push(`<ul class="acts">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'hangar trop petit'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div></li>`).join('')}</ul>`);
+  if(s0.waits.length) nowParts.push(`<ul class="acts">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div></li>`).join('')}</ul>`);
   if(plan.busy.length || infoMs.length) nowParts.push(`<ul class="acts">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${hm(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`).join('')}</ul>`);
   const nextS = plan.sessions.slice(1).find(x=>x.acts.length);
   if(!s0.acts.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
@@ -1764,8 +1910,9 @@ explore(){
     const okShips = Object.keys(rp.ships).length>0;
     rpEl.innerHTML = rp.need<=0 ? '<p class="note">Saisis les ressources du rapport pour calculer la flotte.</p>' : `<div class="res">${gauge('m','m','Butin possible',fmt(rp.need),`${S.settings.cls==='explorer'?'75':'50'} % du stock`)}${gauge('c','c','Ramené',fmt(rp.got),okShips?shipList(rp.ships):'aucun transporteur')}${gauge('d','d','Carburant',fmt(rp.fuel),'aller-retour')}${gauge('e','e','Vol',rp.fl?dur(rp.fl.secs):'–','aller')}</div>
       ${!S.raid.safe ? '<p class="pill warn" style="margin-top:8px">Coche la case seulement si le rapport ne montre ni flotte ni défense. Sinon, ne l\'attaque pas.</p>' : ''}
+      ${rp.stale && rp.need>0 ? '<p class="pill bad" style="margin-top:8px">Rapport périmé (plus de 2 h) : réespionne avant d\'attaquer, le stock a changé.</p>' : ''}
       ${rp.short>0 ? `<p class="note">Il te manque ${fmt(rp.short)} de soute à ${esc(rp.home.name)} : le reste attendra un second passage.</p>` : ''}
-      ${S.raid.safe && okShips && rp.net>0 ? `<ul class="acts" style="margin-top:8px">${actHtml({q:'Flotte · '+rp.home.name, what:`Attaquer ${S.raid.coords} avec ${shipList(rp.ships)}`, why:`Galaxie ou Flotte → ${S.raid.coords} → mission Attaquer · retour vers ${hm(Date.now()+2*rp.fl.secs*1000)}`, cost:[0,0,rp.fuel], dur:2*rp.fl.secs, end:Date.now()+2*rp.fl.secs*1000, kind:'raid', ships:rp.ships, p:hubIndex(), coords:S.raid.coords, dest:S.raid.coords, mission:1}, true)}</ul>` : ''}`;
+      ${S.raid.safe && !rp.stale && okShips && rp.net>0 ? `<ul class="acts" style="margin-top:8px">${actHtml({q:'Flotte · '+rp.home.name, what:`Attaquer ${S.raid.coords} avec ${shipList(rp.ships)}`, why:`Galaxie ou Flotte → ${S.raid.coords} → mission Attaquer · retour vers ${hm(Date.now()+2*rp.fl.secs*1000)}`, cost:[0,0,rp.fuel], dur:2*rp.fl.secs, end:Date.now()+2*rp.fl.secs*1000, kind:'raid', ships:rp.ships, p:hubIndex(), coords:S.raid.coords, dest:S.raid.coords, mission:1}, true)}</ul>` : ''}`;
   }
   const ex = exploreSystems();
   document.getElementById('exExplore').innerHTML = `<ul class="advice">${ex.map(x=>`<li><span class="pill info">${x.left} pos.</span><span class="what">Système ${x.sys}</span><span class="why">${x.dist===0?'Ton système':`À ${x.dist} système${x.dist>1?'s':''}`} : ${x.left} position${x.left>1?'s':''} pas explorée${x.left>1?'s':''} depuis 7 jours.</span></li>`).join('')}</ul><p class="note">Missions de découverte : bouton Découverte dans Galaxie. Copilote retient les positions explorées quand il voit tes missions dans Mouvements de flotte. Pour les expéditions, alterne la position 16 de systèmes voisins si les résultats baissent.</p>`;
@@ -1795,16 +1942,20 @@ build(){
     const pr=production(p), r=rankUpgrades(p);
     document.getElementById('bf-'+i).innerHTML = factorPill(pr.factor);
     document.getElementById('br-'+i).innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Construire</th><th>Coût total</th><th class="n">Gain éq. métal/h</th><th class="n">Amorti en</th><th class="n">Durée</th><th class="n">Dispo dans</th><th></th></tr></thead><tbody>${
-      r.map((u,j)=>{ const w=waitFor(p,u.cost); return `<tr><td class="rank">${j+1}</td><td>${B_SHORT[u.key]} ${u.lvl}${u.extraSolar?` <span class="pill warn">+ solaire ${p.b.solar+u.extraSolar}</span>`:''}</td><td>${costHtml(u.cost)}</td><td class="n">${fmt(u.gain)}</td><td class="n">${dur(u.payback*3600)}</td><td class="n">${dur(u.time)}</td><td class="n">${w.storage!=null?'<span class="pill bad">hangar trop petit</span>':w.sec===0?'<span class="pill good">maintenant</span>':dur(w.sec)}</td><td><button class="btn sm" data-addb="${i}:${u.key}:${u.lvl}">+ Plan</button></td></tr>`; }).join('')
+      r.map((u,j)=>{ const w=waitFor(p,u.cost); return `<tr><td class="rank">${j+1}</td><td>${upLabel(u)}${u.extraSolar?` <span class="pill warn">+ solaire ${p.b.solar+u.extraSolar}</span>`:''}</td><td>${costHtml(u.cost)}</td><td class="n">${fmt(u.gain)}</td><td class="n">${dur(u.payback*3600)}</td><td class="n">${dur(u.time)}</td><td class="n">${w.storage!=null?`<span class="pill warn" title="${esc(storageNote(w))}">${esc(storageShort(w))} ou livraison</span>`:w.sec===0?'<span class="pill good">maintenant</span>':dur(w.sec)}</td><td>${B[u.key]?`<button class="btn sm" data-addb="${i}:${u.key}:${u.lvl}">+ Plan</button>`:'<span class="note">chantier</span>'}</td></tr>`; }).join('')
     }</tbody></table></div>`;
     const warn=[]; const st=stockNow(p);
     ['m','c','d'].forEach((x,k)=>{ const rate=[pr.m,pr.c,pr.d][k]; if(rate>0 && pr.cap[k]/rate<8) warn.push(`<span class="pill warn">${['Hangar de métal','Hangar de cristal','Réservoir'][k]} plein en moins de 8 h</span>`); });
     if(pr.factor<1) warn.push(`<span class="pill bad">Énergie négative : monte la centrale solaire avant toute mine</span>`);
+    // Les foreuses sont invisibles dans le jeu une fois posées : ce compteur dit
+    // combien en profitent encore, et ce qu'elles ajoutent aujourd'hui.
+    const cmx = crawlerMax(p.b.metal, p.b.crystal, p.b.deut), cw = p.crawlers||0;
+    if(cmx) warn.push(`<span class="pill ${cw>=cmx?'good':'info'}">Foreuses ${cw} / ${cmx} utiles · +${(crawlerBonus(Math.min(cw,cmx), S.settings.cls, p.overload)*100).toFixed(1).replace('.',',')} %</span>`);
     document.getElementById('bw-'+i).innerHTML = warn.length?`<div class="row">${warn.join('')}</div>`:'';
   });
   document.getElementById('infra').innerHTML = S.planets.flatMap((p,i)=>['robot','shipyard','lab','nanite','fusion','smetal','scrystal','sdeut'].map(k=>{
     const L=p.b[k]+1, c=levelCost(B[k],L), miss=reqOk(B[k].req,p), w=waitFor(p,c);
-    return `<tr><td>${esc(p.name)}</td><td>${B[k].n}</td><td class="n">${L}</td><td>${costHtml(c)}</td><td class="n">${dur(buildTime(k,L,p))}</td><td class="n">${miss.length?`<span class="pill bad">requiert ${miss.join(', ')}</span>`:w.storage!=null?'<span class="pill bad">hangar trop petit</span>':w.sec===0?'<span class="pill good">maintenant</span>':dur(w.sec)}</td><td><button class="btn sm" data-addb="${i}:${k}:${L}">+ Plan</button></td></tr>`;
+    return `<tr><td>${esc(p.name)}</td><td>${B[k].n}</td><td class="n">${L}</td><td>${costHtml(c)}</td><td class="n">${dur(buildTime(k,L,p))}</td><td class="n">${miss.length?`<span class="pill bad">requiert ${miss.join(', ')}</span>`:w.storage!=null?`<span class="pill warn" title="${esc(storageNote(w))}">${esc(storageShort(w))} ou livraison</span>`:w.sec===0?'<span class="pill good">maintenant</span>':dur(w.sec)}</td><td><button class="btn sm" data-addb="${i}:${k}:${L}">+ Plan</button></td></tr>`;
   })).join('');
 },
 research(){
@@ -1817,14 +1968,14 @@ research(){
   }
 },
 fleet(){
-  const s=S.settings, cap = EXPO_CAPS[s.top1][1]*s.eco*(s.cls==='explorer'?1.5:1)*(S.expo.pf?2:1);
+  const s=S.settings, cap = expoFind(S.expo.pf);
   const lc=shipStats('lc'), sc=shipStats('sc'), pf=shipStats('pf');
   const need = Math.max(0, cap - (S.expo.pf?pf.cargoEff:0));
   const nExp = expoCap();
   document.getElementById('expoOut').innerHTML =
     gauge('m','m','Métal max',fmt(cap)) + gauge('c','c','Cristal max',fmt(cap*2/3)) + gauge('d','d','Deut. max',fmt(cap/3)) +
     gauge('e','e','Grands transp.',nf.format(Math.ceil(need/lc.cargoEff)),`ou ${nf.format(Math.ceil(need/sc.cargoEff))} petits`);
-  document.getElementById('expoNote').innerHTML = `Une expédition trouve au mieux ces montants, plafonnés par la soute libre de la flotte. Expéditions simultanées : <b>${nExp}</b>${S.tech.astro?'':' (il faut Astrophysique 1)'}. Le bonus Éclaireur (x2) et Explorateur (x1,5) viennent de sources communautaires.`;
+  document.getElementById('expoNote').innerHTML = `<b>Estimation.</b> Les seuils publiés datent d'avant la version 7 du jeu ; le plafond ci-dessus est une borne haute, pas une promesse. Une expédition ne rapporte jamais plus que la soute envoyée. Plafond calé sur les points du n°1 (${EXPO_LABELS[top1Tier()]}${API && API.scores ? ', lus dans le classement public' : ', réglage manuel'}). Expéditions simultanées : <b>${nExp}</b>${S.tech.astro?'':' (il faut Astrophysique 1)'}. Les bonus Éclaireur (×2) et Explorateur (×1,5) viennent de sources communautaires.`;
   const fc=S.fleetCalc, f=flight(fc.from, fc.to, fc.ships, fc.pct);
   document.getElementById('flightOut').innerHTML = f ?
     gauge('e','e','Aller',dur(f.secs),`distance ${fmt(f.D)}`) + gauge('d','d','Carburant',fmt(f.fuel),'deutérium, aller') + gauge('c','c','Soute',fmt(f.cargo)) + gauge('m','m','Vitesse',fmt(f.V),'vaisseau le plus lent')
@@ -1845,7 +1996,7 @@ colony(){
   const w = F.wait;
   req.push({sev: w.sec===0 ? 'good' : w.storage!=null ? 'bad' : 'warn',
     what: colBuilt() ? 'Ressources du kit et carburant' : 'Ressources du vaisseau, du kit et carburant',
-    why: `${w.sec===0 ? 'Disponibles maintenant.' : w.storage!=null ? 'Un hangar est trop petit pour ce total.' : `Disponibles dans ${dur(w.sec)}.`}${colBuilt() ? '' : ` Construction du vaisseau : ${dur(F.shipTime)}.`}`});
+    why: `${w.sec===0 ? 'Disponibles maintenant.' : w.storage!=null ? storageNote(w) : `Disponibles dans ${dur(w.sec)}.`}${colBuilt() ? '' : ` Construction du vaisseau : ${dur(F.shipTime)}.`}`});
   document.getElementById('coReq').innerHTML = req.map(r=>`<li><span class="pill ${r.sev==='info'?'info':r.sev}">${({good:'OK',warn:'Bientôt',bad:'À faire'})[r.sev]}</span><span class="what">${esc(r.what)}${r.add?` <button class="btn sm" data-coadd="${r.add}">+ Plan</button>`:''}</span><span class="why">${esc(r.why)}</span></li>`).join('');
 
   const rows = rankPositions(), tgtPos = (parseC(coloTarget())||[])[2];
@@ -1895,7 +2046,7 @@ plan(){
 /* ---------- events ---------- */
 function bind(){
   view.querySelectorAll('[data-role]').forEach(el=>el.addEventListener('change',()=>{ S.roles[el.dataset.role]=el.value; save(); refresh(); }));
-  view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ const r=parseReport(el.value); if(r.some(x=>x!=null)){ S.raid.m=r[0]||0; S.raid.c=r[1]||0; S.raid.d=r[2]||0; save(); render(); } return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); save(); REFRESH.explore(); }));
+  view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ const r=parseReport(el.value); if(r.some(x=>x!=null)){ S.raid.m=r[0]||0; S.raid.c=r[1]||0; S.raid.d=r[2]||0; S.raid.at=Date.now(); save(); render(); } return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); if(k!=='safe') S.raid.at=Date.now(); save(); REFRESH.explore(); }));
   view.querySelectorAll('[data-lf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.lf, f=new Set(S.lf.found); el.checked ? f.add(k) : f.delete(k); S.lf.found=[...f]; save(); render(); }));
   view.querySelectorAll('[data-day]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k = el.dataset.day; S.day[k] = (k==='focus' || k==='lf') ? el.value : Math.max(0, parseInt(el.value)||0); save(); refresh();
@@ -2116,6 +2267,7 @@ function applyGame(g){
     if(gp.tmax != null) p.tmax = gp.tmax;
     Object.assign(p.b, gp.b || {});
     if(gp.sats != null) p.sats = gp.sats;
+    if(gp.crawlers != null) p.crawlers = gp.crawlers;
     if(gp.energy != null){ p.eAdj = 0; p.eAdj = gp.energy - production(p).eBal; }
     if(gp.ships){ p.ships = Object.assign({}, gp.ships); p.shipsAt = gp.shipsAt || 0; }
     if(gp.stock && gp.stock.m != null && gp.stock.at !== p.stockGameAt){ p.stock = {...gp.stock}; p.stockGameAt = gp.stock.at; }

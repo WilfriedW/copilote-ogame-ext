@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'waitFor', 'raidPlan', 'production', 'rankUpgrades'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -1160,6 +1160,117 @@ t('app.js et manifest.json annoncent la même version', () => {
 });
 
 /* ---------- résultat ---------- */
+
+/* ---------- spécification v2 : formules isolées ---------- */
+
+t('la capacité de hangar suit la formule du jeu', () => {
+  const g = app();
+  assert.equal(g.storageCap(4), 140000);
+  assert.equal(g.storageCap(5), 255000);
+  assert.equal(g.storageCap(7), 865000);
+  assert.equal(g.storageCap(8), 1590000);
+});
+
+t('Astrophysique 5 coûte 37 500 / 75 000 / 37 500, soit 262 500 éq.', () => {
+  const g = app();
+  assert.deepEqual(g.levelCost(g.T.astro, 5), [37500, 75000, 37500]);
+  assert.equal(g.mse(37500, 75000, 37500), 262500);
+});
+
+t('la chaîne vers Plasma 4 depuis Énergie 7, Laser 7 et Ion 5 coûte 785 800 éq.', () => {
+  const g = app();
+  const eq = c => g.mse(c[0], c[1], c[2]);
+  const total = eq(g.rangeCost(g.T.energy, 7, 8))
+              + eq(g.rangeCost(g.T.laser, 7, 10))
+              + eq(g.rangeCost(g.T.plasma, 0, 4));
+  assert.equal(Math.round(total), 785800);
+});
+
+t('le nombre de planètes et d\'expéditions suit Astrophysique', () => {
+  assert.equal(app(s => { s.tech.astro = 4; }).maxPlanets(), 3);
+  assert.equal(app(s => { s.tech.astro = 5; }).maxPlanets(), 4);
+  assert.equal(app(s => { s.tech.astro = 9; }).maxPlanets(), 6);
+  const g = app();
+  assert.equal(g.expoCap(8), 2);
+  assert.equal(g.expoCap(9), 3);
+});
+
+t('le bonus de position du métal vaut 1,35 en 8 et rien en 11', () => {
+  const g = app();
+  assert.equal(1 + (g.POS_BONUS_M[8] || 0), 1.35);
+  assert.equal(1 + (g.POS_BONUS_M[11] || 0), 1);
+});
+
+t('les foreuses utiles valent huit fois les niveaux de mine', () => {
+  const g = app();
+  assert.equal(g.crawlerMax(19, 16, 15), 400);
+  // +0,02 % chacune, ×1,5 pour un Collectionneur, plafonné à 50 %
+  assert.ok(Math.abs(g.crawlerBonus(400, 'collector', false) - 0.12) < 1e-9);
+  assert.equal(g.crawlerBonus(100000, 'collector', true), 0.5);
+});
+
+/* ---------- le hangar ne bloque pas une livraison ---------- */
+
+t('un coût au-dessus du hangar nomme le niveau qui le logerait, pas un mur', () => {
+  const g = app(s => { s.planets[0].b.scrystal = 4; s.tech.astro = 6; });
+  const w = g.waitFor(g.S.planets[0], g.levelCost(g.T.astro, 7));
+  assert.ok(w.small && w.small.length, 'le hangar est trop petit pour la production locale');
+  const c = w.small.find(x => x.k === 'scrystal');
+  assert.ok(c, 'c\'est le cristal qui manque de place : ' + JSON.stringify(w.small));
+  assert.equal(c.lvl, 5, 'Hangar de cristal 5 suffit (255 000 ≥ 229 800) : jamais 6');
+});
+
+t('le hangar juste assez grand ne déclenche rien', () => {
+  const g = app(s => { s.planets[0].b.scrystal = 5; s.planets[0].b.smetal = 5; s.planets[0].b.sdeut = 5; s.tech.astro = 6; });
+  const w = g.waitFor(g.S.planets[0], g.levelCost(g.T.astro, 7));
+  assert.ok(!w.small, 'rien à agrandir : ' + JSON.stringify(w.small));
+});
+
+/* ---------- l'Éclaireur n'est pas proposé hors Explorateur ---------- */
+
+t('un Collectionneur ne se voit jamais proposer un éclaireur', () => {
+  const g = app(s => {
+    s.settings.cls = 'collector';
+    s.tech.hyperdrive = 2; s.tech.hyper = 3;
+    s.planets[0].b.shipyard = 5;
+    s.planets[0].stock = { m: 2e6, c: 2e6, d: 1e6, at: SOIR };
+  });
+  const acts = g.simulateDay().sessions.flatMap(x => x.acts);
+  assert.ok(!acts.some(a => /éclaireur/i.test(a.what || '')),
+    'le chantier d\'un Collectionneur ne l\'affiche pas');
+});
+
+/* ---------- un rapport d'espionnage vieillit ---------- */
+
+t('un rapport de plus de deux heures est marqué périmé', () => {
+  const vieux = app(s => { s.raid = { coords: '1:142:9', m: 50000, c: 20000, d: 0, safe: true, at: SOIR - 3 * 3600e3 }; });
+  assert.equal(vieux.raidPlan().stale, true);
+  const frais = app(s => { s.raid = { coords: '1:142:9', m: 50000, c: 20000, d: 0, safe: true, at: SOIR - 600e3 }; });
+  assert.equal(frais.raidPlan().stale, false);
+});
+
+t('un rapport périmé ne produit aucune carte de pillage', () => {
+  const g = app(s => { s.raid = { coords: '1:142:9', m: 50000, c: 20000, d: 0, safe: true, at: SOIR - 3 * 3600e3 }; });
+  assert.ok(!g.dailyMissions().some(m => m.id === 'raid-go'),
+    'on réespionne avant d\'attaquer');
+});
+
+/* ---------- les foreuses entrent dans le classement ---------- */
+
+t('les foreuses se classent avec les mines quand le chantier les permet', () => {
+  const g = app(s => {
+    s.planets[0].b.shipyard = 5; s.tech.combustion = 4; s.tech.armour = 4;
+  });
+  const r = g.rankUpgrades(g.S.planets[0]);
+  const cw = r.find(u => u.key === 'crawl');
+  assert.ok(cw, 'les foreuses sont une option du classement');
+  assert.ok(cw.payback > 0 && isFinite(cw.payback), 'avec un amortissement chiffré : ' + cw.payback);
+});
+
+t('sans le chantier qui les construit, aucune foreuse proposée', () => {
+  const g = app();
+  assert.ok(!g.rankUpgrades(g.S.planets[0]).some(u => u.key === 'crawl'));
+});
 
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);

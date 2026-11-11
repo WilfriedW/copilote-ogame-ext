@@ -115,7 +115,7 @@ async function merge(s) {
     if (s.energy != null) { cur.energy = s.energy; cur.energyLevels = JSON.stringify(cur.b); }
     if (s.ships && Object.keys(s.ships).length) {
       cur.ships = {};
-      for (const [id, n] of Object.entries(s.ships)) { if (OG_SHIPS[id]) cur.ships[OG_SHIPS[id]] = n; if (id === '212') cur.sats = n; }
+      for (const [id, n] of Object.entries(s.ships)) { if (OG_SHIPS[id]) cur.ships[OG_SHIPS[id]] = n; if (id === '212') cur.sats = n; if (id === '217') cur.crawlers = n; }
       cur.shipsAt = s.at;
     }
   }
