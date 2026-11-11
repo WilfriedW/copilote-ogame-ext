@@ -915,6 +915,23 @@ t('rien à recopier pour un bâtiment : pas de pastille', () => {
   assert.equal(app().copyChips({ kind: 'b', k: 'metal', lvl: 20, cost: [1, 2, 3] }), '');
 });
 
+t('une pastille s\'annonce comme un bouton qui copie', () => {
+  // Posées à côté des étiquettes de planète, qui ne cliquent pas, les
+  // pastilles passaient pour de simples libellés : le joueur ne savait pas
+  // qu'elles étaient cliquables.
+  const h = app().copyChips({ res: [0, 0, 8957] });
+  assert.ok(/aria-label="Copier 8957"/.test(h), 'elle dit ce qu\'elle fait : ' + h);
+  assert.ok(/⧉/.test(h), 'et le montre à l\'œil : ' + h);
+});
+
+t('les pastilles ont leur propre ligne, annoncée', () => {
+  // Mêlées au gris des métadonnées, elles passaient pour des libellés. Une
+  // ligne à elles, avec son intitulé, dit ce qu'on peut en faire.
+  const h = app().copyChips({ res: [0, 0, 8957] });
+  assert.ok(/class="cp"/.test(h), 'une ligne à part : ' + h);
+  assert.ok(/À recopier/.test(h), 'qui s\'annonce : ' + h);
+});
+
 /* ---------- la version ---------- */
 
 t('app.js et manifest.json annoncent la même version', () => {
