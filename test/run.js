@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -2034,6 +2034,70 @@ t('une estimation finie mais au-dessus du plafond n\'est pas proposée', () => {
   const v = { seen: { 1: [1e14, 0, 0], 2: [2e14, 0, 0] } };
   assert.deepEqual(g.lfCost(v, 3).cost, [4e14, 0, 0]);
   assert.equal(g.lfCost(v, 6), null, '1,6e15 dépasse 1e15');
+});
+
+/** Un relevé de panneau réduit à ses libellés de bâtiments. */
+const lus = (labels, at) => ({ at: at == null ? SOIR : at, factor: 1, rows: labels.map(label => ({ label })) });
+
+t('l\'esp\u00e8ce se d\u00e9duit des b\u00e2timents lus sur la plan\u00e8te', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.speciesOf(lus(['Centre technologique runique (Niveau 1)'])), 'rocktal');
+  assert.equal(g.speciesOf(lus(['Centre de recherche (Niveau 2)'])), 'humans');
+  assert.equal(g.speciesOf(lus(['Centre de recherche en robotique (Niveau 0)'])), 'mechas');
+});
+
+t('un b\u00e2timent de forme de vie au niveau 0 nomme encore l\'esp\u00e8ce', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.speciesOf(lus(['Mine de m\u00e9tal (Niveau 21)', 'Centre de recherche en robotique (Niveau 0)'])), 'mechas');
+});
+
+t('sans b\u00e2timent de forme de vie, l\'esp\u00e8ce reste inconnue', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.speciesOf(lus(['Mine de m\u00e9tal (Niveau 21)'])), null);
+  assert.equal(g.speciesOf(lus([])), null);
+  assert.equal(g.speciesOf(undefined), null);
+  assert.equal(g.speciesOf({}), null);
+});
+
+t('l\'esp\u00e8ce d\'une plan\u00e8te vient de son propre relev\u00e9, et d\'un relev\u00e9 de moins de sept jours', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001'; s.planets[1].gid = '33002';
+    s.prod = { 33001: lus(['Centre de recherche (Niveau 2)']), 33002: lus(['Centre technologique runique (Niveau 1)'], SOIR - 8 * 86400e3) };
+  }, SOIR);
+  assert.equal(g.speciesOfPlanet(g.S.planets[0]), 'humans');
+  assert.equal(g.speciesOfPlanet(g.S.planets[1]), null, 'relev\u00e9 p\u00e9rim\u00e9');
+});
+
+t('une plan\u00e8te jamais lue n\'a pas d\'esp\u00e8ce', () => {
+  const g = app(s => { s.planets[0].gid = '33001'; delete s.prod; }, SOIR);
+  assert.equal(g.speciesOfPlanet(g.S.planets[0]), null);
+});
+
+t('les esp\u00e8ces lues priment sur la case \u00e0 cocher, sans doublon', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001'; s.planets[1].gid = '33002';
+    s.lf.found = ['humans'];
+    s.prod = { 33001: lus(['Centre technologique runique (Niveau 1)']), 33002: lus(['Centre technologique runique (Niveau 1)']) };
+  }, SOIR);
+  assert.deepEqual(g.foundLifeforms(), ['rocktal']);
+});
+
+t('sans rien de lu, la case \u00e0 cocher reste le rep\u00e8re', () => {
+  const g = app(s => { s.lf.found = ['humans', 'kaelesh']; delete s.prod; }, SOIR);
+  assert.deepEqual(g.foundLifeforms(), ['humans', 'kaelesh']);
+});
+
+t('la meilleure forme de vie se choisit parmi celles lues', () => {
+  const lu = app(s => {
+    s.planets[0].gid = '33001'; s.lf.found = ['humans', 'rocktal'];
+    s.prod = { 33001: lus(['Centre de recherche (Niveau 2)']) };
+  }, SOIR);
+  assert.equal(lu.bestLifeform(), 'humans', 'la lecture prime sur la case rocktal');
+  const periml = app(s => {
+    s.planets[0].gid = '33001'; s.lf.found = ['humans', 'rocktal'];
+    s.prod = { 33001: lus(['Centre de recherche (Niveau 2)'], SOIR - 8 * 86400e3) };
+  }, SOIR);
+  assert.equal(periml.bestLifeform(), 'rocktal', 'p\u00e9rim\u00e9 : retour \u00e0 la case');
 });
 
 if (failures.length) {

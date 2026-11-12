@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.27.0';
+const APP_VERSION = '1.28.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1549,8 +1549,44 @@ function fleetsavePlan(now){
 
 /* ---------- daily missions ---------- */
 const LIFEFORMS = {humans:{n:'Humains', why:'polyvalents'}, rocktal:{n:'Roctas', why:'mineurs : production et bâtiments moins chers'}, mechas:{n:'Mécas', why:'vaisseaux et chantier spatial'}, kaelesh:{n:'Kaeleshs', why:'expéditions et recherche'}};
+/* Bâtiments de forme de vie, par espèce. Relevé sur la partie du joueur le
+   12 novembre 2026 ; un seul bâtiment reconnu nomme l'espèce, et un bâtiment
+   au niveau 0 figure quand même dans le panneau. À compléter au fil des relevés. */
+const LF_BUILDINGS = {
+  humans: ['Centre de recherche'],
+  rocktal: ['Centre technologique runique'],
+  mechas: ['Centre de recherche en robotique']
+};
+/**
+ * Espèce d'une planète déduite des libellés de bâtiments d'un relevé de panneau
+ * ("Nom (Niveau N)"). La présence du bâtiment suffit, son niveau n'y change rien.
+ * @param {object} r relevé de prodOf
+ * @returns {string|null} clé de LIFEFORMS, null si aucun bâtiment connu
+ */
+function speciesOf(r){
+  const rows = r && Array.isArray(r.rows) ? r.rows : [];
+  const names = rows.map(x => String((x && x.label) || '').replace(/\s*\(Niveau\s*\d+\)\s*$/i, '').trim());
+  return Object.keys(LF_BUILDINGS).find(k => LF_BUILDINGS[k].some(n => names.includes(n))) || null;
+}
+/**
+ * Espèce d'une planète d'après son relevé, s'il a moins de sept jours.
+ * @param {object} p planète de S.planets
+ * @returns {string|null}
+ */
+function speciesOfPlanet(p){
+  const r = prodOf(p);
+  return r && Date.now() - r.at < LF_READ_TTL ? speciesOf(r) : null;
+}
+/**
+ * Espèces du compte : celles lues sur les planètes, sinon la case à cocher des réglages.
+ * @returns {string[]}
+ */
+function foundLifeforms(){
+  const lues = [...new Set(S.planets.map(speciesOfPlanet).filter(Boolean))];
+  return lues.length ? lues : (S.lf.found || ['humans']);
+}
 function bestLifeform(){
-  const f = S.lf.found || ['humans'];
+  const f = foundLifeforms();
   const pref = S.day.focus==='fleet' ? ['mechas','kaelesh','rocktal','humans'] : ['rocktal','humans','mechas','kaelesh'];
   return pref.find(k=>f.includes(k)) || 'humans';
 }
@@ -1700,7 +1736,7 @@ function dailyMissions(){
      envoyer le joueur cliquer sur rien. La carte des emplacements pleins, elle,
      sort déjà plus haut et explique quoi faire. */
   if(!(fs && fs[0] >= fs[1]))
-    out.push({id:'discovery', q:'Exploration', every:24, sev:'info', what:'Missions de découverte (formes de vie)', why:`Elles rapportent des artefacts et de nouvelles races. Chacune occupe un emplacement de flotte jusqu'à son retour.${fs?` Il t'en reste ${fs[1]-fs[0]} sur ${fs[1]}.`:''} Trouvées : ${(S.lf.found||[]).map(k=>LIFEFORMS[k].n).join(', ')}.${S.artefacts!=null?` Artefacts : ${fmt(S.artefacts)}.`:''}`,
+    out.push({id:'discovery', q:'Exploration', every:24, sev:'info', what:'Missions de découverte (formes de vie)', why:`Elles rapportent des artefacts et de nouvelles races. Chacune occupe un emplacement de flotte jusqu'à son retour.${fs?` Il t'en reste ${fs[1]-fs[0]} sur ${fs[1]}.`:''} Trouvées : ${foundLifeforms().map(k=>LIFEFORMS[k].n).join(', ')}.${S.artefacts!=null?` Artefacts : ${fmt(S.artefacts)}.`:''}`,
       how:['Galaxie : bouton <b>Découverte</b> en haut, ou icône ADN violette sur une ligne.', 'Fais-en sur plusieurs systèmes : le nombre par jour est limité.', 'Garde un emplacement libre pour tes expéditions : elles rapportent plus.', 'Une race trouvée ? Coche-la dans Réglages › Formes de vie pour que Copilote en tienne compte.']});
   if(S.artefacts!=null && S.artefacts>=200) out.push({id:'artefacts', q:'Formes de vie', every:24, sev:'good', what:`${fmt(S.artefacts)} artefacts : choisis une technologie de forme de vie`, why:'Au palier 1, 200 artefacts permettent de choisir précisément la technologie d\'un slot au lieu du tirage aléatoire.', how:['Forme de vie › Recherche : sur un slot libre, choisis la technologie voulue.', 'Attention : changer un slot déjà pris oblige à réinitialiser tout le palier.']});
   if(IS_EXT && S.syncAt && now - S.syncAt < 3600e3){
