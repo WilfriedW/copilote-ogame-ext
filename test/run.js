@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -2115,8 +2115,28 @@ t('sans coche d\u00e9finie ni lecture, les Humains restent le rep\u00e8re', () =
 
 t('un libell\u00e9 espac\u00e9 ou en minuscules nomme encore l\'esp\u00e8ce', () => {
   const g = app(null, SOIR);
-  assert.equal(g.speciesOf(lus(['  Centre de recherche (niveau 2) '])), 'humans');
-  assert.equal(g.speciesOf(lus(['  Centre de recherche en robotique (NIVEAU 0)  '])), 'mechas');
+  assert.equal(g.speciesOf(lus(['  CENTRE DE RECHERCHE (niveau 2) '])), 'humans');
+  assert.equal(g.speciesOf(lus(['  centre de recherche en robotique (NIVEAU 0)  '])), 'mechas');
+});
+
+t('le plan du jour voit le bonus de forme de vie lu', () => {
+  const jour = prod => app(s => {
+    s.planets.forEach(p => { p.stock.m = 0; p.stock.c = 0; p.stock.d = 0; });
+    s.planets[1].gid = '33001'; /* la colonie : c'est elle que le plan fait construire */
+    if (prod) s.prod = { 33001: { lfBonus: prod, at: SOIR, factor: 1 } };
+  }, SOIR).simulateDay();
+  const sans = JSON.stringify(jour(null)), avec = JSON.stringify(jour([500000, 0, 0, 0]));
+  assert.notStrictEqual(avec, sans, 'le plan ignore le bonus lu');
+});
+
+t('un prix relu au même niveau garde l\'heure de sa première lecture', () => {
+  const tile = { lvl: 2, state: 'ok', next: 3, cost: [1440, 720, 0] };
+  const a = app(null, SOIR), b = app(null, SOIR + 3 * 86400e3);
+  const premiere = a.lfMerge(undefined, tile);
+  const relue = b.lfMerge(premiere, tile);
+  assert.equal(relue.seenAt[3], SOIR, 'l\'heure a bougé : ' + relue.seenAt[3]);
+  const autre = b.lfMerge(premiere, { ...tile, cost: [2000, 720, 0] });
+  assert.equal(autre.seenAt[3], SOIR + 3 * 86400e3, 'un prix différent se date à nouveau');
 });
 
 t('la limite de sept jours : 6,9 jours compte, 7 jours pile ne compte plus', () => {

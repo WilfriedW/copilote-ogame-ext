@@ -13,6 +13,7 @@
    * @param {string} where production box id or page component
    * @returns {string} research | lfbuilding | lfresearch | shipyard | building
    */
+  let prodWarned = false; // le message « sans tableau reconnu » ne sort qu'une fois par état
   function queueOf(techId, where) {
     const id = +techId || 0;
     if (OG_TECH[techId] || /research/i.test(where) && !/lf/i.test(where)) return 'research';
@@ -141,23 +142,25 @@
     const fm = slotTxt.match(/Flottes?\s*:?\s*(\d{1,3})\s*\/\s*(\d{1,3})/i), em = slotTxt.match(/Exp\S*\s*:?\s*(\d{1,3})\s*\/\s*(\d{1,3})/i);
     const slots = (fm || em) ? { fleet: fm ? [+fm[1], +fm[2]] : null, expo: em ? [+em[1], +em[2]] : null } : null;
 
-    const artTxt = clean(document.body.textContent.match(/Art[ée]facts?\s+collect[ée]s?\s*:?\s*[\d.]+\s*\/\s*[\d.]+/i)?.[0]);
+    const bodyText = document.body.textContent; // une seule lecture par passage : le corps d'une page OGame est lourd
+    const artTxt = clean(bodyText.match(/Art[ée]facts?\s+collect[ée]s?\s*:?\s*[\d.]+\s*\/\s*[\d.]+/i)?.[0]);
     const artefacts = artTxt ? +artTxt.match(/:?\s*([\d.]+)\s*\//)[1].replace(/\./g, '') : null;
 
     /* Le panneau se repère par ses deux libellés, sans sélecteur : on prend le
        plus petit bloc qui porte les deux, une rangée par ligne, cellules par tabulation. */
     let prodPanel = null;
-    if (/Facteur de production/i.test(document.body.textContent) && /Total par heure/i.test(document.body.textContent)) {
-      let blk = null;
-      for (const el of document.querySelectorAll('div, section, table')) {
-        const tx = el.textContent;
-        if (/Facteur de production/i.test(tx) && /Total par heure/i.test(tx) && (!blk || tx.length < blk.textContent.length)) blk = el;
-      }
+    if (/Facteur de production/i.test(bodyText) && /Total par heure/i.test(bodyText)) {
+      /* On part de l'élément qui porte « Total par heure » (XPath natif, sans
+         lire le texte de chaque bloc), puis on remonte jusqu'au premier ancêtre
+         qui porte aussi « Facteur de production ». */
+      const anchor = document.evaluate("//*[text()[contains(., 'Total par heure')]]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+      let blk = anchor && (anchor.closest('table') || anchor);
+      while (blk && !/Facteur de production/i.test(blk.textContent)) blk = blk.parentElement;
       const rows = blk ? [...blk.querySelectorAll('tr')].map(r => [...r.children].map(c => clean(c.textContent)).join('\t')).filter(Boolean) : [];
       // Pas de tableau reconnu : on ne publie rien (un textContent à plat ne se découpe pas).
-      if (rows.length) prodPanel = (clean(blk.textContent.match(/Facteur de production\s*:?\s*\d+\s*%/i)?.[0]) + '\n' + rows.join('\n')).slice(0, 20000);
-      else console.debug('[copilote] panneau de production sans tableau reconnu');
-    }
+      if (rows.length) { prodPanel = (clean(blk.textContent.match(/Facteur de production\s*:?\s*\d+\s*%/i)?.[0]) + '\n' + rows.join('\n')).slice(0, 20000); prodWarned = false; }
+      else if (!prodWarned) { prodWarned = true; console.debug('[copilote] panneau de production sans tableau reconnu'); }
+    } else prodWarned = false;
 
     const unique = [];
     for (const t of timers) {
