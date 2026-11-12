@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -1309,6 +1309,145 @@ t('la surcharge augmente le bonus de moitié et double l\'énergie', () => {
   assert.equal(avec.production(avec.S.planets[0]).eCons - avec.production(avec.S.planets[0], { crawlers: 0 }).eCons,
     2 * (sans.production(sans.S.planets[0]).eCons - sans.production(sans.S.planets[0], { crawlers: 0 }).eCons),
     'cent foreuses en surcharge consomment deux fois plus');
+});
+
+/* ---------- les expéditions en vol se lisent dans le jeu ---------- */
+
+/* Les actions du passage en cours. La lecture « Expéditions 2/2 » ne vaut que
+   trois heures : plus tard dans la journée simulée, le plan reprend la main et
+   propose à nouveau — c'est voulu. La carte qui ment est celle de maintenant. */
+const actes = g => g.simulateDay().sessions[0].acts;
+
+t('deux expéditions en vol lues dans le jeu : aucune carte d\'expédition', () => {
+  const g = app(s => {
+    s.planets[0].ships = { lc: 30 };
+    s.slots = { expo: [2, 2], fleet: [2, 9], at: SOIR };
+    s.syncAt = SOIR;
+    s.tech.astro = 4;
+  }, SOIR);
+  assert.ok(!actes(g).some(a => a.kind === 'expo'), 'le plan ne propose aucune expédition');
+});
+
+t('le compte lu est rendu tel quel quand le plafond a baissé', () => {
+  const g = app(s => {
+    s.planets[0].ships = { lc: 30 };
+    s.slots = { expo: [5, 2], fleet: [5, 9], at: SOIR };
+    s.syncAt = SOIR;
+    s.tech.astro = 4;
+  }, SOIR);
+  assert.equal(g.expoInFlight().n, 5);
+  assert.ok(!actes(g).some(a => a.kind === 'expo'), 'et le plan se tait quand même');
+});
+
+/* Avant la 1.25, `slots` était enregistré sans heure de lecture. Se rabattre
+   sur `syncAt`, qui avance à chaque synchronisation, rendrait ce chiffre
+   éternellement frais : le panneau se tairait sur les expéditions jusqu'à la
+   prochaine ouverture de la page de flotte. */
+t('un réglage enregistré avant la 1.25 ne fige pas le compte', () => {
+  const g = app(s => { s.slots = { expo: [2, 2], fleet: [2, 9] }; s.syncAt = SOIR; }, SOIR);
+  assert.equal(g.expoInFlight(), null, 'sans heure de lecture, on ne compte pas');
+});
+
+/* Le chiffre vient d'une expression régulière sur le texte d'une page du jeu,
+   où des chaînes écrites par d'autres joueurs s'affichent. Un nombre absurde y
+   arriverait tôt ou tard ; il sert de borne de boucle, donc il se borne. */
+t('un compte absurde est ramené à une borne tenable', () => {
+  const g = app(s => { s.slots = { expo: [1e9, 2], fleet: [1, 9], at: SOIR }; s.syncAt = SOIR; }, SOIR);
+  assert.ok(g.expoInFlight().n <= 32, 'borné : ' + g.expoInFlight().n);
+});
+
+t('un compte illisible vaut zéro, pas NaN', () => {
+  const g = app(s => { s.slots = { expo: ['beaucoup', 2], fleet: [1, 9], at: SOIR }; s.syncAt = SOIR; }, SOIR);
+  assert.equal(g.expoInFlight().n, 0);
+});
+
+t('sans lecture de la page de flotte, les expéditions restent proposées', () => {
+  const g = app(s => { s.planets[0].ships = { lc: 30 }; s.tech.astro = 4; delete s.slots; }, SOIR);
+  assert.equal(g.expoInFlight(), null, 'rien de lu');
+  assert.ok(actes(g).some(a => a.kind === 'expo'), 'le plan propose quand même');
+});
+
+t('une lecture de plus de trois heures ne compte plus', () => {
+  const vieux = SOIR - 4 * 3600e3;
+  const g = app(s => { s.slots = { expo: [2, 2], fleet: [2, 9], at: vieux }; s.syncAt = vieux; }, SOIR);
+  assert.equal(g.expoInFlight(), null, 'la lecture est périmée');
+});
+
+t('les expéditions reviennent quand la lecture a expiré', () => {
+  const g = app(s => {
+    s.planets[0].ships = { lc: 30 };
+    s.slots = { expo: [2, 2], fleet: [0, 9], at: SOIR - 4 * 3600e3 };
+    s.syncAt = SOIR - 4 * 3600e3;
+    s.tech.astro = 4;
+  }, SOIR);
+  assert.ok(actes(g).some(a => a.kind === 'expo'), 'le plan reprend la main');
+});
+
+t('la carte des expéditions dit à quelle heure le chiffre a été lu', () => {
+  // assez de transporteurs pour remplir plus d'expéditions que le plafond :
+  // c'est ce qui fait sortir la carte qui porte la provenance du chiffre
+  const g = app(s => {
+    s.planets[0].ships = { lc: 400 };
+    s.slots = { expo: [1, 1], fleet: [1, 9], at: SOIR };
+    s.syncAt = SOIR;
+  }, SOIR);
+  const c = g.dailyMissions().find(m => m.id === 'expomax');
+  assert.ok(c, 'la carte du plafond d\'expéditions sort');
+  assert.ok(/lu dans le jeu à \d/.test(c.why), 'elle porte l\'heure de la lecture : ' + c.why);
+});
+
+/* ---------- ce qu'un lien peut préremplir, et ce qu'il ne peut pas ---------- */
+
+const HOTE = s => { s.host = 's1-fr.ogame.gameforge.com'; };
+const BATIMENT = { kind: 'b', k: 'metal', lvl: 21, p: 0, q: 'Bâtiment', what: 'Métal 21' };
+const PREREMPLI = /pr[ée]-?remplir/i;
+
+t('une carte de bâtiment dit que le lien ne préremplit rien', () => {
+  const g = app(HOTE, SOIR);
+  const note = g.goNote(BATIMENT);
+  assert.ok(PREREMPLI.test(note), 'la note explique la limite : ' + note);
+});
+
+t('une carte de flotte ne porte pas cette note', () => {
+  const g = app(HOTE, SOIR);
+  assert.equal(g.goNote({ kind: 'transfer', p: 0, dest: '1:142:6', mission: 3, ships: { sc: 1 } }), '');
+});
+
+t('sans serveur connu, aucune note : il n\'y a pas de lien', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.goNote(BATIMENT), '');
+});
+
+t('la note apparaît dans le HTML de la carte', () => {
+  const g = app(HOTE, SOIR);
+  assert.ok(PREREMPLI.test(g.actHtml(BATIMENT, false)));
+});
+
+t('une recherche porte la même note', () => {
+  const g = app(HOTE, SOIR);
+  assert.ok(PREREMPLI.test(g.goNote({ kind: 't', k: 'astro', lvl: 5, p: 0 })));
+});
+
+/* Sans identifiant de planète, le lien n'emporte pas de `cp=` : il ouvre la
+   page sur la planète que le jeu avait en tête. Promettre « la bonne planète »
+   enverrait construire ailleurs un joueur qui en a plusieurs. */
+t('sur une planète que le jeu a nommée, la note promet la bonne planète', () => {
+  const g = app(s => { HOTE(s); s.planets[0].gid = '33001'; }, SOIR);
+  assert.ok(/bonne planète/.test(g.goNote(BATIMENT)));
+});
+
+t('sur une planète jamais nommée, la note ne promet pas la planète', () => {
+  const g = app(HOTE, SOIR);
+  const note = g.goNote(BATIMENT);
+  assert.ok(PREREMPLI.test(note), 'elle dit toujours la limite');
+  assert.ok(!/bonne planète/.test(note), 'mais ne promet rien de faux : ' + note);
+});
+
+t('une carte de chantier ne parle pas de bâtiment ni de recherche', () => {
+  const g = app(s => { HOTE(s); s.planets[0].gid = '33001'; }, SOIR);
+  const note = g.goNote({ kind: 'ship', k: 'lc', n: 5, p: 0 });
+  assert.ok(PREREMPLI.test(note), 'la note sort pour un chantier aussi');
+  assert.ok(!/b[âa]timent ou une recherche/i.test(note), 'sans se tromper de vocabulaire : ' + note);
 });
 
 if (failures.length) {

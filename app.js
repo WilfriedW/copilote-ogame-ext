@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.24.0';
+const APP_VERSION = '1.25.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -212,6 +212,31 @@ function missionGo(m){
 }
 /** Attribut de lien pour une carte, vide quand on ne sait pas où l'envoyer. */
 function goAttr(url){ return url ? ` data-go="${esc(url)}"` : ''; }
+/* OGame n'accepte de paramètres d'URL que sur la page de flotte — c'est ce dont
+   sa propre page Galaxie a besoin. Il n'existe aucun équivalent pour « monte
+   Métal 21 » : le lien d'un bâtiment, d'une recherche, d'une case de forme de
+   vie ou d'un chantier ouvre la bonne page, et s'arrête là. Le dire est la
+   seule chose à faire ; se taire laisse attendre un formulaire rempli qui ne
+   viendra jamais.
+
+   Et il ouvre la bonne planète seulement quand l'URL porte `cp=`. Une planète
+   que le jeu ne nous a pas encore nommée n'a pas d'identifiant à y mettre : le
+   lien tombe alors sur celle que le jeu avait en tête. Promettre « la bonne
+   planète » dans ce cas enverrait construire ailleurs un joueur qui en a
+   plusieurs — le mensonge exact que cette note est censée supprimer. */
+/**
+ * Why a card's link cannot carry the action itself, when it cannot.
+ * @param {object} a planned action
+ * @returns {string} the note, empty when the game fills its own form or when
+ *   there is no link at all
+ */
+function goNote(a){
+  const url = a && !fleetUrl(a) && actGo(a);
+  if(!url) return '';
+  return /[?&]cp=/.test(url)
+    ? 'Le lien ouvre la page sur la bonne planète : OGame ne permet pas de pré-remplir cette action.'
+    : 'Le lien ouvre la page : OGame ne permet pas de pré-remplir cette action, ni de choisir la planète tant que le jeu ne l\'a pas nommée.';
+}
 /* Noms relevés sur le jeu ; le panneau de détail en apporte d'autres au fil
    des visites, et ceux-là priment puisqu'ils viennent de la partie en cours. */
 const LF_NAMES = Object.assign({}, typeof OG_LF_BUILD !== 'undefined' ? OG_LF_BUILD : {},
@@ -1031,6 +1056,14 @@ function simulateDay(){
     const fin = m.arrival*1000;
     if(fin > now && !expoBusy.includes(fin)) expoBusy.push(fin);
   }
+  /* Le chiffre que le jeu affiche lui-même — « Expéditions 2/2 » — complète ce
+     que les minuteurs et les mouvements ont donné. Eux connaissent l'heure de
+     retour, lui ne connaît qu'un nombre : il passe donc en dernier, et ses
+     entrées expirent quand la lecture cesse d'être fiable. Sans ça, le plan
+     proposait une expédition de plus que le jeu n'en accepte dès que le joueur
+     n'ouvrait pas la page Mouvements de flotte. */
+  const expoRead = expoInFlight();
+  if(expoRead) while(expoBusy.length < expoRead.n) expoBusy.push(expoRead.at + EXPO_READ_TTL);
   const iv = Math.max(15,+S.day.interval||90)/60;
   S.tech = sim.tech; S.planets = P;
   try{
@@ -1293,7 +1326,8 @@ function copyChips(a){
   return `<div class="cp"><span class="cpl">À recopier</span>` + out.map(([l,v])=>`<button class="chip" data-copy="${esc(v)}" aria-label="Copier ${esc(v)}" title="Copier ${esc(v)}">${esc(l)} <b>${esc(v)}</b><span class="ci" aria-hidden="true">⧉</span></button>`).join('') + `</div>`;
 }
 function actHtml(a, withBtn){
-  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : '', copyChips(a)].filter(Boolean).join('');
+  const note = goNote(a);
+  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : '', note ? `<span>${esc(note)}</span>` : '', copyChips(a)].filter(Boolean).join('');
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,p:a.p,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
@@ -1374,6 +1408,33 @@ function bestLifeform(){
 }
 /** Fleet slots [used, max] from the last sync, or null. */
 function fleetSlots(){ return S.slots && S.slots.fleet && S.syncAt && Date.now()-(S.slots.at||S.syncAt) < 3*3600e3 ? S.slots.fleet : null; }
+/* How long a reading of the in-flight expedition count stays trustworthy.
+   The cap is never expired by expoCap(), because it only moves with
+   Astrophysics; the number in flight does move on its own, so it needs its
+   own guard. Never expiring it would silence the panel for the rest of the
+   day after a single "2/2", which costs as much trust as the lie it fixes. */
+const EXPO_READ_TTL = 3*3600e3;
+/* Le chiffre vient d'une expression régulière sur le texte d'une page du jeu,
+   où s'affichent des chaînes écrites par d'autres joueurs, et il sert de borne
+   de boucle. Un nombre absurde y gèlerait le panneau. Le jeu ne dépasse pas une
+   poignée d'expéditions simultanées ; trente-deux laisse toute la marge utile
+   et tient dans n'importe quel cas. */
+const EXPO_MAX_READ = 32;
+/**
+ * Expeditions in flight, as last read on the game's fleet page.
+ * @returns {{n:number, at:number}|null} count and reading time, or null when
+ *   nothing fresh enough has been read.
+ */
+function expoInFlight(){
+  if(!(S.slots && S.slots.expo)) return null;
+  /* L'heure de la lecture, et rien d'autre. Se rabattre sur `syncAt` comme le
+     fait fleetSlots() rendrait éternellement frais un `slots` enregistré avant
+     la 1.25, quand l'heure n'était pas estampillée : le panneau se tairait sur
+     les expéditions jusqu'à la prochaine ouverture de la page de flotte. */
+  const at = S.slots.at;
+  const n = Math.min(Math.max(0, Math.floor(Number(S.slots.expo[0]) || 0)), EXPO_MAX_READ);
+  return at && Date.now()-at < EXPO_READ_TTL ? {n, at} : null;
+}
 /* Expéditions simultanées. Le chiffre du jeu fait foi quand il est frais : la
    formule ne sert plus qu'à prévoir ce qu'un niveau d'Astrophysique y
    ajouterait. La prendre au maximum des deux faisait proposer une expédition
@@ -1420,7 +1481,10 @@ function dailyMissions(){
   /* D'où vient le plafond, en clair : lu sur la page de flotte, ou déduit
      d'Astrophysique faute de l'avoir lue. Sans ça, les deux cas donnent la même
      carte et « rien n'a changé » est indécidable. */
-  const sExp = S.slots && S.slots.expo ? `lu dans le jeu : ${S.slots.expo[0]}/${S.slots.expo[1]}` : null;
+  /* L'heure de la lecture, et pas seulement le chiffre : il ne vaut que trois
+     heures, et le joueur doit pouvoir juger si celui-ci est encore d'actualité. */
+  const sExp = S.slots && S.slots.expo
+    ? `lu dans le jeu à ${hm(S.slots.at || S.syncAt)} : ${S.slots.expo[0]}/${S.slots.expo[1]}` : null;
   const sFl = fs ? `emplacements de flotte ${fs[0]}/${fs[1]}` : null;
   const source = sExp ? ` (${[sExp, sFl].filter(Boolean).join(`, `)})` : ` (déduit d'Astrophysique ${S.tech.astro} : la page de flotte n'a pas encore été lue)`;
   const flottes = S.planets.map(p=>expoFleet(Object.assign({}, p.ships))).filter(Boolean);
