@@ -1341,6 +1341,36 @@ t('pas de pastille quand aucune foreuse n\'est possible', () => {
     'plafond nul : rien à dire');
 });
 
+/* ---------- le fil du debut de partie ---------- */
+
+t('le bloc de progression nomme la prochaine etape', () => {
+  const g = app(s => { s.planets[0].b.lab = 2; s.tech.impulse = 0; });
+  g.REFRESH.today();
+  const html = g.html().tdDay || '';
+  assert.ok(/Prochaine étape/.test(html), 'le bloc doit être rendu : ' + html.slice(0, 300));
+  assert.ok(/\d+\s*\/\s*11/.test(html), 'et porter le compte sur onze');
+});
+
+t('les jalons franchis dans le desordre comptent quand meme', () => {
+  // Astro 3 est tenu, Ordinateur 2 aussi, mais le labo est à 2 : le compte
+  // doit refléter ce qui est franchi, pas l'indice du premier manquant.
+  const g = app(s => { s.planets[0].b.lab = 2; });
+  g.REFRESH.today();
+  const m = /(\d+)\s*\/\s*11/.exec(g.html().tdDay || '');
+  assert.ok(m, 'le compte doit être rendu');
+  assert.ok(+m[1] >= 9, 'neuf jalons au moins sont franchis ici, et non 7 : ' + (m && m[1]));
+});
+
+t('tous les jalons franchis, le bloc disparait', () => {
+  const g = app(s => {
+    Object.assign(s.planets[0].b, { lab: 3, robot: 2, shipyard: 2 });
+    Object.assign(s.tech, { energy: 3, combustion: 4, espionage: 4, computer: 2, impulse: 3, astro: 3 });
+  });
+  g.REFRESH.today();
+  assert.ok(!/Début de partie/.test(g.html().tdDay || ''),
+    'rien à afficher quand les onze sont franchis');
+});
+
 /* ---------- le délai de retour d'une colonie est simulé ---------- */
 
 t('une colonie ne s\'amortit pas en moins d\'un jour', () => {
