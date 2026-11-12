@@ -1574,6 +1574,75 @@ t('le panneau d\'une planète n\'en renseigne pas une autre', () => {
   assert.equal(g.prodOf(g.S.planets[1]), undefined, 'pas de repli sur le prototype');
 });
 
+t('le bonus de forme de vie lu s\'ajoute \u00e0 la production', () => {
+  const sans = app(s => { s.planets[0].gid = '33001'; s.planets[0].sats = 500; }, SOIR);
+  const avec = app(s => {
+    s.planets[0].gid = '33001'; s.planets[0].sats = 500;
+    s.prod = { 33001: { lfBonus: [96, 46, 20, 9], at: SOIR, factor: 1 } };
+  }, SOIR);
+  const a = avec.production(avec.S.planets[0]), b = sans.production(sans.S.planets[0]);
+  assert.ok(Math.abs((a.m - b.m) - 96) < 1, 'm\u00e9tal : ' + (a.m - b.m));
+  assert.ok(Math.abs((a.c - b.c) - 46) < 1, 'cristal : ' + (a.c - b.c));
+  assert.ok(Math.abs((a.d - b.d) - 20) < 1, 'deut\u00e9rium : ' + (a.d - b.d));
+  assert.equal(a.eProd - b.eProd, 9, '\u00e9nergie dans eProd');
+  assert.equal(a.eBal - b.eBal, 9);
+});
+
+t('en manque d\'\u00e9nergie, l\'\u00e9nergie du bonus relève le facteur', () => {
+  const sans = app(s => { s.planets[0].gid = '33001'; }, SOIR);
+  const avec = app(s => {
+    s.planets[0].gid = '33001';
+    s.prod = { 33001: { lfBonus: [0, 0, 0, 9], at: SOIR, factor: 1 } };
+  }, SOIR);
+  const a = avec.production(avec.S.planets[0]), b = sans.production(sans.S.planets[0]);
+  assert.equal(a.eProd - b.eProd, 9);
+  assert.ok(a.factor > b.factor, 'facteur ' + b.factor + ' -> ' + a.factor);
+});
+
+t('le bonus lu ne touche pas une autre plan\u00e8te', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001'; s.planets[1].gid = '33002';
+    s.prod = { 33001: { lfBonus: [96, 46, 20, 9], at: SOIR, factor: 1 } };
+  }, SOIR);
+  const sans = app(s => { s.planets[1].gid = '33002'; }, SOIR);
+  assert.equal(g.production(g.S.planets[1]).m, sans.production(sans.S.planets[1]).m);
+});
+
+t('sans panneau lu, la production ne change pas', () => {
+  const g = app(s => { s.planets[0].gid = '33001'; delete s.prod; }, SOIR);
+  assert.ok(g.production(g.S.planets[0]).m > 0, 'le moteur garde ses formules');
+});
+
+t('une lecture de plus de sept jours est ignor\u00e9e', () => {
+  const vieux = SOIR - 8 * 86400e3;
+  const g = app(s => {
+    s.planets[0].gid = '33001';
+    s.prod = { 33001: { lfBonus: [9999, 0, 0, 0], at: vieux, factor: 1 } };
+  }, SOIR);
+  const sans = app(s => { s.planets[0].gid = '33001'; }, SOIR);
+  assert.ok(Math.abs(g.production(g.S.planets[0]).m - sans.production(sans.S.planets[0]).m) < 1,
+    'le bonus p\u00e9rim\u00e9 n\'est pas appliqu\u00e9');
+});
+
+t('une lecture de six jours compte encore', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001';
+    s.prod = { 33001: { lfBonus: [500, 0, 0, 0], at: SOIR - 6 * 86400e3, factor: 1 } };
+  }, SOIR);
+  const sans = app(s => { s.planets[0].gid = '33001'; }, SOIR);
+  assert.ok(g.production(g.S.planets[0]).m - sans.production(sans.S.planets[0]).m > 499);
+});
+
+t('un bonus illisible (non fini, n\u00e9gatif) n\'entre pas dans la production', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001';
+    s.prod = { 33001: { lfBonus: [NaN, -50, 'x', Infinity], at: SOIR, factor: 1 } };
+  }, SOIR);
+  const sans = app(s => { s.planets[0].gid = '33001'; }, SOIR);
+  const a = g.production(g.S.planets[0]), b = sans.production(sans.S.planets[0]);
+  assert.equal(a.m, b.m); assert.equal(a.c, b.c); assert.equal(a.d, b.d); assert.equal(a.eProd, b.eProd);
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

@@ -402,6 +402,19 @@ function crawlerBonus(n, cls, overload){
 const CRAWLER_COST = [2000, 2000, 1000];
 const CRAWLER_ENERGY = 50;
 
+/**
+ * Bonus de forme de vie lu dans le panneau de production, tel que le jeu l'affiche :
+ * un montant horaire fixe [m, c, d, énergie]. Rien si la lecture manque ou a plus
+ * de sept jours ; chaque valeur est ramenée à un nombre fini et positif.
+ * @param {object} p planète de S.planets
+ * @returns {number[]|null}
+ */
+function lfBonusOf(p){
+  const r = prodOf(p);
+  if(!r || !Array.isArray(r.lfBonus) || !(Date.now() - r.at < LF_READ_TTL)) return null;
+  return [0,1,2,3].map(i => { const v = Number(r.lfBonus[i]); return Number.isFinite(v) ? Math.min(Math.max(v, 0), 1e9) : 0; });
+}
+
 /** Hourly production and energy balance for a planet, with optional level overrides. */
 function production(p, ov){
   const b = Object.assign({}, p.b, ov||{}), s=S.settings, e=S.settings.eco, t=S.tech;
@@ -416,15 +429,17 @@ function production(p, ov){
   let eProd = Math.floor(20*g(b.solar)) + Math.floor(30*b.fusion*Math.pow(1.05+0.01*t.energy, b.fusion)) + p.sats*Math.max(1,Math.floor(p.tmax/4+20));
   let eBonus = 1 + (s.cls==='collector'?.1:0) + (s.eng?.1:0);
   eProd = Math.floor(eProd*eBonus) + (p.eAdj||0);
+  const lf = lfBonusOf(p) || [0,0,0,0];
+  eProd += Math.floor(lf[3]);
   const eCons = Math.ceil(10*g(b.metal)) + Math.ceil(10*g(b.crystal)) + Math.ceil(20*g(b.deut)) + nCraw*CRAWLER_ENERGY*(surcharge?2:1);
   const factor = eCons===0 ? 1 : Math.min(1, eProd/eCons);
   const common = (s.cls==='collector'?.25:0) + (s.geo?.1:0) + craw;
   const pos = (parseC(p.coords)||[])[2]||0, posM = POS_BONUS_M[pos]||0, posC = POS_BONUS_C[pos]||0;
-  const m = 30*e + 30*g(b.metal)*e*factor*(1 + .01*t.plasma + common + posM);
-  const c = 15*e + 20*g(b.crystal)*e*factor*(1 + .0066*t.plasma + common + posC);
+  const m = 30*e + 30*g(b.metal)*e*factor*(1 + .01*t.plasma + common + posM) + lf[0];
+  const c = 15*e + 20*g(b.crystal)*e*factor*(1 + .0066*t.plasma + common + posC) + lf[1];
   const dRaw = 10*g(b.deut)*(1.44 - .004*p.tmax)*e*factor*(1 + .0033*t.plasma + common);
   const dFus = 10*g(b.fusion)*e;
-  return {m, c, d:dRaw - dFus, eProd, eCons, eBal:eProd-eCons, factor,
+  return {m, c, d:dRaw - dFus + lf[2], eProd, eCons, eBal:eProd-eCons, factor,
           cap:[storageCap(b.smetal), storageCap(b.scrystal), storageCap(b.sdeut)]};
 }
 function mse(m,c,d){ const r=S.settings.ratio; return m + c*r[0]/r[1] + d*r[0]/r[2]; }
@@ -1464,6 +1479,10 @@ function fleetSlots(){ return S.slots && S.slots.fleet && S.syncAt && Date.now()
    own guard. Never expiring it would silence the panel for the rest of the
    day after a single "2/2", which costs as much trust as the lie it fixes. */
 const EXPO_READ_TTL = 3*3600e3;
+/* Le bonus de forme de vie lu dans le panneau décrit les niveaux du moment :
+   au-delà de sept jours on le laisse, mieux vaut sous-estimer que décrire un
+   empire qui n'existe plus. */
+const LF_READ_TTL = 7*86400e3;
 /* Le chiffre vient d'une expression régulière sur le texte d'une page du jeu,
    où s'affichent des chaînes écrites par d'autres joueurs, et il sert de borne
    de boucle. Un nombre absurde y gèlerait le panneau. Le jeu ne dépasse pas une
