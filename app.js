@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.24.0';
+const APP_VERSION = '1.25.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -212,6 +212,22 @@ function missionGo(m){
 }
 /** Attribut de lien pour une carte, vide quand on ne sait pas où l'envoyer. */
 function goAttr(url){ return url ? ` data-go="${esc(url)}"` : ''; }
+/* OGame n'accepte de paramètres d'URL que sur la page de flotte — c'est ce dont
+   sa propre page Galaxie a besoin. Il n'existe aucun équivalent pour « monte
+   Métal 21 » : le lien d'un bâtiment, d'une recherche ou d'une case de forme de
+   vie ouvre la bonne page sur la bonne planète, et s'arrête là. Le dire est la
+   seule chose à faire ; se taire laisse attendre un formulaire rempli qui ne
+   viendra jamais. */
+/**
+ * Why a card's link cannot carry the action itself, when it cannot.
+ * @param {object} a planned action
+ * @returns {string} the note, empty when the game fills its own form or when
+ *   there is no link at all
+ */
+function goNote(a){
+  if(!a || fleetUrl(a) || !actGo(a)) return '';
+  return 'Le lien ouvre la page sur la bonne planète : OGame ne permet pas de pré-remplir un bâtiment ou une recherche.';
+}
 /* Noms relevés sur le jeu ; le panneau de détail en apporte d'autres au fil
    des visites, et ceux-là priment puisqu'ils viennent de la partie en cours. */
 const LF_NAMES = Object.assign({}, typeof OG_LF_BUILD !== 'undefined' ? OG_LF_BUILD : {},
@@ -1301,7 +1317,8 @@ function copyChips(a){
   return `<div class="cp"><span class="cpl">À recopier</span>` + out.map(([l,v])=>`<button class="chip" data-copy="${esc(v)}" aria-label="Copier ${esc(v)}" title="Copier ${esc(v)}">${esc(l)} <b>${esc(v)}</b><span class="ci" aria-hidden="true">⧉</span></button>`).join('') + `</div>`;
 }
 function actHtml(a, withBtn){
-  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : '', copyChips(a)].filter(Boolean).join('');
+  const note = goNote(a);
+  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : '', note ? `<span>${esc(note)}</span>` : '', copyChips(a)].filter(Boolean).join('');
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,p:a.p,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;

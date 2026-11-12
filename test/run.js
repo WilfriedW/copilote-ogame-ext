@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -1366,6 +1366,38 @@ t('la carte des expéditions dit à quelle heure le chiffre a été lu', () => {
   const c = g.dailyMissions().find(m => m.id === 'expomax');
   assert.ok(c, 'la carte du plafond d\'expéditions sort');
   assert.ok(/lu dans le jeu à \d/.test(c.why), 'elle porte l\'heure de la lecture : ' + c.why);
+});
+
+/* ---------- ce qu'un lien peut préremplir, et ce qu'il ne peut pas ---------- */
+
+const HOTE = s => { s.host = 's1-fr.ogame.gameforge.com'; };
+const BATIMENT = { kind: 'b', k: 'metal', lvl: 21, p: 0, q: 'Bâtiment', what: 'Métal 21' };
+const PREREMPLI = /pr[ée]-?remplir/i;
+
+t('une carte de bâtiment dit que le lien ne préremplit rien', () => {
+  const g = app(HOTE, SOIR);
+  const note = g.goNote(BATIMENT);
+  assert.ok(PREREMPLI.test(note), 'la note explique la limite : ' + note);
+});
+
+t('une carte de flotte ne porte pas cette note', () => {
+  const g = app(HOTE, SOIR);
+  assert.equal(g.goNote({ kind: 'transfer', p: 0, dest: '1:142:6', mission: 3, ships: { sc: 1 } }), '');
+});
+
+t('sans serveur connu, aucune note : il n\'y a pas de lien', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.goNote(BATIMENT), '');
+});
+
+t('la note apparaît dans le HTML de la carte', () => {
+  const g = app(HOTE, SOIR);
+  assert.ok(PREREMPLI.test(g.actHtml(BATIMENT, false)));
+});
+
+t('une recherche porte la même note', () => {
+  const g = app(HOTE, SOIR);
+  assert.ok(PREREMPLI.test(g.goNote({ kind: 't', k: 'astro', lvl: 5, p: 0 })));
 });
 
 if (failures.length) {
