@@ -335,11 +335,6 @@ function storageCap(L){ return 5000*Math.floor(2.5*Math.exp(20*L/33)); }
  */
 function storageLevelFor(amount){ let L = 0; while(L < 40 && storageCap(L) < amount) L++; return L; }
 /**
- * Foreuses utiles sur une planète : huit par niveau de mine cumulé. Au-delà,
- * une foreuse de plus ne rapporte rien.
- * @returns {number}
- */
-/**
  * Lit le texte du panneau « Paramétrage de la production » publié par content.js.
  * Le texte vient de la page : tout nombre qui pourrait borner une boucle ou
  * dimensionner quoi que ce soit est borné ici (comptes à 1e6, niveaux à 999).
@@ -389,6 +384,11 @@ function prodOf(p){
   return k && S.prod && Object.prototype.hasOwnProperty.call(S.prod, k) ? S.prod[k] : undefined;
 }
 
+/**
+ * Foreuses utiles sur une planète : huit par niveau de mine cumulé. Au-delà,
+ * une foreuse de plus ne rapporte rien.
+ * @returns {number}
+ */
 function crawlerMax(metal, crystal, deut){ return 8*(metal+crystal+deut); }
 /**
  * Bonus de production des foreuses, en fraction de la production de base :
@@ -2459,6 +2459,7 @@ function applyGame(g){
   if(g.prod && typeof g.prod === 'object'){
     S.prod = S.prod || {};
     for(const [gid, e] of Object.entries(g.prod)){
+      if(!/^\d+$/.test(gid)) continue; // « __proto__ » & co : jamais une clé
       const r = e && parseProdPanel(e.text);
       if(r){ r.at = +e.at || 0; S.prod[gid] = r; }
     }

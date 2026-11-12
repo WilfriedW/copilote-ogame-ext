@@ -153,10 +153,10 @@
         const tx = el.textContent;
         if (/Facteur de production/i.test(tx) && /Total par heure/i.test(tx) && (!blk || tx.length < blk.textContent.length)) blk = el;
       }
-      if (blk) {
-        const rows = [...blk.querySelectorAll('tr')].map(r => [...r.children].map(c => clean(c.textContent)).join('\t')).filter(Boolean);
-        prodPanel = (rows.length ? clean(blk.textContent.match(/Facteur de production\s*:?\s*\d+\s*%/i)?.[0]) + '\n' + rows.join('\n') : blk.textContent).slice(0, 20000);
-      }
+      const rows = blk ? [...blk.querySelectorAll('tr')].map(r => [...r.children].map(c => clean(c.textContent)).join('\t')).filter(Boolean) : [];
+      // Pas de tableau reconnu : on ne publie rien (un textContent à plat ne se découpe pas).
+      if (rows.length) prodPanel = (clean(blk.textContent.match(/Facteur de production\s*:?\s*\d+\s*%/i)?.[0]) + '\n' + rows.join('\n')).slice(0, 20000);
+      else console.debug('[copilote] panneau de production sans tableau reconnu');
     }
 
     const unique = [];

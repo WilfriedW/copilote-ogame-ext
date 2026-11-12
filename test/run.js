@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -1534,10 +1534,33 @@ t('sans la ligne « Total par heure », le panneau n\'est pas là', () => {
   assert.equal(app(null, SOIR).parseProdPanel(null), null);
 });
 
-t('un compte absurde est borné, jamais repris tel quel', () => {
+t('un compte absurde est ramené au plafond', () => {
+  const p = app(null, SOIR).parseProdPanel('Foreuse (Nombre : 5/99999999)\t0\t0\t0\t0\nTotal par heure:\t1\t1\t1\t0/0');
+  assert.strictEqual(p.crawlerMax, 1e6);
+  assert.strictEqual(p.rows[0].max, 1e6);
+});
+
+t('un compte de plus de neuf chiffres est refusé, pas repris', () => {
   const p = app(null, SOIR).parseProdPanel('Foreuse (Nombre : 5/99999999999)\t0\t0\t0\t0\nTotal par heure:\t1\t1\t1\t0/0');
-  assert.ok(p.crawlerMax <= 1e6 && Number.isFinite(p.crawlerMax));
-  assert.ok(p.rows[0].max <= 1e6);
+  assert.strictEqual(p.rows[0].max, null);
+  assert.strictEqual(p.crawlerMax, 0);
+});
+
+t('applyGame range chaque panneau sous son gid, sans toucher aux autres', () => {
+  const g = app(null, SOIR);
+  g.S.prod = { 33003: { at: 1, factor: 1 } };
+  const bad = {};
+  bad['33001'] = { text: PANNEAU_CARIBOU, at: SOIR };
+  bad['33002'] = { text: 'x', at: SOIR };
+  // clé littérale « __proto__ » (comme après un JSON.parse), qu'une affectation ordinaire ne créerait pas
+  Object.defineProperty(bad, '__proto__', { value: { text: PANNEAU_CARIBOU, at: SOIR }, enumerable: true });
+  g.applyGame({ prod: bad, planets: {}, timers: [], moves: [] });
+  assert.deepEqual(g.S.prod['33001'].lfBonus, [96, 46, 20, 9]);
+  assert.strictEqual(g.S.prod['33001'].at, SOIR);
+  assert.ok(!('33002' in g.S.prod), 'illisible : absent');
+  assert.deepEqual(g.S.prod['33003'], { at: 1, factor: 1 }, 'l\'autre planète est intacte');
+  assert.deepEqual(Object.keys(g.S.prod).sort(), ['33001', '33003']);
+  assert.strictEqual(Object.getPrototypeOf(g.S.prod), Object.prototype);
 });
 
 t('le panneau d\'une planète n\'en renseigne pas une autre', () => {
