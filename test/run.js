@@ -1698,6 +1698,51 @@ t('un facteur sous 100 % ne se propage pas au gain du niveau suivant', () => {
   assert.strictEqual(ups[0].key, 'solar', 'et l\'énergie passe devant : ' + ups.map(u => u.key));
 });
 
+t('un même panneau relu ne gomme pas le coût d\'un niveau monté depuis', () => {
+  const g = app(null, SOIR);
+  lis(g, PANNEAU_CARIBOU, SOIR);
+  const p = g.S.planets[0], eAdj = p.eAdj;
+  p.b.metal++;
+  const apres = g.production(p).eBal;
+  assert.ok(apres < 231, 'le niveau coûte de l\'énergie : ' + apres);
+  lis(g, PANNEAU_CARIBOU, SOIR);
+  assert.strictEqual(p.eAdj, eAdj, 'eAdj inchangé à la relecture');
+  assert.strictEqual(g.production(p).eBal, apres, 'le solde garde le coût du niveau');
+});
+
+t('un nouveau panneau recale de nouveau', () => {
+  const g = app(null, SOIR);
+  lis(g, PANNEAU_CARIBOU, SOIR);
+  g.S.planets[0].b.metal++;
+  lis(g, PANNEAU_CARIBOU, SOIR + 1000);
+  assert.strictEqual(g.production(g.S.planets[0]).eBal, 231);
+});
+
+t('le facteur ne descend jamais sous zéro', () => {
+  const g = app(null, SOIR);
+  const pr = lis(g, panneauEnergie('-100.000/4.385'), SOIR);
+  assert.ok(pr.eProd < 0, 'la production d\'énergie est négative : ' + pr.eProd);
+  assert.strictEqual(pr.factor, 0);
+  assert.ok(pr.m >= 0 && pr.c >= 0 && pr.d >= 0, 'aucune production négative');
+});
+
+t('la fenêtre de sept jours : juste dedans calibre, juste dehors non', () => {
+  const dedans = app(null, SOIR);
+  lis(dedans, PANNEAU_CARIBOU, SOIR - 6.9 * 86400e3);
+  assert.strictEqual(dedans.production(dedans.S.planets[0]).eBal, 231);
+  const dehors = app(s => { s.planets[0].eAdj = -77; }, SOIR);
+  lis(dehors, PANNEAU_CARIBOU, SOIR - 7.1 * 86400e3);
+  assert.strictEqual(dehors.S.planets[0].eAdj, -77);
+});
+
+t('calibrer une planète ne touche pas les autres', () => {
+  const g = app(s => { s.planets[1].gid = '33001'; s.planets[0].eAdj = -77; s.planets[1].eAdj = 0; }, SOIR);
+  g.S.planets[0].gid = '33009';
+  g.applyGame({ prod: { 33001: { text: PANNEAU_CARIBOU, at: SOIR } }, planets: {}, timers: [], moves: [] });
+  assert.strictEqual(g.S.planets[0].eAdj, -77, 'l\'autre planète est intacte');
+  assert.strictEqual(g.production(g.S.planets[1]).eBal, 231, 'la bonne planète est calée');
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

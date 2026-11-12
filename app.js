@@ -432,7 +432,7 @@ function production(p, ov){
   const lf = lfBonusOf(p) || [0,0,0,0];
   eProd += Math.floor(lf[3]);
   const eCons = Math.ceil(10*g(b.metal)) + Math.ceil(10*g(b.crystal)) + Math.ceil(20*g(b.deut)) + nCraw*CRAWLER_ENERGY*(surcharge?2:1);
-  const factor = eCons===0 ? 1 : Math.min(1, eProd/eCons);
+  const factor = eCons===0 ? 1 : Math.max(0, Math.min(1, eProd/eCons));
   const common = (s.cls==='collector'?.25:0) + (s.geo?.1:0) + craw;
   const pos = (parseC(p.coords)||[])[2]||0, posM = POS_BONUS_M[pos]||0, posC = POS_BONUS_C[pos]||0;
   const m = 30*e + 30*g(b.metal)*e*factor*(1 + .01*t.plasma + common + posM) + lf[0];
@@ -2431,13 +2431,16 @@ setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); }, 30000);
  * que production() rende le solde du moteur seul, et l'écart est ce qu'il ne
  * sait pas expliquer (la consommation des formes de vie déjà bâties, notamment).
  * Sans effet si la planète est inconnue, la lecture a plus de sept jours ou
- * l'énergie libre est illisible.
+ * l'énergie libre est illisible. Une lecture ne cale qu'une fois (eAdjAt) : le
+ * panneau et les niveaux viennent de la même visite, et une relecture plus tard
+ * effacerait le coût des niveaux montés depuis.
  * @param {object|undefined} p planète de S.planets
  */
 function calePlanete(p){
   const r = prodOf(p);
   const free = r && r.energy && r.energy.free;
-  if(!Number.isFinite(free) || !(Date.now() - r.at < LF_READ_TTL)) return;
+  if(!Number.isFinite(free) || !(Date.now() - r.at < LF_READ_TTL) || p.eAdjAt === r.at) return;
+  p.eAdjAt = r.at;
   p.eAdj = 0;
   p.eAdj = Math.min(Math.max(free, -1e9), 1e9) - production(p).eBal;
 }
