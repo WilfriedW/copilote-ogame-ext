@@ -768,7 +768,7 @@ function finishTimer(tm){
   if(tm.kind==='t' && S.tech[tm.k] < tm.lvl) S.tech[tm.k] = tm.lvl;
   if(tm.kind==='x' && tm.k==='colship') S.colo.built = true;
   if(tm.kind==='x' && tm.k==='sats' && S.planets[tm.p] && !tm.game) S.planets[tm.p].sats += tm.n||0;
-  if(tm.kind==='x' && tm.k==='shipyard' && tm.ships && S.planets[tm.p] && !tm.game){ const pl=S.planets[tm.p]; pl.ships=pl.ships||{}; for(const [k,n] of Object.entries(tm.ships)) pl.ships[k]=(pl.ships[k]||0)+n; }
+  if(tm.kind==='x' && tm.k==='shipyard' && tm.ships && S.planets[tm.p] && !tm.game){ const pl=S.planets[tm.p]; pl.ships=pl.ships||{}; for(const [k,n] of Object.entries(tm.ships)){ if(k==='crawl') pl.crawlers=(pl.crawlers||0)+n; else pl.ships[k]=(pl.ships[k]||0)+n; } }
   if(tm.kind==='b'){ const p=S.planets[tm.p]; if(p && p.b[tm.k] < tm.lvl) p.b[tm.k] = tm.lvl; }
   save(); chime(); flashTitle(timerLabel(tm));
   const extHandles = tm.game && window.chrome && chrome.runtime && chrome.runtime.id;
@@ -1423,8 +1423,12 @@ function simulateDay(){
           /* Les foreuses ne passent par le chantier que si le classement les met
              devant les mines : sinon elles prendraient la place d'un niveau de
              mine moins cher au gain. */
-          const cw = rankUpgrades(p).find(u=>u.key==='crawl');
-          if(cw && rankUpgrades(p)[0] === cw) wants.unshift({k:'crawl', n:cw.n, why:`Meilleur amortissement de cette planète : ${dur(cw.payback*3600)}`});
+          /* Classement calculé une fois, et comparé par clé : deux appels à
+             rankUpgrades rendent deux jeux d'objets neufs, donc l'égalité de
+             référence qui gardait cette ligne n'était jamais vraie et aucune
+             foreuse n'a jamais été proposée. */
+          const rk = rankUpgrades(p), cw = rk[0] && rk[0].key==='crawl' ? rk[0] : null;
+          if(cw) wants.unshift({k:'crawl', n:cw.n, why:`Meilleur amortissement de cette planète : ${dur(cw.payback*3600)}`});
           if(estHub && shipReqOk(big,p) && cargoNow < cargoTarget){ const miss = Math.ceil((cargoTarget-cargoNow)/unitC); wants.push({k:big, n:Math.max(1, Math.ceil(miss/4)), why:`Soute pour expéditions et pillages : ${fmt(cargoNow)} sur ${fmt(cargoTarget)} visés`}); }
           /* L'Éclaireur est donné pour exclusif à l'Explorateur par les pages
              Gameforge : le proposer à un Collectionneur envoyait vers un
@@ -1445,7 +1449,9 @@ function simulateDay(){
             const c = SHIP_COST[w.k], afford = Math.min(...c.map((x,j)=>x>0 ? Math.floor((p.st[j]-res[j])/x) : Infinity));
             const n = Math.min(w.n, afford); if(n<1) continue;
             const cost = c.map(x=>x*n), d = shipTime(w.k,n,p), k=w.k;
-            pay(p,cost); p.sq = Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ p.ships[k]=(p.ships[k]||0)+n; }});
+            // La foreuse se compte à part, comme le fait la lecture du jeu :
+            // production() et rankUpgrades() lisent p.crawlers, jamais la flotte.
+            pay(p,cost); p.sq = Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ if(k==='crawl') p.crawlers=(p.crawlers||0)+n; else p.ships[k]=(p.ships[k]||0)+n; }});
             acts.push({q:'Chantier spatial · '+planetRef(p), what:'Construire '+shipList({[k]:n}), why:w.why, cost, dur:d, end:Tm+d, kind:'shipbuild', ships:{[k]:n}, p:p.i});
             break;
           }

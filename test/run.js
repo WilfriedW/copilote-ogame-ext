@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'finishTimer', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -1270,6 +1270,54 @@ t('les foreuses se classent avec les mines quand le chantier les permet', () => 
 t('sans le chantier qui les construit, aucune foreuse proposée', () => {
   const g = app();
   assert.ok(!g.rankUpgrades(g.S.planets[0]).some(u => u.key === 'crawl'));
+});
+
+/* ---------- les foreuses construites comptent ---------- */
+/* Le jeu n'écrit la foreuse (217) que dans `crawlers`, jamais dans la flotte :
+   217 ne figure pas dans OG_SHIPS. Le code simulé doit faire pareil, sans quoi
+   la production ne voit jamais les foreuses et le plan les repropose. */
+
+t('la fin d\'un minuteur de foreuses crédite le compte, pas la flotte', () => {
+  const g = app();
+  const p = g.S.planets[0];
+  g.finishTimer({ kind: 'x', k: 'shipyard', p: 0, ships: { crawl: 40 }, end: SOIR });
+  assert.equal(p.crawlers, 40, 'les foreuses doivent compter');
+  assert.ok(!(p.ships && p.ships.crawl), 'et ne pas atterrir dans la flotte');
+});
+
+t('un minuteur lu dans le jeu ne touche pas au compte', () => {
+  const g = app();
+  const p = g.S.planets[0];
+  p.crawlers = 120;
+  g.finishTimer({ kind: 'x', k: 'shipyard', p: 0, ships: { crawl: 40 }, end: SOIR, game: true });
+  assert.equal(p.crawlers, 120, 'la lecture du jeu fait foi');
+});
+
+/* Mines hautes et énergie large : un niveau de mine coûte alors assez cher pour
+   que les foreuses passent devant, ce que le classement sait faire depuis
+   toujours — mais que la boucle du chantier comparait par identité d'objet. */
+const MINES_HAUTES = armour => s => {
+  const p = s.planets[0];
+  Object.assign(p.b, { metal: 28, crystal: 26, deut: 24, solar: 44, shipyard: 6 });
+  s.tech.armour = armour;
+  p.stock = { m: 9e7, c: 9e7, d: 9e7, at: SOIR };
+};
+
+t('une carte de foreuses est proposee quand elles sont en tete du classement', () => {
+  const g = app(MINES_HAUTES(4));
+  assert.equal(g.rankUpgrades(g.S.planets[0])[0].key, 'crawl',
+    'préalable du test : les foreuses doivent être en tête du classement');
+  const cartes = g.simulateDay().sessions.flatMap(x => x.acts).filter(a => a.ships && a.ships.crawl);
+  assert.ok(cartes.length, 'aucune carte de foreuses sur tout l\'horizon');
+});
+
+t('le gain des foreuses se voit dans la journee', () => {
+  // Armure 4 ouvre les foreuses, armure 0 les interdit : même planète sinon.
+  const avec = app(MINES_HAUTES(4)).simulateDay();
+  const sans = app(MINES_HAUTES(0)).simulateDay();
+  assert.ok(avec.endV - avec.startV > sans.endV - sans.startV,
+    'la journée avec foreuses doit produire plus : ' +
+    Math.round(avec.endV - avec.startV) + ' contre ' + Math.round(sans.endV - sans.startV));
 });
 
 /* ---------- le délai de retour d'une colonie est simulé ---------- */
