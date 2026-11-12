@@ -89,7 +89,11 @@ garde-fous imposés au code :
 
 **Données.** Aucune valeur d'univers codée en dur : tout ce que publie
 `serverData.xml` est lu et mis en cache (vitesses, protection, bashing,
-diviseur de recherche, bonus de cases).
+diviseur de recherche, bonus de cases). Cette règle vise les réglages
+d'univers, qui changent d'un serveur à l'autre. Les constantes de jeu —
+coûts de base, facteurs, et, depuis le 12 novembre, les bonus de forme de
+vie — peuvent vivre dans une table de référence datée, sous les trois
+garde-fous de la section Formes de vie.
 
 **Livraison.** Un fichier = un objet, JSDoc sur chaque méthode, pas de
 bandeaux de commentaires, commentaires en anglais. Numéro de version
@@ -167,9 +171,41 @@ Le gros morceau, et celui dont dépendent les autres.
   bâtiments de population et de nourriture qu'elle exige. Leur
   consommation d'énergie entre dans le bilan. Un bâtiment agit sur sa
   planète, une recherche sur tout le compte.
-- **Le lecteur de forme de vie relève bonus, énergie et prérequis**, pas
-  seulement un prix qui périme au niveau suivant. Les valeurs sont lues
-  dans les infobulles et les pages du jeu, jamais codées en dur.
+- **Le lecteur de forme de vie relève coût, durée et prérequis**, pas
+  seulement un prix qui périme au niveau suivant. Relevé le 12 novembre
+  sur deux panneaux de détail, un bâtiment et une recherche : le jeu
+  publie le coût exact (dans `data-value`, même quand l'écran l'abrège en
+  « 38K »), la durée, et le prérequis de population chiffré — « Population :
+  400.000 (Niveau 1 Recherche) ».
+
+  **Il ne publie nulle part le gain d'une case.** Ni le panneau de détail
+  d'un bâtiment, ni celui d'une recherche, ni l'Arbre tech, qui ne montre
+  que les conditions de construction. Partout, le gain est en prose :
+  « augmente la capacité de stockage et la quantité de nourriture produite
+  par seconde », « rend les vaisseaux civils plus rapides ». Seul
+  l'agrégat par planète est chiffré, sur la ligne « Bonus technologique de
+  forme de vie » du panneau de production.
+
+- **Les bonus viennent donc d'une table de référence**, prise sur le wiki
+  officiel et datée. Décision du joueur, 12 novembre : elle remplace la
+  règle précédente — « bonus lus dans le jeu, jamais codés en dur » — qui
+  décrivait un jeu qui n'existe pas. Trois garde-fous la rendent tenable,
+  et ils ne sont pas facultatifs :
+
+  - **Ce que le jeu publie prime toujours.** Un chiffre lu écrase la
+    table, sans exception. La table est un repli, jamais une source.
+  - **Elle porte sa date**, et toute carte qui s'appuie sur elle le dit —
+    « bonus de référence, relevé le … » — exactement comme un prix estimé
+    porte sa provenance.
+  - **L'agrégat la contrôle.** La somme des bonus que la table prédit
+    pour une planète est comparée à la ligne « Bonus technologique de
+    forme de vie » que le panneau affiche. Quand les deux s'écartent, la
+    table est périmée sur cette espèce : le panneau le dit et cesse de
+    s'y fier.
+
+  Sans ces trois-là, une table figée vieillit à chaque correctif de
+  Gameforge et rend des chiffres faux avec l'aplomb des chiffres justes —
+  précisément le travers que cette version existe pour supprimer.
 - **Une case non ouverte est quand même classée, avec son prix estimé.**
   Décision du joueur, 12 novembre. Le jeu ne publie le prix d'une case
   que dans son panneau de détail ; attendre qu'il soit ouvert laisse en
