@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.23.0';
+const APP_VERSION = '1.24.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -80,7 +80,7 @@ function expoFind(pf){ return EXPO_CAPS[top1Tier()][1]*S.settings.eco*(S.setting
 function sample(){
   return {
     v:1, sample:true,
-    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true},
+    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false},
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     plan:[],
@@ -336,11 +336,12 @@ function production(p, ov){
      pour de mauvaises raisons. */
   const nCraw = Math.min(Math.max(0, (ov && ov.crawlers != null) ? ov.crawlers : (p.crawlers||0)),
                          crawlerMax(b.metal, b.crystal, b.deut));
-  const craw = crawlerBonus(nCraw, s.cls, p.overload);
+  const surcharge = p.overload != null ? p.overload : !!s.crawlerOverload;
+  const craw = crawlerBonus(nCraw, s.cls, surcharge);
   let eProd = Math.floor(20*g(b.solar)) + Math.floor(30*b.fusion*Math.pow(1.05+0.01*t.energy, b.fusion)) + p.sats*Math.max(1,Math.floor(p.tmax/4+20));
   let eBonus = 1 + (s.cls==='collector'?.1:0) + (s.eng?.1:0);
   eProd = Math.floor(eProd*eBonus) + (p.eAdj||0);
-  const eCons = Math.ceil(10*g(b.metal)) + Math.ceil(10*g(b.crystal)) + Math.ceil(20*g(b.deut)) + nCraw*CRAWLER_ENERGY*(p.overload?2:1);
+  const eCons = Math.ceil(10*g(b.metal)) + Math.ceil(10*g(b.crystal)) + Math.ceil(20*g(b.deut)) + nCraw*CRAWLER_ENERGY*(surcharge?2:1);
   const factor = eCons===0 ? 1 : Math.min(1, eProd/eCons);
   const common = (s.cls==='collector'?.25:0) + (s.geo?.1:0) + craw;
   const pos = (parseC(p.coords)||[])[2]||0, posM = POS_BONUS_M[pos]||0, posC = POS_BONUS_C[pos]||0;
@@ -513,7 +514,7 @@ function adviceList(){
   if(ready) out.push({sev:'info', what:`${ready.t==='t'?'Rechercher':'Construire'} ${milestoneLabel(ready)}`, why:`${ready.why} Étape ${MILESTONES.indexOf(ready)+1} sur ${MILESTONES.length} du début de partie.`});
   else if(next[0]) out.push({sev:'warn', what:`Prochaine étape : ${milestoneLabel(next[0])}`, why:`Il manque : ${milestoneMissing(next[0]).join(', ')}.`});
   const maxPl = maxPlanets();
-  if(S.tech.astro && S.planets.length<maxPl) out.push({sev:'info', what:`Coloniser (${S.planets.length}/${maxPl} planètes)`, why:'Chaque colonie ajoute une production complète. Prépare-la dans l\'onglet Colonie : position, vaisseaux et ressources à emporter.'});
+  if(S.tech.astro && S.planets.length<maxPl) out.push({sev:'info', what:`Coloniser (${S.planets.length}/${maxPl} planètes)`, why:`Chaque colonie ajoute une production complète. ${coloPaybackTxt()} Prépare-la dans l'onglet Colonie : position, vaisseaux et ressources à emporter.`});
   else if(S.tech.astro){
     // Emplacements pleins : le palier suivant d'Astrophysique est la seule façon
     // d'en gagner un, et son coût décide s'il vaut mieux creuser les mines.
@@ -699,6 +700,49 @@ function coloFleet(){
   return {dp, kit, kitCost, colLoad, rest, n, tr, col, leg1, leg2, fuel, need, shipTime, target, wait:waitFor(dp, need)};
 }
 /** Verdict on a freshly colonized planet's size. */
+/* Tant qu'on ignore le vaisseau, le trajet et les semaines de mines qu'il faut
+   pour qu'une colonie produise, « amorti en moins d'un jour » est un slogan.
+   Au-delà de cet horizon un niveau de mine n'est plus ce que la colonie a de
+   plus pressé : elle commence à rendre ce qu'elle a coûté. */
+const COLO_HORIZON_H = 7*24;
+/**
+ * Délai de retour d'une colonie, en heures, simulé au lieu d'être supposé :
+ * construction du vaisseau, trajet, puis montée des mines au même classement
+ * que pour une planète existante, et enfin le temps qu'il faut à sa production
+ * pour rendre la mise de départ.
+ * @param {number} [pos] position visée ; par défaut celle de la cible choisie
+ * @returns {{hours:number, ramp:number, upfront:number, rate:number, b:object}|null}
+ */
+function colonyPayback(pos){
+  const F = coloFleet();
+  const p = pos || (parseC(F.target) || [])[2] || bestPosition();
+  const P = POS[p]; if(!P) return null;
+  const b = Object.assign(Object.fromEntries(Object.keys(B).map(k=>[k,0])), F.kit.lv);
+  const colo = {coords:`1:1:${p}`, tmax:P.t, sats:0, b};
+  const upfront = mse(...F.need);
+  // Avant la première ressource : le vaisseau se construit, puis il vole.
+  let h = (F.shipTime + (F.leg1 ? F.leg1.secs : 0)) / 3600;
+  for(let step = 0; step < 200; step++){
+    const pr = production(colo), rate = mse(pr.m, pr.c, pr.d);
+    if(rate <= 0) return null;
+    const u = rankUpgrades(colo).find(x => B[x.key] && x.payback < COLO_HORIZON_H);
+    if(!u) break;
+    // Elle paie son niveau suivant avec sa propre production, puis le monte.
+    h += mse(...u.cost)/rate + u.time/3600;
+    colo.b[u.key] = u.lvl;
+    if(u.extraSolar) colo.b.solar += u.extraSolar;
+  }
+  const pr = production(colo), rate = mse(pr.m, pr.c, pr.d);
+  if(rate <= 0) return null;
+  return {hours: h + upfront/rate, ramp: h, upfront, rate, b:colo.b};
+}
+/** Le délai de retour d'une colonie, dit en une phrase, ou rien si incalculable. */
+function coloPaybackTxt(){
+  const cp = colonyPayback(); if(!cp) return '';
+  return `Simulé : ${fmt(cp.upfront)} éq. de mise (vaisseau, kit, carburant), `
+    + `${dur(cp.ramp*3600)} pour que ses mines montent toutes seules jusqu'à ${fmt(cp.rate)} éq./h, `
+    + `et la mise est rendue en ${dur(cp.hours*3600)} en tout.`;
+}
 function coloVerdict(fields, pos){
   const P = POS[pos]; if(!P || !fields) return null;
   const avg = P.avg + (+S.colo.bonus||0), r = fields/avg;
@@ -1401,7 +1445,7 @@ function dailyMissions(){
     const need = astroForPlanet(), c = rangeCost(T.astro, S.tech.astro, need);
     out.push({id:'colomax', info:true, q:'Colonie', every:24, sev:'warn',
       what:`Plafond atteint : ${maxPlanets()} planètes`,
-      why:`Astrophysique ${need} en autoriserait une ${maxPlanets()+1}ᵉ, pour ${fmt(c[0])} métal, ${fmt(c[1])} cristal et ${fmt(c[2])} deutérium. Une colonie ajoute une production complète : aucune recherche ne rapporte autant.`,
+      why:`Astrophysique ${need} en autoriserait une ${maxPlanets()+1}ᵉ, pour ${fmt(c[0])} métal, ${fmt(c[1])} cristal et ${fmt(c[2])} deutérium. Une colonie ajoute une production complète : aucune recherche ne rapporte autant. ${coloPaybackTxt()}`,
       how:[`Recherche : Astrophysique ${S.tech.astro+1}${need>S.tech.astro+1 ? ` (le palier utile est ${need})` : ''}.`,
         'Puis prépare la colonie dans l\'onglet Cibles › Colonie : position, vaisseaux et ressources à emporter.',
         S.day.focus==='eco' ? 'En « Économie pure » le plan ne colonise pas de lui-même : passe en « Économie + colonie » pour qu\'il s\'en charge.' : 'Le plan construira le vaisseau de colonisation de lui-même.']});
@@ -1826,6 +1870,7 @@ settings(){
       <div class="grid">
         <label class="f">Géologue (+10 % production)<select id="sGeo" data-set="geo"><option value="0" ${!s.geo?'selected':''}>Non</option><option value="1" ${s.geo?'selected':''}>Oui</option></select></label>
         <label class="f">Ingénieur (+10 % énergie)<select id="sEng" data-set="eng"><option value="0" ${!s.eng?'selected':''}>Non</option><option value="1" ${s.eng?'selected':''}>Oui</option></select></label>
+        <label class="f">Foreuses en surcharge 150 %<select id="sOver" data-set="crawlerOverload"><option value="0" ${!s.crawlerOverload?'selected':''}>Non</option><option value="1" ${s.crawlerOverload?'selected':''}>Oui</option></select><span class="note">Moitié plus de bonus, énergie doublée. À régler comme dans le jeu.</span></label>
         <label class="f">Épurer la page du jeu<select id="sLean" data-set="lean"><option value="1" ${s.lean?'selected':''}>Oui</option><option value="0" ${!s.lean?'selected':''}>Non</option></select></label>
         <label class="f">Collecteur : +25 % soute transporteurs<select id="sColCargo" data-set="colCargo"><option value="1" ${s.colCargo?'selected':''}>Oui</option><option value="0" ${!s.colCargo?'selected':''}>Non</option></select></label>
         <label class="f">Ratio d'échange M:C:D<input id="sRatio" data-set="ratio" value="${s.ratio.join(':')}"></label>
@@ -1950,7 +1995,7 @@ build(){
     // Les foreuses sont invisibles dans le jeu une fois posées : ce compteur dit
     // combien en profitent encore, et ce qu'elles ajoutent aujourd'hui.
     const cmx = crawlerMax(p.b.metal, p.b.crystal, p.b.deut), cw = p.crawlers||0;
-    if(cmx) warn.push(`<span class="pill ${cw>=cmx?'good':'info'}">Foreuses ${cw} / ${cmx} utiles · +${(crawlerBonus(Math.min(cw,cmx), S.settings.cls, p.overload)*100).toFixed(1).replace('.',',')} %</span>`);
+    if(cmx) warn.push(`<span class="pill ${cw>=cmx?'good':'info'}">Foreuses ${cw} / ${cmx} utiles · +${(crawlerBonus(Math.min(cw,cmx), S.settings.cls, S.settings.crawlerOverload)*100).toFixed(1).replace('.',',')} %</span>`);
     document.getElementById('bw-'+i).innerHTML = warn.length?`<div class="row">${warn.join('')}</div>`:'';
   });
   document.getElementById('infra').innerHTML = S.planets.flatMap((p,i)=>['robot','shipyard','lab','nanite','fusion','smetal','scrystal','sdeut'].map(k=>{
@@ -2013,6 +2058,7 @@ colony(){
       ${gauge('m','m','Métal du kit',fmt(F.kitCost[0]))}${gauge('c','c','Cristal du kit',fmt(F.kitCost[1]))}${gauge('d','d','Deut. du kit',fmt(F.kitCost[2]),`+ ${fmt(F.fuel)} de carburant`)}
       ${gauge('e','e','Arrivée du kit', L1 ? dur(L1.secs + (L2?L2.secs:0)) : '–', 'après le départ')}
     </div>
+    ${(()=>{ const cp = colonyPayback(); return cp ? `<p class="note">Délai de retour simulé : <b>${dur(cp.hours*3600)}</b>. ${fmt(cp.upfront)} éq. de mise, ${dur(cp.ramp*3600)} pour que ses mines montent toutes seules jusqu'à ${fmt(cp.rate)} éq./h, puis ce temps-là pour rendre la mise. La montée s'arrête quand plus aucun niveau ne s'amortit en moins de ${dur(COLO_HORIZON_H*3600)}.</p>` : ''; })()}
     <ul class="list">
       <li><div><div><b>1. Vaisseau de colonisation</b> vers ${esc(F.target)}, mission Coloniser</div>
         <div class="row" style="gap:10px"><span class="note">Charge :</span>${costHtml(F.colLoad)}<span class="note mono">vol ${L1?dur(L1.secs):'–'} · ${L1?fmt(L1.fuel):'–'} deut</span></div></div></li>
@@ -2071,7 +2117,7 @@ function bind(){
     const k=el.dataset.set, s=S.settings;
     if(k==='ratio'){ const r=el.value.split(':').map(Number); if(r.length===3 && r.every(x=>x>0)) s.ratio=r; }
     else if(k==='cls') s.cls=el.value;
-    else if(['geo','eng','colCargo','lean'].includes(k)) s[k]=el.value==='1';
+    else if(['geo','eng','colCargo','lean','crawlerOverload'].includes(k)) s[k]=el.value==='1';
     else s[k]=Math.max(k==='top1'?0:1, parseFloat(el.value)||0);
     changed();
   }));

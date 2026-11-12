@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'waitFor', 'raidPlan', 'production', 'rankUpgrades'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -1270,6 +1270,45 @@ t('les foreuses se classent avec les mines quand le chantier les permet', () => 
 t('sans le chantier qui les construit, aucune foreuse proposée', () => {
   const g = app();
   assert.ok(!g.rankUpgrades(g.S.planets[0]).some(u => u.key === 'crawl'));
+});
+
+/* ---------- le délai de retour d'une colonie est simulé ---------- */
+
+t('une colonie ne s\'amortit pas en moins d\'un jour', () => {
+  // Le plan v1 l'affirmait en comparant un coût à une production finale, sans
+  // compter le vaisseau, le trajet, ni les jours de mines avant de produire.
+  const g = app(s => { s.tech.astro = 4; });
+  const cp = g.colonyPayback(8);
+  assert.ok(cp, 'le délai se calcule');
+  assert.ok(cp.hours > 24, 'bien plus d\'un jour : ' + cp.hours + ' h');
+});
+
+t('le délai compte le vaisseau et le trajet avant la première ressource', () => {
+  const g = app(s => { s.tech.astro = 4; });
+  const cp = g.colonyPayback(8), F = g.coloFleet();
+  const avant = (F.shipTime + F.leg1.secs) / 3600;
+  assert.ok(cp.ramp >= avant, 'la montée commence après le vol : ' + cp.ramp + ' < ' + avant);
+  assert.ok(cp.hours > cp.ramp, 'la mise se rend après la montée');
+  assert.ok(cp.rate > 0 && cp.b.metal > 0, 'la colonie finit par produire');
+});
+
+t('une position à bonus de métal rend sa mise plus vite qu\'une position froide', () => {
+  const g = app(s => { s.tech.astro = 8; });
+  assert.ok(g.colonyPayback(8).rate > g.colonyPayback(15).rate,
+    'la position 8 (+35 % métal) produit plus que la 15');
+});
+
+/* ---------- la surcharge des foreuses se règle ---------- */
+
+t('la surcharge augmente le bonus de moitié et double l\'énergie', () => {
+  const g = app();
+  assert.ok(Math.abs(g.crawlerBonus(100, 'collector', true)
+                   - g.crawlerBonus(100, 'collector', false) * 1.5) < 1e-9);
+  const avec = app(s => { s.settings.crawlerOverload = true; s.planets[0].crawlers = 100; });
+  const sans = app(s => { s.settings.crawlerOverload = false; s.planets[0].crawlers = 100; });
+  assert.equal(avec.production(avec.S.planets[0]).eCons - avec.production(avec.S.planets[0], { crawlers: 0 }).eCons,
+    2 * (sans.production(sans.S.planets[0]).eCons - sans.production(sans.S.planets[0], { crawlers: 0 }).eCons),
+    'cent foreuses en surcharge consomment deux fois plus');
 });
 
 if (failures.length) {
