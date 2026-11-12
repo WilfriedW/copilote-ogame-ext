@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.26.0';
+const APP_VERSION = '1.28.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -255,22 +255,105 @@ function lfPriced(v){
     && v.next === (v.lvl || 0) + 1);
 }
 
+/* Bornes de bon sens sur ce que le jeu publie : un niveau de case et un prix
+   lus sur une page ne doivent jamais faire grossir la mémoire ni les calculs. */
+const LF_LVL_MAX = 1000;
+const LF_COST_MAX = 1e15;
+/* Les coûts montent d'un niveau à l'autre. Un facteur hors de [1, 5] veut dire
+   que les deux prix vus ne peuvent pas être justes ensemble (un bonus de coût a
+   changé entre les deux) : on ne chiffre pas, plutôt que de chiffrer faux. */
+const LF_FACTOR_MAX = 5;
+/* Niveaux de prix gardés par case : deux suffisent au facteur, dix laissent de
+   quoi le vérifier sans que le stockage grossisse. */
+const LF_SEEN_KEEP = 10;
+
+/**
+ * Un coût lu, ramené à trois nombres finis entre 0 et LF_COST_MAX.
+ * @param {number[]} c coût brut
+ * @returns {number[]} [métal, cristal, deutérium]
+ */
+function lfClampCost(c){
+  return [0,1,2].map(i => { const x = +(c || [])[i]; return Number.isFinite(x) ? Math.min(Math.max(x, 0), LF_COST_MAX) : 0; });
+}
+
+/**
+ * Mémoire des prix vus d'une case : ajoute celui que vient de lire le panneau
+ * de détail (prix du niveau `next`, avec l'heure de lecture) et ne garde que
+ * les dix niveaux les plus hauts.
+ * @param {object} prev case déjà connue (seen, seenAt), ou undefined
+ * @param {object} v lecture de la case
+ * @returns {{seen:object, seenAt:object}} prix {niveau:[m,c,d]} et heures {niveau:ms}
+ */
+function lfRemember(prev, v){
+  const seen = Object.assign({}, prev && prev.seen), seenAt = Object.assign({}, prev && prev.seenAt);
+  const n = Math.floor(+v.next);
+  if(n >= 1 && n <= LF_LVL_MAX && Array.isArray(v.cost) && v.cost.some(x=>x>0)){ const c = lfClampCost(v.cost); /* l'heure ne bouge que si le prix est nouveau ou change */ if(!seen[n] || !seen[n].every((x,i)=>x===c[i])) seenAt[n] = Date.now(); seen[n] = c; }
+  Object.keys(seen).map(Number).sort((a,b)=>b-a).slice(LF_SEEN_KEEP).forEach(k=>{ delete seen[k]; delete seenAt[k]; });
+  return {seen, seenAt};
+}
+
+/**
+ * Adopte la lecture d'une case sans perdre ce que les lectures précédentes
+ * avaient appris : les prix vus, et la durée quand la liste n'en porte pas.
+ * @param {object} prev case déjà connue, ou undefined
+ * @param {object} cur lecture du jour
+ * @returns {object} case fusionnée
+ */
+function lfMerge(prev, cur){
+  const out = Object.assign({}, cur, lfRemember(prev, cur));
+  if(!cur.cost && prev && prev.secs > 0 && !(cur.secs > 0)) out.secs = prev.secs;
+  return out;
+}
+
+/**
+ * Prix d'une case de forme de vie à un niveau donné, lu ou estimé. Les coûts
+ * suivent base × facteur^(n−1) : deux niveaux vus donnent le facteur, projeté
+ * depuis le plus haut. Un prix lu à ce niveau prime toujours.
+ * @param {object} v case relevée (lvl, next, cost, secs, seen)
+ * @param {number} niveau niveau visé
+ * @returns {{cost:number[], src:'lu'|'estimé', at?:number}|null} `at` : heure de lecture d'un prix lu ;
+ *   null quand rien ne permet de chiffrer
+ */
+function lfCost(v, niveau){
+  const n = Math.floor(+niveau);
+  if(!v || !(n >= 1)) return null;
+  if(lfPriced(v) && v.next === n) return {cost: lfClampCost(v.cost), src:'lu', at:(v.seenAt || {})[n]};
+  const seen = v.seen || {};
+  const nv = Object.keys(seen).map(Number).filter(k=>Number.isInteger(k) && k >= 1 && k <= LF_LVL_MAX).sort((a,b)=>a-b);
+  if(seen[n] && lfClampCost(seen[n]).some(x=>x>0)) return {cost: lfClampCost(seen[n]), src:'lu', at:(v.seenAt || {})[n]};
+  if(nv.length < 2) return null;
+  const n1 = nv[nv.length-2], n2 = nv[nv.length-1];
+  const c1 = lfClampCost(seen[n1]), c2 = lfClampCost(seen[n2]);
+  const j = [0,1,2].find(i=>c1[i] > 0 && c2[i] > 0);
+  if(j === undefined) return null;
+  const f = Math.pow(c2[j]/c1[j], 1/(n2-n1));
+  if(!(f >= 1 && f <= LF_FACTOR_MAX)) return null;
+  const raw = c2.map(x=>Math.round(x * Math.pow(f, n-n2)));
+  return raw.every(x=>Number.isFinite(x) && x <= LF_COST_MAX) ? {cost: raw, src:'estimé'} : null;
+}
+
 /**
  * Cases de forme de vie proposables sur une planète, la moins chère d'abord.
- * Une case n'est proposable que si le jeu l'a dite constructible ET en a
- * affiché le prix : sans prix, on ne sait pas quand elle sera payable, et
- * l'annoncer quand même ferait exactement ce qu'on veut éviter.
+ * Une case n'est proposable que si le jeu l'a dite constructible ET qu'on sait
+ * en chiffrer le prochain niveau, lu ou estimé (`src`), avec une durée connue :
+ * sans cela, on ne sait pas quand elle sera payable. À prix égal, le prix lu
+ * passe devant l'estimé.
  * @param {object} p planète simulée
  * @param {string} queue lfbuilding | lfresearch
  * @returns {object[]} candidats triés
  */
 function lfCandidates(p, queue){
-  return Object.entries(p.lf || {})
-    .filter(([id,v]) => lfQueue(id) === queue && v && v.state !== 'locked' && lfPriced(v))
-    .map(([id,v]) => ({id:+id, cost:v.cost, secs:v.secs, next:v.next || (v.lvl||0)+1,
-      nom: v.nom || v.name || LF_NAMES[id] || 'Forme de vie',
-      why:'La case la moins chère de cette file.'}))
-    .sort((a,b)=>mse(...a.cost)-mse(...b.cost));
+  const libres = Object.entries(p.lf || {}).filter(([id,v]) => lfQueue(id) === queue && v && v.state !== 'locked');
+  const out = libres.flatMap(([id,v]) => {
+    const next = (v.lvl||0) + 1, c = lfCost(v, next);
+    if(!c || !(v.secs > 0)) return [];
+    return [{id:+id, cost:c.cost, src:c.src, at:c.at, secs:v.secs, next,
+      nom: v.nom || v.name || LF_NAMES[id] || 'Forme de vie'}];
+  }).sort((a,b)=>mse(...a.cost)-mse(...b.cost) || (a.src==='lu' ? 0 : 1)-(b.src==='lu' ? 0 : 1));
+  const n = out.length, u = libres.length - n;
+  const why = `La moins chère des ${n} case${n>1?'s':''} chiffrée${n>1?'s':''} de cette file.`
+    + (u ? ` ${u} case${u>1?'s':''} pas encore chiffrée${u>1?'s':''}, non comparée${u>1?'s':''} : ouvre-${u>1?'les':'la'} dans le jeu.` : '');
+  return out.map(c => Object.assign(c, {why}));
 }
 /* Identifiants de tuile du jeu, dans l'autre sens : le plan raisonne en clés
    (« metal »), la page du jeu en numéros (« 1 »). */
@@ -335,6 +418,56 @@ function storageCap(L){ return 5000*Math.floor(2.5*Math.exp(20*L/33)); }
  */
 function storageLevelFor(amount){ let L = 0; while(L < 40 && storageCap(L) < amount) L++; return L; }
 /**
+ * Lit le texte du panneau « Paramétrage de la production » publié par content.js.
+ * Le texte vient de la page : tout nombre qui pourrait borner une boucle ou
+ * dimensionner quoi que ce soit est borné ici (comptes à 1e6, niveaux à 999).
+ * @param {string} text texte brut du panneau, une ligne par rangée, cellules séparées par des tabulations
+ * @returns {object|null} la forme de S.prod[gid] (sans `at`), ou null si « Total par heure » est absent
+ */
+function parseProdPanel(text){
+  if(typeof text !== 'string' || text.length > 20000) return null;
+  const clamp = (n, hi) => Math.max(0, Math.min(hi, n));
+  // « 37.297 » → 37297, « -1.554 » → -1554 ; « 2M » (troncature du jeu) et tout le reste → null
+  const num = c => /^-?\d{1,3}(\.\d{3})*$|^-?\d{1,12}$/.test(c || '') ? +c.replace(/\./g, '') : null;
+  const out = {at:0, factor:1, base:[0,0,0], lfBonus:[0,0,0,0], caps:[null,null,null], crawlerMax:0, energy:null, rows:[]};
+  const fm = text.match(/Facteur de production\s*:\s*(\d{1,4})\s*%/i);
+  if(fm) out.factor = clamp(+fm[1] / 100, 10);
+  for(const line of text.split('\n').slice(0, 200)){
+    const cells = line.split(/\t|\s{2,}/).map(c => c.trim()).filter(Boolean);
+    if(cells.length < 2) continue;
+    const label = cells[0], v = cells.slice(1, 5).map(num);
+    if(/^Total par heure/i.test(label)){
+      const em = (cells[4] || '').match(/^(-?[\d.]+)\/([\d.]+)$/);
+      if(em) out.energy = {free:num(em[1]), prod:num(em[2])};
+      out.total = true;
+    }else if(/^Revenu de base/i.test(label)) out.base = v.slice(0, 3).map(x => x || 0);
+    else if(/^Bonus technologique/i.test(label)) out.lfBonus = v.map(x => x || 0);
+    else if(/^Capacit/i.test(label)) out.caps = v.slice(0, 3);
+    else{
+      const lv = label.match(/\(Niveau\s*(\d{1,4})\)/i), nb = label.match(/\(Nombre\s*:\s*(\d{1,9})(?:\s*\/\s*(\d{1,9}))?\)/i);
+      const pct = (cells[5] || '').match(/^(\d{1,4})\s*%$/);
+      const max = nb && nb[2] != null ? clamp(+nb[2], 1e6) : null;
+      if(/^Foreuse/i.test(label) && max != null) out.crawlerMax = max;
+      out.rows.push({label, lvl: lv ? clamp(+lv[1], 999) : null, n: nb ? clamp(+nb[1], 1e6) : null, max,
+        v: v.map(x => x == null ? 0 : x), pct: pct ? clamp(+pct[1], 1000) : null});
+    }
+  }
+  if(!out.total || !out.energy) return null;
+  delete out.total;
+  return out;
+}
+
+/**
+ * Relevé du panneau de production d'une planète, clé stricte sur son gid.
+ * @param {object} p planète de S.planets
+ * @returns {object|undefined} undefined si cette planète n'a jamais ouvert le panneau
+ */
+function prodOf(p){
+  const k = p && p.gid;
+  return k && S.prod && Object.prototype.hasOwnProperty.call(S.prod, k) ? S.prod[k] : undefined;
+}
+
+/**
  * Foreuses utiles sur une planète : huit par niveau de mine cumulé. Au-delà,
  * une foreuse de plus ne rapporte rien.
  * @returns {number}
@@ -352,6 +485,19 @@ function crawlerBonus(n, cls, overload){
 const CRAWLER_COST = [2000, 2000, 1000];
 const CRAWLER_ENERGY = 50;
 
+/**
+ * Bonus de forme de vie lu dans le panneau de production, tel que le jeu l'affiche :
+ * un montant horaire fixe [m, c, d, énergie]. Rien si la lecture manque ou a plus
+ * de sept jours ; chaque valeur est ramenée à un nombre fini et positif.
+ * @param {object} p planète de S.planets
+ * @returns {number[]|null}
+ */
+function lfBonusOf(p){
+  const r = prodOf(p);
+  if(!r || !Array.isArray(r.lfBonus) || !(Date.now() - r.at < LF_READ_TTL)) return null;
+  return [0,1,2,3].map(i => { const v = Number(r.lfBonus[i]); return Number.isFinite(v) ? Math.min(Math.max(v, 0), 1e9) : 0; });
+}
+
 /** Hourly production and energy balance for a planet, with optional level overrides. */
 function production(p, ov){
   const b = Object.assign({}, p.b, ov||{}), s=S.settings, e=S.settings.eco, t=S.tech;
@@ -366,15 +512,17 @@ function production(p, ov){
   let eProd = Math.floor(20*g(b.solar)) + Math.floor(30*b.fusion*Math.pow(1.05+0.01*t.energy, b.fusion)) + p.sats*Math.max(1,Math.floor(p.tmax/4+20));
   let eBonus = 1 + (s.cls==='collector'?.1:0) + (s.eng?.1:0);
   eProd = Math.floor(eProd*eBonus) + (p.eAdj||0);
+  const lf = lfBonusOf(p) || [0,0,0,0];
+  eProd += Math.floor(lf[3]);
   const eCons = Math.ceil(10*g(b.metal)) + Math.ceil(10*g(b.crystal)) + Math.ceil(20*g(b.deut)) + nCraw*CRAWLER_ENERGY*(surcharge?2:1);
-  const factor = eCons===0 ? 1 : Math.min(1, eProd/eCons);
+  const factor = eCons===0 ? 1 : Math.max(0, Math.min(1, eProd/eCons));
   const common = (s.cls==='collector'?.25:0) + (s.geo?.1:0) + craw;
   const pos = (parseC(p.coords)||[])[2]||0, posM = POS_BONUS_M[pos]||0, posC = POS_BONUS_C[pos]||0;
-  const m = 30*e + 30*g(b.metal)*e*factor*(1 + .01*t.plasma + common + posM);
-  const c = 15*e + 20*g(b.crystal)*e*factor*(1 + .0066*t.plasma + common + posC);
+  const m = 30*e + 30*g(b.metal)*e*factor*(1 + .01*t.plasma + common + posM) + lf[0];
+  const c = 15*e + 20*g(b.crystal)*e*factor*(1 + .0066*t.plasma + common + posC) + lf[1];
   const dRaw = 10*g(b.deut)*(1.44 - .004*p.tmax)*e*factor*(1 + .0033*t.plasma + common);
   const dFus = 10*g(b.fusion)*e;
-  return {m, c, d:dRaw - dFus, eProd, eCons, eBal:eProd-eCons, factor,
+  return {m, c, d:dRaw - dFus + lf[2], eProd, eCons, eBal:eProd-eCons, factor,
           cap:[storageCap(b.smetal), storageCap(b.scrystal), storageCap(b.sdeut)]};
 }
 function mse(m,c,d){ const r=S.settings.ratio; return m + c*r[0]/r[1] + d*r[0]/r[2]; }
@@ -1028,7 +1176,7 @@ function pickBuildings(p, ctx){
 function simulateDay(){
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
-  const P = S.planets.map((p,i)=>({i, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}}));
+  const P = S.planets.map((p,i)=>({i, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload}));
   const expoBusy = [];
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
@@ -1229,10 +1377,10 @@ function simulateDay(){
             pay(p, ch.cost); p.lfq[q] = Tm + ch.secs*1000;
             const id = ch.id, lvl = ch.next;
             sim.ev.push({at:Tm + ch.secs*1000, fn:()=>{ if(p.lf[id]) p.lf[id] = Object.assign({}, p.lf[id], {lvl, cost:null}); }});
-            acts.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, why:ch.why, cost:ch.cost, dur:ch.secs, end:Tm+ch.secs*1000, kind:'lf', id:ch.id, lvl:ch.next, p:p.i});
+            acts.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, why:ch.why, src:ch.src, at:ch.at, cost:ch.cost, dur:ch.secs, end:Tm+ch.secs*1000, kind:'lf', id:ch.id, lvl:ch.next, p:p.i});
           } else {
             const eta = wait(p, ch.cost);
-            waits.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, eta, held:res.some(x=>x>0), miss:missOf(p, ch.cost)});
+            waits.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}${ch.src==='estimé' ? ' (prix et durée estimés)' : ''}`, src:ch.src, eta, held:res.some(x=>x>0), miss:missOf(p, ch.cost)});
             soft.push({p, cost:ch.cost, eta});
           }
         }
@@ -1327,7 +1475,7 @@ function copyChips(a){
 }
 function actHtml(a, withBtn){
   const note = goNote(a);
-  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : '', note ? `<span>${esc(note)}</span>` : '', copyChips(a)].filter(Boolean).join('');
+  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : '', a.src==='estimé' ? '<span>Prix et durée estimés d\'après les niveaux déjà vus, pas lus sur le jeu ; la durée est probablement sous-estimée.</span>' : a.src==='lu' && a.at ? `<span>prix lu à ${hm(a.at)}</span>` : '', note ? `<span>${esc(note)}</span>` : '', copyChips(a)].filter(Boolean).join('');
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,p:a.p,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
@@ -1401,8 +1549,63 @@ function fleetsavePlan(now){
 
 /* ---------- daily missions ---------- */
 const LIFEFORMS = {humans:{n:'Humains', why:'polyvalents'}, rocktal:{n:'Roctas', why:'mineurs : production et bâtiments moins chers'}, mechas:{n:'Mécas', why:'vaisseaux et chantier spatial'}, kaelesh:{n:'Kaeleshs', why:'expéditions et recherche'}};
+/* Bâtiments de forme de vie, par espèce. Relevé sur la partie du joueur le
+   12 novembre 2026 ; un seul bâtiment reconnu nomme l'espèce, et un bâtiment
+   au niveau 0 figure quand même dans le panneau. À compléter au fil des relevés. */
+const LF_BUILDINGS = {
+  humans: ['Centre de recherche'],
+  rocktal: ['Centre technologique runique'],
+  mechas: ['Centre de recherche en robotique']
+};
+/**
+ * Espèce d'une planète déduite des libellés de bâtiments d'un relevé de panneau
+ * ("Nom (Niveau N)"). La présence du bâtiment suffit, son niveau n'y change rien.
+ * @param {object} r relevé de prodOf
+ * @returns {string|null} clé de LIFEFORMS, null si aucun bâtiment connu
+ */
+function speciesOf(r){
+  const rows = r && Array.isArray(r.rows) ? r.rows : [];
+  const names = rows.map(x => String((x && x.label) || '').replace(/\s*\(Niveau\s*\d+\)\s*$/i, '').trim().toLowerCase());
+  return Object.keys(LF_BUILDINGS).find(k => LF_BUILDINGS[k].some(n => names.includes(n.toLowerCase()))) || null;
+}
+/**
+ * Espèce d'une planète d'après son relevé, s'il a moins de sept jours.
+ * @param {object} p planète de S.planets
+ * @returns {string|null}
+ */
+function speciesOfPlanet(p){
+  const r = prodOf(p);
+  return r && Date.now() - r.at < LF_READ_TTL ? speciesOf(r) : null;
+}
+/**
+ * Espèces installées sur au moins une planète, d'après les relevés récents.
+ * @returns {string[]}
+ */
+function readLifeforms(){
+  return [...new Set(S.planets.map(speciesOfPlanet).filter(Boolean))];
+}
+/**
+ * Espèces connues du compte : celles cochées dans les réglages (découvertes)
+ * plus celles lues sur les planètes (installées, donc découvertes). Une lecture
+ * s'ajoute à la coche, elle n'en retire jamais.
+ * @returns {string[]}
+ */
+function foundLifeforms(){
+  return [...new Set([...(S.lf.found || ['humans']), ...readLifeforms()])];
+}
+/**
+ * Pastilles des réglages : une espèce lue sur une planète s'affiche sans case,
+ * les autres restent à cocher.
+ * @returns {string}
+ */
+function lfSettingsHtml(){
+  const lues = readLifeforms();
+  return Object.entries(LIFEFORMS).map(([k,l]) => lues.includes(k)
+    ? `<span class="pill good" style="padding:6px 12px">${l.n} · lue sur tes planètes</span>`
+    : `<label class="pill ${S.lf.found.includes(k)?'good':'info'}" style="cursor:pointer;padding:6px 12px"><input type="checkbox" data-lf="${k}" ${S.lf.found.includes(k)?'checked':''} style="width:auto;margin-right:6px">${l.n}</label>`).join('');
+}
 function bestLifeform(){
-  const f = S.lf.found || ['humans'];
+  const f = foundLifeforms();
   const pref = S.day.focus==='fleet' ? ['mechas','kaelesh','rocktal','humans'] : ['rocktal','humans','mechas','kaelesh'];
   return pref.find(k=>f.includes(k)) || 'humans';
 }
@@ -1414,6 +1617,10 @@ function fleetSlots(){ return S.slots && S.slots.fleet && S.syncAt && Date.now()
    own guard. Never expiring it would silence the panel for the rest of the
    day after a single "2/2", which costs as much trust as the lie it fixes. */
 const EXPO_READ_TTL = 3*3600e3;
+/* Le bonus de forme de vie lu dans le panneau décrit les niveaux du moment :
+   au-delà de sept jours on le laisse, mieux vaut sous-estimer que décrire un
+   empire qui n'existe plus. */
+const LF_READ_TTL = 7*86400e3;
 /* Le chiffre vient d'une expression régulière sur le texte d'une page du jeu,
    où s'affichent des chaînes écrites par d'autres joueurs, et il sert de borne
    de boucle. Un nombre absurde y gèlerait le panneau. Le jeu ne dépasse pas une
@@ -1548,8 +1755,8 @@ function dailyMissions(){
      envoyer le joueur cliquer sur rien. La carte des emplacements pleins, elle,
      sort déjà plus haut et explique quoi faire. */
   if(!(fs && fs[0] >= fs[1]))
-    out.push({id:'discovery', q:'Exploration', every:24, sev:'info', what:'Missions de découverte (formes de vie)', why:`Elles rapportent des artefacts et de nouvelles races. Chacune occupe un emplacement de flotte jusqu'à son retour.${fs?` Il t'en reste ${fs[1]-fs[0]} sur ${fs[1]}.`:''} Trouvées : ${(S.lf.found||[]).map(k=>LIFEFORMS[k].n).join(', ')}.${S.artefacts!=null?` Artefacts : ${fmt(S.artefacts)}.`:''}`,
-      how:['Galaxie : bouton <b>Découverte</b> en haut, ou icône ADN violette sur une ligne.', 'Fais-en sur plusieurs systèmes : le nombre par jour est limité.', 'Garde un emplacement libre pour tes expéditions : elles rapportent plus.', 'Une race trouvée ? Coche-la dans Réglages › Formes de vie pour que Copilote en tienne compte.']});
+    out.push({id:'discovery', q:'Exploration', every:24, sev:'info', what:'Missions de découverte (formes de vie)', why:`Elles rapportent des artefacts et de nouvelles races. Chacune occupe un emplacement de flotte jusqu'à son retour.${fs?` Il t'en reste ${fs[1]-fs[0]} sur ${fs[1]}.`:''} Trouvées : ${foundLifeforms().map(k=>LIFEFORMS[k].n).join(', ')}.${S.artefacts!=null?` Artefacts : ${fmt(S.artefacts)}.`:''}`,
+      how:['Galaxie : bouton <b>Découverte</b> en haut, ou icône ADN violette sur une ligne.', 'Fais-en sur plusieurs systèmes : le nombre par jour est limité.', 'Garde un emplacement libre pour tes expéditions : elles rapportent plus.', 'Une race trouvée qui n\'est pas encore lue sur tes planètes ? Coche-la dans Réglages › Formes de vie pour que Copilote en tienne compte.']});
   if(S.artefacts!=null && S.artefacts>=200) out.push({id:'artefacts', q:'Formes de vie', every:24, sev:'good', what:`${fmt(S.artefacts)} artefacts : choisis une technologie de forme de vie`, why:'Au palier 1, 200 artefacts permettent de choisir précisément la technologie d\'un slot au lieu du tirage aléatoire.', how:['Forme de vie › Recherche : sur un slot libre, choisis la technologie voulue.', 'Attention : changer un slot déjà pris oblige à réinitialiser tout le palier.']});
   if(IS_EXT && S.syncAt && now - S.syncAt < 3600e3){
     // Trois situations, trois messages : page jamais ouverte, page lue mais
@@ -1562,7 +1769,7 @@ function dailyMissions(){
       // n'a pas encore. Rien à relever, donc rien à lui rappeler.
       if(!cases.length) return {need:(p.lfSeen||{})[q] ? null : 'page', n:0};
       const libres = cases.filter(([,v])=>v && v.state !== 'locked');
-      if(libres.some(([,v])=>lfPriced(v))) return {need:null, n:cases.length};
+      if(lfCandidates(p, q).length) return {need:null, n:cases.length};
       return {need: libres.length ? 'prix' : null, n:cases.length};
     };
     const lfCard = (q, id, quoi, page) => {
@@ -1924,7 +2131,7 @@ settings(){
       </div>
     </div>
     <div class="card"><h2>Formes de vie découvertes</h2>
-      <div class="chips">${Object.entries(LIFEFORMS).map(([k,l])=>`<label class="pill ${S.lf.found.includes(k)?'good':'info'}" style="cursor:pointer;padding:6px 12px"><input type="checkbox" data-lf="${k}" ${S.lf.found.includes(k)?'checked':''} style="width:auto;margin-right:6px">${l.n}</label>`).join('')}</div>
+      <div class="chips">${lfSettingsHtml()}</div>
       <p class="note">Copilote s'en sert pour te conseiller la forme de vie de tes colonies.</p>
     </div>
     <div class="card"><h2>Univers</h2>
@@ -2356,6 +2563,26 @@ setInterval(tickTimers, 1000);
 setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); }, 30000);
 
 
+/**
+ * Cale le solde d'énergie d'une planète sur celui que le panneau de production
+ * affiche. Même mesure que les deux autres lectures : on remet eAdj à zéro pour
+ * que production() rende le solde du moteur seul, et l'écart est ce qu'il ne
+ * sait pas expliquer (la consommation des formes de vie déjà bâties, notamment).
+ * Sans effet si la planète est inconnue, la lecture a plus de sept jours ou
+ * l'énergie libre est illisible. Une lecture ne cale qu'une fois (eAdjAt) : le
+ * panneau et les niveaux viennent de la même visite, et une relecture plus tard
+ * effacerait le coût des niveaux montés depuis.
+ * @param {object|undefined} p planète de S.planets
+ */
+function calePlanete(p){
+  const r = prodOf(p);
+  const free = r && r.energy && r.energy.free;
+  if(!Number.isFinite(free) || !(Date.now() - r.at < LF_READ_TTL) || p.eAdjAt === r.at) return;
+  p.eAdjAt = r.at;
+  p.eAdj = 0;
+  p.eAdj = Math.min(Math.max(free, -1e9), 1e9) - production(p).eBal;
+}
+
 /* ---------- live sync from the extension ---------- */
 /** Merges the game state collected by the content script into the panel state. */
 function applyGame(g){
@@ -2377,7 +2604,7 @@ function applyGame(g){
     p.gid = id;
     if(gp.name) p.name = gp.name;
     if(gp.coords) p.coords = gp.coords;
-    if(gp.lf) p.lf = Object.assign({}, p.lf, gp.lf);
+    if(gp.lf){ const lf = Object.assign({}, p.lf); for(const [k,v] of Object.entries(gp.lf)) lf[k] = lfMerge(lf[k], v); p.lf = lf; }
     if(gp.lfSeen) p.lfSeen = Object.assign({}, p.lfSeen, gp.lfSeen);
     if(gp.tmax != null) p.tmax = gp.tmax;
     Object.assign(p.b, gp.b || {});
@@ -2406,6 +2633,14 @@ function applyGame(g){
   S.moves = g.moves || [];
   if(g.artefacts != null) S.artefacts = g.artefacts;
   if(g.slots) S.slots = g.slots;
+  if(g.prod && typeof g.prod === 'object'){
+    S.prod = S.prod || {};
+    for(const [gid, e] of Object.entries(g.prod)){
+      if(!/^\d+$/.test(gid)) continue; // « __proto__ » & co : jamais une clé
+      const r = e && parseProdPanel(e.text);
+      if(r){ r.at = +e.at || 0; S.prod[gid] = r; calePlanete(S.planets.find(x=>x.gid===gid)); }
+    }
+  }
   S.sample = false;
   S.syncAt = g.at || Date.now();
   save();

@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -1470,6 +1470,705 @@ t('une carte de chantier ne parle pas de bâtiment ni de recherche', () => {
   const note = g.goNote({ kind: 'ship', k: 'lc', n: 5, p: 0 });
   assert.ok(PREREMPLI.test(note), 'la note sort pour un chantier aussi');
   assert.ok(!/b[âa]timent ou une recherche/i.test(note), 'sans se tromper de vocabulaire : ' + note);
+});
+
+
+/* ---------- le panneau de production ---------- */
+
+/* Relevé sur Caribou Land le 12 novembre. Les nombres du jeu portent des
+   points comme séparateurs de milliers, et la colonne énergie du total
+   s'écrit « libre/produite ». */
+const PANNEAU_CARIBOU = [
+  'Facteur de production: 100%',
+  'Revenu de base\t240\t120\t0\t0',
+  'Mine de métal (Niveau 21)\t37.297\t0\t0\t-1.554\t100%',
+  'Mine de cristal (Niveau 17)\t0\t13.748\t0\t-859\t100%',
+  'Synthétiseur de deutérium (Niveau 17)\t0\t0\t7.946\t-1.718\t100%',
+  'Centrale électrique solaire (Niveau 19)\t0\t0\t0\t2.324\t100%',
+  'Centrale électrique de fusion (Niveau 7)\t0\t0\t-1.091\t464\t100%',
+  'Centre de recherche (Niveau 2)\t0\t0\t0\t-23',
+  'Satellite solaire (Nombre : 34)\t0\t0\t0\t1.190\t100%',
+  'Foreuse (Nombre : 0/440)\t0\t0\t0\t0\t100%',
+  'Le collecteur\t9.324\t3.437\t1.986\t397',
+  'Bonus technologique de forme de vie\t96\t46\t20\t9',
+  'Capacité de stockage\t2M\t255.000\t470.000\t0',
+  'Total par heure:\t46.958\t17.351\t8.862\t231/4.385'
+].join('\n');
+
+t('le panneau donne le bonus de forme de vie', () => {
+  const g = app(null, SOIR);
+  assert.deepEqual(g.parseProdPanel(PANNEAU_CARIBOU).lfBonus, [96, 46, 20, 9]);
+});
+
+t('le panneau donne l\'énergie libre et produite', () => {
+  const g = app(null, SOIR);
+  assert.deepEqual(g.parseProdPanel(PANNEAU_CARIBOU).energy, { free: 231, prod: 4385 });
+});
+
+t('le panneau donne le plafond de foreuses', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.parseProdPanel(PANNEAU_CARIBOU).crawlerMax, 440);
+});
+
+t('le panneau donne le facteur de production', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.parseProdPanel(PANNEAU_CARIBOU).factor, 1);
+});
+
+t('une ligne de bâtiment porte son niveau et ses quatre colonnes', () => {
+  const g = app(null, SOIR);
+  const r = g.parseProdPanel(PANNEAU_CARIBOU).rows.find(x => /Mine de métal/.test(x.label));
+  assert.equal(r.lvl, 21);
+  assert.deepEqual(r.v, [37297, 0, 0, -1554]);
+  assert.equal(r.pct, 100);
+});
+
+t('le revenu de base et les capacités sont lus ; « 2M » reste inconnu', () => {
+  const p = app(null, SOIR).parseProdPanel(PANNEAU_CARIBOU);
+  assert.deepEqual(p.base, [240, 120, 0]);
+  assert.deepEqual(p.caps, [null, 255000, 470000]);
+});
+
+t('sans la ligne « Total par heure », le panneau n\'est pas là', () => {
+  assert.equal(app(null, SOIR).parseProdPanel('Facteur de production: 100%\nRevenu de base\t1\t1\t0\t0'), null);
+  assert.equal(app(null, SOIR).parseProdPanel(null), null);
+});
+
+t('un compte absurde est ramené au plafond', () => {
+  const p = app(null, SOIR).parseProdPanel('Foreuse (Nombre : 5/99999999)\t0\t0\t0\t0\nTotal par heure:\t1\t1\t1\t0/0');
+  assert.strictEqual(p.crawlerMax, 1e6);
+  assert.strictEqual(p.rows[0].max, 1e6);
+});
+
+t('un compte de plus de neuf chiffres est refusé, pas repris', () => {
+  const p = app(null, SOIR).parseProdPanel('Foreuse (Nombre : 5/99999999999)\t0\t0\t0\t0\nTotal par heure:\t1\t1\t1\t0/0');
+  assert.strictEqual(p.rows[0].max, null);
+  assert.strictEqual(p.crawlerMax, 0);
+});
+
+t('applyGame range chaque panneau sous son gid, sans toucher aux autres', () => {
+  const g = app(null, SOIR);
+  g.S.prod = { 33003: { at: 1, factor: 1 } };
+  const bad = {};
+  bad['33001'] = { text: PANNEAU_CARIBOU, at: SOIR };
+  bad['33002'] = { text: 'x', at: SOIR };
+  // clé littérale « __proto__ » (comme après un JSON.parse), qu'une affectation ordinaire ne créerait pas
+  Object.defineProperty(bad, '__proto__', { value: { text: PANNEAU_CARIBOU, at: SOIR }, enumerable: true });
+  g.applyGame({ prod: bad, planets: {}, timers: [], moves: [] });
+  assert.deepEqual(g.S.prod['33001'].lfBonus, [96, 46, 20, 9]);
+  assert.strictEqual(g.S.prod['33001'].at, SOIR);
+  assert.ok(!('33002' in g.S.prod), 'illisible : absent');
+  assert.deepEqual(g.S.prod['33003'], { at: 1, factor: 1 }, 'l\'autre planète est intacte');
+  assert.deepEqual(Object.keys(g.S.prod).sort(), ['33001', '33003']);
+  assert.strictEqual(Object.getPrototypeOf(g.S.prod), Object.prototype);
+});
+
+t('le panneau d\'une planète n\'en renseigne pas une autre', () => {
+  const g = app(s => { s.planets[0].gid = '33001'; s.planets[1].gid = '33002'; });
+  g.S.prod = { 33001: { lfBonus: [96, 46, 20, 9], at: SOIR, factor: 1 } };
+  assert.deepEqual(g.prodOf(g.S.planets[0]).lfBonus, [96, 46, 20, 9]);
+  assert.equal(g.prodOf(g.S.planets[1]), undefined);
+  g.S.planets[1].gid = undefined;
+  assert.equal(g.prodOf(g.S.planets[1]), undefined);
+  g.S.planets[1].gid = 'toString';
+  assert.equal(g.prodOf(g.S.planets[1]), undefined, 'pas de repli sur le prototype');
+});
+
+t('le bonus de forme de vie lu s\'ajoute \u00e0 la production', () => {
+  const sans = app(s => { s.planets[0].gid = '33001'; s.planets[0].sats = 500; }, SOIR);
+  const avec = app(s => {
+    s.planets[0].gid = '33001'; s.planets[0].sats = 500;
+    s.prod = { 33001: { lfBonus: [96, 46, 20, 9], at: SOIR, factor: 1 } };
+  }, SOIR);
+  const a = avec.production(avec.S.planets[0]), b = sans.production(sans.S.planets[0]);
+  assert.ok(Math.abs((a.m - b.m) - 96) < 1, 'm\u00e9tal : ' + (a.m - b.m));
+  assert.ok(Math.abs((a.c - b.c) - 46) < 1, 'cristal : ' + (a.c - b.c));
+  assert.ok(Math.abs((a.d - b.d) - 20) < 1, 'deut\u00e9rium : ' + (a.d - b.d));
+  assert.equal(a.eProd - b.eProd, 9, '\u00e9nergie dans eProd');
+  assert.equal(a.eBal - b.eBal, 9);
+});
+
+t('en manque d\'\u00e9nergie, l\'\u00e9nergie du bonus relève le facteur', () => {
+  const sans = app(s => { s.planets[0].gid = '33001'; }, SOIR);
+  const avec = app(s => {
+    s.planets[0].gid = '33001';
+    s.prod = { 33001: { lfBonus: [0, 0, 0, 9], at: SOIR, factor: 1 } };
+  }, SOIR);
+  const a = avec.production(avec.S.planets[0]), b = sans.production(sans.S.planets[0]);
+  assert.equal(a.eProd - b.eProd, 9);
+  assert.ok(a.factor > b.factor, 'facteur ' + b.factor + ' -> ' + a.factor);
+});
+
+t('le bonus lu ne touche pas une autre plan\u00e8te', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001'; s.planets[1].gid = '33002';
+    s.prod = { 33001: { lfBonus: [96, 46, 20, 9], at: SOIR, factor: 1 } };
+  }, SOIR);
+  const sans = app(s => { s.planets[1].gid = '33002'; }, SOIR);
+  assert.equal(g.production(g.S.planets[1]).m, sans.production(sans.S.planets[1]).m);
+});
+
+t('sans panneau lu, la production ne change pas', () => {
+  const g = app(s => { s.planets[0].gid = '33001'; delete s.prod; }, SOIR);
+  assert.ok(g.production(g.S.planets[0]).m > 0, 'le moteur garde ses formules');
+});
+
+t('une lecture de plus de sept jours est ignor\u00e9e', () => {
+  const vieux = SOIR - 8 * 86400e3;
+  const g = app(s => {
+    s.planets[0].gid = '33001';
+    s.prod = { 33001: { lfBonus: [9999, 0, 0, 0], at: vieux, factor: 1 } };
+  }, SOIR);
+  const sans = app(s => { s.planets[0].gid = '33001'; }, SOIR);
+  assert.ok(Math.abs(g.production(g.S.planets[0]).m - sans.production(sans.S.planets[0]).m) < 1,
+    'le bonus p\u00e9rim\u00e9 n\'est pas appliqu\u00e9');
+});
+
+t('une lecture de six jours compte encore', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001';
+    s.prod = { 33001: { lfBonus: [500, 0, 0, 0], at: SOIR - 6 * 86400e3, factor: 1 } };
+  }, SOIR);
+  const sans = app(s => { s.planets[0].gid = '33001'; }, SOIR);
+  assert.ok(g.production(g.S.planets[0]).m - sans.production(sans.S.planets[0]).m > 499);
+});
+
+t('un bonus illisible (non fini, n\u00e9gatif) n\'entre pas dans la production', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001';
+    s.prod = { 33001: { lfBonus: [NaN, -50, 'x', Infinity], at: SOIR, factor: 1 } };
+  }, SOIR);
+  const sans = app(s => { s.planets[0].gid = '33001'; }, SOIR);
+  const a = g.production(g.S.planets[0]), b = sans.production(sans.S.planets[0]);
+  assert.equal(a.m, b.m); assert.equal(a.c, b.c); assert.equal(a.d, b.d); assert.equal(a.eProd, b.eProd);
+});
+
+/** Le panneau Caribou dont la dernière cellule (énergie libre/produite) est remplacée. */
+const panneauEnergie = cell => PANNEAU_CARIBOU.replace('231/4.385', cell);
+/** Fait lire à applyGame un panneau pour la planète 33001 de la fixture. */
+function lis(g, text, at) {
+  g.S.planets[0].gid = '33001';
+  g.applyGame({ prod: { 33001: { text, at } }, planets: {}, timers: [], moves: [] });
+  return g.production(g.S.planets[0]);
+}
+
+t('l\'énergie lue cale le bilan de la planète, quel que soit l\'ancien eAdj', () => {
+  const g = app(s => { s.planets[0].eAdj = -300; }, SOIR);
+  const avant = g.production(g.S.planets[0]).eBal;
+  const pr = lis(g, PANNEAU_CARIBOU, SOIR);
+  assert.notEqual(avant, 231, 'la fixture ne tombe pas déjà sur 231 : le test mord');
+  assert.strictEqual(pr.eBal, 231, 'le solde suit la lecture : ' + pr.eBal);
+});
+
+t('l\'écart d\'énergie se mesure sans eAdj, contre le solde', () => {
+  const g = app(null, SOIR);
+  lis(g, PANNEAU_CARIBOU, SOIR);
+  const p = g.S.planets[0], eAdj = p.eAdj;
+  p.eAdj = 0;
+  assert.strictEqual(231 - g.production(p).eBal, eAdj);
+});
+
+t('une énergie libre illisible laisse eAdj intact', () => {
+  const g = app(s => { s.planets[0].eAdj = -77; }, SOIR);
+  lis(g, panneauEnergie('1.2.3/4.385'), SOIR);
+  assert.strictEqual(g.S.planets[0].eAdj, -77);
+});
+
+t('un panneau de plus de sept jours ne cale pas le bilan', () => {
+  const g = app(s => { s.planets[0].eAdj = -77; }, SOIR);
+  lis(g, PANNEAU_CARIBOU, SOIR - 8 * 86400e3);
+  assert.strictEqual(g.S.planets[0].eAdj, -77);
+});
+
+t('une énergie libre démesurée est bornée', () => {
+  const g = app(null, SOIR);
+  lis(g, panneauEnergie('999.999.999.999/4.385'), SOIR);
+  assert.ok(Math.abs(g.S.planets[0].eAdj) <= 2e9, 'eAdj borné : ' + g.S.planets[0].eAdj);
+});
+
+/* Une mine bridée produit moins ; c'est un état, pas une propriété de la mine.
+   Le gain du niveau suivant se calcule sur la mine à pleine marche, sinon le
+   classement condamnerait pour toujours une planète à court d'énergie. */
+t('un facteur sous 100 % ne se propage pas au gain du niveau suivant', () => {
+  const g = app(null, SOIR);
+  lis(g, panneauEnergie('-500/2.000').replace('Facteur de production: 100%', 'Facteur de production: 80%'), SOIR);
+  assert.ok(g.production(g.S.planets[0]).factor < 1, 'la planète manque d\'énergie');
+  const ups = g.rankUpgrades(g.S.planets[0]);
+  assert.ok(ups.length, 'des montées sont proposées');
+  assert.strictEqual(ups[0].key, 'solar', 'et l\'énergie passe devant : ' + ups.map(u => u.key));
+});
+
+t('un même panneau relu ne gomme pas le coût d\'un niveau monté depuis', () => {
+  const g = app(null, SOIR);
+  lis(g, PANNEAU_CARIBOU, SOIR);
+  const p = g.S.planets[0], eAdj = p.eAdj;
+  p.b.metal++;
+  const apres = g.production(p).eBal;
+  assert.ok(apres < 231, 'le niveau coûte de l\'énergie : ' + apres);
+  lis(g, PANNEAU_CARIBOU, SOIR);
+  assert.strictEqual(p.eAdj, eAdj, 'eAdj inchangé à la relecture');
+  assert.strictEqual(g.production(p).eBal, apres, 'le solde garde le coût du niveau');
+});
+
+t('un nouveau panneau recale de nouveau', () => {
+  const g = app(null, SOIR);
+  lis(g, PANNEAU_CARIBOU, SOIR);
+  g.S.planets[0].b.metal++;
+  lis(g, PANNEAU_CARIBOU, SOIR + 1000);
+  assert.strictEqual(g.production(g.S.planets[0]).eBal, 231);
+});
+
+t('le facteur ne descend jamais sous zéro', () => {
+  const g = app(null, SOIR);
+  const pr = lis(g, panneauEnergie('-100.000/4.385'), SOIR);
+  assert.ok(pr.eProd < 0, 'la production d\'énergie est négative : ' + pr.eProd);
+  assert.strictEqual(pr.factor, 0);
+  assert.ok(pr.m >= 0 && pr.c >= 0 && pr.d >= 0, 'aucune production négative');
+});
+
+t('la fenêtre de sept jours : juste dedans calibre, juste dehors non', () => {
+  const dedans = app(null, SOIR);
+  lis(dedans, PANNEAU_CARIBOU, SOIR - 6.9 * 86400e3);
+  assert.strictEqual(dedans.production(dedans.S.planets[0]).eBal, 231);
+  const dehors = app(s => { s.planets[0].eAdj = -77; }, SOIR);
+  lis(dehors, PANNEAU_CARIBOU, SOIR - 7.1 * 86400e3);
+  assert.strictEqual(dehors.S.planets[0].eAdj, -77);
+});
+
+t('calibrer une planète ne touche pas les autres', () => {
+  const g = app(s => { s.planets[1].gid = '33001'; s.planets[0].eAdj = -77; s.planets[1].eAdj = 0; }, SOIR);
+  g.S.planets[0].gid = '33009';
+  g.applyGame({ prod: { 33001: { text: PANNEAU_CARIBOU, at: SOIR } }, planets: {}, timers: [], moves: [] });
+  assert.strictEqual(g.S.planets[0].eAdj, -77, 'l\'autre planète est intacte');
+  assert.strictEqual(g.production(g.S.planets[1]).eBal, 231, 'la bonne planète est calée');
+});
+
+/* ---------- le prix d'une case jamais ouverte ---------- */
+
+/* Les coûts de forme de vie suivent base × facteur^(n−1), comme le reste du
+   jeu. Deux niveaux observés donnent le facteur, donc tous les autres. */
+t('deux prix vus donnent le prix d\'un troisième niveau', () => {
+  const g = app(null, SOIR);
+  const v = { seen: { 1: [1000, 500, 0], 3: [1440, 720, 0] }, lvl: 4 };
+  const e = g.lfCost(v, 5);
+  assert.equal(e.src, 'estimé');
+  assert.ok(Math.abs(e.cost[0] - 1000 * Math.pow(1.2, 4)) < 20, 'métal : ' + e.cost[0]);
+  assert.ok(Math.abs(e.cost[1] - 500 * Math.pow(1.2, 4)) < 20, 'cristal : ' + e.cost[1]);
+});
+
+t('un prix lu au bon niveau prime sur l\'estimation', () => {
+  const g = app(null, SOIR);
+  const v = { seen: { 1: [1000, 500, 0], 3: [1440, 720, 0] }, lvl: 2, next: 3, cost: [1440, 720, 0], secs: 60 };
+  assert.equal(g.lfCost(v, 3).src, 'lu');
+  assert.deepEqual(g.lfCost({ seen: { 1: [1000, 500, 0], 3: [1440, 720, 0] }, lvl: 2 }, 3).cost, [1440, 720, 0]);
+});
+
+t('un seul prix vu ne permet pas d\'estimer plus haut', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.lfCost({ seen: { 1: [1000, 500, 0] }, lvl: 3 }, 4), null);
+});
+
+t('une case jamais vue n\'est pas classée, et le panneau le dit', () => {
+  const g = app(s => { s.planets[0].lf = { 11101: { lvl: 0, state: 'on' } }; }, SOIR);
+  assert.equal(g.lfCost(g.S.planets[0].lf[11101], 1), null);
+  assert.ok(!g.lfCandidates(g.S.planets[0], 'lfbuilding').length, 'rien à classer');
+});
+
+t('le facteur est tiré des deux niveaux les plus hauts, pas des plus bas', () => {
+  const g = app(null, SOIR);
+  const v = { seen: { 1: [100, 0, 0], 2: [1000, 0, 0], 3: [1100, 0, 0], 4: [1210, 0, 0] } };
+  assert.ok(Math.abs(g.lfCost(v, 5).cost[0] - 1331) <= 1, 'x1,1 par niveau : ' + g.lfCost(v, 5).cost[0]);
+});
+
+t('l\'estimation projette depuis le niveau le plus haut, vers le bas comme vers le haut', () => {
+  const g = app(null, SOIR);
+  const v = { seen: { 2: [1000, 0, 0], 4: [1440, 0, 0] } };
+  assert.ok(Math.abs(g.lfCost(v, 3).cost[0] - 1200) <= 1, 'niveau 3 : ' + g.lfCost(v, 3).cost[0]);
+  assert.equal(g.lfCost(v, 0), null, 'le niveau 0 n\'existe pas');
+});
+
+t('un facteur hors de [1, 5] ne chiffre pas : les deux prix ne peuvent pas être justes ensemble', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.lfCost({ seen: { 1: [1000, 0, 0], 2: [500, 0, 0] } }, 3), null, 'à la baisse');
+  assert.equal(g.lfCost({ seen: { 1: [100, 0, 0], 2: [100000, 0, 0] } }, 3), null, 'délirant');
+  assert.deepEqual(g.lfCost({ seen: { 1: [1000, 0, 0], 2: [1000, 0, 0] } }, 3).cost, [1000, 0, 0], 'plat : 1 est dans les bornes');
+  assert.deepEqual(g.lfCost({ seen: { 1: [100, 0, 0], 2: [500, 0, 0] } }, 3).cost, [2500, 0, 0], '5 est dans les bornes');
+});
+
+t('un prix nul au niveau bas ne sert pas de base au facteur', () => {
+  const g = app(null, SOIR);
+  const e = g.lfCost({ seen: { 1: [0, 100, 0], 2: [500, 200, 0] } }, 3);
+  assert.ok(e && Math.abs(e.cost[1] - 400) <= 1, 'facteur 2 pris sur le cristal : ' + JSON.stringify(e));
+});
+
+t('un coût non numérique est ramené à zéro, pas propagé', () => {
+  const g = app(null, SOIR);
+  const e = g.lfCost({ seen: { 1: [NaN, 100, 0], 2: [NaN, 200, 0] } }, 3);
+  assert.ok(e, 'estimé sur le cristal');
+  assert.ok(e.cost.every(Number.isFinite), JSON.stringify(e.cost));
+  assert.equal(e.cost[0], 0);
+});
+
+t('le facteur se tire du cristal quand le métal est nul, sinon rien', () => {
+  const g = app(null, SOIR);
+  const e = g.lfCost({ seen: { 1: [0, 100, 0], 2: [0, 120, 0] } }, 3);
+  assert.ok(Math.abs(e.cost[1] - 144) <= 1, 'cristal : ' + e.cost[1]);
+  assert.equal(g.lfCost({ seen: { 1: [0, 0, 0], 2: [0, 0, 0] } }, 3), null);
+});
+
+t('une estimation qui sort des bornes n\'est pas proposée', () => {
+  const g = app(null, SOIR);
+  const v = { seen: { 1: [1000, 0, 0], 2: [1200, 0, 0] } };
+  assert.equal(g.lfCost(v, 1e6), null, 'niveau absurde');
+  const e = g.lfCost({ seen: { 1: [1e30, 1, 0], 2: [-5, 2, 0] } }, 3);
+  assert.ok(e.cost.every(x => x >= 0 && x <= 1e15), 'bornés : ' + JSON.stringify(e.cost));
+});
+
+t('un prix vu au niveau demandé est un prix lu', () => {
+  const g = app(null, SOIR);
+  const e = g.lfCost({ seen: { 1: [1000, 500, 0], 3: [1440, 720, 0] }, lvl: 0 }, 3);
+  assert.equal(e.src, 'lu');
+  assert.deepEqual(e.cost, [1440, 720, 0]);
+});
+
+/* applyGame : ce que le jeu lit entre dans la mémoire des prix vus. */
+const ouvre = (g, id, niveau, cost, secs) => g.applyGame({
+  planets: { 33009: { lf: { [id]: { lvl: niveau - 1, state: 'ok', name: 'Secteur', next: niveau, cost, secs: secs == null ? 60 : secs } } } },
+  timers: [], moves: [] });
+const DEUX_VUS = { 1: [1000, 500, 0], 2: [1200, 600, 0] };
+const avecGid = () => { const g = app(null, SOIR); g.S.planets[0].gid = '33009'; return g; };
+
+t('ouvrir une case en mémorise le prix au niveau lu', () => {
+  const g = avecGid();
+  ouvre(g, 11101, 5, [1000, 500, 0]);
+  assert.deepEqual(g.S.planets[0].lf[11101].seen, { 5: [1000, 500, 0] });
+});
+
+t('les prix vus survivent à une lecture de la liste, qui ne porte pas de prix', () => {
+  const g = avecGid();
+  ouvre(g, 11101, 5, [1000, 500, 0]);
+  g.applyGame({ planets: { 33009: { lf: { 11101: { lvl: 5, state: 'ok' } } } }, timers: [], moves: [] });
+  const v = g.S.planets[0].lf[11101];
+  assert.deepEqual(v.seen, { 5: [1000, 500, 0] });
+  assert.equal(v.lvl, 5, 'et le niveau de la liste est adopté');
+  assert.equal(v.secs, 60, 'la durée vue reste disponible pour le plan');
+});
+
+t('la mémoire garde les dix niveaux les plus hauts, ni plus ni moins', () => {
+  const g = avecGid();
+  for (let n = 1; n <= 10; n++) ouvre(g, 11101, n, [100 * n, 50, 0]);
+  assert.deepEqual(Object.keys(g.S.planets[0].lf[11101].seen).map(Number), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 'dix tiennent');
+  for (let n = 11; n <= 12; n++) ouvre(g, 11101, n, [100 * n, 50, 0]);
+  assert.deepEqual(Object.keys(g.S.planets[0].lf[11101].seen).map(Number), [3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'les plus bas partent');
+  ouvre(g, 11101, 1, [100, 50, 0]);
+  assert.deepEqual(Object.keys(g.S.planets[0].lf[11101].seen).map(Number), [3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 'un niveau plus bas que les dix ne rentre pas');
+});
+
+t('un niveau ou un prix absurde n\'entre pas dans la mémoire', () => {
+  const g = avecGid();
+  ouvre(g, 11101, 0, [100, 50, 0]);
+  ouvre(g, 11101, 5, [0, 0, 0]);
+  ouvre(g, 11101, 6, [1e30, -4, 0]);
+  const seen = g.S.planets[0].lf[11101].seen;
+  assert.deepEqual(Object.keys(seen), ['6'], 'seul le niveau 6 est gardé');
+  assert.deepEqual(seen[6], [1e15, 0, 0], 'borné à l\'entrée');
+});
+
+t('deux cases ouvertes à des niveaux différents donnent une estimation à la case voisine', () => {
+  const g = avecGid();
+  ouvre(g, 11101, 1, [1000, 500, 0]);
+  ouvre(g, 11101, 2, [1200, 600, 0]);
+  g.applyGame({ planets: { 33009: { lf: { 11101: { lvl: 2, state: 'ok' } } } }, timers: [], moves: [] });
+  const e = g.lfCost(g.S.planets[0].lf[11101], 3);
+  assert.equal(e.src, 'estimé');
+  assert.ok(Math.abs(e.cost[0] - 1440) <= 1, 'métal : ' + e.cost[0]);
+});
+
+/* Le plan : la case qu'on vient d'ouvrir n'est plus la seule éligible. */
+
+t('une lecture de la liste n\'hérite ni du prix ni de l\'état de la lecture précédente', () => {
+  const g = avecGid();
+  ouvre(g, 11101, 5, [1000, 500, 0], 60);
+  g.applyGame({ planets: { 33009: { lf: { 11101: { lvl: 4, state: 'short' } } } }, timers: [], moves: [] });
+  const v = g.S.planets[0].lf[11101];
+  assert.equal(v.cost, undefined);
+  assert.equal(v.next, undefined);
+  assert.equal(v.state, 'short');
+  assert.deepEqual(v.seen, { 5: [1000, 500, 0] });
+  assert.equal(v.secs, 60);
+});
+
+t('la carte dit combien de cases elle compare et combien elle ne sait pas chiffrer', () => {
+  const g = vieSur({
+    11101: { lvl: 2, state: 'ok', secs: 60, seen: DEUX_VUS },
+    11102: { lvl: 0, state: 'ok' },
+    11103: { lvl: 0, state: 'ok' },
+    11104: { lvl: 0, state: 'locked' }
+  });
+  const a = premierLf(g);
+  assert.ok(/1 case chiffrée/.test(a.why), a.why);
+  assert.ok(/2 cases pas encore chiffrées/.test(a.why) && /ouvre-les/.test(a.why), 'les deux inconnues, la verrouillée non : ' + a.why);
+  const tout = premierLf(vieSur({ 11101: CASE_OK }));
+  assert.ok(!/pas encore chiffr/.test(tout.why), 'rien à signaler quand tout est chiffré : ' + tout.why);
+});
+
+t('la durée d\'une estimation est dite estimée, et l\'attente porte sa provenance', () => {
+  const g = vieSur({ 11101: { lvl: 2, state: 'ok', secs: 60, seen: DEUX_VUS } });
+  assert.ok(/durée estimés/.test(g.actHtml(premierLf(g), false)), 'durée');
+  const h = vieSur({ 11101: { lvl: 2, state: 'short', secs: 60, seen: { 1: [1e6, 0, 0], 2: [2e6, 0, 0] } } });
+  const w = h.simulateDay().sessions[0].waits.find(x => /Secteur résidentiel/.test(x.what));
+  assert.equal(w.src, 'estimé');
+});
+
+t('un prix lu porte l\'heure de sa lecture', () => {
+  const g = avecGid();
+  ouvre(g, 11101, 3, [1440, 720, 0], 60);
+  g.applyGame({ planets: { 33009: { lf: { 11101: { lvl: 2, state: 'ok' } } } }, timers: [], moves: [] });
+  const a = g.simulateDay().sessions[0].acts.find(x => x.kind === 'lf');
+  assert.equal(a.src, 'lu');
+  assert.equal(a.at, g.S.planets[0].lf[11101].seenAt[3]);
+  assert.ok(a.at > 0);
+  assert.ok(/prix lu à/.test(g.actHtml(a, false)));
+});
+
+t('le prix qu\'on vient d\'ouvrir porte aussi son heure de lecture', () => {
+  const g = avecGid();
+  ouvre(g, 11101, 5, [1000, 500, 0], 60);
+  const c = g.lfCandidates(g.S.planets[0], 'lfbuilding')[0];
+  assert.equal(c.src, 'lu');
+  assert.equal(c.at, g.S.planets[0].lf[11101].seenAt[5]);
+  assert.ok(c.at > 0);
+});
+
+t('la mémoire des heures suit celle des prix', () => {
+  const g = avecGid();
+  for (let n = 1; n <= 12; n++) ouvre(g, 11101, n, [100 * n, 50, 0]);
+  const v = g.S.planets[0].lf[11101];
+  assert.deepEqual(Object.keys(v.seenAt), Object.keys(v.seen));
+});
+
+t('une case estimée entre dans le plan, avec sa provenance', () => {
+  const a = premierLf(vieSur({ 11101: { lvl: 2, state: 'ok', secs: 60, seen: DEUX_VUS } }));
+  assert.ok(a, 'proposée sans que son prix ait été lu à ce niveau');
+  assert.equal(a.src, 'estimé');
+  assert.equal(a.lvl, 3);
+  assert.ok(Math.abs(a.cost[0] - 1440) <= 1, 'au prix estimé : ' + a.cost[0]);
+});
+
+t('une carte qui repose sur une estimation le dit à l\'écran', () => {
+  const g = vieSur({ 11101: { lvl: 2, state: 'ok', secs: 60, seen: DEUX_VUS } });
+  const a = premierLf(g);
+  assert.ok(/estim/i.test(g.actHtml(a, false)), 'estimation signalée');
+  const lue = premierLf(vieSur({ 11101: CASE_OK }));
+  assert.equal(lue.src, 'lu');
+  assert.ok(!/estim/i.test(g.actHtml(lue, false)), 'un prix lu ne se dit pas estimé');
+});
+
+t('une estimation en attente le dit aussi', () => {
+  const g = vieSur({ 11101: { lvl: 2, state: 'short', secs: 60, seen: { 1: [1e6, 0, 0], 2: [2e6, 0, 0] } } });
+  const w = g.simulateDay().sessions[0].waits.find(x => /Secteur résidentiel/.test(x.what));
+  assert.ok(w && /estim/i.test(w.what), 'attente estimée : ' + (w && w.what));
+});
+
+t('une case estimée sans durée connue n\'est pas proposée', () => {
+  const g = vieSur({ 11101: { lvl: 2, state: 'ok', seen: DEUX_VUS } });
+  assert.ok(!premierLf(g), 'on ne simule pas un chantier de durée nulle');
+});
+
+t('la case qu\'on vient d\'ouvrir ne verrouille plus le classement', () => {
+  const g = app(s => {
+    s.planets[0].lf = {
+      11101: { lvl: 4, state: 'ok', next: 5, cost: [5000, 2000, 0], secs: 60, seen: { 5: [5000, 2000, 0] } },
+      11102: { lvl: 2, state: 'ok', secs: 90, seen: { 1: [100, 50, 0], 2: [120, 60, 0] } }
+    };
+  }, SOIR);
+  const c = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.deepEqual(c.map(x => x.id), [11102, 11101], 'la moins chère passe devant, ouverte ou non');
+  assert.deepEqual(c.map(x => x.src), ['estimé', 'lu']);
+});
+
+t('à prix égal, une option lue passe devant une option estimée', () => {
+  const g = app(s => {
+    s.planets[0].lf = {
+      11101: { lvl: 2, state: 'ok', secs: 90, seen: { 1: [1000, 500, 0], 2: [1000, 500, 0] } },
+      11102: { lvl: 0, state: 'ok', next: 1, cost: [1000, 500, 0], secs: 60 }
+    };
+  }, SOIR);
+  const c = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.deepEqual(c.map(x => x.src), ['lu', 'estimé']);
+});
+
+t('une case dont on sait estimer le prix ne fait plus redemander d\'en ouvrir une', () => {
+  const g = app(s => {
+    s.syncAt = SOIR;
+    s.planets.forEach(p => { p.lf = { 11101: { lvl: 2, state: 'ok', secs: 60, seen: DEUX_VUS } }; });
+  }, SOIR, null, true);
+  assert.ok(!g.dailyMissions().some(m => m.id === 'lfb'), 'plus de carte « clique une case »');
+});
+
+t('après une montée simulée, la même case reste estimable au niveau suivant', () => {
+  const g = vieSur({ 11101: { lvl: 2, state: 'ok', secs: 60, seen: DEUX_VUS } });
+  const acts = g.simulateDay().sessions.flatMap(s => s.acts).filter(a => a.kind === 'lf');
+  assert.ok(acts.length >= 2, 'plusieurs niveaux de suite : ' + acts.length);
+  assert.deepEqual(acts.slice(0, 2).map(a => a.lvl), [3, 4]);
+  assert.ok(acts[1].cost[0] > acts[0].cost[0], 'le prix suit la courbe');
+});
+
+t('la durée vue sert quand la liste n\'en porte pas, jamais contre une durée lue', () => {
+  const g = avecGid();
+  ouvre(g, 11101, 5, [1000, 500, 0], 60);
+  g.applyGame({ planets: { 33009: { lf: { 11101: { lvl: 5, state: 'ok', secs: 30 } } } }, timers: [], moves: [] });
+  assert.equal(g.S.planets[0].lf[11101].secs, 30, 'la durée lue du jour prime');
+  ouvre(g, 11101, 6, [1100, 500, 0], 0);
+  assert.ok(!(g.S.planets[0].lf[11101].secs > 0), 'une lecture sans durée ne reprend pas l\'ancienne');
+});
+
+t('un niveau au-delà des bornes n\'est pas mémorisé', () => {
+  const g = avecGid();
+  ouvre(g, 11101, 5000, [100, 50, 0]);
+  assert.deepEqual(g.S.planets[0].lf[11101].seen, {});
+});
+
+t('une estimation finie mais au-dessus du plafond n\'est pas proposée', () => {
+  const g = app(null, SOIR);
+  const v = { seen: { 1: [1e14, 0, 0], 2: [2e14, 0, 0] } };
+  assert.deepEqual(g.lfCost(v, 3).cost, [4e14, 0, 0]);
+  assert.equal(g.lfCost(v, 6), null, '1,6e15 dépasse 1e15');
+});
+
+/** Un relevé de panneau réduit à ses libellés de bâtiments. */
+const lus = (labels, at) => ({ at: at == null ? SOIR : at, factor: 1, rows: labels.map(label => ({ label })) });
+
+t('l\'esp\u00e8ce se d\u00e9duit des b\u00e2timents lus sur la plan\u00e8te', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.speciesOf(lus(['Centre technologique runique (Niveau 1)'])), 'rocktal');
+  assert.equal(g.speciesOf(lus(['Centre de recherche (Niveau 2)'])), 'humans');
+  assert.equal(g.speciesOf(lus(['Centre de recherche en robotique (Niveau 0)'])), 'mechas');
+});
+
+t('un b\u00e2timent de forme de vie au niveau 0 nomme encore l\'esp\u00e8ce', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.speciesOf(lus(['Mine de m\u00e9tal (Niveau 21)', 'Centre de recherche en robotique (Niveau 0)'])), 'mechas');
+});
+
+t('sans b\u00e2timent de forme de vie, l\'esp\u00e8ce reste inconnue', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.speciesOf(lus(['Mine de m\u00e9tal (Niveau 21)'])), null);
+  assert.equal(g.speciesOf(lus([])), null);
+  assert.equal(g.speciesOf(undefined), null);
+  assert.equal(g.speciesOf({}), null);
+});
+
+t('l\'esp\u00e8ce d\'une plan\u00e8te vient de son propre relev\u00e9, et d\'un relev\u00e9 de moins de sept jours', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001'; s.planets[1].gid = '33002';
+    s.prod = { 33001: lus(['Centre de recherche (Niveau 2)']), 33002: lus(['Centre technologique runique (Niveau 1)'], SOIR - 8 * 86400e3) };
+  }, SOIR);
+  assert.equal(g.speciesOfPlanet(g.S.planets[0]), 'humans');
+  assert.equal(g.speciesOfPlanet(g.S.planets[1]), null, 'relev\u00e9 p\u00e9rim\u00e9');
+});
+
+t('une plan\u00e8te jamais lue n\'a pas d\'esp\u00e8ce', () => {
+  const g = app(s => { s.planets[0].gid = '33001'; delete s.prod; }, SOIR);
+  assert.equal(g.speciesOfPlanet(g.S.planets[0]), null);
+});
+
+t('les esp\u00e8ces lues sont compt\u00e9es une fois, m\u00eame sur deux plan\u00e8tes', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001'; s.planets[1].gid = '33002';
+    s.lf.found = [];
+    s.prod = { 33001: lus(['Centre technologique runique (Niveau 1)']), 33002: lus(['Centre technologique runique (Niveau 1)']) };
+  }, SOIR);
+  assert.deepEqual(g.foundLifeforms(), ['rocktal']);
+});
+
+t('sans rien de lu, la case \u00e0 cocher reste le rep\u00e8re', () => {
+  const g = app(s => { s.lf.found = ['humans', 'kaelesh']; delete s.prod; }, SOIR);
+  assert.deepEqual(g.foundLifeforms(), ['humans', 'kaelesh']);
+});
+
+t('la meilleure forme de vie se choisit parmi les lues et les coch\u00e9es', () => {
+  const lu = app(s => {
+    s.planets[0].gid = '33001'; s.lf.found = ['rocktal']; s.day.focus = 'fleet';
+    s.prod = { 33001: lus(['Centre de recherche en robotique (Niveau 0)']) };
+  }, SOIR);
+  assert.equal(lu.bestLifeform(), 'mechas', 'une esp\u00e8ce lue est candidate');
+  const garde = app(s => {
+    s.planets[0].gid = '33001'; s.lf.found = ['rocktal'];
+    s.prod = { 33001: lus(['Centre de recherche (Niveau 2)']) };
+  }, SOIR);
+  assert.equal(garde.bestLifeform(), 'rocktal', 'une lecture n\'efface pas la case');
+});
+
+t('une esp\u00e8ce lue s\'ajoute \u00e0 celles coch\u00e9es, elle n\'en retire aucune', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001'; s.lf.found = ['humans', 'kaelesh'];
+    s.prod = { 33001: lus(['Centre technologique runique (Niveau 1)']) };
+  }, SOIR);
+  assert.deepEqual(g.foundLifeforms().slice().sort(), ['humans', 'kaelesh', 'rocktal']);
+});
+
+t('sans coche d\u00e9finie ni lecture, les Humains restent le rep\u00e8re', () => {
+  const g = app(s => { s.lf.found = null; delete s.prod; }, SOIR);
+  assert.deepEqual(g.foundLifeforms(), ['humans']);
+});
+
+t('un libell\u00e9 espac\u00e9 ou en minuscules nomme encore l\'esp\u00e8ce', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.speciesOf(lus(['  CENTRE DE RECHERCHE (niveau 2) '])), 'humans');
+  assert.equal(g.speciesOf(lus(['  centre de recherche en robotique (NIVEAU 0)  '])), 'mechas');
+});
+
+t('le plan du jour voit le bonus de forme de vie lu', () => {
+  const jour = prod => app(s => {
+    s.planets.forEach(p => { p.stock.m = 0; p.stock.c = 0; p.stock.d = 0; });
+    s.planets[1].gid = '33001'; /* la colonie : c'est elle que le plan fait construire */
+    if (prod) s.prod = { 33001: { lfBonus: prod, at: SOIR, factor: 1 } };
+  }, SOIR).simulateDay();
+  const sans = JSON.stringify(jour(null)), avec = JSON.stringify(jour([500000, 0, 0, 0]));
+  assert.notStrictEqual(avec, sans, 'le plan ignore le bonus lu');
+});
+
+t('un prix relu au même niveau garde l\'heure de sa première lecture', () => {
+  const tile = { lvl: 2, state: 'ok', next: 3, cost: [1440, 720, 0] };
+  const a = app(null, SOIR), b = app(null, SOIR + 3 * 86400e3);
+  const premiere = a.lfMerge(undefined, tile);
+  const relue = b.lfMerge(premiere, tile);
+  assert.equal(relue.seenAt[3], SOIR, 'l\'heure a bougé : ' + relue.seenAt[3]);
+  const autre = b.lfMerge(premiere, { ...tile, cost: [2000, 720, 0] });
+  assert.equal(autre.seenAt[3], SOIR + 3 * 86400e3, 'un prix différent se date à nouveau');
+});
+
+t('la limite de sept jours : 6,9 jours compte, 7 jours pile ne compte plus', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001'; s.planets[1].gid = '33002';
+    s.prod = { 33001: lus(['Centre de recherche (Niveau 2)'], SOIR - 6.9 * 86400e3), 33002: lus(['Centre de recherche (Niveau 2)'], SOIR - 7 * 86400e3) };
+  }, SOIR);
+  assert.equal(g.speciesOfPlanet(g.S.planets[0]), 'humans');
+  assert.equal(g.speciesOfPlanet(g.S.planets[1]), null);
+});
+
+t('la carte de d\u00e9couverte nomme les esp\u00e8ces lues et coch\u00e9es, et ne r\u00e9clame que le reste', () => {
+  const g = app(s => {
+    s.slots = { expo: [0, 2], fleet: [2, 7], at: SOIR }; s.syncAt = SOIR;
+    s.planets[0].gid = '33001'; s.lf.found = ['kaelesh'];
+    s.prod = { 33001: lus(['Centre technologique runique (Niveau 1)']) };
+  }, SOIR);
+  const c = g.dailyMissions().find(m => m.id === 'discovery');
+  assert.ok(/Roctas/.test(c.why), 'lue : ' + c.why);
+  assert.ok(/Kaeleshs/.test(c.why), 'coch\u00e9e : ' + c.why);
+  assert.ok(/pas encore lue/i.test(c.how.join(' ')), 'la consigne ne vaut que pour ce qui n\'est pas lu');
+});
+
+t('les r\u00e9glages montrent les esp\u00e8ces lues sans case \u00e0 cocher', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001';
+    s.prod = { 33001: lus(['Centre technologique runique (Niveau 1)']) };
+  }, SOIR);
+  const h = g.lfSettingsHtml();
+  assert.ok(!/data-lf="rocktal"/.test(h), 'pas de case pour une esp\u00e8ce lue');
+  assert.ok(/data-lf="humans"/.test(h), 'une case pour les autres');
+  assert.ok(/lue sur tes plan\u00e8tes/i.test(h));
 });
 
 if (failures.length) {

@@ -13,6 +13,7 @@
    * @param {string} where production box id or page component
    * @returns {string} research | lfbuilding | lfresearch | shipyard | building
    */
+  let prodWarned = false; // le message « sans tableau reconnu » ne sort qu'une fois par état
   function queueOf(techId, where) {
     const id = +techId || 0;
     if (OG_TECH[techId] || /research/i.test(where) && !/lf/i.test(where)) return 'research';
@@ -141,8 +142,41 @@
     const fm = slotTxt.match(/Flottes?\s*:?\s*(\d{1,3})\s*\/\s*(\d{1,3})/i), em = slotTxt.match(/Exp\S*\s*:?\s*(\d{1,3})\s*\/\s*(\d{1,3})/i);
     const slots = (fm || em) ? { fleet: fm ? [+fm[1], +fm[2]] : null, expo: em ? [+em[1], +em[2]] : null } : null;
 
-    const artTxt = clean(document.body.textContent.match(/Art[ée]facts?\s+collect[ée]s?\s*:?\s*[\d.]+\s*\/\s*[\d.]+/i)?.[0]);
+    const bodyText = document.body.textContent; // une seule lecture par passage : le corps d'une page OGame est lourd
+    const artTxt = clean(bodyText.match(/Art[ée]facts?\s+collect[ée]s?\s*:?\s*[\d.]+\s*\/\s*[\d.]+/i)?.[0]);
     const artefacts = artTxt ? +artTxt.match(/:?\s*([\d.]+)\s*\//)[1].replace(/\./g, '') : null;
+
+    /* Le panneau se repère par ses deux libellés, sans sélecteur : on prend le
+       plus petit bloc qui porte les deux, une rangée par ligne, cellules par tabulation. */
+    let prodPanel = null;
+    if (/Facteur de production/i.test(bodyText) && /Total par heure/i.test(bodyText)) {
+      /* On part des éléments qui portent « Total par heure » (XPath natif, sans
+         lire le texte de chaque bloc), et pour chacun on remonte jusqu'au
+         premier ancêtre qui porte aussi « Facteur de production ». On garde le
+         plus petit bloc trouvé.
+
+         Prendre la première ancre et s'arrêter là suffisait tant que le libellé
+         n'apparaissait qu'une fois. S'il apparaît ailleurs — infobulle, gabarit
+         caché —, la remontée atteint un ancêtre énorme, parfois le corps, et on
+         publierait des lignes sans rapport : le moteur se nourrirait de chiffres
+         faux au lieu de ne rien lire. La casse est neutralisée des deux côtés
+         pour la même raison : une majuscule changée par le jeu ferait perdre le
+         panneau en silence. */
+      const bas = (s) => `translate(${s}, 'ABCDEFGHIJKLMNOPQRSTUVWXYZÀÂÉÈÊËÎÏÔÙÛÜÇ', 'abcdefghijklmnopqrstuvwxyzàâéèêëîïôùûüç')`;
+      const ancres = document.evaluate(`//*[text()[contains(${bas('.')}, 'total par heure')]]`,
+        document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+      let blk = null;
+      for (let i = 0; i < ancres.snapshotLength; i++) {
+        let b = ancres.snapshotItem(i);
+        b = b.closest('table') || b;
+        while (b && !/Facteur de production/i.test(b.textContent)) b = b.parentElement;
+        if (b && (!blk || b.textContent.length < blk.textContent.length)) blk = b;
+      }
+      const rows = blk ? [...blk.querySelectorAll('tr')].map(r => [...r.children].map(c => clean(c.textContent)).join('\t')).filter(Boolean) : [];
+      // Pas de tableau reconnu : on ne publie rien (un textContent à plat ne se découpe pas).
+      if (rows.length) { prodPanel = (clean(blk.textContent.match(/Facteur de production\s*:?\s*\d+\s*%/i)?.[0]) + '\n' + rows.join('\n')).slice(0, 20000); prodWarned = false; }
+      else if (!prodWarned) { prodWarned = true; console.debug('[copilote] panneau de production sans tableau reconnu'); }
+    } else prodWarned = false;
 
     const unique = [];
     for (const t of timers) {
@@ -179,6 +213,7 @@
       moves,
       movePage: /movement/i.test(component),
       artefacts,
+      prodPanel,
       lf,
       lfSeen: lfPage ? { [lfPage]: Date.now() } : null,
       slots,
