@@ -2171,6 +2171,90 @@ t('les r\u00e9glages montrent les esp\u00e8ces lues sans case \u00e0 cocher', ()
   assert.ok(/lue sur tes plan\u00e8tes/i.test(h));
 });
 
+/* ---------- le lien d'une carte mène au bon système ---------- */
+
+/* Trois inactifs voisins de la planète mère (1:142:8). Au-delà de trente
+   systèmes, raidTargets les écarte, d'où le 140. */
+const API_INACTIFS = {
+  planets: [['1:140:8', 'p1'], ['1:140:7', 'p2'], ['1:140:5', 'p3']],
+  players: { p1: ['Alpha', 'i'], p2: ['Beta', 'i'], p3: ['Gamma', 'i'] },
+  scores: { p1: [1000], p2: [900], p3: [800] }
+};
+const carteRaid = g => g.dailyMissions().find(m => m.id === 'raid');
+
+t('le lien de la carte de pillage ouvre la galaxie au bon système', () => {
+  const g = app(s => { s.host = 's1-fr.ogame.gameforge.com'; }, SOIR, API_INACTIFS);
+  const c = carteRaid(g);
+  assert.ok(c, 'la carte de pillage sort');
+  const url = g.missionGo(c);
+  assert.ok(/[?&]galaxy=1(&|$)/.test(url), 'la galaxie est dans le lien : ' + url);
+  assert.ok(/[?&]system=140(&|$)/.test(url), 'le système aussi : ' + url);
+});
+
+t('une carte de galaxie sans coordonnées garde son lien de page', () => {
+  const g = app(s => { s.host = 's1-fr.ogame.gameforge.com'; }, SOIR);
+  const url = g.missionGo({ id: 'inactive', tags: [] });
+  assert.ok(/component=galaxy/.test(url), 'la page galaxie : ' + url);
+  assert.ok(!/galaxy=\d/.test(url), 'sans coordonnées inventées : ' + url);
+});
+
+t('le pillage prêt mène au système de la cible', () => {
+  const g = app(s => {
+    s.host = 's1-fr.ogame.gameforge.com';
+    s.raid = { coords: '1:140:8', safe: true, m: 50000, c: 0, d: 0, at: SOIR };
+  }, SOIR, API_INACTIFS);
+  const c = g.dailyMissions().find(m => m.id === 'raid-go');
+  assert.ok(c, 'la carte sort');
+  assert.ok(/[?&]system=140(&|$)/.test(g.missionGo(c)), 'le lien vise le bon système');
+});
+
+t('un emplacement de colonie pris mène au système concerné', () => {
+  const g = app(s => {
+    s.host = 's1-fr.ogame.gameforge.com';
+    s.colo.target = '1:140:7';
+  }, SOIR, API_INACTIFS);
+  const c = g.dailyMissions().find(m => m.id === 'colo-taken');
+  assert.ok(c, 'la carte sort');
+  assert.ok(/[?&]system=140(&|$)/.test(g.missionGo(c)), 'le lien vise le bon système');
+});
+
+/* ---------- ce qui lève la limite ---------- */
+
+t('quand les emplacements de flotte brident le pillage, la carte dit quoi monter', () => {
+  const g = app(s => {
+    s.host = 's1-fr.ogame.gameforge.com';
+    s.slots = { fleet: [8, 9], expo: [0, 2], at: SOIR };
+    s.syncAt = SOIR;
+    s.tech.computer = 2;
+  }, SOIR, API_INACTIFS);
+  const c = carteRaid(g);
+  assert.ok(c, 'la carte sort');
+  const txt = c.why + ' ' + (c.how || []).join(' ');
+  assert.ok(/Ordinateur 3/.test(txt), 'elle nomme le niveau qui débloque : ' + txt);
+});
+
+t('la découverte dit ce qui ajoute un emplacement quand il n\'en reste qu\'un', () => {
+  const g = app(s => {
+    s.slots = { fleet: [6, 7], expo: [0, 2], at: SOIR }; s.syncAt = SOIR; s.tech.computer = 2;
+  }, SOIR);
+  const c = g.dailyMissions().find(m => m.id === 'discovery');
+  assert.ok(c, 'la carte sort');
+  assert.ok(/Ordinateur 3/.test(c.how.join(' ')), 'le levier est nommé : ' + c.how.join(' '));
+});
+
+t('avec de la place, la découverte ne parle pas d\'Ordinateur', () => {
+  const g = app(s => { s.slots = { fleet: [1, 7], expo: [0, 2], at: SOIR }; s.syncAt = SOIR; }, SOIR);
+  const c = g.dailyMissions().find(m => m.id === 'discovery');
+  assert.ok(c && !/Ordinateur/.test(c.how.join(' ')), 'rien à lever');
+});
+
+t('sans bridage, la carte ne parle pas d\'Ordinateur', () => {
+  const g = app(s => { s.host = 's1-fr.ogame.gameforge.com'; }, SOIR, API_INACTIFS);
+  const c = carteRaid(g);
+  const txt = c.why + ' ' + (c.how || []).join(' ');
+  assert.ok(!/Ordinateur/.test(txt), 'rien à lever : ' + txt);
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');
