@@ -1643,6 +1643,61 @@ t('un bonus illisible (non fini, n\u00e9gatif) n\'entre pas dans la production',
   assert.equal(a.m, b.m); assert.equal(a.c, b.c); assert.equal(a.d, b.d); assert.equal(a.eProd, b.eProd);
 });
 
+/** Le panneau Caribou dont la dernière cellule (énergie libre/produite) est remplacée. */
+const panneauEnergie = cell => PANNEAU_CARIBOU.replace('231/4.385', cell);
+/** Fait lire à applyGame un panneau pour la planète 33001 de la fixture. */
+function lis(g, text, at) {
+  g.S.planets[0].gid = '33001';
+  g.applyGame({ prod: { 33001: { text, at } }, planets: {}, timers: [], moves: [] });
+  return g.production(g.S.planets[0]);
+}
+
+t('l\'énergie lue cale le bilan de la planète, quel que soit l\'ancien eAdj', () => {
+  const g = app(s => { s.planets[0].eAdj = -300; }, SOIR);
+  const avant = g.production(g.S.planets[0]).eBal;
+  const pr = lis(g, PANNEAU_CARIBOU, SOIR);
+  assert.notEqual(avant, 231, 'la fixture ne tombe pas déjà sur 231 : le test mord');
+  assert.strictEqual(pr.eBal, 231, 'le solde suit la lecture : ' + pr.eBal);
+});
+
+t('l\'écart d\'énergie se mesure sans eAdj, contre le solde', () => {
+  const g = app(null, SOIR);
+  lis(g, PANNEAU_CARIBOU, SOIR);
+  const p = g.S.planets[0], eAdj = p.eAdj;
+  p.eAdj = 0;
+  assert.strictEqual(231 - g.production(p).eBal, eAdj);
+});
+
+t('une énergie libre illisible laisse eAdj intact', () => {
+  const g = app(s => { s.planets[0].eAdj = -77; }, SOIR);
+  lis(g, panneauEnergie('1.2.3/4.385'), SOIR);
+  assert.strictEqual(g.S.planets[0].eAdj, -77);
+});
+
+t('un panneau de plus de sept jours ne cale pas le bilan', () => {
+  const g = app(s => { s.planets[0].eAdj = -77; }, SOIR);
+  lis(g, PANNEAU_CARIBOU, SOIR - 8 * 86400e3);
+  assert.strictEqual(g.S.planets[0].eAdj, -77);
+});
+
+t('une énergie libre démesurée est bornée', () => {
+  const g = app(null, SOIR);
+  lis(g, panneauEnergie('999.999.999.999/4.385'), SOIR);
+  assert.ok(Math.abs(g.S.planets[0].eAdj) <= 2e9, 'eAdj borné : ' + g.S.planets[0].eAdj);
+});
+
+/* Une mine bridée produit moins ; c'est un état, pas une propriété de la mine.
+   Le gain du niveau suivant se calcule sur la mine à pleine marche, sinon le
+   classement condamnerait pour toujours une planète à court d'énergie. */
+t('un facteur sous 100 % ne se propage pas au gain du niveau suivant', () => {
+  const g = app(null, SOIR);
+  lis(g, panneauEnergie('-500/2.000').replace('Facteur de production: 100%', 'Facteur de production: 80%'), SOIR);
+  assert.ok(g.production(g.S.planets[0]).factor < 1, 'la planète manque d\'énergie');
+  const ups = g.rankUpgrades(g.S.planets[0]);
+  assert.ok(ups.length, 'des montées sont proposées');
+  assert.strictEqual(ups[0].key, 'solar', 'et l\'énergie passe devant : ' + ups.map(u => u.key));
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

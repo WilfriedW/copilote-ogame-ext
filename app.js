@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.26.0';
+const APP_VERSION = '1.27.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -2425,6 +2425,23 @@ setInterval(tickTimers, 1000);
 setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); }, 30000);
 
 
+/**
+ * Cale le solde d'énergie d'une planète sur celui que le panneau de production
+ * affiche. Même mesure que les deux autres lectures : on remet eAdj à zéro pour
+ * que production() rende le solde du moteur seul, et l'écart est ce qu'il ne
+ * sait pas expliquer (la consommation des formes de vie déjà bâties, notamment).
+ * Sans effet si la planète est inconnue, la lecture a plus de sept jours ou
+ * l'énergie libre est illisible.
+ * @param {object|undefined} p planète de S.planets
+ */
+function calePlanete(p){
+  const r = prodOf(p);
+  const free = r && r.energy && r.energy.free;
+  if(!Number.isFinite(free) || !(Date.now() - r.at < LF_READ_TTL)) return;
+  p.eAdj = 0;
+  p.eAdj = Math.min(Math.max(free, -1e9), 1e9) - production(p).eBal;
+}
+
 /* ---------- live sync from the extension ---------- */
 /** Merges the game state collected by the content script into the panel state. */
 function applyGame(g){
@@ -2480,7 +2497,7 @@ function applyGame(g){
     for(const [gid, e] of Object.entries(g.prod)){
       if(!/^\d+$/.test(gid)) continue; // « __proto__ » & co : jamais une clé
       const r = e && parseProdPanel(e.text);
-      if(r){ r.at = +e.at || 0; S.prod[gid] = r; }
+      if(r){ r.at = +e.at || 0; S.prod[gid] = r; calePlanete(S.planets.find(x=>x.gid===gid)); }
     }
   }
   S.sample = false;
