@@ -214,10 +214,16 @@ function missionGo(m){
 function goAttr(url){ return url ? ` data-go="${esc(url)}"` : ''; }
 /* OGame n'accepte de paramètres d'URL que sur la page de flotte — c'est ce dont
    sa propre page Galaxie a besoin. Il n'existe aucun équivalent pour « monte
-   Métal 21 » : le lien d'un bâtiment, d'une recherche ou d'une case de forme de
-   vie ouvre la bonne page sur la bonne planète, et s'arrête là. Le dire est la
+   Métal 21 » : le lien d'un bâtiment, d'une recherche, d'une case de forme de
+   vie ou d'un chantier ouvre la bonne page, et s'arrête là. Le dire est la
    seule chose à faire ; se taire laisse attendre un formulaire rempli qui ne
-   viendra jamais. */
+   viendra jamais.
+
+   Et il ouvre la bonne planète seulement quand l'URL porte `cp=`. Une planète
+   que le jeu ne nous a pas encore nommée n'a pas d'identifiant à y mettre : le
+   lien tombe alors sur celle que le jeu avait en tête. Promettre « la bonne
+   planète » dans ce cas enverrait construire ailleurs un joueur qui en a
+   plusieurs — le mensonge exact que cette note est censée supprimer. */
 /**
  * Why a card's link cannot carry the action itself, when it cannot.
  * @param {object} a planned action
@@ -225,8 +231,11 @@ function goAttr(url){ return url ? ` data-go="${esc(url)}"` : ''; }
  *   there is no link at all
  */
 function goNote(a){
-  if(!a || fleetUrl(a) || !actGo(a)) return '';
-  return 'Le lien ouvre la page sur la bonne planète : OGame ne permet pas de pré-remplir un bâtiment ou une recherche.';
+  const url = a && !fleetUrl(a) && actGo(a);
+  if(!url) return '';
+  return /[?&]cp=/.test(url)
+    ? 'Le lien ouvre la page sur la bonne planète : OGame ne permet pas de pré-remplir cette action.'
+    : 'Le lien ouvre la page : OGame ne permet pas de pré-remplir cette action, ni de choisir la planète tant que le jeu ne l\'a pas nommée.';
 }
 /* Noms relevés sur le jeu ; le panneau de détail en apporte d'autres au fil
    des visites, et ceux-là priment puisqu'ils viennent de la partie en cours. */
@@ -1418,7 +1427,11 @@ const EXPO_MAX_READ = 32;
  */
 function expoInFlight(){
   if(!(S.slots && S.slots.expo)) return null;
-  const at = S.slots.at || S.syncAt;
+  /* L'heure de la lecture, et rien d'autre. Se rabattre sur `syncAt` comme le
+     fait fleetSlots() rendrait éternellement frais un `slots` enregistré avant
+     la 1.25, quand l'heure n'était pas estampillée : le panneau se tairait sur
+     les expéditions jusqu'à la prochaine ouverture de la page de flotte. */
+  const at = S.slots.at;
   const n = Math.min(Math.max(0, Math.floor(Number(S.slots.expo[0]) || 0)), EXPO_MAX_READ);
   return at && Date.now()-at < EXPO_READ_TTL ? {n, at} : null;
 }

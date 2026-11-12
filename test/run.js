@@ -1329,8 +1329,23 @@ t('deux expéditions en vol lues dans le jeu : aucune carte d\'expédition', () 
 });
 
 t('le compte lu est rendu tel quel quand le plafond a baissé', () => {
-  const g = app(s => { s.slots = { expo: [5, 2], fleet: [5, 9], at: SOIR }; s.syncAt = SOIR; }, SOIR);
+  const g = app(s => {
+    s.planets[0].ships = { lc: 30 };
+    s.slots = { expo: [5, 2], fleet: [5, 9], at: SOIR };
+    s.syncAt = SOIR;
+    s.tech.astro = 4;
+  }, SOIR);
   assert.equal(g.expoInFlight().n, 5);
+  assert.ok(!actes(g).some(a => a.kind === 'expo'), 'et le plan se tait quand même');
+});
+
+/* Avant la 1.25, `slots` était enregistré sans heure de lecture. Se rabattre
+   sur `syncAt`, qui avance à chaque synchronisation, rendrait ce chiffre
+   éternellement frais : le panneau se tairait sur les expéditions jusqu'à la
+   prochaine ouverture de la page de flotte. */
+t('un réglage enregistré avant la 1.25 ne fige pas le compte', () => {
+  const g = app(s => { s.slots = { expo: [2, 2], fleet: [2, 9] }; s.syncAt = SOIR; }, SOIR);
+  assert.equal(g.expoInFlight(), null, 'sans heure de lecture, on ne compte pas');
 });
 
 /* Le chiffre vient d'une expression régulière sur le texte d'une page du jeu,
@@ -1411,6 +1426,28 @@ t('la note apparaît dans le HTML de la carte', () => {
 t('une recherche porte la même note', () => {
   const g = app(HOTE, SOIR);
   assert.ok(PREREMPLI.test(g.goNote({ kind: 't', k: 'astro', lvl: 5, p: 0 })));
+});
+
+/* Sans identifiant de planète, le lien n'emporte pas de `cp=` : il ouvre la
+   page sur la planète que le jeu avait en tête. Promettre « la bonne planète »
+   enverrait construire ailleurs un joueur qui en a plusieurs. */
+t('sur une planète que le jeu a nommée, la note promet la bonne planète', () => {
+  const g = app(s => { HOTE(s); s.planets[0].gid = '33001'; }, SOIR);
+  assert.ok(/bonne planète/.test(g.goNote(BATIMENT)));
+});
+
+t('sur une planète jamais nommée, la note ne promet pas la planète', () => {
+  const g = app(HOTE, SOIR);
+  const note = g.goNote(BATIMENT);
+  assert.ok(PREREMPLI.test(note), 'elle dit toujours la limite');
+  assert.ok(!/bonne planète/.test(note), 'mais ne promet rien de faux : ' + note);
+});
+
+t('une carte de chantier ne parle pas de bâtiment ni de recherche', () => {
+  const g = app(s => { HOTE(s); s.planets[0].gid = '33001'; }, SOIR);
+  const note = g.goNote({ kind: 'ship', k: 'lc', n: 5, p: 0 });
+  assert.ok(PREREMPLI.test(note), 'la note sort pour un chantier aussi');
+  assert.ok(!/b[âa]timent ou une recherche/i.test(note), 'sans se tromper de vocabulaire : ' + note);
 });
 
 if (failures.length) {
