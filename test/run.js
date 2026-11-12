@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -1047,8 +1047,8 @@ t('Plasma annonce son amortissement, chiffré sur l\'empire du joueur', () => {
 t('toutes les planètes prises, un conseil nomme le palier d\'Astrophysique', () => {
   const g = app(s => { s.tech.astro = 2; });
   assert.equal(g.maxPlanets(), 2, 'Astro 2 autorise deux planètes, et le joueur en a deux');
-  const c = g.adviceList().find(a => /Astrophysique 3/.test(a.what + ' ' + a.why));
-  assert.ok(c, 'aucun conseil ne dit qu\'Astrophysique 3 ouvrirait une planète de plus');
+  const c = g.dailyMissions().find(m => /Astrophysique 3/.test(m.what + ' ' + m.why));
+  assert.ok(c, 'aucune carte ne dit qu\'Astrophysique 3 ouvrirait une planète de plus');
 });
 
 t('en focus colonie, le plan propose le palier qui ouvre une planète', () => {
@@ -1270,6 +1270,244 @@ t('les foreuses se classent avec les mines quand le chantier les permet', () => 
 t('sans le chantier qui les construit, aucune foreuse proposée', () => {
   const g = app();
   assert.ok(!g.rankUpgrades(g.S.planets[0]).some(u => u.key === 'crawl'));
+});
+
+/* ---------- les foreuses construites comptent ---------- */
+/* Le jeu n'écrit la foreuse (217) que dans `crawlers`, jamais dans la flotte :
+   217 ne figure pas dans OG_SHIPS. Le code simulé doit faire pareil, sans quoi
+   la production ne voit jamais les foreuses et le plan les repropose. */
+
+t('la fin d\'un minuteur de foreuses crédite le compte, pas la flotte', () => {
+  const g = app();
+  const p = g.S.planets[0];
+  g.finishTimer({ kind: 'x', k: 'shipyard', p: 0, ships: { crawl: 40 }, end: SOIR });
+  assert.equal(p.crawlers, 40, 'les foreuses doivent compter');
+  assert.ok(!(p.ships && p.ships.crawl), 'et ne pas atterrir dans la flotte');
+});
+
+t('un minuteur lu dans le jeu ne touche pas au compte', () => {
+  const g = app();
+  const p = g.S.planets[0];
+  p.crawlers = 120;
+  g.finishTimer({ kind: 'x', k: 'shipyard', p: 0, ships: { crawl: 40 }, end: SOIR, game: true });
+  assert.equal(p.crawlers, 120, 'la lecture du jeu fait foi');
+});
+
+/* Mines hautes et énergie large : un niveau de mine coûte alors assez cher pour
+   que les foreuses passent devant, ce que le classement sait faire depuis
+   toujours — mais que la boucle du chantier comparait par identité d'objet. */
+const MINES_HAUTES = armour => s => {
+  const p = s.planets[0];
+  Object.assign(p.b, { metal: 28, crystal: 26, deut: 24, solar: 44, shipyard: 6 });
+  s.tech.armour = armour;
+  p.stock = { m: 9e7, c: 9e7, d: 9e7, at: SOIR };
+};
+
+t('une carte de foreuses est proposee quand elles sont en tete du classement', () => {
+  const g = app(MINES_HAUTES(4));
+  assert.equal(g.rankUpgrades(g.S.planets[0])[0].key, 'crawl',
+    'préalable du test : les foreuses doivent être en tête du classement');
+  const cartes = g.simulateDay().sessions.flatMap(x => x.acts).filter(a => a.ships && a.ships.crawl);
+  assert.ok(cartes.length, 'aucune carte de foreuses sur tout l\'horizon');
+});
+
+t('les lots de foreuses avancent et s\'arretent au plafond', () => {
+  // La preuve que le compte avance : le moteur en pose 10 % du plafond par
+  // connexion, et le dernier lot est rogné pour tomber juste. Avec le compte
+  // figé, il aurait reproposé le même lot sans jamais s'arrêter.
+  const g = app(MINES_HAUTES(4));
+  const p = g.S.planets[0];
+  const max = g.crawlerMax(p.b.metal, p.b.crystal, p.b.deut);
+  const lots = g.simulateDay().sessions.flatMap(x => x.acts)
+    .filter(a => a.ships && a.ships.crawl).map(a => a.ships.crawl);
+  assert.ok(lots.length > 1, 'le plafond se remplit en plusieurs lots');
+  assert.equal(lots.reduce((a, b) => a + b, 0), max,
+    'les lots doivent totaliser le plafond exactement, et donc s\'arrêter : ' + lots.join(','));
+  assert.ok(lots[lots.length - 1] < lots[0], 'le dernier lot est rogné pour tomber juste');
+});
+
+t('le gain des foreuses se voit dans la journee', () => {
+  // Armure 4 ouvre les foreuses, armure 0 les interdit : même planète sinon.
+  const avec = app(MINES_HAUTES(4)).simulateDay();
+  const sans = app(MINES_HAUTES(0)).simulateDay();
+  assert.ok(avec.endV - avec.startV > sans.endV - sans.startV,
+    'la journée avec foreuses doit produire plus : ' +
+    Math.round(avec.endV - avec.startV) + ' contre ' + Math.round(sans.endV - sans.startV));
+});
+
+/* ---------- la pastille de foreuses ---------- */
+/* Les foreuses sont invisibles dans le jeu une fois posées : la carte de
+   planète est le seul endroit qui dit combien en profitent encore. */
+
+t('la carte de planete dit combien de foreuses servent', () => {
+  const g = app(s => { s.planets[0].crawlers = 120; });
+  g.REFRESH.planets();
+  const html = g.html()['pres-0'] || '';
+  assert.ok(/120\s*\/\s*288/.test(html),
+    'le compte et le plafond (8 x (14+12+10)) doivent figurer : ' + html.slice(0, 300));
+});
+
+t('la pastille de foreuses occupe toute la largeur des jauges', () => {
+  // Les jauges sont une grille de quatre colonnes : posée telle quelle, la
+  // pastille tiendrait dans une colonne et son texte déborderait sa bordure.
+  const g = app(s => { s.planets[0].crawlers = 120; });
+  g.REFRESH.planets();
+  assert.ok(/class="wide"[^>]*>\s*<span class="pill/.test(g.html()['pres-0'] || ''),
+    'la pastille doit être dans un bandeau pleine largeur');
+});
+
+t('le plan ne renvoie plus a un ecran supprime', () => {
+  const g = app(s => { s.plan = []; });
+  g.REFRESH.plan();
+  assert.ok(!/Construire/.test(g.html().plList || ''),
+    'l\'écran Construire n\'existe plus : ' + (g.html().plList || ''));
+});
+
+t('pas de pastille quand aucune foreuse n\'est possible', () => {
+  const g = app(s => {
+    Object.assign(s.planets[0].b, { metal: 0, crystal: 0, deut: 0 });
+  });
+  g.REFRESH.planets();
+  assert.ok(!/[Ff]oreuse/.test(g.html()['pres-0'] || ''),
+    'plafond nul : rien à dire');
+});
+
+/* ---------- le fil du debut de partie ---------- */
+
+t('le bloc de progression nomme la prochaine etape', () => {
+  const g = app(s => { s.planets[0].b.lab = 2; s.tech.impulse = 0; });
+  g.REFRESH.today();
+  const html = g.html().tdDay || '';
+  assert.ok(/Prochaine étape/.test(html), 'le bloc doit être rendu : ' + html.slice(0, 300));
+  assert.ok(/\d+\s*\/\s*11/.test(html), 'et porter le compte sur onze');
+});
+
+t('les jalons franchis dans le desordre comptent quand meme', () => {
+  // Astro 3 est tenu, Ordinateur 2 aussi, mais le labo est à 2 : le compte
+  // doit refléter ce qui est franchi, pas l'indice du premier manquant.
+  const g = app(s => { s.planets[0].b.lab = 2; });
+  g.REFRESH.today();
+  const m = /(\d+)\s*\/\s*11/.exec(g.html().tdDay || '');
+  assert.ok(m, 'le compte doit être rendu');
+  assert.ok(+m[1] >= 9, 'neuf jalons au moins sont franchis ici, et non 7 : ' + (m && m[1]));
+});
+
+/* ---------- les alertes ne dependent plus d'un second moteur ---------- */
+/* Elles sortaient d'adviceList, moteur parallèle que simulateDay et
+   dailyMissions avaient rattrapé. Elles viennent désormais d'une passe par
+   planète, sans garde de file : un bâtiment en cours ne doit rien taire. */
+
+t('energie negative et hangar plein sont dits tous les deux', () => {
+  const g = app(s => {
+    const p = s.planets[0];
+    Object.assign(p.b, { metal: 20, solar: 1, smetal: 0 });
+    p.stock = { m: 9e9, c: 0, d: 0, at: SOIR };
+  });
+  const a = g.simulateDay().alerts;
+  assert.ok(a.some(x => /[Éé]nergie/.test(x.what)), 'l\'énergie négative doit être dite');
+  assert.ok(a.some(x => /[Hh]angar/.test(x.what)), 'le hangar plein aussi');
+});
+
+t('une construction en cours ne fait pas taire les alertes', () => {
+  const g = app(s => {
+    const p = s.planets[0];
+    Object.assign(p.b, { metal: 20, solar: 1 });
+    s.timers = [{ id: 'x', kind: 'b', p: 0, k: 'metal', lvl: 21, end: SOIR + 6 * 3600e3 }];
+  });
+  assert.ok(g.simulateDay().alerts.some(x => /[Éé]nergie/.test(x.what)),
+    'la file occupée ne doit pas effacer l\'avertissement');
+});
+
+t('l\'alerte nomme sa planete quand il y en a plusieurs', () => {
+  const g = app(s => { Object.assign(s.planets[1].b, { metal: 12, solar: 1 }); });
+  const nrj = g.simulateDay().alerts.filter(x => /énergie/i.test(x.what));
+  assert.ok(nrj.length > 1, 'les deux planètes manquent d\'énergie ici');
+  assert.ok(nrj.some(x => /Colonie/.test(x.what)), 'la colonie doit être nommée : ' + JSON.stringify(nrj));
+  assert.ok(nrj.every(x => / sur /.test(x.what)), 'chaque alerte doit dire sur quelle planète');
+});
+
+t('une ressource sans production ne donne pas d\'alerte de hangar', () => {
+  const g = app(s => {
+    const p = s.planets[0];
+    Object.assign(p.b, { deut: 0, sdeut: 0 });
+    p.stock = { m: 0, c: 0, d: 0, at: SOIR };
+  });
+  g.simulateDay().alerts.forEach(x => {
+    assert.ok(!/Infinity|NaN/.test(x.what + x.why), 'aucun chiffre absurde : ' + x.what);
+  });
+});
+
+t('un debit negatif ne donne pas d\'alerte de hangar', () => {
+  // Une centrale à fusion mange plus de deutérium que le synthétiseur n'en
+  // produit : le débit est négatif, et sans le garde « plein dans » diviserait
+  // par ce débit et annoncerait un réservoir plein dans une durée négative.
+  const g = app(s => {
+    const p = s.planets[0];
+    Object.assign(p.b, { deut: 1, fusion: 12, sdeut: 4 });
+    p.stock = { m: 0, c: 0, d: 0, at: SOIR };
+  });
+  const p = g.S.planets[0];
+  assert.ok(g.production(p).d < 0, 'préalable du test : le débit de deutérium doit être négatif');
+  assert.ok(!g.planetAlerts(p).some(a => /[Rr]éservoir/.test(a.what)),
+    'rien à dire d\'un réservoir qui se vide : ' + JSON.stringify(g.planetAlerts(p)));
+});
+
+t('les alertes urgentes passent avant les avertissements', () => {
+  // La planète mère n'a qu'un hangar qui se remplit (Attention), la colonie
+  // manque d'énergie (Urgent). Dans l'ordre des planètes, l'Attention sort
+  // en premier : c'est le tri par sévérité qui doit le remettre dessous.
+  const g = app(s => {
+    s.planets[0].stock = { m: 66524, c: 0, d: 0, at: SOIR };
+    Object.assign(s.planets[1].b, { metal: 12, solar: 1 });
+  });
+  const sevs = g.simulateDay().alerts.map(a => a.sev);
+  assert.ok(sevs.includes('bad') && sevs.includes('warn'),
+    'préalable du test : il faut une urgence et un avertissement, et non ' + sevs.join(','));
+  assert.ok(sevs.lastIndexOf('bad') < sevs.indexOf('warn'),
+    'aucun Urgent ne doit se lire sous un Attention : ' + sevs.join(','));
+});
+
+t('la carte Alertes affiche ce que le moteur produit', () => {
+  // Le moteur peut continuer à produire des alertes pendant que la carte cesse
+  // de les montrer : c'est la carte, pas le tableau, que voit le joueur.
+  const g = app(s => {
+    Object.assign(s.planets[0].b, { metal: 20, solar: 1, smetal: 0 });
+    s.planets[0].stock = { m: 9e9, c: 0, d: 0, at: SOIR };
+  });
+  g.REFRESH.today();
+  const html = g.html().tdAlerts || '';
+  assert.ok(/Urgent/.test(html), 'la pastille de sévérité doit être rendue : ' + html.slice(0, 200));
+  assert.ok(/[Hh]angar/.test(html), 'et le hangar plein y figurer : ' + html.slice(0, 200));
+});
+
+t('l\'alerte de file vide reste tue quand l\'extension a lu plus recemment', () => {
+  const g = app(s => {
+    s.lastAlerts = ['Planète mère : File vide'];
+    s.lastImport = SOIR - 3600e3;
+    s.syncAt = SOIR;
+  });
+  assert.ok(!g.dailyMissions().some(m => /file vide/i.test(m.what)),
+    'un vieil import ne doit pas ressortir après une synchro');
+});
+
+t('l\'alerte de file vide est dite quand l\'import est le plus frais', () => {
+  const g = app(s => {
+    s.lastAlerts = ['Planète mère : File vide'];
+    s.lastImport = SOIR;
+    s.syncAt = SOIR - 3600e3;
+  });
+  assert.ok(g.dailyMissions().some(m => /file vide/i.test(m.what)),
+    'une file vide signalée par le dernier import doit remonter');
+});
+
+t('tous les jalons franchis, le bloc disparait', () => {
+  const g = app(s => {
+    Object.assign(s.planets[0].b, { lab: 3, robot: 2, shipyard: 2 });
+    Object.assign(s.tech, { energy: 3, combustion: 4, espionage: 4, computer: 2, impulse: 3, astro: 3 });
+  });
+  g.REFRESH.today();
+  assert.ok(!/Début de partie/.test(g.html().tdDay || ''),
+    'rien à afficher quand les onze sont franchis');
 });
 
 /* ---------- le délai de retour d'une colonie est simulé ---------- */
