@@ -259,8 +259,9 @@ function lfPriced(v){
    lus sur une page ne doivent jamais faire grossir la mémoire ni les calculs. */
 const LF_LVL_MAX = 1000;
 const LF_COST_MAX = 1e15;
-/* Les coûts montent d'un niveau à l'autre : un facteur sous 1 est du bruit de
-   lecture, et au-dessus de 5 il n'a plus rien d'une courbe de jeu. */
+/* Les coûts montent d'un niveau à l'autre. Un facteur hors de [1, 5] veut dire
+   que les deux prix vus ne peuvent pas être justes ensemble (un bonus de coût a
+   changé entre les deux) : on ne chiffre pas, plutôt que de chiffrer faux. */
 const LF_FACTOR_MAX = 5;
 /* Niveaux de prix gardés par case : deux suffisent au facteur, dix laissent de
    quoi le vérifier sans que le stockage grossisse. */
@@ -277,17 +278,18 @@ function lfClampCost(c){
 
 /**
  * Mémoire des prix vus d'une case : ajoute celui que vient de lire le panneau
- * de détail (prix du niveau `next`) et ne garde que les dix niveaux les plus hauts.
- * @param {object} seen mémoire actuelle {niveau:[m,c,d]}
+ * de détail (prix du niveau `next`, avec l'heure de lecture) et ne garde que
+ * les dix niveaux les plus hauts.
+ * @param {object} prev case déjà connue (seen, seenAt), ou undefined
  * @param {object} v lecture de la case
- * @returns {object} nouvelle mémoire
+ * @returns {{seen:object, seenAt:object}} prix {niveau:[m,c,d]} et heures {niveau:ms}
  */
-function lfRemember(seen, v){
-  const out = Object.assign({}, seen);
+function lfRemember(prev, v){
+  const seen = Object.assign({}, prev && prev.seen), seenAt = Object.assign({}, prev && prev.seenAt);
   const n = Math.floor(+v.next);
-  if(n >= 1 && n <= LF_LVL_MAX && Array.isArray(v.cost) && v.cost.some(x=>x>0)) out[n] = lfClampCost(v.cost);
-  Object.keys(out).map(Number).sort((a,b)=>b-a).slice(LF_SEEN_KEEP).forEach(k=>{ delete out[k]; });
-  return out;
+  if(n >= 1 && n <= LF_LVL_MAX && Array.isArray(v.cost) && v.cost.some(x=>x>0)){ seen[n] = lfClampCost(v.cost); seenAt[n] = Date.now(); }
+  Object.keys(seen).map(Number).sort((a,b)=>b-a).slice(LF_SEEN_KEEP).forEach(k=>{ delete seen[k]; delete seenAt[k]; });
+  return {seen, seenAt};
 }
 
 /**
@@ -298,7 +300,7 @@ function lfRemember(seen, v){
  * @returns {object} case fusionnée
  */
 function lfMerge(prev, cur){
-  const out = Object.assign({}, cur, {seen: lfRemember(prev && prev.seen, cur)});
+  const out = Object.assign({}, cur, lfRemember(prev, cur));
   if(!cur.cost && prev && prev.secs > 0 && !(cur.secs > 0)) out.secs = prev.secs;
   return out;
 }
@@ -309,21 +311,23 @@ function lfMerge(prev, cur){
  * depuis le plus haut. Un prix lu à ce niveau prime toujours.
  * @param {object} v case relevée (lvl, next, cost, secs, seen)
  * @param {number} niveau niveau visé
- * @returns {{cost:number[], src:'lu'|'estimé'}|null} null quand rien ne permet de chiffrer
+ * @returns {{cost:number[], src:'lu'|'estimé', at?:number}|null} `at` : heure de lecture d'un prix lu ;
+ *   null quand rien ne permet de chiffrer
  */
 function lfCost(v, niveau){
   const n = Math.floor(+niveau);
   if(!v || !(n >= 1)) return null;
-  if(lfPriced(v) && v.next === n) return {cost: lfClampCost(v.cost), src:'lu'};
+  if(lfPriced(v) && v.next === n) return {cost: lfClampCost(v.cost), src:'lu', at:(v.seenAt || {})[n]};
   const seen = v.seen || {};
   const nv = Object.keys(seen).map(Number).filter(k=>Number.isInteger(k) && k >= 1 && k <= LF_LVL_MAX).sort((a,b)=>a-b);
-  if(seen[n] && lfClampCost(seen[n]).some(x=>x>0)) return {cost: lfClampCost(seen[n]), src:'lu'};
+  if(seen[n] && lfClampCost(seen[n]).some(x=>x>0)) return {cost: lfClampCost(seen[n]), src:'lu', at:(v.seenAt || {})[n]};
   if(nv.length < 2) return null;
   const n1 = nv[nv.length-2], n2 = nv[nv.length-1];
   const c1 = lfClampCost(seen[n1]), c2 = lfClampCost(seen[n2]);
   const j = [0,1,2].find(i=>c1[i] > 0 && c2[i] > 0);
   if(j === undefined) return null;
-  const f = Math.min(Math.max(Math.pow(c2[j]/c1[j], 1/(n2-n1)), 1), LF_FACTOR_MAX);
+  const f = Math.pow(c2[j]/c1[j], 1/(n2-n1));
+  if(!(f >= 1 && f <= LF_FACTOR_MAX)) return null;
   const raw = c2.map(x=>Math.round(x * Math.pow(f, n-n2)));
   return raw.every(x=>Number.isFinite(x) && x <= LF_COST_MAX) ? {cost: raw, src:'estimé'} : null;
 }
@@ -339,14 +343,17 @@ function lfCost(v, niveau){
  * @returns {object[]} candidats triés
  */
 function lfCandidates(p, queue){
-  return Object.entries(p.lf || {}).flatMap(([id,v]) => {
-    if(lfQueue(id) !== queue || !v || v.state === 'locked') return [];
+  const libres = Object.entries(p.lf || {}).filter(([id,v]) => lfQueue(id) === queue && v && v.state !== 'locked');
+  const out = libres.flatMap(([id,v]) => {
     const next = (v.lvl||0) + 1, c = lfCost(v, next);
     if(!c || !(v.secs > 0)) return [];
-    return [{id:+id, cost:c.cost, src:c.src, secs:v.secs, next,
-      nom: v.nom || v.name || LF_NAMES[id] || 'Forme de vie',
-      why:'La case la moins chère de cette file.'}];
+    return [{id:+id, cost:c.cost, src:c.src, at:c.at, secs:v.secs, next,
+      nom: v.nom || v.name || LF_NAMES[id] || 'Forme de vie'}];
   }).sort((a,b)=>mse(...a.cost)-mse(...b.cost) || (a.src==='lu' ? 0 : 1)-(b.src==='lu' ? 0 : 1));
+  const n = out.length, u = libres.length - n;
+  const why = `La moins chère des ${n} case${n>1?'s':''} chiffrée${n>1?'s':''} de cette file.`
+    + (u ? ` ${u} case${u>1?'s':''} pas encore chiffrée${u>1?'s':''}, non comparée${u>1?'s':''} : ouvre-${u>1?'les':'la'} dans le jeu.` : '');
+  return out.map(c => Object.assign(c, {why}));
 }
 /* Identifiants de tuile du jeu, dans l'autre sens : le plan raisonne en clés
    (« metal »), la page du jeu en numéros (« 1 »). */
@@ -1370,10 +1377,10 @@ function simulateDay(){
             pay(p, ch.cost); p.lfq[q] = Tm + ch.secs*1000;
             const id = ch.id, lvl = ch.next;
             sim.ev.push({at:Tm + ch.secs*1000, fn:()=>{ if(p.lf[id]) p.lf[id] = Object.assign({}, p.lf[id], {lvl, cost:null}); }});
-            acts.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, why:ch.why, src:ch.src, cost:ch.cost, dur:ch.secs, end:Tm+ch.secs*1000, kind:'lf', id:ch.id, lvl:ch.next, p:p.i});
+            acts.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, why:ch.why, src:ch.src, at:ch.at, cost:ch.cost, dur:ch.secs, end:Tm+ch.secs*1000, kind:'lf', id:ch.id, lvl:ch.next, p:p.i});
           } else {
             const eta = wait(p, ch.cost);
-            waits.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}${ch.src==='estimé' ? ' (prix estimé)' : ''}`, src:ch.src, eta, held:res.some(x=>x>0), miss:missOf(p, ch.cost)});
+            waits.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}${ch.src==='estimé' ? ' (prix et durée estimés)' : ''}`, src:ch.src, eta, held:res.some(x=>x>0), miss:missOf(p, ch.cost)});
             soft.push({p, cost:ch.cost, eta});
           }
         }
@@ -1468,7 +1475,7 @@ function copyChips(a){
 }
 function actHtml(a, withBtn){
   const note = goNote(a);
-  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : '', a.src==='estimé' ? '<span>Prix estimé d\'après les niveaux déjà vus, pas lu sur le jeu.</span>' : '', note ? `<span>${esc(note)}</span>` : '', copyChips(a)].filter(Boolean).join('');
+  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : '', a.src==='estimé' ? '<span>Prix et durée estimés d\'après les niveaux déjà vus, pas lus sur le jeu ; la durée est probablement sous-estimée.</span>' : a.src==='lu' && a.at ? `<span>prix lu à ${hm(a.at)}</span>` : '', note ? `<span>${esc(note)}</span>` : '', copyChips(a)].filter(Boolean).join('');
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,p:a.p,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
