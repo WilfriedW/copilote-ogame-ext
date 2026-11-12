@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -1309,6 +1309,63 @@ t('la surcharge augmente le bonus de moitié et double l\'énergie', () => {
   assert.equal(avec.production(avec.S.planets[0]).eCons - avec.production(avec.S.planets[0], { crawlers: 0 }).eCons,
     2 * (sans.production(sans.S.planets[0]).eCons - sans.production(sans.S.planets[0], { crawlers: 0 }).eCons),
     'cent foreuses en surcharge consomment deux fois plus');
+});
+
+/* ---------- les expéditions en vol se lisent dans le jeu ---------- */
+
+/* Les actions du passage en cours. La lecture « Expéditions 2/2 » ne vaut que
+   trois heures : plus tard dans la journée simulée, le plan reprend la main et
+   propose à nouveau — c'est voulu. La carte qui ment est celle de maintenant. */
+const actes = g => g.simulateDay().sessions[0].acts;
+
+t('deux expéditions en vol lues dans le jeu : aucune carte d\'expédition', () => {
+  const g = app(s => {
+    s.planets[0].ships = { lc: 30 };
+    s.slots = { expo: [2, 2], fleet: [2, 9], at: SOIR };
+    s.syncAt = SOIR;
+    s.tech.astro = 4;
+  }, SOIR);
+  assert.ok(!actes(g).some(a => a.kind === 'expo'), 'le plan ne propose aucune expédition');
+});
+
+t('le compte lu est rendu tel quel quand le plafond a baissé', () => {
+  const g = app(s => { s.slots = { expo: [5, 2], fleet: [5, 9], at: SOIR }; s.syncAt = SOIR; }, SOIR);
+  assert.equal(g.expoInFlight().n, 5);
+});
+
+t('sans lecture de la page de flotte, les expéditions restent proposées', () => {
+  const g = app(s => { s.planets[0].ships = { lc: 30 }; s.tech.astro = 4; delete s.slots; }, SOIR);
+  assert.equal(g.expoInFlight(), null, 'rien de lu');
+  assert.ok(actes(g).some(a => a.kind === 'expo'), 'le plan propose quand même');
+});
+
+t('une lecture de plus de trois heures ne compte plus', () => {
+  const vieux = SOIR - 4 * 3600e3;
+  const g = app(s => { s.slots = { expo: [2, 2], fleet: [2, 9], at: vieux }; s.syncAt = vieux; }, SOIR);
+  assert.equal(g.expoInFlight(), null, 'la lecture est périmée');
+});
+
+t('les expéditions reviennent quand la lecture a expiré', () => {
+  const g = app(s => {
+    s.planets[0].ships = { lc: 30 };
+    s.slots = { expo: [2, 2], fleet: [0, 9], at: SOIR - 4 * 3600e3 };
+    s.syncAt = SOIR - 4 * 3600e3;
+    s.tech.astro = 4;
+  }, SOIR);
+  assert.ok(actes(g).some(a => a.kind === 'expo'), 'le plan reprend la main');
+});
+
+t('la carte des expéditions dit à quelle heure le chiffre a été lu', () => {
+  // assez de transporteurs pour remplir plus d'expéditions que le plafond :
+  // c'est ce qui fait sortir la carte qui porte la provenance du chiffre
+  const g = app(s => {
+    s.planets[0].ships = { lc: 400 };
+    s.slots = { expo: [1, 1], fleet: [1, 9], at: SOIR };
+    s.syncAt = SOIR;
+  }, SOIR);
+  const c = g.dailyMissions().find(m => m.id === 'expomax');
+  assert.ok(c, 'la carte du plafond d\'expéditions sort');
+  assert.ok(/lu dans le jeu à \d/.test(c.why), 'elle porte l\'heure de la lecture : ' + c.why);
 });
 
 if (failures.length) {

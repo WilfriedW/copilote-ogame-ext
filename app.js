@@ -1031,6 +1031,14 @@ function simulateDay(){
     const fin = m.arrival*1000;
     if(fin > now && !expoBusy.includes(fin)) expoBusy.push(fin);
   }
+  /* Le chiffre que le jeu affiche lui-même — « Expéditions 2/2 » — complète ce
+     que les minuteurs et les mouvements ont donné. Eux connaissent l'heure de
+     retour, lui ne connaît qu'un nombre : il passe donc en dernier, et ses
+     entrées expirent quand la lecture cesse d'être fiable. Sans ça, le plan
+     proposait une expédition de plus que le jeu n'en accepte dès que le joueur
+     n'ouvrait pas la page Mouvements de flotte. */
+  const expoRead = expoInFlight();
+  if(expoRead) while(expoBusy.length < expoRead.n) expoBusy.push(expoRead.at + EXPO_READ_TTL);
   const iv = Math.max(15,+S.day.interval||90)/60;
   S.tech = sim.tech; S.planets = P;
   try{
@@ -1374,6 +1382,22 @@ function bestLifeform(){
 }
 /** Fleet slots [used, max] from the last sync, or null. */
 function fleetSlots(){ return S.slots && S.slots.fleet && S.syncAt && Date.now()-(S.slots.at||S.syncAt) < 3*3600e3 ? S.slots.fleet : null; }
+/* How long a reading of the in-flight expedition count stays trustworthy.
+   The cap is never expired by expoCap(), because it only moves with
+   Astrophysics; the number in flight does move on its own, so it needs its
+   own guard. Never expiring it would silence the panel for the rest of the
+   day after a single "2/2", which costs as much trust as the lie it fixes. */
+const EXPO_READ_TTL = 3*3600e3;
+/**
+ * Expeditions in flight, as last read on the game's fleet page.
+ * @returns {{n:number, at:number}|null} count and reading time, or null when
+ *   nothing fresh enough has been read.
+ */
+function expoInFlight(){
+  if(!(S.slots && S.slots.expo)) return null;
+  const at = S.slots.at || S.syncAt;
+  return at && Date.now()-at < EXPO_READ_TTL ? {n: S.slots.expo[0] || 0, at} : null;
+}
 /* Expéditions simultanées. Le chiffre du jeu fait foi quand il est frais : la
    formule ne sert plus qu'à prévoir ce qu'un niveau d'Astrophysique y
    ajouterait. La prendre au maximum des deux faisait proposer une expédition
@@ -1420,7 +1444,10 @@ function dailyMissions(){
   /* D'où vient le plafond, en clair : lu sur la page de flotte, ou déduit
      d'Astrophysique faute de l'avoir lue. Sans ça, les deux cas donnent la même
      carte et « rien n'a changé » est indécidable. */
-  const sExp = S.slots && S.slots.expo ? `lu dans le jeu : ${S.slots.expo[0]}/${S.slots.expo[1]}` : null;
+  /* L'heure de la lecture, et pas seulement le chiffre : il ne vaut que trois
+     heures, et le joueur doit pouvoir juger si celui-ci est encore d'actualité. */
+  const sExp = S.slots && S.slots.expo
+    ? `lu dans le jeu à ${hm(S.slots.at || S.syncAt)} : ${S.slots.expo[0]}/${S.slots.expo[1]}` : null;
   const sFl = fs ? `emplacements de flotte ${fs[0]}/${fs[1]}` : null;
   const source = sExp ? ` (${[sExp, sFl].filter(Boolean).join(`, `)})` : ` (déduit d'Astrophysique ${S.tech.astro} : la page de flotte n'a pas encore été lue)`;
   const flottes = S.planets.map(p=>expoFleet(Object.assign({}, p.ships))).filter(Boolean);
