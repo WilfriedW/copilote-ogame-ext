@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -2073,10 +2073,10 @@ t('une plan\u00e8te jamais lue n\'a pas d\'esp\u00e8ce', () => {
   assert.equal(g.speciesOfPlanet(g.S.planets[0]), null);
 });
 
-t('les esp\u00e8ces lues priment sur la case \u00e0 cocher, sans doublon', () => {
+t('les esp\u00e8ces lues sont compt\u00e9es une fois, m\u00eame sur deux plan\u00e8tes', () => {
   const g = app(s => {
     s.planets[0].gid = '33001'; s.planets[1].gid = '33002';
-    s.lf.found = ['humans'];
+    s.lf.found = [];
     s.prod = { 33001: lus(['Centre technologique runique (Niveau 1)']), 33002: lus(['Centre technologique runique (Niveau 1)']) };
   }, SOIR);
   assert.deepEqual(g.foundLifeforms(), ['rocktal']);
@@ -2087,17 +2087,68 @@ t('sans rien de lu, la case \u00e0 cocher reste le rep\u00e8re', () => {
   assert.deepEqual(g.foundLifeforms(), ['humans', 'kaelesh']);
 });
 
-t('la meilleure forme de vie se choisit parmi celles lues', () => {
+t('la meilleure forme de vie se choisit parmi les lues et les coch\u00e9es', () => {
   const lu = app(s => {
-    s.planets[0].gid = '33001'; s.lf.found = ['humans', 'rocktal'];
+    s.planets[0].gid = '33001'; s.lf.found = ['rocktal']; s.day.focus = 'fleet';
+    s.prod = { 33001: lus(['Centre de recherche en robotique (Niveau 0)']) };
+  }, SOIR);
+  assert.equal(lu.bestLifeform(), 'mechas', 'une esp\u00e8ce lue est candidate');
+  const garde = app(s => {
+    s.planets[0].gid = '33001'; s.lf.found = ['rocktal'];
     s.prod = { 33001: lus(['Centre de recherche (Niveau 2)']) };
   }, SOIR);
-  assert.equal(lu.bestLifeform(), 'humans', 'la lecture prime sur la case rocktal');
-  const periml = app(s => {
-    s.planets[0].gid = '33001'; s.lf.found = ['humans', 'rocktal'];
-    s.prod = { 33001: lus(['Centre de recherche (Niveau 2)'], SOIR - 8 * 86400e3) };
+  assert.equal(garde.bestLifeform(), 'rocktal', 'une lecture n\'efface pas la case');
+});
+
+t('une esp\u00e8ce lue s\'ajoute \u00e0 celles coch\u00e9es, elle n\'en retire aucune', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001'; s.lf.found = ['humans', 'kaelesh'];
+    s.prod = { 33001: lus(['Centre technologique runique (Niveau 1)']) };
   }, SOIR);
-  assert.equal(periml.bestLifeform(), 'rocktal', 'p\u00e9rim\u00e9 : retour \u00e0 la case');
+  assert.deepEqual(g.foundLifeforms().slice().sort(), ['humans', 'kaelesh', 'rocktal']);
+});
+
+t('sans coche d\u00e9finie ni lecture, les Humains restent le rep\u00e8re', () => {
+  const g = app(s => { s.lf.found = null; delete s.prod; }, SOIR);
+  assert.deepEqual(g.foundLifeforms(), ['humans']);
+});
+
+t('un libell\u00e9 espac\u00e9 ou en minuscules nomme encore l\'esp\u00e8ce', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.speciesOf(lus(['  Centre de recherche (niveau 2) '])), 'humans');
+  assert.equal(g.speciesOf(lus(['  Centre de recherche en robotique (NIVEAU 0)  '])), 'mechas');
+});
+
+t('la limite de sept jours : 6,9 jours compte, 7 jours pile ne compte plus', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001'; s.planets[1].gid = '33002';
+    s.prod = { 33001: lus(['Centre de recherche (Niveau 2)'], SOIR - 6.9 * 86400e3), 33002: lus(['Centre de recherche (Niveau 2)'], SOIR - 7 * 86400e3) };
+  }, SOIR);
+  assert.equal(g.speciesOfPlanet(g.S.planets[0]), 'humans');
+  assert.equal(g.speciesOfPlanet(g.S.planets[1]), null);
+});
+
+t('la carte de d\u00e9couverte nomme les esp\u00e8ces lues et coch\u00e9es, et ne r\u00e9clame que le reste', () => {
+  const g = app(s => {
+    s.slots = { expo: [0, 2], fleet: [2, 7], at: SOIR }; s.syncAt = SOIR;
+    s.planets[0].gid = '33001'; s.lf.found = ['kaelesh'];
+    s.prod = { 33001: lus(['Centre technologique runique (Niveau 1)']) };
+  }, SOIR);
+  const c = g.dailyMissions().find(m => m.id === 'discovery');
+  assert.ok(/Roctas/.test(c.why), 'lue : ' + c.why);
+  assert.ok(/Kaeleshs/.test(c.why), 'coch\u00e9e : ' + c.why);
+  assert.ok(/pas encore lue/i.test(c.how.join(' ')), 'la consigne ne vaut que pour ce qui n\'est pas lu');
+});
+
+t('les r\u00e9glages montrent les esp\u00e8ces lues sans case \u00e0 cocher', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001';
+    s.prod = { 33001: lus(['Centre technologique runique (Niveau 1)']) };
+  }, SOIR);
+  const h = g.lfSettingsHtml();
+  assert.ok(!/data-lf="rocktal"/.test(h), 'pas de case pour une esp\u00e8ce lue');
+  assert.ok(/data-lf="humans"/.test(h), 'une case pour les autres');
+  assert.ok(/lue sur tes plan\u00e8tes/i.test(h));
 });
 
 if (failures.length) {
