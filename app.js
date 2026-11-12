@@ -669,51 +669,26 @@ function milestoneDone(m){ return m.t==='t' ? S.tech[m.k]>=m.lvl : S.planets[0] 
 function milestoneLabel(m){ return m.t==='t' ? `${T[m.k].n} ${m.lvl}` : `${B[m.k].n} ${m.lvl}`; }
 function milestoneMissing(m){ return m.t==='t' ? reqOk(T[m.k].req, null) : reqOk(B[m.k].req, S.planets[0]); }
 
-/** Builds a prioritized action list from the current state. */
-function adviceList(){
-  const out = [];
-  S.planets.forEach((p,i)=>{
-    const pr = production(p), st = stockNow(p), r = rankUpgrades(p);
-    const where = S.planets.length>1 ? ` sur ${p.name}` : '';
-    if(pr.factor<1){
-      const best = r[0];
-      out.push({sev:'bad', what:`Rétablir l'énergie${where}`, why:`Tes mines tournent à ${Math.round(pr.factor*100)} %. ${best ? `Le plus rentable : ${B_SHORT[best.key]} ${best.lvl}${best.extraSolar?` avec solaire ${p.b.solar+best.extraSolar}`:''}.` : 'Monte la centrale solaire.'}`});
-    }
-    ['m','c','d'].forEach((x,k)=>{
-      const rate=[pr.m,pr.c,pr.d][k], name=['Hangar de métal','Hangar de cristal','Réservoir de deutérium'][k], bk=['smetal','scrystal','sdeut'][k];
-      if(st[k]>=pr.cap[k]*0.98) out.push({sev:'bad', what:`${name} plein${where}`, why:`La production de ${['métal','cristal','deutérium'][k]} est arrêtée. Dépense ou monte ${name} ${p.b[bk]+1}.`});
-      else if(rate>0 && (pr.cap[k]-st[k])/rate<8) out.push({sev:'warn', what:`${name} plein dans ${dur((pr.cap[k]-st[k])/rate*3600)}${where}`, why:`Prévois ${name} ${p.b[bk]+1} avant une longue absence.`});
-    });
-    const best = r.find(u=>u.payback<Infinity);
-    if(best && pr.factor>=1){
-      const w = waitFor(p, best.cost);
-      out.push({sev:'info', what:`${best.key==='crawl'?'Construire':'Construire'} ${upLabel(best)}${best.extraSolar?` puis solaire ${p.b.solar+best.extraSolar}`:''}${where}`, why:`Meilleur amortissement de tes mines : ${dur(best.payback*3600)}. ${w.sec===0?'Tu peux le lancer maintenant.':w.storage!=null?storageNote(w):`Payable dans ${dur(w.sec)}.`}`});
-    }
-  });
-  const next = MILESTONES.filter(m=>!milestoneDone(m));
-  const ready = next.find(m=>!milestoneMissing(m).length);
-  if(ready) out.push({sev:'info', what:`${ready.t==='t'?'Rechercher':'Construire'} ${milestoneLabel(ready)}`, why:`${ready.why} Étape ${MILESTONES.indexOf(ready)+1} sur ${MILESTONES.length} du début de partie.`});
-  else if(next[0]) out.push({sev:'warn', what:`Prochaine étape : ${milestoneLabel(next[0])}`, why:`Il manque : ${milestoneMissing(next[0]).join(', ')}.`});
-  const maxPl = maxPlanets();
-  if(S.tech.astro && S.planets.length<maxPl) out.push({sev:'info', what:`Coloniser (${S.planets.length}/${maxPl} planètes)`, why:`Chaque colonie ajoute une production complète. ${coloPaybackTxt()} Prépare-la dans l'onglet Colonie : position, vaisseaux et ressources à emporter.`});
-  else if(S.tech.astro){
-    // Emplacements pleins : le palier suivant d'Astrophysique est la seule façon
-    // d'en gagner un, et son coût décide s'il vaut mieux creuser les mines.
-    const need = astroForPlanet(), c = rangeCost(T.astro, S.tech.astro, need);
-    out.push({sev:'info', what:`Astrophysique ${need} pour une ${maxPl+1}ᵉ planète`, why:`Tes ${maxPl} emplacements sont pris. Y arriver coûte ${fmt(c[0])} métal, ${fmt(c[1])} cristal et ${fmt(c[2])} deutérium ; une colonie ajoute ensuite une production complète.`});
+/** Ce qui ne va pas sur une planète, maintenant, quoi que fassent ses files.
+    Volontairement séparée de pickBuildings : celle-là choisit quoi construire
+    et se tait dès qu'une file est occupée ou que des satellites arrivent, ce
+    qui est juste pour choisir et faux pour avertir. */
+function planetAlerts(p){
+  const out = [], pr = production(p), st = stockNow(p), r = rankUpgrades(p);
+  const where = S.planets.length>1 ? ` sur ${p.name}` : '';
+  if(pr.factor<1){
+    const best = r[0];
+    out.push({sev:'bad', what:`Rétablir l'énergie${where}`, why:`Tes mines tournent à ${Math.round(pr.factor*100)} %. ${best ? `Le plus rentable : ${B_SHORT[best.key]} ${best.lvl}${best.extraSolar?` avec solaire ${p.b.solar+best.extraSolar}`:''}.` : 'Monte la centrale solaire.'}`});
   }
-  S.plan.forEach(it=>{
-    const p = it.type==='b' ? S.planets[it.p] : S.planets[0]; if(!p) return;
-    const from = it.type==='b' ? p.b[it.k] : S.tech[it.k]; if(from>=it.lvl) return;
-    const def = it.type==='b' ? B[it.k] : T[it.k], c = levelCost(def, from+1), miss = it.type==='b'?reqOk(def.req,p):reqOk(def.req,null);
-    if(!miss.length && waitFor(p,c).sec===0) out.push({sev:'good', what:`Plan : lancer ${def.n} ${from+1}`, why:'Les ressources sont disponibles.'});
+  ['m','c','d'].forEach((x,k)=>{
+    const rate=[pr.m,pr.c,pr.d][k], name=['Hangar de métal','Hangar de cristal','Réservoir de deutérium'][k], bk=['smetal','scrystal','sdeut'][k];
+    if(st[k]>=pr.cap[k]*0.98) out.push({sev:'bad', what:`${name} plein${where}`, why:`La production de ${['métal','cristal','deutérium'][k]} est arrêtée. Dépense ou monte ${name} ${p.b[bk]+1}.`});
+    // Huit heures, et non l'intervalle de connexion : l'avertissement sert
+    // à prévoir le hangar avant une longue absence, pas avant la prochaine
+    // connexion. Le garde sur le débit évite une durée infinie.
+    else if(rate>0 && (pr.cap[k]-st[k])/rate<8) out.push({sev:'warn', what:`${name} plein dans ${dur((pr.cap[k]-st[k])/rate*3600)}${where}`, why:`Prévois ${name} ${p.b[bk]+1} avant une longue absence.`});
   });
-  if(!(S.timers||[]).some(t=>t.kind==='t' && !t.done)) out.push({sev:'warn', what:'Aucune recherche suivie', why:'Si une recherche tourne dans le jeu, ajoute un minuteur pour être prévenu à la fin. Sinon, lances-en une : le labo ne doit jamais rester à l\'arrêt.'});
-  const importFresh = !S.syncAt || (S.lastImport||0) >= S.syncAt - 60000;
-  (importFresh ? (S.lastAlerts||[]) : []).forEach(a=>{ if(/file vide|arr[eê]t/i.test(a)) out.push({sev:'warn', what:a, why:'Signalé par le dernier import de la Vue empire. Une file vide, c\'est du temps de production perdu.'}); });
-  out.push({sev:'info', what:'Avant de te déconnecter', why:'Dépense tes ressources ou mets-les à l\'abri (fleetsave), surtout une fois sorti de la protection débutant.'});
-  const order = {bad:0, warn:1, good:2, info:3};
-  return out.sort((a,b)=>order[a.sev]-order[b.sev]);
+  return out;
 }
 const SEV_LABEL = {bad:'Urgent', warn:'Attention', good:'Prêt', info:'Conseillé'};
 
@@ -1221,6 +1196,9 @@ function simulateDay(){
   const expoRead = expoInFlight();
   if(expoRead) while(expoBusy.length < expoRead.n) expoBusy.push(expoRead.at + EXPO_READ_TTL);
   const iv = Math.max(15,+S.day.interval||90)/60;
+  // Les alertes se lisent sur l'état réel, avant que la simulation ne prenne
+  // la place de S.planets : ce sont les ennuis d'aujourd'hui, pas ceux prévus.
+  const alerts = S.planets.flatMap(p=>planetAlerts(p));
   S.tech = sim.tech; S.planets = P;
   try{
     const startV = P.reduce((a,p)=>{ const r=production(p); return a+mse(r.m,r.c,r.d); },0);
@@ -1466,7 +1444,7 @@ function simulateDay(){
     const ups = [];
     P.forEach((p,i)=>{ for(const k of Object.keys(B)){ const a=real.planets[i].b[k], b=p.b[k]; if(b>a) ups.push(`${B_SHORT[k]} ${a}→${b}${P.length>1?' ('+p.name+')':''}`); } });
     for(const k of Object.keys(T)){ const a=real.tech[k], b=sim.tech[k]; if(b>a) ups.push(`${T[k].n.replace('Technologie ','')} ${a}→${b}`); }
-    return {now, sessions, busy, startV, endV, ups};
+    return {now, sessions, busy, startV, endV, ups, alerts};
   } finally { S.tech = real.tech; S.planets = real.planets; }
 }
 /* Les valeurs à retaper dans le jeu, en pastilles cliquables. Le presse-papier
@@ -1854,6 +1832,17 @@ function dailyMissions(){
     }
     out.push(m);
   }
+  /* Les files vides relevées par le dernier import de la Vue empire. Le garde
+     se lit dans l'autre sens : dès que l'extension a lu le jeu plus récemment
+     que l'import, c'est elle qui sait, et un vieux relevé ne doit pas ressortir. */
+  const importFresh = !S.syncAt || (S.lastImport||0) >= S.syncAt - 60000;
+  if(importFresh) for(const a of S.lastAlerts||[]){
+    if(!/file vide|arr[eê]t/i.test(a)) continue;
+    out.push({id:'empty-queue-'+norm(a).replace(/[^a-z0-9]+/g,'-'), info:true, q:'Empire', every:24, sev:'warn',
+      what:a, why:'Signalé par le dernier import de la Vue empire. Une file vide, c\'est du temps de production perdu.',
+      how:['Ouvre la planète concernée et lance une construction ou une recherche.',
+           'Réimporte la Vue empire pour que le relevé se mette à jour.']});
+  }
   return out;
 }
 function missionDone(m){ const d = S.daily.done[m.id]; return d && (Date.now() - d) < m.every*3600e3 && (m.every<24 || new Date(d).toDateString()===new Date().toDateString()); }
@@ -1990,21 +1979,6 @@ tools(){
   const sub = S.ui.tool || 'colony';
   return `<section class="panel"><div class="seg" role="tablist">${[['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['plan','Objectifs']].map(([k,l])=>`<button role="tab" data-tool="${k}" aria-selected="${sub===k}">${l}</button>`).join('')}</div>${VIEWS[sub]()}</section>`;
 },
-advice(){
-  return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Minuteurs</h2><button class="btn sm ghost" id="tmSound">Tester le son</button></div>
-      <div class="timer-form">
-        <label class="f">Quoi<select id="tmWhat">${timerOptions()}</select></label>
-        <label class="f">Temps restant (copié du jeu)<input id="tmLeft" placeholder="2h 13m 05s"></label>
-        <button class="btn primary" id="tmAdd">Lancer</button>
-      </div>
-      <ul class="timers" id="tmList"></ul>
-      <p class="note">Garde l'onglet Copilote ouvert : à la fin, un bandeau vert apparaît en haut de la page jusqu'à ce que tu cliques, avec un son si ton ordinateur en a. Le niveau de la recherche ou du bâtiment est alors augmenté automatiquement.</p>
-    </div>
-    <div class="card"><div class="row spread"><h2>À faire maintenant</h2><span class="note" id="advStamp"></span></div><ul class="advice" id="advList"></ul>
-    <p class="note">Calculé à partir de tes niveaux saisis ou importés. Garde-les à jour pour des conseils justes.</p></div>
-  </section>`;
-},
 planets(){
   return `<section class="panel">
     ${S.sample ? `<div class="example">Données d'exemple : remplace-les par tes niveaux réels (planète mère, mine de métal 1). Les cases se sauvegardent dans ce navigateur.</div>` : ''}
@@ -2041,15 +2015,6 @@ planets(){
     </div>`).join('')}
     <div class="row"><button class="btn" id="addPlanet">Ajouter une colonie</button>
     <span class="note" id="colonyNote"></span></div>
-  </section>`;
-},
-build(){
-  return `<section class="panel">
-    <div class="card"><h2>Prochaine construction</h2>
-    <p class="note">Classement par <b>temps d'amortissement</b> : combien d'heures la nouvelle production met à rembourser le coût, en équivalent métal (ratio ${S.settings.ratio.join(':')}). Si une mine fait passer l'énergie en négatif, le coût de la centrale solaire nécessaire est ajouté.</p></div>
-    ${S.planets.map((p,i)=>`<div class="card"><div class="row spread"><h3>${esc(p.name)} <span class="uni">[${esc(p.coords)}]</span></h3><span id="bf-${i}"></span></div><div id="br-${i}"></div><div id="bw-${i}"></div></div>`).join('')}
-    <div class="card"><h2>Infrastructure</h2><p class="note">Pas d'amortissement chiffré : ces bâtiments accélèrent ou débloquent. Repères courants : robots 2 tôt (chantier spatial), labo pour la recherche, robots 10 puis nanites à moyen terme.</p>
-    <div class="tbl-wrap"><table><thead><tr><th>Planète</th><th>Bâtiment</th><th class="n">Niv.</th><th>Coût</th><th class="n">Durée</th><th class="n">Dispo dans</th><th></th></tr></thead><tbody id="infra"></tbody></table></div></div>
   </section>`;
 },
 research(){
@@ -2218,7 +2183,7 @@ today(){
   const nextS = plan.sessions.slice(1).find(x=>x.acts.length);
   if(!s0.acts.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
   document.getElementById('tdNow').innerHTML = nowParts.join('') + `<p class="note"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p>`;
-  const alerts = adviceList().filter(a=>(a.sev==='bad'||a.sev==='warn') && !/Aucune recherche suivie|Prochaine étape/.test(a.what));
+  const alerts = plan.alerts;
   document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><h2>Alertes</h2><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('')}</ul></div>` : '';
   const later = plan.sessions.slice(1).filter(x=>x.acts.length || slotMs.has(x));
   const slot = x=>`<div class="slot"><div class="time">${hm(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${x.acts.map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
@@ -2276,12 +2241,6 @@ explore(){
   const ex = exploreSystems();
   document.getElementById('exExplore').innerHTML = `<ul class="advice">${ex.map(x=>`<li><span class="pill info">${x.left} pos.</span><span class="what">Système ${x.sys}</span><span class="why">${x.dist===0?'Ton système':`À ${x.dist} système${x.dist>1?'s':''}`} : ${x.left} position${x.left>1?'s':''} pas explorée${x.left>1?'s':''} depuis 7 jours.</span></li>`).join('')}</ul><p class="note">Missions de découverte : bouton Découverte dans Galaxie. Copilote retient les positions explorées quand il voit tes missions dans Mouvements de flotte. Pour les expéditions, alterne la position 16 de systèmes voisins si les résultats baissent.</p>`;
 },
-advice(){
-  const list = adviceList();
-  document.getElementById('advList').innerHTML = list.map(a=>`<li><span class="pill ${a.sev==='info'?'info':a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('');
-  renderTimers();
-  document.getElementById('advStamp').textContent = S.lastImport ? `Import du ${new Date(S.lastImport).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}` : '';
-},
 planets(){
   let tm=0,tc=0,td=0, worst=1;
   S.planets.forEach((p,i)=>{
@@ -2296,27 +2255,6 @@ planets(){
   document.getElementById('empireRes').innerHTML = gauge('m','m','Métal',fmt(tm),fmt(tm*24)+' / jour')+gauge('c','c','Cristal',fmt(tc),fmt(tc*24)+' / jour')+gauge('d','d','Deutérium',fmt(td),fmt(td*24)+' / jour')+gauge('e','e','Planètes',S.planets.length,`max ${1+Math.ceil(S.tech.astro/2)} (Astro ${S.tech.astro})`);
   document.getElementById('empireFactor').innerHTML = factorPill(worst);
   document.getElementById('colonyNote').textContent = S.tech.astro ? '' : 'Les colonies demandent Astrophysique 1.';
-},
-build(){
-  S.planets.forEach((p,i)=>{
-    const pr=production(p), r=rankUpgrades(p);
-    document.getElementById('bf-'+i).innerHTML = factorPill(pr.factor);
-    document.getElementById('br-'+i).innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Construire</th><th>Coût total</th><th class="n">Gain éq. métal/h</th><th class="n">Amorti en</th><th class="n">Durée</th><th class="n">Dispo dans</th><th></th></tr></thead><tbody>${
-      r.map((u,j)=>{ const w=waitFor(p,u.cost); return `<tr><td class="rank">${j+1}</td><td>${upLabel(u)}${u.extraSolar?` <span class="pill warn">+ solaire ${p.b.solar+u.extraSolar}</span>`:''}</td><td>${costHtml(u.cost)}</td><td class="n">${fmt(u.gain)}</td><td class="n">${dur(u.payback*3600)}</td><td class="n">${dur(u.time)}</td><td class="n">${w.storage!=null?`<span class="pill warn" title="${esc(storageNote(w))}">${esc(storageShort(w))} ou livraison</span>`:w.sec===0?'<span class="pill good">maintenant</span>':dur(w.sec)}</td><td>${B[u.key]?`<button class="btn sm" data-addb="${i}:${u.key}:${u.lvl}">+ Plan</button>`:'<span class="note">chantier</span>'}</td></tr>`; }).join('')
-    }</tbody></table></div>`;
-    const warn=[]; const st=stockNow(p);
-    ['m','c','d'].forEach((x,k)=>{ const rate=[pr.m,pr.c,pr.d][k]; if(rate>0 && pr.cap[k]/rate<8) warn.push(`<span class="pill warn">${['Hangar de métal','Hangar de cristal','Réservoir'][k]} plein en moins de 8 h</span>`); });
-    if(pr.factor<1) warn.push(`<span class="pill bad">Énergie négative : monte la centrale solaire avant toute mine</span>`);
-    // Les foreuses sont invisibles dans le jeu une fois posées : ce compteur dit
-    // combien en profitent encore, et ce qu'elles ajoutent aujourd'hui.
-    const cmx = crawlerMax(p.b.metal, p.b.crystal, p.b.deut), cw = p.crawlers||0;
-    if(cmx) warn.push(`<span class="pill ${cw>=cmx?'good':'info'}">Foreuses ${cw} / ${cmx} utiles · +${(crawlerBonus(Math.min(cw,cmx), S.settings.cls, S.settings.crawlerOverload)*100).toFixed(1).replace('.',',')} %</span>`);
-    document.getElementById('bw-'+i).innerHTML = warn.length?`<div class="row">${warn.join('')}</div>`:'';
-  });
-  document.getElementById('infra').innerHTML = S.planets.flatMap((p,i)=>['robot','shipyard','lab','nanite','fusion','smetal','scrystal','sdeut'].map(k=>{
-    const L=p.b[k]+1, c=levelCost(B[k],L), miss=reqOk(B[k].req,p), w=waitFor(p,c);
-    return `<tr><td>${esc(p.name)}</td><td>${B[k].n}</td><td class="n">${L}</td><td>${costHtml(c)}</td><td class="n">${dur(buildTime(k,L,p))}</td><td class="n">${miss.length?`<span class="pill bad">requiert ${miss.join(', ')}</span>`:w.storage!=null?`<span class="pill warn" title="${esc(storageNote(w))}">${esc(storageShort(w))} ou livraison</span>`:w.sec===0?'<span class="pill good">maintenant</span>':dur(w.sec)}</td><td><button class="btn sm" data-addb="${i}:${k}:${L}">+ Plan</button></td></tr>`;
-  })).join('');
 },
 research(){
   document.getElementById('labLv').textContent = labLevel();

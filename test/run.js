@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'finishTimer', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -1047,8 +1047,8 @@ t('Plasma annonce son amortissement, chiffré sur l\'empire du joueur', () => {
 t('toutes les planètes prises, un conseil nomme le palier d\'Astrophysique', () => {
   const g = app(s => { s.tech.astro = 2; });
   assert.equal(g.maxPlanets(), 2, 'Astro 2 autorise deux planètes, et le joueur en a deux');
-  const c = g.adviceList().find(a => /Astrophysique 3/.test(a.what + ' ' + a.why));
-  assert.ok(c, 'aucun conseil ne dit qu\'Astrophysique 3 ouvrirait une planète de plus');
+  const c = g.dailyMissions().find(m => /Astrophysique 3/.test(m.what + ' ' + m.why));
+  assert.ok(c, 'aucune carte ne dit qu\'Astrophysique 3 ouvrirait une planète de plus');
 });
 
 t('en focus colonie, le plan propose le palier qui ouvre une planète', () => {
@@ -1359,6 +1359,71 @@ t('les jalons franchis dans le desordre comptent quand meme', () => {
   const m = /(\d+)\s*\/\s*11/.exec(g.html().tdDay || '');
   assert.ok(m, 'le compte doit être rendu');
   assert.ok(+m[1] >= 9, 'neuf jalons au moins sont franchis ici, et non 7 : ' + (m && m[1]));
+});
+
+/* ---------- les alertes ne dependent plus d'un second moteur ---------- */
+/* Elles sortaient d'adviceList, moteur parallèle que simulateDay et
+   dailyMissions avaient rattrapé. Elles viennent désormais d'une passe par
+   planète, sans garde de file : un bâtiment en cours ne doit rien taire. */
+
+t('energie negative et hangar plein sont dits tous les deux', () => {
+  const g = app(s => {
+    const p = s.planets[0];
+    Object.assign(p.b, { metal: 20, solar: 1, smetal: 0 });
+    p.stock = { m: 9e9, c: 0, d: 0, at: SOIR };
+  });
+  const a = g.simulateDay().alerts;
+  assert.ok(a.some(x => /[Éé]nergie/.test(x.what)), 'l\'énergie négative doit être dite');
+  assert.ok(a.some(x => /[Hh]angar/.test(x.what)), 'le hangar plein aussi');
+});
+
+t('une construction en cours ne fait pas taire les alertes', () => {
+  const g = app(s => {
+    const p = s.planets[0];
+    Object.assign(p.b, { metal: 20, solar: 1 });
+    s.timers = [{ id: 'x', kind: 'b', p: 0, k: 'metal', lvl: 21, end: SOIR + 6 * 3600e3 }];
+  });
+  assert.ok(g.simulateDay().alerts.some(x => /[Éé]nergie/.test(x.what)),
+    'la file occupée ne doit pas effacer l\'avertissement');
+});
+
+t('l\'alerte nomme sa planete quand il y en a plusieurs', () => {
+  const g = app(s => { Object.assign(s.planets[1].b, { metal: 12, solar: 1 }); });
+  const nrj = g.simulateDay().alerts.filter(x => /énergie/i.test(x.what));
+  assert.ok(nrj.length > 1, 'les deux planètes manquent d\'énergie ici');
+  assert.ok(nrj.some(x => /Colonie/.test(x.what)), 'la colonie doit être nommée : ' + JSON.stringify(nrj));
+  assert.ok(nrj.every(x => / sur /.test(x.what)), 'chaque alerte doit dire sur quelle planète');
+});
+
+t('une ressource sans production ne donne pas d\'alerte de hangar', () => {
+  const g = app(s => {
+    const p = s.planets[0];
+    Object.assign(p.b, { deut: 0, sdeut: 0 });
+    p.stock = { m: 0, c: 0, d: 0, at: SOIR };
+  });
+  g.simulateDay().alerts.forEach(x => {
+    assert.ok(!/Infinity|NaN/.test(x.what + x.why), 'aucun chiffre absurde : ' + x.what);
+  });
+});
+
+t('l\'alerte de file vide reste tue quand l\'extension a lu plus recemment', () => {
+  const g = app(s => {
+    s.lastAlerts = ['Planète mère : File vide'];
+    s.lastImport = SOIR - 3600e3;
+    s.syncAt = SOIR;
+  });
+  assert.ok(!g.dailyMissions().some(m => /file vide/i.test(m.what)),
+    'un vieil import ne doit pas ressortir après une synchro');
+});
+
+t('l\'alerte de file vide est dite quand l\'import est le plus frais', () => {
+  const g = app(s => {
+    s.lastAlerts = ['Planète mère : File vide'];
+    s.lastImport = SOIR;
+    s.syncAt = SOIR - 3600e3;
+  });
+  assert.ok(g.dailyMissions().some(m => /file vide/i.test(m.what)),
+    'une file vide signalée par le dernier import doit remonter');
 });
 
 t('tous les jalons franchis, le bloc disparait', () => {
