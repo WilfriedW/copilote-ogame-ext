@@ -255,22 +255,98 @@ function lfPriced(v){
     && v.next === (v.lvl || 0) + 1);
 }
 
+/* Bornes de bon sens sur ce que le jeu publie : un niveau de case et un prix
+   lus sur une page ne doivent jamais faire grossir la mémoire ni les calculs. */
+const LF_LVL_MAX = 1000;
+const LF_COST_MAX = 1e15;
+/* Les coûts montent d'un niveau à l'autre : un facteur sous 1 est du bruit de
+   lecture, et au-dessus de 5 il n'a plus rien d'une courbe de jeu. */
+const LF_FACTOR_MAX = 5;
+/* Niveaux de prix gardés par case : deux suffisent au facteur, dix laissent de
+   quoi le vérifier sans que le stockage grossisse. */
+const LF_SEEN_KEEP = 10;
+
+/**
+ * Un coût lu, ramené à trois nombres finis entre 0 et LF_COST_MAX.
+ * @param {number[]} c coût brut
+ * @returns {number[]} [métal, cristal, deutérium]
+ */
+function lfClampCost(c){
+  return [0,1,2].map(i => { const x = +(c || [])[i]; return Number.isFinite(x) ? Math.min(Math.max(x, 0), LF_COST_MAX) : 0; });
+}
+
+/**
+ * Mémoire des prix vus d'une case : ajoute celui que vient de lire le panneau
+ * de détail (prix du niveau `next`) et ne garde que les dix niveaux les plus hauts.
+ * @param {object} seen mémoire actuelle {niveau:[m,c,d]}
+ * @param {object} v lecture de la case
+ * @returns {object} nouvelle mémoire
+ */
+function lfRemember(seen, v){
+  const out = Object.assign({}, seen);
+  const n = Math.floor(+v.next);
+  if(n >= 1 && n <= LF_LVL_MAX && Array.isArray(v.cost) && v.cost.some(x=>x>0)) out[n] = lfClampCost(v.cost);
+  Object.keys(out).map(Number).sort((a,b)=>b-a).slice(LF_SEEN_KEEP).forEach(k=>{ delete out[k]; });
+  return out;
+}
+
+/**
+ * Adopte la lecture d'une case sans perdre ce que les lectures précédentes
+ * avaient appris : les prix vus, et la durée quand la liste n'en porte pas.
+ * @param {object} prev case déjà connue, ou undefined
+ * @param {object} cur lecture du jour
+ * @returns {object} case fusionnée
+ */
+function lfMerge(prev, cur){
+  const out = Object.assign({}, cur, {seen: lfRemember(prev && prev.seen, cur)});
+  if(!cur.cost && prev && prev.secs > 0 && !(cur.secs > 0)) out.secs = prev.secs;
+  return out;
+}
+
+/**
+ * Prix d'une case de forme de vie à un niveau donné, lu ou estimé. Les coûts
+ * suivent base × facteur^(n−1) : deux niveaux vus donnent le facteur, projeté
+ * depuis le plus haut. Un prix lu à ce niveau prime toujours.
+ * @param {object} v case relevée (lvl, next, cost, secs, seen)
+ * @param {number} niveau niveau visé
+ * @returns {{cost:number[], src:'lu'|'estimé'}|null} null quand rien ne permet de chiffrer
+ */
+function lfCost(v, niveau){
+  const n = Math.floor(+niveau);
+  if(!v || !(n >= 1)) return null;
+  if(lfPriced(v) && v.next === n) return {cost: lfClampCost(v.cost), src:'lu'};
+  const seen = v.seen || {};
+  const nv = Object.keys(seen).map(Number).filter(k=>Number.isInteger(k) && k >= 1 && k <= LF_LVL_MAX).sort((a,b)=>a-b);
+  if(seen[n] && lfClampCost(seen[n]).some(x=>x>0)) return {cost: lfClampCost(seen[n]), src:'lu'};
+  if(nv.length < 2) return null;
+  const n1 = nv[nv.length-2], n2 = nv[nv.length-1];
+  const c1 = lfClampCost(seen[n1]), c2 = lfClampCost(seen[n2]);
+  const j = [0,1,2].find(i=>c1[i] > 0 && c2[i] > 0);
+  if(j === undefined) return null;
+  const f = Math.min(Math.max(Math.pow(c2[j]/c1[j], 1/(n2-n1)), 1), LF_FACTOR_MAX);
+  const raw = c2.map(x=>Math.round(x * Math.pow(f, n-n2)));
+  return raw.every(x=>Number.isFinite(x) && x <= LF_COST_MAX) ? {cost: raw, src:'estimé'} : null;
+}
+
 /**
  * Cases de forme de vie proposables sur une planète, la moins chère d'abord.
- * Une case n'est proposable que si le jeu l'a dite constructible ET en a
- * affiché le prix : sans prix, on ne sait pas quand elle sera payable, et
- * l'annoncer quand même ferait exactement ce qu'on veut éviter.
+ * Une case n'est proposable que si le jeu l'a dite constructible ET qu'on sait
+ * en chiffrer le prochain niveau, lu ou estimé (`src`), avec une durée connue :
+ * sans cela, on ne sait pas quand elle sera payable. À prix égal, le prix lu
+ * passe devant l'estimé.
  * @param {object} p planète simulée
  * @param {string} queue lfbuilding | lfresearch
  * @returns {object[]} candidats triés
  */
 function lfCandidates(p, queue){
-  return Object.entries(p.lf || {})
-    .filter(([id,v]) => lfQueue(id) === queue && v && v.state !== 'locked' && lfPriced(v))
-    .map(([id,v]) => ({id:+id, cost:v.cost, secs:v.secs, next:v.next || (v.lvl||0)+1,
+  return Object.entries(p.lf || {}).flatMap(([id,v]) => {
+    if(lfQueue(id) !== queue || !v || v.state === 'locked') return [];
+    const next = (v.lvl||0) + 1, c = lfCost(v, next);
+    if(!c || !(v.secs > 0)) return [];
+    return [{id:+id, cost:c.cost, src:c.src, secs:v.secs, next,
       nom: v.nom || v.name || LF_NAMES[id] || 'Forme de vie',
-      why:'La case la moins chère de cette file.'}))
-    .sort((a,b)=>mse(...a.cost)-mse(...b.cost));
+      why:'La case la moins chère de cette file.'}];
+  }).sort((a,b)=>mse(...a.cost)-mse(...b.cost) || (a.src==='lu' ? 0 : 1)-(b.src==='lu' ? 0 : 1));
 }
 /* Identifiants de tuile du jeu, dans l'autre sens : le plan raisonne en clés
    (« metal »), la page du jeu en numéros (« 1 »). */
@@ -1294,10 +1370,10 @@ function simulateDay(){
             pay(p, ch.cost); p.lfq[q] = Tm + ch.secs*1000;
             const id = ch.id, lvl = ch.next;
             sim.ev.push({at:Tm + ch.secs*1000, fn:()=>{ if(p.lf[id]) p.lf[id] = Object.assign({}, p.lf[id], {lvl, cost:null}); }});
-            acts.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, why:ch.why, cost:ch.cost, dur:ch.secs, end:Tm+ch.secs*1000, kind:'lf', id:ch.id, lvl:ch.next, p:p.i});
+            acts.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, why:ch.why, src:ch.src, cost:ch.cost, dur:ch.secs, end:Tm+ch.secs*1000, kind:'lf', id:ch.id, lvl:ch.next, p:p.i});
           } else {
             const eta = wait(p, ch.cost);
-            waits.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, eta, held:res.some(x=>x>0), miss:missOf(p, ch.cost)});
+            waits.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}${ch.src==='estimé' ? ' (prix estimé)' : ''}`, src:ch.src, eta, held:res.some(x=>x>0), miss:missOf(p, ch.cost)});
             soft.push({p, cost:ch.cost, eta});
           }
         }
@@ -1392,7 +1468,7 @@ function copyChips(a){
 }
 function actHtml(a, withBtn){
   const note = goNote(a);
-  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : '', note ? `<span>${esc(note)}</span>` : '', copyChips(a)].filter(Boolean).join('');
+  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : '', a.src==='estimé' ? '<span>Prix estimé d\'après les niveaux déjà vus, pas lu sur le jeu.</span>' : '', note ? `<span>${esc(note)}</span>` : '', copyChips(a)].filter(Boolean).join('');
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,p:a.p,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
@@ -1631,7 +1707,7 @@ function dailyMissions(){
       // n'a pas encore. Rien à relever, donc rien à lui rappeler.
       if(!cases.length) return {need:(p.lfSeen||{})[q] ? null : 'page', n:0};
       const libres = cases.filter(([,v])=>v && v.state !== 'locked');
-      if(libres.some(([,v])=>lfPriced(v))) return {need:null, n:cases.length};
+      if(lfCandidates(p, q).length) return {need:null, n:cases.length};
       return {need: libres.length ? 'prix' : null, n:cases.length};
     };
     const lfCard = (q, id, quoi, page) => {
@@ -2466,7 +2542,7 @@ function applyGame(g){
     p.gid = id;
     if(gp.name) p.name = gp.name;
     if(gp.coords) p.coords = gp.coords;
-    if(gp.lf) p.lf = Object.assign({}, p.lf, gp.lf);
+    if(gp.lf){ const lf = Object.assign({}, p.lf); for(const [k,v] of Object.entries(gp.lf)) lf[k] = lfMerge(lf[k], v); p.lf = lf; }
     if(gp.lfSeen) p.lfSeen = Object.assign({}, p.lfSeen, gp.lfSeen);
     if(gp.tmax != null) p.tmax = gp.tmax;
     Object.assign(p.b, gp.b || {});
