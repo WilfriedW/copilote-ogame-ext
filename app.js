@@ -339,6 +339,56 @@ function storageLevelFor(amount){ let L = 0; while(L < 40 && storageCap(L) < amo
  * une foreuse de plus ne rapporte rien.
  * @returns {number}
  */
+/**
+ * Lit le texte du panneau « Paramétrage de la production » publié par content.js.
+ * Le texte vient de la page : tout nombre qui pourrait borner une boucle ou
+ * dimensionner quoi que ce soit est borné ici (comptes à 1e6, niveaux à 999).
+ * @param {string} text texte brut du panneau, une ligne par rangée, cellules séparées par des tabulations
+ * @returns {object|null} la forme de S.prod[gid] (sans `at`), ou null si « Total par heure » est absent
+ */
+function parseProdPanel(text){
+  if(typeof text !== 'string' || text.length > 20000) return null;
+  const clamp = (n, hi) => Math.max(0, Math.min(hi, n));
+  // « 37.297 » → 37297, « -1.554 » → -1554 ; « 2M » (troncature du jeu) et tout le reste → null
+  const num = c => /^-?\d{1,3}(\.\d{3})*$|^-?\d{1,12}$/.test(c || '') ? +c.replace(/\./g, '') : null;
+  const out = {at:0, factor:1, base:[0,0,0], lfBonus:[0,0,0,0], caps:[null,null,null], crawlerMax:0, energy:null, rows:[]};
+  const fm = text.match(/Facteur de production\s*:\s*(\d{1,4})\s*%/i);
+  if(fm) out.factor = clamp(+fm[1] / 100, 10);
+  for(const line of text.split('\n').slice(0, 200)){
+    const cells = line.split(/\t|\s{2,}/).map(c => c.trim()).filter(Boolean);
+    if(cells.length < 2) continue;
+    const label = cells[0], v = cells.slice(1, 5).map(num);
+    if(/^Total par heure/i.test(label)){
+      const em = (cells[4] || '').match(/^(-?[\d.]+)\/([\d.]+)$/);
+      if(em) out.energy = {free:num(em[1]), prod:num(em[2])};
+      out.total = true;
+    }else if(/^Revenu de base/i.test(label)) out.base = v.slice(0, 3).map(x => x || 0);
+    else if(/^Bonus technologique/i.test(label)) out.lfBonus = v.map(x => x || 0);
+    else if(/^Capacit/i.test(label)) out.caps = v.slice(0, 3);
+    else{
+      const lv = label.match(/\(Niveau\s*(\d{1,4})\)/i), nb = label.match(/\(Nombre\s*:\s*(\d{1,9})(?:\s*\/\s*(\d{1,9}))?\)/i);
+      const pct = (cells[5] || '').match(/^(\d{1,4})\s*%$/);
+      const max = nb && nb[2] != null ? clamp(+nb[2], 1e6) : null;
+      if(/^Foreuse/i.test(label) && max != null) out.crawlerMax = max;
+      out.rows.push({label, lvl: lv ? clamp(+lv[1], 999) : null, n: nb ? clamp(+nb[1], 1e6) : null, max,
+        v: v.map(x => x == null ? 0 : x), pct: pct ? clamp(+pct[1], 1000) : null});
+    }
+  }
+  if(!out.total || !out.energy) return null;
+  delete out.total;
+  return out;
+}
+
+/**
+ * Relevé du panneau de production d'une planète, clé stricte sur son gid.
+ * @param {object} p planète de S.planets
+ * @returns {object|undefined} undefined si cette planète n'a jamais ouvert le panneau
+ */
+function prodOf(p){
+  const k = p && p.gid;
+  return k && S.prod && Object.prototype.hasOwnProperty.call(S.prod, k) ? S.prod[k] : undefined;
+}
+
 function crawlerMax(metal, crystal, deut){ return 8*(metal+crystal+deut); }
 /**
  * Bonus de production des foreuses, en fraction de la production de base :
@@ -2406,6 +2456,13 @@ function applyGame(g){
   S.moves = g.moves || [];
   if(g.artefacts != null) S.artefacts = g.artefacts;
   if(g.slots) S.slots = g.slots;
+  if(g.prod && typeof g.prod === 'object'){
+    S.prod = S.prod || {};
+    for(const [gid, e] of Object.entries(g.prod)){
+      const r = e && parseProdPanel(e.text);
+      if(r){ r.at = +e.at || 0; S.prod[gid] = r; }
+    }
+  }
   S.sample = false;
   S.syncAt = g.at || Date.now();
   save();

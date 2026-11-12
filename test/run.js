@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'adviceList', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -1470,6 +1470,85 @@ t('une carte de chantier ne parle pas de bâtiment ni de recherche', () => {
   const note = g.goNote({ kind: 'ship', k: 'lc', n: 5, p: 0 });
   assert.ok(PREREMPLI.test(note), 'la note sort pour un chantier aussi');
   assert.ok(!/b[âa]timent ou une recherche/i.test(note), 'sans se tromper de vocabulaire : ' + note);
+});
+
+
+/* ---------- le panneau de production ---------- */
+
+/* Relevé sur Caribou Land le 12 novembre. Les nombres du jeu portent des
+   points comme séparateurs de milliers, et la colonne énergie du total
+   s'écrit « libre/produite ». */
+const PANNEAU_CARIBOU = [
+  'Facteur de production: 100%',
+  'Revenu de base\t240\t120\t0\t0',
+  'Mine de métal (Niveau 21)\t37.297\t0\t0\t-1.554\t100%',
+  'Mine de cristal (Niveau 17)\t0\t13.748\t0\t-859\t100%',
+  'Synthétiseur de deutérium (Niveau 17)\t0\t0\t7.946\t-1.718\t100%',
+  'Centrale électrique solaire (Niveau 19)\t0\t0\t0\t2.324\t100%',
+  'Centrale électrique de fusion (Niveau 7)\t0\t0\t-1.091\t464\t100%',
+  'Centre de recherche (Niveau 2)\t0\t0\t0\t-23',
+  'Satellite solaire (Nombre : 34)\t0\t0\t0\t1.190\t100%',
+  'Foreuse (Nombre : 0/440)\t0\t0\t0\t0\t100%',
+  'Le collecteur\t9.324\t3.437\t1.986\t397',
+  'Bonus technologique de forme de vie\t96\t46\t20\t9',
+  'Capacité de stockage\t2M\t255.000\t470.000\t0',
+  'Total par heure:\t46.958\t17.351\t8.862\t231/4.385'
+].join('\n');
+
+t('le panneau donne le bonus de forme de vie', () => {
+  const g = app(null, SOIR);
+  assert.deepEqual(g.parseProdPanel(PANNEAU_CARIBOU).lfBonus, [96, 46, 20, 9]);
+});
+
+t('le panneau donne l\'énergie libre et produite', () => {
+  const g = app(null, SOIR);
+  assert.deepEqual(g.parseProdPanel(PANNEAU_CARIBOU).energy, { free: 231, prod: 4385 });
+});
+
+t('le panneau donne le plafond de foreuses', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.parseProdPanel(PANNEAU_CARIBOU).crawlerMax, 440);
+});
+
+t('le panneau donne le facteur de production', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.parseProdPanel(PANNEAU_CARIBOU).factor, 1);
+});
+
+t('une ligne de bâtiment porte son niveau et ses quatre colonnes', () => {
+  const g = app(null, SOIR);
+  const r = g.parseProdPanel(PANNEAU_CARIBOU).rows.find(x => /Mine de métal/.test(x.label));
+  assert.equal(r.lvl, 21);
+  assert.deepEqual(r.v, [37297, 0, 0, -1554]);
+  assert.equal(r.pct, 100);
+});
+
+t('le revenu de base et les capacités sont lus ; « 2M » reste inconnu', () => {
+  const p = app(null, SOIR).parseProdPanel(PANNEAU_CARIBOU);
+  assert.deepEqual(p.base, [240, 120, 0]);
+  assert.deepEqual(p.caps, [null, 255000, 470000]);
+});
+
+t('sans la ligne « Total par heure », le panneau n\'est pas là', () => {
+  assert.equal(app(null, SOIR).parseProdPanel('Facteur de production: 100%\nRevenu de base\t1\t1\t0\t0'), null);
+  assert.equal(app(null, SOIR).parseProdPanel(null), null);
+});
+
+t('un compte absurde est borné, jamais repris tel quel', () => {
+  const p = app(null, SOIR).parseProdPanel('Foreuse (Nombre : 5/99999999999)\t0\t0\t0\t0\nTotal par heure:\t1\t1\t1\t0/0');
+  assert.ok(p.crawlerMax <= 1e6 && Number.isFinite(p.crawlerMax));
+  assert.ok(p.rows[0].max <= 1e6);
+});
+
+t('le panneau d\'une planète n\'en renseigne pas une autre', () => {
+  const g = app(s => { s.planets[0].gid = '33001'; s.planets[1].gid = '33002'; });
+  g.S.prod = { 33001: { lfBonus: [96, 46, 20, 9], at: SOIR, factor: 1 } };
+  assert.deepEqual(g.prodOf(g.S.planets[0]).lfBonus, [96, 46, 20, 9]);
+  assert.equal(g.prodOf(g.S.planets[1]), undefined);
+  g.S.planets[1].gid = undefined;
+  assert.equal(g.prodOf(g.S.planets[1]), undefined);
+  g.S.planets[1].gid = 'toString';
+  assert.equal(g.prodOf(g.S.planets[1]), undefined, 'pas de repli sur le prototype');
 });
 
 if (failures.length) {

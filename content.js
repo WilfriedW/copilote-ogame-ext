@@ -144,6 +144,21 @@
     const artTxt = clean(document.body.textContent.match(/Art[ée]facts?\s+collect[ée]s?\s*:?\s*[\d.]+\s*\/\s*[\d.]+/i)?.[0]);
     const artefacts = artTxt ? +artTxt.match(/:?\s*([\d.]+)\s*\//)[1].replace(/\./g, '') : null;
 
+    /* Le panneau se repère par ses deux libellés, sans sélecteur : on prend le
+       plus petit bloc qui porte les deux, une rangée par ligne, cellules par tabulation. */
+    let prodPanel = null;
+    if (/Facteur de production/i.test(document.body.textContent) && /Total par heure/i.test(document.body.textContent)) {
+      let blk = null;
+      for (const el of document.querySelectorAll('div, section, table')) {
+        const tx = el.textContent;
+        if (/Facteur de production/i.test(tx) && /Total par heure/i.test(tx) && (!blk || tx.length < blk.textContent.length)) blk = el;
+      }
+      if (blk) {
+        const rows = [...blk.querySelectorAll('tr')].map(r => [...r.children].map(c => clean(c.textContent)).join('\t')).filter(Boolean);
+        prodPanel = (rows.length ? clean(blk.textContent.match(/Facteur de production\s*:?\s*\d+\s*%/i)?.[0]) + '\n' + rows.join('\n') : blk.textContent).slice(0, 20000);
+      }
+    }
+
     const unique = [];
     for (const t of timers) {
       const i = unique.findIndex(u => u.type === t.type && Math.abs(u.end - t.end) <= 5);
@@ -179,6 +194,7 @@
       moves,
       movePage: /movement/i.test(component),
       artefacts,
+      prodPanel,
       lf,
       lfSeen: lfPage ? { [lfPage]: Date.now() } : null,
       slots,

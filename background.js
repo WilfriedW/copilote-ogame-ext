@@ -127,6 +127,7 @@ async function merge(s) {
   else { for (const m of s.moves || []) if (!keepMoves.some(x => x.mission === m.mission && x.arrival === m.arrival && x.ret === m.ret)) keepMoves.push(m); game.moves = keepMoves; }
   if (s.slots) game.slots = { ...s.slots, at: s.at };
   if (s.artefacts != null) game.artefacts = s.artefacts;
+  if (s.prodPanel && s.planetId) game.prod = { ...(game.prod || {}), [s.planetId]: { text: s.prodPanel, at: s.at } };
   const timers = (game.timers || []).filter(t => t.end * 1000 > now - 10 * 60 * 1000);
   for (const t of s.timers) {
     const k = timerKey(t);
