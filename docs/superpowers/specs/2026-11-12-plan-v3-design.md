@@ -134,13 +134,34 @@ qu'il suit sans vérifier.
 
 Le gros morceau, et celui dont dépendent les autres.
 
-- **Lecteur de la page Ressources, en premier.** La v2 avait noté le
-  calibrage observé/théorique des mines comme non fait, faute de lecteur ;
-  la v3 le tient pour acquis. Il ne l'est pas. Comme toute la vague 2
-  classe « par délai de retour comme une mine », ce lecteur passe devant
-  le reste : production réelle par mine et capacité des hangars. Seule
-  l'énergie est calibrée aujourd'hui (`p.eAdj`). *Point relevé à la
-  relecture ; la place dans l'ordre est une décision de conception.*
+- **Lecteur du panneau « Paramétrage de la production », en premier.**
+  Pas la page Ressources : le panneau derrière son bouton vert. Relevé
+  sur les quatre planètes le 12 novembre, il donne en un seul tableau
+  tout ce que la vague 2 réclamait séparément — production de chaque
+  bâtiment ligne par ligne, sa consommation d'énergie, la ligne
+  Collecteur, le bonus technologique de forme de vie, la capacité de
+  chaque hangar, le maximum de foreuses (`Foreuse (Nombre : 0/440)`) et
+  le pourcentage de marche de chaque bâtiment. La consommation d'énergie
+  des bâtiments de forme de vie y figure aussi, que la v2 avait notée
+  illisible.
+
+  **Le calibrage observé/théorique est un quasi non-sujet.** Vérifié sur
+  les quatre planètes : les formules du moteur reproduisent exactement
+  les chiffres du jeu. Mine de métal 21 sur Caribou, `30 × g(21) × 8` =
+  37 297, le jeu affiche 37 297 ; niveau 19 sur Laribou, 27 888 contre
+  27 888 ; le même niveau 19 sur Babibou, 37 649, soit exactement
+  ×1,35 — le bonus de position 8, déjà codé. Hangars et foreuses
+  tombent juste de la même façon. Le seul écart est le **bonus
+  technologique de forme de vie** (+96 métal, +46 cristal, +20 deutérium
+  sur Caribou), que le moteur ne modélise pas : environ 0,2 %. Le ratio
+  à appliquer n'est donc pas une correction d'erreur, c'est cette ligne,
+  lue et ajoutée.
+
+  Ce que ce lecteur change vraiment : la vitesse d'univers (8), le
+  surplus d'énergie réel par planète, et la ligne de forme de vie. Le
+  reste, le moteur le savait déjà. *Révision du 12 novembre, à partir
+  des relevés du joueur ; remplace la formulation précédente, qui
+  supposait une dérive à corriger.*
 - **Les formes de vie entrent dans le catalogue d'options**, classées par
   délai de retour comme une mine. Le coût d'une option inclut les
   bâtiments de population et de nourriture qu'elle exige. Leur
