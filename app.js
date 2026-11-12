@@ -1198,7 +1198,10 @@ function simulateDay(){
   const iv = Math.max(15,+S.day.interval||90)/60;
   // Les alertes se lisent sur l'état réel, avant que la simulation ne prenne
   // la place de S.planets : ce sont les ennuis d'aujourd'hui, pas ceux prévus.
-  const alerts = S.planets.flatMap(p=>planetAlerts(p));
+  // Trié par sévérité, l'ordre des planètes conservé à sévérité égale : sans
+  // cela un Urgent de la deuxième planète se lit sous un Attention de la
+  // première, et le joueur à quatre planètes balaie la carte de travers.
+  const alerts = S.planets.flatMap(p=>planetAlerts(p)).sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1));
   S.tech = sim.tech; S.planets = P;
   try{
     const startV = P.reduce((a,p)=>{ const r=production(p); return a+mse(r.m,r.c,r.d); },0);
@@ -2159,7 +2162,7 @@ function crawlerPill(p){
   const max = crawlerMax(p.b.metal, p.b.crystal, p.b.deut); if(!max) return '';
   const have = p.crawlers||0, over = p.overload != null ? p.overload : S.settings.crawlerOverload;
   const pct = (crawlerBonus(Math.min(have,max), S.settings.cls, over)*100).toFixed(1).replace('.',',');
-  return `<span class="pill ${have>=max?'good':'info'}">Foreuses ${fmt(have)} / ${fmt(max)} utiles · +${pct} %</span>`;
+  return `<div class="wide"><span class="pill ${have>=max?'good':'info'}">Foreuses ${fmt(have)} / ${fmt(max)} utiles · +${pct} %</span></div>`;
 }
 
 const REFRESH = {
@@ -2335,7 +2338,7 @@ plan(){
     return `<li><div><div>${name} ${done?'<span class="pill good">atteint</span>':''}</div>${done?'':`<div class="row" style="gap:12px">${costHtml(cost)}<span class="mono note">${dur(time)}</span></div>`}</div>
       <div class="row" style="gap:6px"><button class="btn sm ghost" data-up="${i}" aria-label="Monter">↑</button><button class="btn sm ghost" data-rm="${i}">Retirer</button></div></li>`;
   });
-  document.getElementById('plList').innerHTML = items.join('') || `<li><div class="note">Aucun objectif. Ajoute un bâtiment ci-dessus, ou utilise « + Plan » dans Construire et Recherche.</div></li>`;
+  document.getElementById('plList').innerHTML = items.join('') || `<li><div class="note">Aucun objectif. Ajoute un bâtiment ci-dessus, ou une recherche depuis Empire.</div></li>`;
   const pm = S.planets.reduce((a,p)=>{ const r=production(p); return [a[0]+r.m,a[1]+r.c,a[2]+r.d]; },[0,0,0]);
   const hrs = Math.max(...tot.map((x,j)=>pm[j]>0?x/pm[j]:(x>0?Infinity:0)));
   document.getElementById('plTot').innerHTML = `${costHtml(tot)} <span class="mono">· ${dur(tTime)} de chantier · ${dur(hrs*3600)} de production</span>`;

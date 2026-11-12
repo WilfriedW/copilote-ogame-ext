@@ -1311,6 +1311,21 @@ t('une carte de foreuses est proposee quand elles sont en tete du classement', (
   assert.ok(cartes.length, 'aucune carte de foreuses sur tout l\'horizon');
 });
 
+t('les lots de foreuses avancent et s\'arretent au plafond', () => {
+  // La preuve que le compte avance : le moteur en pose 10 % du plafond par
+  // connexion, et le dernier lot est rogné pour tomber juste. Avec le compte
+  // figé, il aurait reproposé le même lot sans jamais s'arrêter.
+  const g = app(MINES_HAUTES(4));
+  const p = g.S.planets[0];
+  const max = g.crawlerMax(p.b.metal, p.b.crystal, p.b.deut);
+  const lots = g.simulateDay().sessions.flatMap(x => x.acts)
+    .filter(a => a.ships && a.ships.crawl).map(a => a.ships.crawl);
+  assert.ok(lots.length > 1, 'le plafond se remplit en plusieurs lots');
+  assert.equal(lots.reduce((a, b) => a + b, 0), max,
+    'les lots doivent totaliser le plafond exactement, et donc s\'arrêter : ' + lots.join(','));
+  assert.ok(lots[lots.length - 1] < lots[0], 'le dernier lot est rogné pour tomber juste');
+});
+
 t('le gain des foreuses se voit dans la journee', () => {
   // Armure 4 ouvre les foreuses, armure 0 les interdit : même planète sinon.
   const avec = app(MINES_HAUTES(4)).simulateDay();
@@ -1330,6 +1345,22 @@ t('la carte de planete dit combien de foreuses servent', () => {
   const html = g.html()['pres-0'] || '';
   assert.ok(/120\s*\/\s*288/.test(html),
     'le compte et le plafond (8 x (14+12+10)) doivent figurer : ' + html.slice(0, 300));
+});
+
+t('la pastille de foreuses occupe toute la largeur des jauges', () => {
+  // Les jauges sont une grille de quatre colonnes : posée telle quelle, la
+  // pastille tiendrait dans une colonne et son texte déborderait sa bordure.
+  const g = app(s => { s.planets[0].crawlers = 120; });
+  g.REFRESH.planets();
+  assert.ok(/class="wide"[^>]*>\s*<span class="pill/.test(g.html()['pres-0'] || ''),
+    'la pastille doit être dans un bandeau pleine largeur');
+});
+
+t('le plan ne renvoie plus a un ecran supprime', () => {
+  const g = app(s => { s.plan = []; });
+  g.REFRESH.plan();
+  assert.ok(!/Construire/.test(g.html().plList || ''),
+    'l\'écran Construire n\'existe plus : ' + (g.html().plList || ''));
 });
 
 t('pas de pastille quand aucune foreuse n\'est possible', () => {
@@ -1404,6 +1435,49 @@ t('une ressource sans production ne donne pas d\'alerte de hangar', () => {
   g.simulateDay().alerts.forEach(x => {
     assert.ok(!/Infinity|NaN/.test(x.what + x.why), 'aucun chiffre absurde : ' + x.what);
   });
+});
+
+t('un debit negatif ne donne pas d\'alerte de hangar', () => {
+  // Une centrale à fusion mange plus de deutérium que le synthétiseur n'en
+  // produit : le débit est négatif, et sans le garde « plein dans » diviserait
+  // par ce débit et annoncerait un réservoir plein dans une durée négative.
+  const g = app(s => {
+    const p = s.planets[0];
+    Object.assign(p.b, { deut: 1, fusion: 12, sdeut: 4 });
+    p.stock = { m: 0, c: 0, d: 0, at: SOIR };
+  });
+  const p = g.S.planets[0];
+  assert.ok(g.production(p).d < 0, 'préalable du test : le débit de deutérium doit être négatif');
+  assert.ok(!g.planetAlerts(p).some(a => /[Rr]éservoir/.test(a.what)),
+    'rien à dire d\'un réservoir qui se vide : ' + JSON.stringify(g.planetAlerts(p)));
+});
+
+t('les alertes urgentes passent avant les avertissements', () => {
+  // La planète mère n'a qu'un hangar qui se remplit (Attention), la colonie
+  // manque d'énergie (Urgent). Dans l'ordre des planètes, l'Attention sort
+  // en premier : c'est le tri par sévérité qui doit le remettre dessous.
+  const g = app(s => {
+    s.planets[0].stock = { m: 66524, c: 0, d: 0, at: SOIR };
+    Object.assign(s.planets[1].b, { metal: 12, solar: 1 });
+  });
+  const sevs = g.simulateDay().alerts.map(a => a.sev);
+  assert.ok(sevs.includes('bad') && sevs.includes('warn'),
+    'préalable du test : il faut une urgence et un avertissement, et non ' + sevs.join(','));
+  assert.ok(sevs.lastIndexOf('bad') < sevs.indexOf('warn'),
+    'aucun Urgent ne doit se lire sous un Attention : ' + sevs.join(','));
+});
+
+t('la carte Alertes affiche ce que le moteur produit', () => {
+  // Le moteur peut continuer à produire des alertes pendant que la carte cesse
+  // de les montrer : c'est la carte, pas le tableau, que voit le joueur.
+  const g = app(s => {
+    Object.assign(s.planets[0].b, { metal: 20, solar: 1, smetal: 0 });
+    s.planets[0].stock = { m: 9e9, c: 0, d: 0, at: SOIR };
+  });
+  g.REFRESH.today();
+  const html = g.html().tdAlerts || '';
+  assert.ok(/Urgent/.test(html), 'la pastille de sévérité doit être rendue : ' + html.slice(0, 200));
+  assert.ok(/[Hh]angar/.test(html), 'et le hangar plein y figurer : ' + html.slice(0, 200));
 });
 
 t('l\'alerte de file vide reste tue quand l\'extension a lu plus recemment', () => {
