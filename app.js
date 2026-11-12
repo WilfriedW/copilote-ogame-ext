@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.25.0';
+const APP_VERSION = '1.26.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1542,9 +1542,14 @@ function dailyMissions(){
           'Sans antimatière, fais venir la ressource manquante depuis une colonie.']});
     }
   }
-  const _unused = S.planets.some(p=>((p.ships||{}).sc||0)+((p.ships||{}).lc||0)>0);
-  out.push({id:'discovery', q:'Exploration', every:24, sev:'info', what:'Missions de découverte (formes de vie)', why:`Elles rapportent des artefacts et de nouvelles races. Trouvées : ${(S.lf.found||[]).map(k=>LIFEFORMS[k].n).join(', ')}.${S.artefacts!=null?` Artefacts : ${fmt(S.artefacts)}.`:''}`,
-    how:['Galaxie : bouton <b>Découverte</b> en haut, ou icône ADN violette sur une ligne.', 'Fais-en sur plusieurs systèmes : le nombre par jour est limité.', 'Une race trouvée ? Coche-la dans Réglages › Formes de vie pour que Copilote en tienne compte.']});
+  /* Une découverte prend un emplacement de flotte comme n'importe quelle autre
+     mission. Tous pris, le bouton Découverte de la Galaxie est gris et dit
+     « Nombre maximal de flottes atteint » : proposer la carte quand même, c'est
+     envoyer le joueur cliquer sur rien. La carte des emplacements pleins, elle,
+     sort déjà plus haut et explique quoi faire. */
+  if(!(fs && fs[0] >= fs[1]))
+    out.push({id:'discovery', q:'Exploration', every:24, sev:'info', what:'Missions de découverte (formes de vie)', why:`Elles rapportent des artefacts et de nouvelles races. Chacune occupe un emplacement de flotte jusqu'à son retour.${fs?` Il t'en reste ${fs[1]-fs[0]} sur ${fs[1]}.`:''} Trouvées : ${(S.lf.found||[]).map(k=>LIFEFORMS[k].n).join(', ')}.${S.artefacts!=null?` Artefacts : ${fmt(S.artefacts)}.`:''}`,
+      how:['Galaxie : bouton <b>Découverte</b> en haut, ou icône ADN violette sur une ligne.', 'Fais-en sur plusieurs systèmes : le nombre par jour est limité.', 'Garde un emplacement libre pour tes expéditions : elles rapportent plus.', 'Une race trouvée ? Coche-la dans Réglages › Formes de vie pour que Copilote en tienne compte.']});
   if(S.artefacts!=null && S.artefacts>=200) out.push({id:'artefacts', q:'Formes de vie', every:24, sev:'good', what:`${fmt(S.artefacts)} artefacts : choisis une technologie de forme de vie`, why:'Au palier 1, 200 artefacts permettent de choisir précisément la technologie d\'un slot au lieu du tirage aléatoire.', how:['Forme de vie › Recherche : sur un slot libre, choisis la technologie voulue.', 'Attention : changer un slot déjà pris oblige à réinitialiser tout le palier.']});
   if(IS_EXT && S.syncAt && now - S.syncAt < 3600e3){
     // Trois situations, trois messages : page jamais ouverte, page lue mais

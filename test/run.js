@@ -1396,6 +1396,28 @@ t('la carte des expéditions dit à quelle heure le chiffre a été lu', () => {
   assert.ok(/lu dans le jeu à \d/.test(c.why), 'elle porte l\'heure de la lecture : ' + c.why);
 });
 
+/* ---------- la découverte coûte un emplacement de flotte ---------- */
+
+/* Une mission de découverte prend un emplacement comme n'importe quelle autre.
+   Proposée alors qu'ils sont tous pris, elle envoie sur un bouton gris :
+   « Nombre maximal de flottes atteint ». Releve en jeu le 12 novembre, cinq
+   decouvertes et deux expeditions pour sept emplacements. */
+t('emplacements de flotte pleins : aucune carte de découverte', () => {
+  const g = app(s => { s.slots = { expo: [2, 2], fleet: [7, 7], at: SOIR }; s.syncAt = SOIR; }, SOIR);
+  assert.ok(!g.dailyMissions().some(m => m.id === 'discovery'), 'la carte ne sort pas');
+});
+
+t('avec un emplacement libre, la découverte est proposée', () => {
+  const g = app(s => { s.slots = { expo: [0, 2], fleet: [2, 7], at: SOIR }; s.syncAt = SOIR; }, SOIR);
+  assert.ok(g.dailyMissions().some(m => m.id === 'discovery'), 'la carte sort');
+});
+
+t('la carte de découverte dit ce qu\'elle coûte en emplacement', () => {
+  const g = app(s => { s.slots = { expo: [0, 2], fleet: [2, 7], at: SOIR }; s.syncAt = SOIR; }, SOIR);
+  const c = g.dailyMissions().find(m => m.id === 'discovery');
+  assert.ok(/emplacement/i.test(c.why + c.how.join(' ')), 'le coût est dit : ' + c.why);
+});
+
 /* ---------- ce qu'un lien peut préremplir, et ce qu'il ne peut pas ---------- */
 
 const HOTE = s => { s.host = 's1-fr.ogame.gameforge.com'; };
