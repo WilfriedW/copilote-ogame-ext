@@ -62,7 +62,7 @@ d'elle-même. Chacun est ajouté aux tests de la tâche qui porte le code.
 
 ---
 
-### Tâche 1 : les foreuses construites comptent
+### Task 1 : les foreuses construites comptent
 
 La boucle du chantier propose déjà les foreuses (`app.js:1426-1427`).
 Deux endroits créditent `p.ships.crawl`, que rien ne lit, au lieu de
@@ -171,7 +171,7 @@ git commit -m "fix: les foreuses construites comptent enfin dans la production"
 
 ---
 
-### Tâche 2 : la pastille de foreuses dans Empire
+### Task 2 : la pastille de foreuses dans Empire
 
 Le compte des foreuses n'apparaît nulle part dans un écran vivant. Il
 rejoint les jauges de production, sur la carte de chaque planète.
@@ -242,7 +242,7 @@ git commit -m "feat: la carte de planete dit combien de foreuses servent"
 
 ---
 
-### Tâche 3 : le fil du début de partie
+### Task 3 : le fil du début de partie
 
 Un bloc de progression dans la carte *Ta journée*, au-dessus des phases.
 
@@ -333,7 +333,7 @@ git commit -m "feat: le plan du jour dit ou tu en es dans le debut de partie"
 
 ---
 
-### Tâche 4 : `adviceList()` disparaît, les alertes changent de source
+### Task 4 : `adviceList()` disparaît, les alertes changent de source
 
 La dernière, parce qu'elle supprime. Les trois précédentes doivent être
 vertes avant de commencer.
