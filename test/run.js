@@ -1320,6 +1320,27 @@ t('le gain des foreuses se voit dans la journee', () => {
     Math.round(avec.endV - avec.startV) + ' contre ' + Math.round(sans.endV - sans.startV));
 });
 
+/* ---------- la pastille de foreuses ---------- */
+/* Les foreuses sont invisibles dans le jeu une fois posées : la carte de
+   planète est le seul endroit qui dit combien en profitent encore. */
+
+t('la carte de planete dit combien de foreuses servent', () => {
+  const g = app(s => { s.planets[0].crawlers = 120; });
+  g.REFRESH.planets();
+  const html = g.html()['pres-0'] || '';
+  assert.ok(/120\s*\/\s*288/.test(html),
+    'le compte et le plafond (8 x (14+12+10)) doivent figurer : ' + html.slice(0, 300));
+});
+
+t('pas de pastille quand aucune foreuse n\'est possible', () => {
+  const g = app(s => {
+    Object.assign(s.planets[0].b, { metal: 0, crystal: 0, deut: 0 });
+  });
+  g.REFRESH.planets();
+  assert.ok(!/[Ff]oreuse/.test(g.html()['pres-0'] || ''),
+    'plafond nul : rien à dire');
+});
+
 /* ---------- le délai de retour d'une colonie est simulé ---------- */
 
 t('une colonie ne s\'amortit pas en moins d\'un jour', () => {
