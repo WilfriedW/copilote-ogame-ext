@@ -1333,6 +1333,19 @@ t('le compte lu est rendu tel quel quand le plafond a baissé', () => {
   assert.equal(g.expoInFlight().n, 5);
 });
 
+/* Le chiffre vient d'une expression régulière sur le texte d'une page du jeu,
+   où des chaînes écrites par d'autres joueurs s'affichent. Un nombre absurde y
+   arriverait tôt ou tard ; il sert de borne de boucle, donc il se borne. */
+t('un compte absurde est ramené à une borne tenable', () => {
+  const g = app(s => { s.slots = { expo: [1e9, 2], fleet: [1, 9], at: SOIR }; s.syncAt = SOIR; }, SOIR);
+  assert.ok(g.expoInFlight().n <= 32, 'borné : ' + g.expoInFlight().n);
+});
+
+t('un compte illisible vaut zéro, pas NaN', () => {
+  const g = app(s => { s.slots = { expo: ['beaucoup', 2], fleet: [1, 9], at: SOIR }; s.syncAt = SOIR; }, SOIR);
+  assert.equal(g.expoInFlight().n, 0);
+});
+
 t('sans lecture de la page de flotte, les expéditions restent proposées', () => {
   const g = app(s => { s.planets[0].ships = { lc: 30 }; s.tech.astro = 4; delete s.slots; }, SOIR);
   assert.equal(g.expoInFlight(), null, 'rien de lu');

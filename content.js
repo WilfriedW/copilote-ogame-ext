@@ -135,7 +135,10 @@
     });
 
     const slotTxt = clean(document.querySelector('#slots, .fleetStatus')?.textContent);
-    const fm = slotTxt.match(/Flottes?\s*:?\s*(\d+)\s*\/\s*(\d+)/i), em = slotTxt.match(/Exp\S*\s*:?\s*(\d+)\s*\/\s*(\d+)/i);
+    /* Trois chiffres au plus : le jeu n'en affiche jamais davantage ici, et ce
+       texte porte des chaînes écrites par d'autres joueurs. Un nombre absurde
+       n'entre donc pas dans le stockage, où il servirait de borne de boucle. */
+    const fm = slotTxt.match(/Flottes?\s*:?\s*(\d{1,3})\s*\/\s*(\d{1,3})/i), em = slotTxt.match(/Exp\S*\s*:?\s*(\d{1,3})\s*\/\s*(\d{1,3})/i);
     const slots = (fm || em) ? { fleet: fm ? [+fm[1], +fm[2]] : null, expo: em ? [+em[1], +em[2]] : null } : null;
 
     const artTxt = clean(document.body.textContent.match(/Art[ée]facts?\s+collect[ée]s?\s*:?\s*[\d.]+\s*\/\s*[\d.]+/i)?.[0]);

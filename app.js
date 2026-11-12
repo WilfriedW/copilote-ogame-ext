@@ -1405,6 +1405,12 @@ function fleetSlots(){ return S.slots && S.slots.fleet && S.syncAt && Date.now()
    own guard. Never expiring it would silence the panel for the rest of the
    day after a single "2/2", which costs as much trust as the lie it fixes. */
 const EXPO_READ_TTL = 3*3600e3;
+/* Le chiffre vient d'une expression régulière sur le texte d'une page du jeu,
+   où s'affichent des chaînes écrites par d'autres joueurs, et il sert de borne
+   de boucle. Un nombre absurde y gèlerait le panneau. Le jeu ne dépasse pas une
+   poignée d'expéditions simultanées ; trente-deux laisse toute la marge utile
+   et tient dans n'importe quel cas. */
+const EXPO_MAX_READ = 32;
 /**
  * Expeditions in flight, as last read on the game's fleet page.
  * @returns {{n:number, at:number}|null} count and reading time, or null when
@@ -1413,7 +1419,8 @@ const EXPO_READ_TTL = 3*3600e3;
 function expoInFlight(){
   if(!(S.slots && S.slots.expo)) return null;
   const at = S.slots.at || S.syncAt;
-  return at && Date.now()-at < EXPO_READ_TTL ? {n: S.slots.expo[0] || 0, at} : null;
+  const n = Math.min(Math.max(0, Math.floor(Number(S.slots.expo[0]) || 0)), EXPO_MAX_READ);
+  return at && Date.now()-at < EXPO_READ_TTL ? {n, at} : null;
 }
 /* Expéditions simultanées. Le chiffre du jeu fait foi quand il est frais : la
    formule ne sert plus qu'à prévoir ce qu'un niveau d'Astrophysique y
