@@ -135,11 +135,15 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   };
 
   const src = ['ids.js', 'content.js'].map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
+  // Le script repeint quand la page bouge : on garde la main sur l'observateur
+  // pour rejouer une secousse, et on exécute les minuteries tout de suite.
+  let secousse = null;
   const args = {
     document, chrome,
     window: {},
     location: { search: '?page=ingame&component=research', pathname: '/game/index.php', href: 'https://x/game/index.php' },
-    MutationObserver: class { observe() {} },
+    MutationObserver: class { constructor(cb) { secousse = cb; } observe() {} },
+    setTimeout: fn => { fn(); return 0; },
     setInterval: () => 0,
     URLSearchParams: global.URLSearchParams,
     URL: global.URL
@@ -147,13 +151,23 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   const names = Object.keys(args);
   new Function(...names, src)(...names.map(n => args[n]));
 
-  const eta = det ? det.children.find(c => c.className === 'copilote-eta') : null;
-  const lien = eta ? eta.children.find(c => c.tagName === 'A') : null;
+  const read = () => {
+    const eta = det ? det.children.find(c => c.className === 'copilote-eta') : null;
+    const lien = eta ? eta.children.find(c => c.tagName === 'A') : null;
+    return {
+      eta: eta ? eta.textContent : null,
+      etaLink: lien ? lien.href : null,
+      etaLinkText: lien ? lien.textContent : null,
+      etaParent: eta && eta.parentNode ? eta.parentNode.id || eta.parentNode.className : null
+    };
+  };
   return {
-    eta: eta ? eta.textContent : null,
-    etaLink: lien ? lien.href : null,
-    etaLinkText: lien ? lien.textContent : null,
-    etaParent: eta && eta.parentNode ? eta.parentNode.id || eta.parentNode.className : null,
+    ...read(),
+    read,
+    /** Ce que fait le jeu en ouvrant une autre tuile : il refait son panneau. */
+    efface: () => { const e = det && det.children.find(c => c.className === 'copilote-eta'); if (e) e.remove(); },
+    /** Une secousse de la page, comme en produit le jeu. */
+    secousse: () => secousse && secousse(),
     dataset: html.dataset,
     styleInjected: !!document.getElementById('copilote-style')
   };

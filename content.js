@@ -437,7 +437,19 @@ color:#cfe0ff;font:700 12px/1.5 Arial,sans-serif}\n.copilote-eta .copilote-go{di
     try { chrome.runtime.sendMessage({ type: 'snapshot', data: s }).catch(() => {}); } catch (e) {}
   }
 
-  new MutationObserver(() => { dirty = true; }).observe(document.body, { childList: true, subtree: true });
+  /* Le jeu refait tout le panneau de détail à chaque tuile ouverte, ce qui
+     emporte notre ligne : attendre le tour de garde suivant la faisait
+     clignoter, absente jusqu'à cinq secondes. On repeint donc dès que la page
+     bouge, en groupant les secousses — le jeu en produit à chaque seconde pour
+     ses propres comptes à rebours. Repeindre n'écrit rien quand rien n'a
+     changé, donc la secousse que nous causons nous-mêmes s'arrête là.
+     L'envoi du relevé, lui, reste au rythme de garde : c'est le coûteux. */
+  let bientot = null;
+  new MutationObserver(() => {
+    dirty = true;
+    if (bientot) return;
+    bientot = setTimeout(() => { bientot = null; paint(); }, 250);
+  }).observe(document.body, { childList: true, subtree: true });
   send(); paint();
   setInterval(() => { send(); paint(); }, 5000);
 })();

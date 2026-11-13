@@ -531,6 +531,18 @@ t('une livraison plus lente se dit, sans se faire passer pour mieux', () => {
   assert.ok(/^Livraison plus lente que ta production : 38.647 cristal depuis Caribou/m.test(r.eta), r.eta);
 });
 
+t('la ligne revient d\u00e8s que le jeu refait son panneau', () => {
+  // Le jeu reconstruit le détail à chaque tuile ouverte : attendre le tour de
+  // garde suivant laissait la ligne absente jusqu'à cinq secondes, et elle
+  // passait pour capricieuse.
+  const r = runPage({ ...ASTRO, skin: DONNEUR });
+  assert.ok(r.eta, 'elle est là au chargement');
+  r.efface();
+  assert.equal(r.read().eta, null, 'le jeu vient de l\'emporter');
+  r.secousse();
+  assert.ok(/Payable dans 6h 27m/.test(r.read().eta), 'elle revient sans attendre');
+});
+
 t('la ligne m\u00e8ne au formulaire de flotte, d\u00e9j\u00e0 rempli', () => {
   const pret = { ...DONNEUR, donors: { '33657643': [{ ...DONNEUR.donors['33657643'][0], cp: '33601', vers: '1:142:8', mission: 3 }] } };
   const r = runPage({ ...ASTRO, skin: pret });
