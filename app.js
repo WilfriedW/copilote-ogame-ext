@@ -310,6 +310,10 @@ function lfRemember(prev, v){
 function lfMerge(prev, cur){
   const out = Object.assign({}, cur, lfRemember(prev, cur));
   if(!cur.cost && prev && prev.secs > 0 && !(cur.secs > 0)) out.secs = prev.secs;
+  /* L'effet ne se lit que sur le panneau de détail, que le joueur n'ouvre
+     qu'une fois : une lecture de la liste l'effacerait. */
+  const eff = [0,1,2].includes(cur.eff) ? cur.eff : ([0,1,2].includes(prev && prev.eff) ? prev.eff : null);
+  if(eff === null) delete out.eff; else out.eff = eff;
   return out;
 }
 
@@ -340,8 +344,10 @@ function lfCost(v, niveau){
   return raw.every(x=>Number.isFinite(x) && x <= LF_COST_MAX) ? {cost: raw, src:'estimé'} : null;
 }
 
+const LF_RES_NOM = ['métal', 'cristal', 'deutérium'];
 /**
- * Cases de forme de vie proposables sur une planète, la moins chère d'abord.
+ * Cases de forme de vie proposables sur une planète : celles qui augmentent une
+ * production d'abord, la moins chère ensuite.
  * Une case n'est proposable que si le jeu l'a dite constructible ET qu'on sait
  * en chiffrer le prochain niveau, lu ou estimé (`src`), avec une durée connue :
  * sans cela, on ne sait pas quand elle sera payable. À prix égal, le prix lu
@@ -356,12 +362,18 @@ function lfCandidates(p, queue){
     const next = (v.lvl||0) + 1, c = lfCost(v, next);
     if(!c || !(v.secs > 0)) return [];
     return [{id:+id, cost:c.cost, src:c.src, at:c.at, secs:v.secs, next,
+      eff: [0,1,2].includes(v.eff) ? v.eff : null,
       nom: v.nom || v.name || LF_NAMES[id] || 'Forme de vie'}];
-  }).sort((a,b)=>mse(...a.cost)-mse(...b.cost) || (a.src==='lu' ? 0 : 1)-(b.src==='lu' ? 0 : 1));
+  /* Une case qui produit passe devant, quel que soit son prix : son gain porte
+     sur toutes les planètes et dure toute la partie, quand une case qui ne
+     produit rien ne rembourse jamais. Le prix ne départage plus qu'à effet
+     égal. */
+  }).sort((a,b)=>(a.eff===null)-(b.eff===null) || mse(...a.cost)-mse(...b.cost) || (a.src==='lu' ? 0 : 1)-(b.src==='lu' ? 0 : 1));
   const n = out.length, u = libres.length - n;
-  const why = `La moins chère des ${n} case${n>1?'s':''} chiffrée${n>1?'s':''} de cette file.`
-    + (u ? ` ${u} case${u>1?'s':''} pas encore chiffrée${u>1?'s':''}, non comparée${u>1?'s':''} : ouvre-${u>1?'les':'la'} dans le jeu.` : '');
-  return out.map(c => Object.assign(c, {why}));
+  const reste = (u ? ` ${u} case${u>1?'s':''} pas encore chiffrée${u>1?'s':''}, non comparée${u>1?'s':''} : ouvre-${u>1?'les':'la'} dans le jeu.` : '');
+  const moinsChere = `La moins chère des ${n} case${n>1?'s':''} chiffrée${n>1?'s':''} de cette file.`;
+  return out.map(c => Object.assign(c, {why: (c.eff === null ? moinsChere
+    : `Augmente la production de ${LF_RES_NOM[c.eff]} sur toutes les planètes : elle passe devant les cases qui ne produisent rien.`) + reste}));
 }
 /* Identifiants de tuile du jeu, dans l'autre sens : le plan raisonne en clés
    (« metal »), la page du jeu en numéros (« 1 »). */
@@ -394,8 +406,35 @@ function planHints(acts){
   return out;
 }
 /**
+ * Qui peut livrer cette planète, et en combien de temps. La production locale
+ * n'est pas la seule sortie : une autre planète qui a déjà le stock et des
+ * transporteurs arrive souvent avant, et une livraison ignore le hangar.
+ * Le temps de vol ne dépend que du vaisseau le plus lent, donc deux durées
+ * suffisent — la page choisit la flotte selon ce qui manque.
+ * ponytail: les vaisseaux datent de la dernière visite de la planète source,
+ * et le deutérium du vol n'est pas déduit ; ajouter si ça trompe à l'usage.
+ * @returns {object} { [planetId destination]: [{n, st, lc, sc, sec}] }
+ */
+function donorsOf(){
+  const out = {};
+  for(const dst of S.planets){
+    if(!dst.gid || !dst.coords) continue;
+    const list = [];
+    for(const src of S.planets){
+      if(src === dst || !src.coords) continue;
+      const sh = src.ships || {}, lc = sh.lc || 0, sc = sh.sc || 0;
+      if(!lc && !sc) continue;
+      const fl = k => { const f = flight(src.coords, dst.coords, {[k]:1}, 100); return f ? f.secs : 0; };
+      list.push({n:src.name, st:stockNow(src).map(Math.floor), lc, sc, sec:[fl('lc'), fl('sc')]});
+    }
+    if(list.length) out[dst.gid] = list;
+  }
+  return out;
+}
+/**
  * Ce que la page du jeu doit afficher de notre part : les repères, les débits
- * de chaque planète, et si le joueur a demandé qu'on allège sa mise en page.
+ * de chaque planète, de quoi annoncer une livraison, et si le joueur a demandé
+ * qu'on allège sa mise en page.
  * @param {object[]} acts actions de la session en cours
  * @returns {object} charge utile pour le script de page
  */
@@ -404,7 +443,9 @@ function gameSkin(acts){
   // stock, mais pas à quelle vitesse une planète produit.
   const rates = {};
   for(const p of S.planets){ if(!p.gid) continue; const pr = production(p); rates[p.gid] = [pr.m, pr.c, pr.d]; }
-  return {hints: planHints(acts), rates, lean: !!S.settings.lean};
+  return {hints: planHints(acts), rates, donors: donorsOf(),
+          cargo: [shipStats('lc').cargoEff, shipStats('sc').cargoEff],
+          lean: !!S.settings.lean};
 }
 function labPlanet(){ return S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
 function labLevel(){ return Math.max(0, ...S.planets.map(p=>p.b.lab)); }
@@ -1002,6 +1043,14 @@ const LF_MODE = {after:'Après les bâtiments', first:'Avant tout le reste', off
 function lfMode(){ return LF_MODE[S.day.lf] ? S.day.lf : 'after'; }
 
 const FOCUS = {ecocol:'Économie + colonie', eco:'Économie pure', fleet:'Flotte et expéditions'};
+/* Place de la recherche dans la journée. Par défaut elle prend son tour : elle
+   ne met de côté que ce que la feuille de route juge critique, ou ce qu'elle
+   attend depuis trop longtemps. « Avant les bâtiments » rend critique la tête
+   de liste — elle passe devant les chantiers et pose aussitôt sa réserve, donc
+   les bâtiments de la planète du labo s'effacent et les colonies rapatrient
+   vers elle. */
+const RESEARCH_MODE = {normal:'À son tour', first:'Avant les bâtiments'};
+function researchMode(){ return RESEARCH_MODE[S.day.research] ? S.day.research : 'normal'; }
 const hm = ms => { const d=new Date(ms), today=new Date(); const t=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); return d.toDateString()===today.toDateString() ? t : (new Date(today.getTime()+864e5).toDateString()===d.toDateString() ? 'demain '+t : d.toLocaleDateString('fr-FR',{weekday:'short'})+' '+t); };
 function isNight(ms){ const d=new Date(ms), h=d.getHours()+d.getMinutes()/60, a=+S.day.nightStart, b=+S.day.nightEnd; if(a===b) return false; return a>b ? (h>=a || h<b) : (h>=a && h<b); }
 /** Connection times over the planning horizon, skipping the night window. */
@@ -1106,6 +1155,7 @@ function nextResearch(){
     const i = tete ? 0 : (S.day.focus==='fleet' ? list.findIndex(x=>!x.crit) : -1);
     list.splice(i<0 ? list.length : i, 0, {k:r.k, lvl:r.lvl, crit:!!tete, why:w});
   }
+  if(researchMode()==='first' && list[0]) list[0].crit = true;
   return {list, labNeed, k:list[0]&&list[0].k, lvl:list[0]&&list[0].lvl};
 }
 /**
@@ -1268,10 +1318,18 @@ function simulateDay(){
       }
       if(wantColony && sim.colShip && sim.colReady<=Tm){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight, kind:'fleet', p:dep.i, dest:target, mission:7, ships:{col:1}}); }
       const hubP = P[Math.min(hubIndex(), P.length-1)];
+      /* Un rapatriement va vers la planète qui attend : celle qui porte un
+         objectif, le hub seulement à défaut. Viser le hub en dur laissait la
+         planète du meilleur labo épargner pour une recherche sans jamais rien
+         recevoir dès qu'elle n'était pas aussi celle du meilleur chantier :
+         `hubIndex` classe sur labo + chantier, la recherche se paie sur le
+         labo seul. */
+      const destOf = q => (goals.find(g => g.p !== q) || {}).p || hubP;
       if(P.length>1) for(const q of P){
-        if(q===hubP || (q.transferAt||0)>Tm) continue;
+        const dst = destOf(q);
+        if(q===dst || (q.transferAt||0)>Tm) continue;
         const pr = production(q), want = [0,0,0];
-        for(const g of goals) if(g.p===hubP) g.cost.forEach((x,j)=>want[j]=Math.max(want[j], x-hubP.st[j]));
+        for(const g of goals) if(g.p===dst) g.cost.forEach((x,j)=>want[j]=Math.max(want[j], x-dst.st[j]));
         pr.cap.forEach((cap,j)=>{ if(q.st[j] > cap*.7) want[j] = Math.max(want[j], q.st[j]-cap*.3); });
         const keep = (()=>{ const c = pickBuildings(q, {T:Tm, iv, goals:[]})[0]; return c ? levelCost(B[c.k],c.lvl) : [0,0,0]; })();
         const amt = want.map((w,j)=>Math.max(0, Math.min(w, q.st[j]-keep[j])));
@@ -1280,15 +1338,20 @@ function simulateDay(){
         let left = sum; const lc = Math.min(src.ships.lc||0, Math.ceil(left/lcC)); left -= lc*lcC; const sc = left>0 ? Math.min(src.ships.sc||0, Math.ceil(left/scC)) : 0;
         if(!lc && !sc) continue;
         const ships = {}; if(lc) ships.lc=lc; if(sc) ships.sc=sc;
-        const fl = flight(q.coords, hubP.coords, ships, 100); if(!fl) continue;
+        const fl = flight(q.coords, dst.coords, ships, 100); if(!fl) continue;
+        // L'aller à vide part du chantier, pas de la destination : les deux
+        // trajets cessent d'être symétriques dès que la cible n'est pas le hub.
+        const flOut = own ? null : flight(src.coords, q.coords, ships, 100);
+        if(!own && !flOut) continue;
         const cap = lc*lcC + sc*scC, k = Math.min(1, cap/sum), sent = amt.map(x=>Math.floor(x*k));
         // Un Transporter revient toujours à son point de départ, donc un trajet
         // de plus que l'aller chargé — et après un Stationner ce point de départ
         // est la colonie : les vaisseaux y restent, la principale ne les revoit pas.
-        const legs = own ? 1 : 2, arrive = Tm + legs*fl.secs*1000, back = Tm + (legs+1)*fl.secs*1000;
+        const aller = Tm + (own ? 0 : flOut.secs*1000);
+        const arrive = aller + fl.secs*1000, back = arrive + fl.secs*1000;
         sent.forEach((x,j)=>q.st[j]-=x); q.st[2] = Math.max(0, q.st[2]-fl.fuel); q.transferAt = back;
         for(const [kk,n] of Object.entries(ships)) src.ships[kk]-=n;
-        sim.ev.push({at:arrive, fn:()=>{ sent.forEach((x,j)=>hubP.st[j]+=x); }});
+        sim.ev.push({at:arrive, fn:()=>{ sent.forEach((x,j)=>dst.st[j]+=x); }});
         sim.ev.push({at:back, fn:()=>{ for(const [kk,n] of Object.entries(ships)) q.ships[kk]=(q.ships[kk]||0)+n; }});
         // Une mission part toujours de la planète où est la flotte. Sans
         // transporteur sur la colonie, il faut d'abord l'y amener À VIDE — en
@@ -1296,13 +1359,12 @@ function simulateDay(){
         // et les vaisseaux ne seraient plus là pour charger. C'est ce premier
         // trajet qu'on annonce, et le minuteur prévient quand ils se posent.
         const charge = `${fmt(sent[0])} M, ${fmt(sent[1])} C, ${fmt(sent[2])} D`;
-        const aller = Tm + fl.secs*1000;
         acts.push(own
-          ? {q:'Flotte · '+planetRef(q), what:`Rapatrier vers ${planetRef(hubP)} : ${charge}`,
+          ? {q:'Flotte · '+planetRef(q), what:`Rapatrier vers ${planetRef(dst)} : ${charge}`,
              why:`${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${hm(arrive)}`,
-             dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i, dest:hubP.coords, res:sent, mission:3}
-          : {q:'Flotte · '+planetRef(hubP), what:`Envoie ${shipList(ships)} vers ${planetRef(q)}`,
-             why:`À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${hm(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge}, arrivée vers ${hm(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.`,
+             dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i, dest:dst.coords, res:sent, mission:3}
+          : {q:'Flotte · '+planetRef(src), what:`Envoie ${shipList(ships)} vers ${planetRef(q)}`,
+             why:`À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${hm(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge} vers ${planetRef(dst)}, arrivée vers ${hm(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.`,
              dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i, dest:q.coords, mission:4});
       }
       const fsl = fleetSlots();
@@ -2114,6 +2176,7 @@ settings(){
         <label class="f">Je me connecte toutes les<select id="dInt" data-day="interval">${[30,60,90,120,180].map(v=>`<option value="${v}" ${+d.interval===v?'selected':''}>${v} min</option>`).join('')}</select></label>
         <label class="f">Nuit : de (heure)<input id="dNs" type="number" min="0" max="23" data-day="nightStart" value="${d.nightStart}"></label>
         <label class="f">à (heure)<input id="dNe" type="number" min="0" max="23" data-day="nightEnd" value="${d.nightEnd}"></label>
+        <label class="f">Recherche<select id="dRes" data-day="research">${Object.entries(RESEARCH_MODE).map(([k,l])=>`<option value="${k}" ${researchMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
         <label class="f">Formes de vie<select id="dLf" data-day="lf">${Object.entries(LF_MODE).map(([k,l])=>`<option value="${k}" ${lfMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
         <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
       </div>

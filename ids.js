@@ -72,6 +72,23 @@ function lfRes(cls){
   const c = String(cls || '');
   return /\bmetal\b/.test(c) ? 0 : /\bcrystal\b/.test(c) ? 1 : /deuter/.test(c) ? 2 : -1;
 }
+/**
+ * La ressource dont une case de forme de vie augmente la production, lue dans
+ * la phrase d'effet du panneau de détail du jeu. Rien d'autre ne le dit : la
+ * liste n'affiche qu'une vignette, un nom et un niveau, et le classement se
+ * faisait donc au prix seul — une case qui produit passait derrière n'importe
+ * quelle case militaire moins chère.
+ * ponytail: on ne retient que la ressource, pas le pourcentage, que le jeu
+ * n'affiche pas tant que le niveau n'est pas atteint ; et la phrase n'est
+ * reconnue qu'en français, comme tout le reste du panneau.
+ * @param {string} text texte du panneau de détail
+ * @returns {number|null} 0 métal, 1 cristal, 2 deutérium, null si rien de lisible
+ */
+function lfEffect(text) {
+  const t = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const m = t.match(/augmente la production (?:de |d')?(metal|cristal|deuterium)/);
+  return m ? ['metal', 'cristal', 'deuterium'].indexOf(m[1]) : null;
+}
 
 var OG_SHIPS = {202:'sc', 203:'lc', 204:'lf', 205:'hf', 206:'cr', 207:'bs', 208:'col', 209:'rec', 210:'pr', 211:'bb', 213:'ds', 215:'bc', 218:'rp', 219:'pf'};
 

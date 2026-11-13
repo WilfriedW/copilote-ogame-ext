@@ -106,6 +106,7 @@
       });
       lf[detId] = Object.assign(lf[detId] || {}, {
         name: clean(det.querySelector('h3')?.textContent),
+        eff: lfEffect(det.textContent),
         next: +(det.querySelector('.information .level[data-value]')?.dataset.value) || 0,
         cost,
         secs: lfSecs(det.querySelector('.build_duration time[datetime]')?.getAttribute('datetime'))
@@ -224,7 +225,7 @@
   /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On
      n'ajoute qu'une classe et une étiquette inerte : rien n'est cliqué, rien
      n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
-  let hints = {}, rates = {}, lean = false;
+  let hints = {}, rates = {}, donors = {}, cargo = null, lean = false;
   /* Chaque règle vise un bloc nommé, repéré sur la page, et ne fait que le
      masquer. Elles ne s'appliquent que si le joueur a coché « Épurer », et
      décocher les retire toutes d'un coup. */
@@ -240,6 +241,39 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     return e && e.dataset.raw != null ? +e.dataset.raw : null;
   };
 
+  const RES_NOMS = ['métal', 'cristal', 'deutérium'];
+  const qte = n => Math.ceil(n).toLocaleString('fr-FR');
+
+  /* L'autre sortie : attendre la production locale, ou se faire livrer. Le
+     panneau a publié, pour chaque planète voisine, son stock, ses
+     transporteurs et le temps de vol jusqu'ici ; il reste à voir laquelle
+     couvre ce qui manque et arrive avant la production. Une livraison n'est
+     pas plafonnée par le hangar, donc elle vaut aussi quand l'attente est
+     annoncée infinie.
+     @returns {string} la phrase, ou '' si personne ne fait mieux */
+  function delivery(miss, worst) {
+    const d = donors[meta('planet-id')];
+    const sum = miss.reduce((a, b) => a + b, 0);
+    if (!d || !cargo || sum <= 0) return '';
+    let best = null;
+    for (const s of d) {
+      if (miss.some((m, j) => m > s.st[j])) continue;
+      const lc = Math.min(s.lc, Math.ceil(sum / cargo[0]));
+      const reste = sum - lc * cargo[0];
+      const sc = reste > 0 ? Math.min(s.sc, Math.ceil(reste / cargo[1])) : 0;
+      if (lc * cargo[0] + sc * cargo[1] < sum) continue;
+      // Le vol dure celui du plus lent : un seul grand transporteur dans le
+      // lot et toute la flotte avance à son rythme.
+      const sec = Math.max(lc ? s.sec[0] : 0, sc ? s.sec[1] : 0);
+      if (!sec || (best && sec >= best.sec)) continue;
+      best = { sec, lc, sc, n: s.n };
+    }
+    if (!best || best.sec >= worst) return '';
+    const flotte = [best.lc ? best.lc + ' GT' : '', best.sc ? best.sc + ' PT' : ''].filter(Boolean).join(' + ');
+    const charge = miss.map((m, j) => m > 0 ? qte(m) + ' ' + RES_NOMS[j] : '').filter(Boolean).join(', ');
+    return `Ou fais livrer ${charge} depuis ${best.n} : ${flotte}, ${hms(best.sec)} de vol`;
+  }
+
   /* Sous le coût d'un détail, le temps qu'il reste à attendre. Le jeu colore
      en rouge ce qui manque mais ne dit pas combien de temps ; le panneau,
      lui, connaît le débit de chaque planète. */
@@ -251,16 +285,20 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     if (!costs) { if (vieux) vieux.remove(); return; }
     const r = rates[meta('planet-id')];
     const have = [rawRes('metal'), rawRes('crystal'), rawRes('deuterium')];
+    const miss = [0, 0, 0];
     let worst = 0;
     det.querySelectorAll('.costs li.resource[data-value]').forEach(li => {
       const j = lfRes(li.className);
       if (j < 0 || have[j] == null) return;
-      const eta = etaSecs((+li.dataset.value || 0) - have[j], r ? r[j] : 0);
+      miss[j] = Math.max(0, (+li.dataset.value || 0) - have[j]);
+      const eta = etaSecs(miss[j], r ? r[j] : 0);
       if (eta > worst) worst = eta;
     });
-    const txt = !r || worst <= 0 ? ''
+    const eta = !r || worst <= 0 ? ''
       : isFinite(worst) ? 'Payable dans ' + hms(worst)
       : 'Hors de portée au rythme actuel de cette planète';
+    const liv = delivery(miss, worst);
+    const txt = [eta, liv].filter(Boolean).join('\n');
     if (!txt) { if (vieux) vieux.remove(); return; }
     // Au-dessus de la boîte de coût, pas dedans : cette boîte a sa hauteur et
     // rognait la ligne sans rien laisser voir. Ici elle tombe dans le vide au
@@ -275,7 +313,7 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
 .copilote-tag{position:absolute;top:3px;right:3px;z-index:5;pointer-events:none;max-width:calc(100% - 6px);
 overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
 border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}
-.copilote-eta{margin:6px 0 0;padding:3px 8px;border-left:3px solid #8aa9ff;background:rgba(138,169,255,.12);
+.copilote-eta{margin:6px 0 0;padding:3px 8px;white-space:pre-line;border-left:3px solid #8aa9ff;background:rgba(138,169,255,.12);
 color:#cfe0ff;font:700 12px/1.5 Arial,sans-serif}`;
 
   function paint() {
@@ -323,6 +361,8 @@ color:#cfe0ff;font:700 12px/1.5 Arial,sans-serif}`;
     const take = skin => {
       hints = (skin && skin.hints) || {};
       rates = (skin && skin.rates) || {};
+      donors = (skin && skin.donors) || {};
+      cargo = (skin && skin.cargo) || null;
       lean = !!(skin && skin.lean);
     };
     chrome.storage.local.get('skin', v => { take(v && v.skin); paint(); });

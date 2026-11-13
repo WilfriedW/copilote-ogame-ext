@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -218,6 +218,51 @@ t('avec ses propres vaisseaux, la colonie envoie directement', () => {
   assert.ok(a, 'un rapatriement est proposé');
   assert.ok(/Colonie/.test(a.q), 'l\'action se passe sur la colonie : ' + a.q);
   assert.ok(/Rapatrier vers Planète mère/.test(a.what), a.what);
+});
+
+/* ---------- la recherche attire les ressources ---------- */
+
+/* Le meilleur labo sur la colonie, le meilleur chantier sur la mère : la
+   recherche se paie donc là où le hub n'est pas. */
+function laboSurLaColonie(s) {
+  s.day.focus = 'fleet';            // la feuille de route ouvre sur Combustion 5, critique
+  s.planets[1].b.lab = 6;           // labo de la colonie devant celui de la mère (5)
+  s.planets[1].stock = { m: 2000, c: 1000, d: 200, at: JOUR };
+  s.planets[0].ships = { lc: 10, sc: 5 };
+}
+
+t('le rapatriement vise la planète du labo, pas le hub', () => {
+  const g = app(laboSurLaColonie, JOUR);
+  const a = g.simulateDay().sessions[0].acts
+    .find(x => x.kind === 'transfer' && /Planète mère/.test(x.q));
+  assert.ok(a, 'la mère envoie vers la colonie qui épargne pour la recherche');
+  assert.equal(a.dest, '1:142:6', 'destination : la colonie, où est le labo');
+  assert.ok(/Rapatrier vers Colonie/.test(a.what), a.what);
+});
+
+t('sans objectif ailleurs, le rapatriement vise toujours le hub', () => {
+  const g = app(flotteSurPlace, JOUR);
+  const a = transfert(g);
+  assert.ok(a, 'un rapatriement est proposé');
+  assert.equal(a.dest, '1:142:8', 'destination : la planète mère');
+});
+
+t('« Avant les bâtiments » rend la tête de liste critique', () => {
+  assert.equal(app(null, JOUR).nextResearch().list[0].crit, false,
+    'à son tour, la tête de liste n\'est pas critique');
+  const g = app(s => { s.day.research = 'first'; }, JOUR);
+  assert.equal(g.nextResearch().list[0].crit, true);
+});
+
+t('« Avant les bâtiments » fait passer la recherche devant les chantiers', () => {
+  const ordre = g => {
+    const acts = g.simulateDay().sessions[0].acts;
+    return [acts.findIndex(a => a.kind === 't'), acts.findIndex(a => a.kind === 'b')];
+  };
+  const [tNorm, bNorm] = ordre(app(null, JOUR));
+  assert.ok(tNorm > bNorm && bNorm >= 0, 'à son tour, le bâtiment passe devant');
+  const [tFirst, bFirst] = ordre(app(s => { s.day.research = 'first'; }, JOUR));
+  assert.ok(tFirst >= 0 && tFirst < bFirst, 'en « avant les bâtiments », la recherche ouvre la session');
 });
 
 /* ---------- les formes de vie dans le plan ---------- */
@@ -448,6 +493,42 @@ t('une production nulle est annonc\u00e9e comme telle', () => {
   assert.ok(/Hors de port\u00e9e/.test(r.eta), r.eta);
 });
 
+/* Une planète voisine qui a le stock et les transporteurs : deux grands
+   transporteurs couvrent les 38 647 cristal, et le vol dure 10 minutes. */
+const DONNEUR = {
+  ...SKIN,
+  donors: { '33657643': [{ n: 'Caribou', st: [500000, 100000, 50000], lc: 2, sc: 0, sec: [600, 900] }] },
+  cargo: [25000, 5000]
+};
+
+t('une livraison plus rapide que la production est propos\u00e9e', () => {
+  const r = runPage({ ...ASTRO, skin: DONNEUR });
+  assert.ok(/Payable dans 6h 27m/.test(r.eta), r.eta);
+  assert.ok(/Ou fais livrer .*cristal depuis Caribou : 2 GT, 10m de vol/.test(r.eta), r.eta);
+});
+
+t('une livraison plus lente que la production se tait', () => {
+  const lent = { ...DONNEUR, donors: { '33657643': [{ ...DONNEUR.donors['33657643'][0], sec: [40000, 50000] }] } };
+  assert.equal(runPage({ ...ASTRO, skin: lent }).eta, 'Payable dans 6h 27m');
+});
+
+t('un donneur qui n\'a pas le stock ne livre rien', () => {
+  const vide = { ...DONNEUR, donors: { '33657643': [{ ...DONNEUR.donors['33657643'][0], st: [500000, 100, 50000] }] } };
+  assert.equal(runPage({ ...ASTRO, skin: vide }).eta, 'Payable dans 6h 27m');
+});
+
+t('une soute trop petite ne livre rien', () => {
+  const court = { ...DONNEUR, donors: { '33657643': [{ ...DONNEUR.donors['33657643'][0], lc: 1, sc: 0 }] } };
+  assert.equal(runPage({ ...ASTRO, skin: court }).eta, 'Payable dans 6h 27m');
+});
+
+t('sans d\u00e9bit connu, la livraison parle quand m\u00eame', () => {
+  // Le hangar ou une production nulle arrêtent la production locale, pas une
+  // livraison : c'est justement là qu'elle vaut d'être dite.
+  const r = runPage({ ...ASTRO, skin: { ...DONNEUR, rates: {} } });
+  assert.ok(/^Ou fais livrer /.test(r.eta), r.eta);
+});
+
 t('le t\u00e9moin d\'\u00e9tat dit ce que la page a re\u00e7u', () => {
   const d = runPage({ ...ASTRO, skin: SKIN }).dataset.copilote;
   assert.ok(/debits=33657643/.test(d), d);
@@ -510,6 +591,24 @@ t('les d\u00e9bits de chaque plan\u00e8te partent vers la page', () => {
   const r = g.gameSkin([]).rates;
   assert.ok(r['33601'] && r['33601'][0] > 0, 'la planète mère produit du métal');
   assert.equal(r['33601'].length, 3, 'métal, cristal, deutérium');
+});
+
+t('les donneurs voyagent avec les d\u00e9bits', () => {
+  const g = app(relie);
+  // La mère a les transporteurs : c'est elle qui peut livrer la colonie.
+  const d = g.gameSkin([]).donors['33602'];
+  assert.ok(d && d.length, 'personne ne peut livrer la colonie');
+  assert.equal(d[0].n, 'Planète mère');
+  assert.ok(d[0].sec[0] > 0 && d[0].sec[1] > 0, 'un temps de vol par type de transporteur');
+  assert.ok(d[0].st[0] > 0, 'son stock de métal voyage aussi');
+  // L'inverse n'existe pas : la colonie n'a aucun transporteur à quai.
+  assert.ok(!g.gameSkin([]).donors['33601'], 'une planète sans transporteur ne livre rien');
+});
+
+t('la soute publi\u00e9e est celle des transporteurs', () => {
+  const g = app(relie);
+  const c = g.gameSkin([]).cargo;
+  assert.ok(c[0] >= 25000 && c[1] >= 5000, c.join('/'));
 });
 
 t('le panneau publie bien la charge utile en se rendant', () => {
@@ -2223,6 +2322,54 @@ t('la case qu\'on vient d\'ouvrir ne verrouille plus le classement', () => {
   const c = g.lfCandidates(g.S.planets[0], 'lfbuilding');
   assert.deepEqual(c.map(x => x.id), [11102, 11101], 'la moins chère passe devant, ouverte ou non');
   assert.deepEqual(c.map(x => x.src), ['estimé', 'lu']);
+});
+
+/* Relevé sur le panneau de détail du jeu, case Technique de catalyse. */
+const CATALYSE = 'Chaque avancée de la technique de catalyse augmente la production '
+  + 'de deutérium sur toutes les planètes.';
+
+t('la phrase d\'effet du jeu dit quelle production la case augmente', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.lfEffect(CATALYSE), 2, 'deutérium');
+  assert.equal(g.lfEffect('… augmente la production de métal sur toutes les planètes.'), 0);
+  assert.equal(g.lfEffect('… augmente la production de cristal de cette planète.'), 1);
+  // l'énergie n'est pas une ressource qu'on classe, et un texte militaire non plus
+  assert.equal(g.lfEffect('… augmente la production d\'énergie.'), null);
+  assert.equal(g.lfEffect('… augmente la puissance des armes.'), null);
+  assert.equal(g.lfEffect(''), null);
+});
+
+t('une case qui produit passe devant une case muette moins chère', () => {
+  const g = app(s => {
+    s.planets[0].lf = {
+      11201: { lvl: 0, state: 'ok', next: 1, cost: [100, 50, 0], secs: 60 },
+      11203: { lvl: 0, state: 'ok', next: 1, cost: [29000, 17000, 3000], secs: 413, eff: 2 }
+    };
+  }, SOIR);
+  const c = g.lfCandidates(g.S.planets[0], 'lfresearch');
+  assert.deepEqual(c.map(x => x.id), [11203, 11201],
+    'celle qui augmente une production d\'abord, malgré son prix');
+  assert.ok(/production de deutérium/.test(c[0].why), c[0].why);
+  assert.ok(/moins chère/.test(c[1].why), c[1].why);
+});
+
+t('entre deux cases qui produisent, le prix départage à nouveau', () => {
+  const g = app(s => {
+    s.planets[0].lf = {
+      11201: { lvl: 0, state: 'ok', next: 1, cost: [9000, 5000, 0], secs: 60, eff: 0 },
+      11203: { lvl: 0, state: 'ok', next: 1, cost: [29000, 17000, 3000], secs: 413, eff: 2 }
+    };
+  }, SOIR);
+  assert.deepEqual(g.lfCandidates(g.S.planets[0], 'lfresearch').map(x => x.id), [11201, 11203]);
+});
+
+t('l\'effet lu une fois survit à une relecture de la liste', () => {
+  const g = app(null, SOIR);
+  const detail = { lvl: 0, state: 'ok', next: 1, cost: [29000, 17000, 3000], secs: 413, eff: 2 };
+  const liste = { lvl: 0, state: 'ok' };   // la liste ne porte ni prix ni effet
+  assert.equal(g.lfMerge(detail, liste).eff, 2, 'la lecture de liste efface l\'effet');
+  assert.equal(g.lfMerge(undefined, liste).eff, undefined, 'rien d\'inventé sans lecture');
+  assert.equal(g.lfMerge(detail, { ...liste, eff: 9 }).eff, 2, 'un rang hors bornes est refusé');
 });
 
 t('à prix égal, une option lue passe devant une option estimée', () => {
