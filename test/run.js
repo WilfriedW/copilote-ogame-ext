@@ -531,6 +531,33 @@ t('une livraison plus lente se dit, sans se faire passer pour mieux', () => {
   assert.ok(/^Livraison plus lente que ta production : 38.647 cristal depuis Caribou/m.test(r.eta), r.eta);
 });
 
+t('la ligne m\u00e8ne au formulaire de flotte, d\u00e9j\u00e0 rempli', () => {
+  const pret = { ...DONNEUR, donors: { '33657643': [{ ...DONNEUR.donors['33657643'][0], cp: '33601', vers: '1:142:8', mission: 3 }] } };
+  const r = runPage({ ...ASTRO, skin: pret });
+  // Mêmes paramètres que les liens du panneau : le jeu remplit son formulaire.
+  assert.ok(/component=fleetdispatch/.test(r.etaLink), r.etaLink);
+  assert.ok(/cp=33601/.test(r.etaLink), 'on part de la planète qui donne');
+  assert.ok(/galaxy=1&system=142&position=8/.test(r.etaLink), r.etaLink);
+  assert.ok(/mission=3/.test(r.etaLink), 'Transporter');
+  assert.ok(/am203=2/.test(r.etaLink), 'les deux grands transporteurs retenus');
+  assert.equal(r.etaLinkText, '→ préparer la livraison');
+});
+
+t('sans transporteur sur place, le lien fait d\'abord l\'aller \u00e0 vide', () => {
+  const vide = { ...DONNEUR, donors: { '33657643': [{ ...DONNEUR.donors['33657643'][0], out: [1200, 1500], base: 'Planète mère', cp: '33601', vers: '1:142:6', mission: 4 }] } };
+  const r = runPage({ ...ASTRO, skin: vide });
+  assert.ok(/mission=4/.test(r.etaLink), 'Stationner : sinon la flotte repart aussitôt');
+  assert.ok(/galaxy=1&system=142&position=6/.test(r.etaLink), 'vers la planète qui donne, pas vers ici');
+  assert.equal(r.etaLinkText, '→ envoyer les transporteurs');
+});
+
+t('une donneuse sans identifiant de jeu ne pose pas de lien', () => {
+  // avant la synchro, viser « cp=null » enverrait sur la mauvaise planète
+  const r = runPage({ ...ASTRO, skin: DONNEUR });
+  assert.equal(r.etaLink, null, 'pas de cp publié : pas de lien');
+  assert.ok(/Ou fais livrer/.test(r.eta), 'la phrase reste');
+});
+
 t('le t\u00e9moin nomme la raison du silence', () => {
   const vide = { ...DONNEUR, donors: { '33657643': [{ ...DONNEUR.donors['33657643'][0], st: [500000, 100, 50000] }] } };
   assert.ok(/livraison=stock/.test(runPage({ ...ASTRO, skin: vide }).dataset.copilote));

@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.31.2';
+const APP_VERSION = '1.32.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -417,7 +417,7 @@ function planHints(acts){
  * dans la durée annoncée.
  * ponytail: les vaisseaux datent de la dernière visite de leur planète, et le
  * deutérium du vol n'est pas déduit ; ajouter si ça trompe à l'usage.
- * @returns {object} { [planetId destination]: [{n, st, lc, sc, sec, out, base}] }
+ * @returns {object} { [planetId destination]: [{n, st, lc, sc, sec, out, base, cp, vers, mission}] }
  */
 function donorsOf(){
   const cargoOf = p => { const sh = p.ships || {}; return (sh.lc||0)*25000 + (sh.sc||0)*5000; };
@@ -434,10 +434,16 @@ function donorsOf(){
       if(from === src && !own) continue;
       const f = from.ships || {};
       const vol = (a, b, k) => { const x = flight(a, b, {[k]:1}, 100); return x ? x.secs : 0; };
+      // `cp` et la destination décrivent le premier trajet à faire : la
+      // livraison elle-même quand les vaisseaux sont déjà sur place, sinon
+      // l'aller à vide qui les y amène. Le jeu remplit son formulaire à
+      // partir de là ; le second trajet se lance depuis la planète donneuse,
+      // une fois les vaisseaux posés.
       list.push({n:src.name, st:stockNow(src).map(Math.floor), lc:f.lc||0, sc:f.sc||0,
         sec:[vol(src.coords, dst.coords, 'lc'), vol(src.coords, dst.coords, 'sc')],
         out:own ? [0,0] : [vol(from.coords, src.coords, 'lc'), vol(from.coords, src.coords, 'sc')],
-        base:own ? null : from.name});
+        base:own ? null : from.name,
+        cp:from.gid || null, vers:own ? dst.coords : src.coords, mission:own ? 3 : 4});
     }
     if(list.length) out[dst.gid] = list;
   }

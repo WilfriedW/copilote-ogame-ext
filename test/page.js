@@ -138,7 +138,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   const args = {
     document, chrome,
     window: {},
-    location: { search: '?page=ingame&component=research', href: 'https://x/game/index.php' },
+    location: { search: '?page=ingame&component=research', pathname: '/game/index.php', href: 'https://x/game/index.php' },
     MutationObserver: class { observe() {} },
     setInterval: () => 0,
     URLSearchParams: global.URLSearchParams,
@@ -148,8 +148,11 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   new Function(...names, src)(...names.map(n => args[n]));
 
   const eta = det ? det.children.find(c => c.className === 'copilote-eta') : null;
+  const lien = eta ? eta.children.find(c => c.tagName === 'A') : null;
   return {
     eta: eta ? eta.textContent : null,
+    etaLink: lien ? lien.href : null,
+    etaLinkText: lien ? lien.textContent : null,
     etaParent: eta && eta.parentNode ? eta.parentNode.id || eta.parentNode.className : null,
     dataset: html.dataset,
     styleInjected: !!document.getElementById('copilote-style')

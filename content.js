@@ -244,6 +244,25 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
   const RES_NOMS = ['métal', 'cristal', 'deutérium'];
   const qte = n => Math.ceil(n).toLocaleString('fr-FR');
 
+  const MUET = { txt: '', href: '', mission: 0 };
+  const shipId = k => Object.keys(OG_SHIPS).find(id => OG_SHIPS[id] === k);
+
+  /* Le jeu remplit lui-même son formulaire de flotte quand on arrive par un
+     lien qui porte les paramètres — c'est ce que fait sa page Galaxie, et ce
+     que le panneau fait déjà pour ses propres actions. On ne clique donc
+     rien et on n'écrit rien dans la page : on pose un lien, le joueur
+     décide, le jeu fait le reste. Le trajet décrit est le premier à faire :
+     la livraison, ou l'aller à vide qui amène les transporteurs. */
+  function fleetHref(b) {
+    const c = String(b.vers || '').match(/^(\d+):(\d+):(\d+)$/);
+    if (!b.cp || !c || !b.mission) return '';
+    const q = ['page=ingame', 'component=fleetdispatch', 'cp=' + b.cp,
+      'galaxy=' + c[1], 'system=' + c[2], 'position=' + c[3], 'type=1', 'mission=' + b.mission];
+    if (b.lc) q.push('am' + shipId('lc') + '=' + b.lc);
+    if (b.sc) q.push('am' + shipId('sc') + '=' + b.sc);
+    return location.pathname + '?' + q.join('&');
+  }
+
   /* Pourquoi la ligne de livraison se tait, en un mot, pour le témoin d'état.
      Un silence sans raison affichée se diagnostique en devinant, et deviner
      a déjà coûté deux allers-retours. */
@@ -256,12 +275,12 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
      donc elle vaut aussi quand l'attente est annoncée infinie — et même plus
      lente que la production, elle se dit : c'est au joueur de trancher, lui
      seul sait ce que sa flotte a d'autre à faire.
-     @returns {string} la phrase, ou '' si personne ne peut livrer */
+     @returns {object} { txt, href, mission } — txt vide si personne ne peut livrer */
   function delivery(miss, worst) {
     const d = donors[meta('planet-id')];
     const sum = miss.reduce((a, b) => a + b, 0);
     livNote = sum <= 0 ? 'rien ne manque' : !cargo ? 'charge ancienne' : !d ? 'aucune donneuse' : 'stock';
-    if (!d || !cargo || sum <= 0) return '';
+    if (!d || !cargo || sum <= 0) return MUET;
     let best = null;
     for (const s of d) {
       if (miss.some((m, j) => m > s.st[j])) continue;
@@ -275,16 +294,20 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
       const leg = t => Math.max(lc ? t[0] : 0, sc ? t[1] : 0);
       const sec = leg(s.sec) + leg(s.out || [0, 0]);
       if (!sec || (best && sec >= best.sec)) continue;
-      best = { sec, lc, sc, n: s.n, base: s.base };
+      best = { sec, lc, sc, n: s.n, base: s.base, cp: s.cp, vers: s.vers, mission: s.mission };
     }
-    if (!best) return '';
+    if (!best) return MUET;
     livNote = hms(best.sec);
     const flotte = [best.lc ? best.lc + ' GT' : '', best.sc ? best.sc + ' PT' : ''].filter(Boolean).join(' + ');
     const charge = miss.map((m, j) => m > 0 ? qte(m) + ' ' + RES_NOMS[j] : '').filter(Boolean).join(', ');
     const vide = best.base ? ` — à envoyer d'abord à vide depuis ${best.base}` : '';
-    return best.sec >= worst
-      ? `Livraison plus lente que ta production : ${charge} depuis ${best.n}, ${flotte}, ${hms(best.sec)} de vol${vide}`
-      : `Ou fais livrer ${charge} depuis ${best.n} : ${flotte}, ${hms(best.sec)} de vol${vide}`;
+    return {
+      txt: best.sec >= worst
+        ? `Livraison plus lente que ta production : ${charge} depuis ${best.n}, ${flotte}, ${hms(best.sec)} de vol${vide}`
+        : `Ou fais livrer ${charge} depuis ${best.n} : ${flotte}, ${hms(best.sec)} de vol${vide}`,
+      href: fleetHref(best),
+      mission: best.mission
+    };
   }
 
   /* Sous le coût d'un détail, le temps qu'il reste à attendre. Le jeu colore
@@ -311,7 +334,7 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
       : isFinite(worst) ? 'Payable dans ' + hms(worst)
       : 'Hors de portée au rythme actuel de cette planète';
     const liv = delivery(miss, worst);
-    const txt = [eta, liv].filter(Boolean).join('\n');
+    const txt = [eta, liv.txt].filter(Boolean).join('\n');
     if (!txt) { if (vieux) vieux.remove(); return; }
     // Au-dessus de la boîte de coût, pas dedans : cette boîte a sa hauteur et
     // rognait la ligne sans rien laisser voir. Ici elle tombe dans le vide au
@@ -319,7 +342,19 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     const host = costs.parentNode || costs;
     const el = vieux || host.insertBefore(document.createElement('p'), costs);
     el.className = 'copilote-eta';
-    if (el.textContent !== txt) el.textContent = txt;
+    // Le texte et le lien se refont ensemble : écrire le texte efface le lien.
+    const cle = txt + '|' + liv.href;
+    if (el.dataset.cle !== cle) {
+      el.dataset.cle = cle;
+      el.textContent = txt;
+      if (liv.href) {
+        const a = document.createElement('a');
+        a.className = 'copilote-go';
+        a.href = liv.href;
+        a.textContent = liv.mission === 4 ? '→ envoyer les transporteurs' : '→ préparer la livraison';
+        el.appendChild(a);
+      }
+    }
   }
 
   const STYLE = `li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-offset:2px;border-radius:4px}
@@ -327,7 +362,7 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
 overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
 border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}
 .copilote-eta{margin:6px 0 0;padding:3px 8px;white-space:pre-line;border-left:3px solid #8aa9ff;background:rgba(138,169,255,.12);
-color:#cfe0ff;font:700 12px/1.5 Arial,sans-serif}`;
+color:#cfe0ff;font:700 12px/1.5 Arial,sans-serif}\n.copilote-eta .copilote-go{display:block;margin-top:2px;color:#8aa9ff;text-decoration:underline}`;
 
   function paint() {
     if (!document.getElementById('copilote-style')) {
