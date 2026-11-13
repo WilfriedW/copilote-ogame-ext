@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -591,6 +591,19 @@ t('les d\u00e9bits de chaque plan\u00e8te partent vers la page', () => {
   const r = g.gameSkin([]).rates;
   assert.ok(r['33601'] && r['33601'][0] > 0, 'la planète mère produit du métal');
   assert.equal(r['33601'].length, 3, 'métal, cristal, deutérium');
+});
+
+t('un r\u00e9glage de mode reste un mot, les autres des nombres', () => {
+  const g = app();
+  // Le piège : un mode converti en nombre vaut 0, et le réglage ne prend
+  // jamais sans que rien ne le dise.
+  assert.equal(g.dayValue('research', 'first', 'normal'), 'first');
+  assert.equal(g.dayValue('lf', 'off', 'after'), 'off');
+  assert.equal(g.dayValue('focus', 'eco', 'ecocol'), 'eco');
+  // un mot hors liste ne remplace pas ce qui est en place
+  assert.equal(g.dayValue('research', 'nawak', 'first'), 'first');
+  assert.equal(g.dayValue('interval', '90', 60), 90);
+  assert.equal(g.dayValue('nightStart', '-3', 23), 0);
 });
 
 t('les donneurs voyagent avec les d\u00e9bits', () => {

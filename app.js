@@ -1051,6 +1051,20 @@ const FOCUS = {ecocol:'Économie + colonie', eco:'Économie pure', fleet:'Flotte
    vers elle. */
 const RESEARCH_MODE = {normal:'À son tour', first:'Avant les bâtiments'};
 function researchMode(){ return RESEARCH_MODE[S.day.research] ? S.day.research : 'normal'; }
+/**
+ * Ce qu'un réglage de journée vaut, d'après son contrôle. Les modes sont des
+ * mots d'une liste fermée, tout le reste est un nombre d'heures ou de minutes.
+ * La liste des modes se lit dans les tables : un mode ajouté à l'écran sans
+ * être ajouté ici était converti en nombre, donc en 0, et le réglage ne
+ * prenait jamais — en silence.
+ * @param {string} k clé du réglage
+ * @param {string} v valeur lue dans le contrôle
+ * @param {*} prev valeur en place, gardée si le mot n'est pas de la liste
+ */
+function dayValue(k, v, prev){
+  const t = {focus:FOCUS, lf:LF_MODE, research:RESEARCH_MODE}[k];
+  return t ? (t[v] ? v : prev) : Math.max(0, parseInt(v) || 0);
+}
 const hm = ms => { const d=new Date(ms), today=new Date(); const t=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); return d.toDateString()===today.toDateString() ? t : (new Date(today.getTime()+864e5).toDateString()===d.toDateString() ? 'demain '+t : d.toLocaleDateString('fr-FR',{weekday:'short'})+' '+t); };
 function isNight(ms){ const d=new Date(ms), h=d.getHours()+d.getMinutes()/60, a=+S.day.nightStart, b=+S.day.nightEnd; if(a===b) return false; return a>b ? (h>=a || h<b) : (h>=a && h<b); }
 /** Connection times over the planning horizon, skipping the night window. */
@@ -2414,7 +2428,7 @@ function bind(){
   view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ const r=parseReport(el.value); if(r.some(x=>x!=null)){ S.raid.m=r[0]||0; S.raid.c=r[1]||0; S.raid.d=r[2]||0; S.raid.at=Date.now(); save(); render(); } return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); if(k!=='safe') S.raid.at=Date.now(); save(); REFRESH.explore(); }));
   view.querySelectorAll('[data-lf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.lf, f=new Set(S.lf.found); el.checked ? f.add(k) : f.delete(k); S.lf.found=[...f]; save(); render(); }));
   view.querySelectorAll('[data-day]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
-    const k = el.dataset.day; S.day[k] = (k==='focus' || k==='lf') ? el.value : Math.max(0, parseInt(el.value)||0); save(); refresh();
+    const k = el.dataset.day; S.day[k] = dayValue(k, el.value, S.day[k]); save(); refresh();
   }));
   view.querySelectorAll('[data-colo]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k = el.dataset.colo;
