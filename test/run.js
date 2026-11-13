@@ -523,9 +523,23 @@ t('le t\u00e9moin dit qui peut livrer', () => {
   assert.ok(/donneurs=charge ancienne/.test(vieux), vieux);
 });
 
-t('une livraison plus lente que la production se tait', () => {
+t('une livraison plus lente se dit, sans se faire passer pour mieux', () => {
+  // Le joueur tranche : lui seul sait ce que sa flotte a d'autre à faire.
   const lent = { ...DONNEUR, donors: { '33657643': [{ ...DONNEUR.donors['33657643'][0], sec: [40000, 50000] }] } };
-  assert.equal(runPage({ ...ASTRO, skin: lent }).eta, 'Payable dans 6h 27m');
+  const r = runPage({ ...ASTRO, skin: lent });
+  assert.ok(/Payable dans 6h 27m/.test(r.eta), r.eta);
+  assert.ok(/^Livraison plus lente que ta production : 38.647 cristal depuis Caribou/m.test(r.eta), r.eta);
+});
+
+t('le t\u00e9moin nomme la raison du silence', () => {
+  const vide = { ...DONNEUR, donors: { '33657643': [{ ...DONNEUR.donors['33657643'][0], st: [500000, 100, 50000] }] } };
+  assert.ok(/livraison=stock/.test(runPage({ ...ASTRO, skin: vide }).dataset.copilote));
+  const court = { ...DONNEUR, donors: { '33657643': [{ ...DONNEUR.donors['33657643'][0], lc: 1, sc: 0 }] } };
+  assert.ok(/livraison=soute trop petite/.test(runPage({ ...ASTRO, skin: court }).dataset.copilote));
+  assert.ok(/livraison=aucune donneuse/.test(runPage({ ...ASTRO, skin: { ...DONNEUR, donors: {} } }).dataset.copilote));
+  assert.ok(/livraison=rien ne manque/.test(runPage({ ...ASTRO, skin: DONNEUR, stock: [999999, 999999, 999999] }).dataset.copilote));
+  // et quand elle parle, le témoin porte la durée retenue
+  assert.ok(/livraison=10m/.test(runPage({ ...ASTRO, skin: DONNEUR }).dataset.copilote));
 });
 
 t('un donneur qui n\'a pas le stock ne livre rien', () => {

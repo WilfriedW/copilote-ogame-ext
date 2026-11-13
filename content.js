@@ -244,16 +244,23 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
   const RES_NOMS = ['métal', 'cristal', 'deutérium'];
   const qte = n => Math.ceil(n).toLocaleString('fr-FR');
 
+  /* Pourquoi la ligne de livraison se tait, en un mot, pour le témoin d'état.
+     Un silence sans raison affichée se diagnostique en devinant, et deviner
+     a déjà coûté deux allers-retours. */
+  let livNote = 'rien à dire';
+
   /* L'autre sortie : attendre la production locale, ou se faire livrer. Le
      panneau a publié, pour chaque planète voisine, son stock, ses
      transporteurs et le temps de vol jusqu'ici ; il reste à voir laquelle
-     couvre ce qui manque et arrive avant la production. Une livraison n'est
-     pas plafonnée par le hangar, donc elle vaut aussi quand l'attente est
-     annoncée infinie.
-     @returns {string} la phrase, ou '' si personne ne fait mieux */
+     couvre ce qui manque. Une livraison n'est pas plafonnée par le hangar,
+     donc elle vaut aussi quand l'attente est annoncée infinie — et même plus
+     lente que la production, elle se dit : c'est au joueur de trancher, lui
+     seul sait ce que sa flotte a d'autre à faire.
+     @returns {string} la phrase, ou '' si personne ne peut livrer */
   function delivery(miss, worst) {
     const d = donors[meta('planet-id')];
     const sum = miss.reduce((a, b) => a + b, 0);
+    livNote = sum <= 0 ? 'rien ne manque' : !cargo ? 'charge ancienne' : !d ? 'aucune donneuse' : 'stock';
     if (!d || !cargo || sum <= 0) return '';
     let best = null;
     for (const s of d) {
@@ -261,7 +268,7 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
       const lc = Math.min(s.lc, Math.ceil(sum / cargo[0]));
       const reste = sum - lc * cargo[0];
       const sc = reste > 0 ? Math.min(s.sc, Math.ceil(reste / cargo[1])) : 0;
-      if (lc * cargo[0] + sc * cargo[1] < sum) continue;
+      if (lc * cargo[0] + sc * cargo[1] < sum) { if (livNote === 'stock') livNote = 'soute trop petite'; continue; }
       // Le vol dure celui du plus lent : un seul grand transporteur dans le
       // lot et toute la flotte avance à son rythme. Et quand les vaisseaux ne
       // sont pas encore sur la planète qui donne, l'aller à vide compte aussi.
@@ -270,11 +277,14 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
       if (!sec || (best && sec >= best.sec)) continue;
       best = { sec, lc, sc, n: s.n, base: s.base };
     }
-    if (!best || best.sec >= worst) return '';
+    if (!best) return '';
+    livNote = hms(best.sec);
     const flotte = [best.lc ? best.lc + ' GT' : '', best.sc ? best.sc + ' PT' : ''].filter(Boolean).join(' + ');
     const charge = miss.map((m, j) => m > 0 ? qte(m) + ' ' + RES_NOMS[j] : '').filter(Boolean).join(', ');
-    return `Ou fais livrer ${charge} depuis ${best.n} : ${flotte}, ${hms(best.sec)} de vol`
-      + (best.base ? ` — à envoyer d'abord à vide depuis ${best.base}` : '');
+    const vide = best.base ? ` — à envoyer d'abord à vide depuis ${best.base}` : '';
+    return best.sec >= worst
+      ? `Livraison plus lente que ta production : ${charge} depuis ${best.n}, ${flotte}, ${hms(best.sec)} de vol${vide}`
+      : `Ou fais livrer ${charge} depuis ${best.n} : ${flotte}, ${hms(best.sec)} de vol${vide}`;
   }
 
   /* Sous le coût d'un détail, le temps qu'il reste à attendre. Le jeu colore
@@ -359,6 +369,7 @@ color:#cfe0ff;font:700 12px/1.5 Arial,sans-serif}`;
       // livrer cette planète, et avec quelle flotte.
       'donneurs=' + (!cargo ? 'charge ancienne'
         : (donors[meta('planet-id')] || []).map(s => `${s.n}:${s.lc}GT+${s.sc}PT`).join('|') || 'aucun'),
+      'livraison=' + livNote,
       'ici=' + meta('planet-id'),
       'epure=' + (lean ? 1 : 0)
     ].join(' ');
