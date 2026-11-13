@@ -868,6 +868,33 @@ t('assez d\'emplacements : les trois cibles sont proposées', () => {
   assert.equal((m.what.match(/\d+:\d+:\d+/g) || []).length, 3, m.what);
 });
 
+t('une cible espionnée hier ne revient pas aujourd\'hui', () => {
+  const g = app(s => {
+    s.me = 'moi';
+    s.syncAt = SOIR;
+    s.slots = { fleet: [2, 8], at: SOIR };
+    // « Fait » sur l'espionnage marque les cibles : elles sortent pour 24 h.
+    s.raids = { '1:140:6': { at: SOIR - 3600e3, probe: true } };
+  }, SOIR, INACTIFS);
+  const m = espionnage(g);
+  assert.ok(m, 'les autres inactifs restent à espionner');
+  assert.ok(!/1:140:6/.test(m.what), 'déjà espionnée il y a une heure : ' + m.what);
+  // et elle redevient proposable une fois le rapport périmé
+  const apres = app(s => {
+    s.me = 'moi';
+    s.syncAt = SOIR;
+    s.slots = { fleet: [2, 8], at: SOIR };
+    s.raids = { '1:140:6': { at: SOIR - 25 * 3600e3, probe: true } };
+  }, SOIR, INACTIFS);
+  assert.ok(/1:140:6/.test(espionnage(apres).what), 'après 24 h, on la réespionne');
+});
+
+t('la liste espionnée part avec la carte', () => {
+  const m = espionnage(avecSlots(2, 8));
+  assert.deepEqual(m.mark, ['1:140:6', '1:138:6', '1:145:10'].filter(c => m.what.includes(c)),
+    'les coordonnées marquées sont celles affichées : ' + JSON.stringify(m.mark));
+});
+
 /* ---------- des transporteurs à demeure sur les colonies ---------- */
 
 /** Une colonie qui produit bien, déborde, et n'a ni chantier ni vaisseau. */
