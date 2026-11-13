@@ -263,15 +263,18 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
       const sc = reste > 0 ? Math.min(s.sc, Math.ceil(reste / cargo[1])) : 0;
       if (lc * cargo[0] + sc * cargo[1] < sum) continue;
       // Le vol dure celui du plus lent : un seul grand transporteur dans le
-      // lot et toute la flotte avance à son rythme.
-      const sec = Math.max(lc ? s.sec[0] : 0, sc ? s.sec[1] : 0);
+      // lot et toute la flotte avance à son rythme. Et quand les vaisseaux ne
+      // sont pas encore sur la planète qui donne, l'aller à vide compte aussi.
+      const leg = t => Math.max(lc ? t[0] : 0, sc ? t[1] : 0);
+      const sec = leg(s.sec) + leg(s.out || [0, 0]);
       if (!sec || (best && sec >= best.sec)) continue;
-      best = { sec, lc, sc, n: s.n };
+      best = { sec, lc, sc, n: s.n, base: s.base };
     }
     if (!best || best.sec >= worst) return '';
     const flotte = [best.lc ? best.lc + ' GT' : '', best.sc ? best.sc + ' PT' : ''].filter(Boolean).join(' + ');
     const charge = miss.map((m, j) => m > 0 ? qte(m) + ' ' + RES_NOMS[j] : '').filter(Boolean).join(', ');
-    return `Ou fais livrer ${charge} depuis ${best.n} : ${flotte}, ${hms(best.sec)} de vol`;
+    return `Ou fais livrer ${charge} depuis ${best.n} : ${flotte}, ${hms(best.sec)} de vol`
+      + (best.base ? ` — à envoyer d'abord à vide depuis ${best.base}` : '');
   }
 
   /* Sous le coût d'un détail, le temps qu'il reste à attendre. Le jeu colore
@@ -352,6 +355,10 @@ color:#cfe0ff;font:700 12px/1.5 Arial,sans-serif}`;
       new Date().toTimeString().slice(0, 8),
       'planetes=' + (Object.keys(hints).join('|') || '-'),
       'debits=' + (Object.keys(rates).join('|') || '-'),
+      // Un silence de la ligne de livraison se diagnostique d'ici : qui peut
+      // livrer cette planète, et avec quelle flotte.
+      'donneurs=' + (!cargo ? 'charge ancienne'
+        : (donors[meta('planet-id')] || []).map(s => `${s.n}:${s.lc}GT+${s.sc}PT`).join('|') || 'aucun'),
       'ici=' + meta('planet-id'),
       'epure=' + (lean ? 1 : 0)
     ].join(' ');

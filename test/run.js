@@ -507,6 +507,22 @@ t('une livraison plus rapide que la production est propos\u00e9e', () => {
   assert.ok(/Ou fais livrer .*cristal depuis Caribou : 2 GT, 10m de vol/.test(r.eta), r.eta);
 });
 
+t('l\'aller \u00e0 vide est compt\u00e9 et nomm\u00e9', () => {
+  const loin = { ...DONNEUR, donors: { '33657643': [{ ...DONNEUR.donors['33657643'][0], out: [1200, 1500], base: 'Planète mère' }] } };
+  const r = runPage({ ...ASTRO, skin: loin });
+  // 600 de vol chargé + 1 200 à vide = 30 minutes en tout
+  assert.ok(/2 GT, 30m de vol — à envoyer d'abord à vide depuis Planète mère/.test(r.eta), r.eta);
+});
+
+t('le t\u00e9moin dit qui peut livrer', () => {
+  const d = runPage({ ...ASTRO, skin: DONNEUR }).dataset.copilote;
+  assert.ok(/donneurs=Caribou:2GT\+0PT/.test(d), d);
+  // une charge d'avant la livraison se reconnaît, au lieu de passer pour un
+  // empire sans donneur
+  const vieux = runPage({ ...ASTRO, skin: SKIN }).dataset.copilote;
+  assert.ok(/donneurs=charge ancienne/.test(vieux), vieux);
+});
+
 t('une livraison plus lente que la production se tait', () => {
   const lent = { ...DONNEUR, donors: { '33657643': [{ ...DONNEUR.donors['33657643'][0], sec: [40000, 50000] }] } };
   assert.equal(runPage({ ...ASTRO, skin: lent }).eta, 'Payable dans 6h 27m');
@@ -614,8 +630,16 @@ t('les donneurs voyagent avec les d\u00e9bits', () => {
   assert.equal(d[0].n, 'Planète mère');
   assert.ok(d[0].sec[0] > 0 && d[0].sec[1] > 0, 'un temps de vol par type de transporteur');
   assert.ok(d[0].st[0] > 0, 'son stock de métal voyage aussi');
-  // L'inverse n'existe pas : la colonie n'a aucun transporteur à quai.
-  assert.ok(!g.gameSkin([]).donors['33601'], 'une planète sans transporteur ne livre rien');
+  // La colonie n'a aucun transporteur à quai, et c'est le cas courant : elle
+  // donne quand même, avec l'aller à vide depuis la planète qui les porte.
+  const vers = g.gameSkin([]).donors['33601'];
+  assert.ok(vers && vers.length, 'une colonie sans transporteur doit pouvoir donner');
+  assert.equal(vers[0].n, 'Colonie');
+  assert.equal(vers[0].base, 'Planète mère', 'la flotte vient de là');
+  assert.ok(vers[0].out[0] > 0 && vers[0].out[1] > 0, 'le vol à vide est chiffré');
+  assert.ok(vers[0].lc > 0, 'les vaisseaux comptés sont ceux de la base');
+  assert.equal(d[0].base, null, 'la mère a les siens sur place : pas d\'aller à vide');
+  assert.deepEqual(d[0].out, [0, 0]);
 });
 
 t('la soute publi\u00e9e est celle des transporteurs', () => {

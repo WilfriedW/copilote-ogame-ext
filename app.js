@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.31.0';
+const APP_VERSION = '1.31.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -411,21 +411,33 @@ function planHints(acts){
  * transporteurs arrive souvent avant, et une livraison ignore le hangar.
  * Le temps de vol ne dépend que du vaisseau le plus lent, donc deux durées
  * suffisent — la page choisit la flotte selon ce qui manque.
- * ponytail: les vaisseaux datent de la dernière visite de la planète source,
- * et le deutérium du vol n'est pas déduit ; ajouter si ça trompe à l'usage.
- * @returns {object} { [planetId destination]: [{n, st, lc, sc, sec}] }
+ * Une mission part toujours de là où sont les vaisseaux : la colonie qui a le
+ * stock n'a presque jamais de transporteur à quai, et il faut d'abord les y
+ * amener à vide. C'est le cas courant, pas l'exception, donc ce vol-là compte
+ * dans la durée annoncée.
+ * ponytail: les vaisseaux datent de la dernière visite de leur planète, et le
+ * deutérium du vol n'est pas déduit ; ajouter si ça trompe à l'usage.
+ * @returns {object} { [planetId destination]: [{n, st, lc, sc, sec, out, base}] }
  */
 function donorsOf(){
+  const cargoOf = p => { const sh = p.ships || {}; return (sh.lc||0)*25000 + (sh.sc||0)*5000; };
+  const base = S.planets.reduce((a,p)=>(cargoOf(p) > (a ? cargoOf(a) : 0) ? p : a), null);
+  if(!base || !base.coords || !cargoOf(base)) return {};
   const out = {};
   for(const dst of S.planets){
     if(!dst.gid || !dst.coords) continue;
     const list = [];
     for(const src of S.planets){
       if(src === dst || !src.coords) continue;
-      const sh = src.ships || {}, lc = sh.lc || 0, sc = sh.sc || 0;
-      if(!lc && !sc) continue;
-      const fl = k => { const f = flight(src.coords, dst.coords, {[k]:1}, 100); return f ? f.secs : 0; };
-      list.push({n:src.name, st:stockNow(src).map(Math.floor), lc, sc, sec:[fl('lc'), fl('sc')]});
+      const sh = src.ships || {}, own = (sh.lc||0) + (sh.sc||0) > 0;
+      const from = own ? src : base;
+      if(from === src && !own) continue;
+      const f = from.ships || {};
+      const vol = (a, b, k) => { const x = flight(a, b, {[k]:1}, 100); return x ? x.secs : 0; };
+      list.push({n:src.name, st:stockNow(src).map(Math.floor), lc:f.lc||0, sc:f.sc||0,
+        sec:[vol(src.coords, dst.coords, 'lc'), vol(src.coords, dst.coords, 'sc')],
+        out:own ? [0,0] : [vol(from.coords, src.coords, 'lc'), vol(from.coords, src.coords, 'sc')],
+        base:own ? null : from.name});
     }
     if(list.length) out[dst.gid] = list;
   }
