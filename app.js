@@ -565,6 +565,38 @@ function lfBonusOf(p){
   return [0,1,2,3].map(i => { const v = Number(r.lfBonus[i]); return Number.isFinite(v) ? Math.min(Math.max(v, 0), 1e9) : 0; });
 }
 
+/* Les trois mines, avec le coefficient d'énergie du jeu : dix par niveau pour
+   le métal et le cristal, vingt pour le deutérium. */
+const MINES_PCT = [[/^Mine de métal/i, 10], [/^Mine de cristal/i, 10], [/^Synthétiseur de deut/i, 20]];
+/**
+ * Mines bridées à la main dans le jeu, d'après le dernier relevé du panneau de
+ * production : le pourcentage le plus bas, et l'énergie qu'il faudrait en plus
+ * pour les remettre toutes à 100 %. Cette énergie est l'écart entre la
+ * consommation pleine d'une mine (10 ou 20 × N × 1,1^N) et celle que sa ligne
+ * affiche, bridage compris.
+ * @param {object} p planète de S.planets
+ * @returns {{min:number, extra:number}|null} null sans relevé récent ou si rien n'est bridé
+ *
+ * ponytail: le bridage sert à avertir, pas à chiffrer : production() compte
+ * toujours les mines à 100 %, donc les débits annoncés sont optimistes tant
+ * qu'elles sont bridées. À brancher sur production() si le bridage dure.
+ */
+function bridage(p){
+  const r = prodOf(p);
+  if(!r || !(Date.now() - r.at < LF_READ_TTL)) return null;
+  let min = 100, extra = 0;
+  for(const row of r.rows || []){
+    const coef = (MINES_PCT.find(x => x[0].test(row.label)) || [])[1];
+    const e = Number((row.v || [])[3]);
+    // e est la consommation affichée, négative ; une ligne sans colonne énergie
+    // lisible ne dit rien du bridage et ne compte pas.
+    if(coef == null || row.lvl == null || !(row.pct < 100) || !Number.isFinite(e) || e > 0) continue;
+    min = Math.min(min, row.pct);
+    extra += Math.max(0, Math.ceil(coef*row.lvl*Math.pow(1.1, row.lvl)) + e);
+  }
+  return min < 100 ? {min, extra} : null;
+}
+
 /** Hourly production and energy balance for a planet, with optional level overrides. */
 function production(p, ov){
   const b = Object.assign({}, p.b, ov||{}), s=S.settings, e=S.settings.eco, t=S.tech;
@@ -741,6 +773,14 @@ function planetAlerts(p){
   }
   if(pr.factor<1 && p.b.shipyard>=1 && !p.def)
     out.push({sev:'warn', what:`Satellites écartés${where}`, why:'Ils coûteraient moins cher que la centrale, mais un satellite part en débris au premier raid et l\'énergie retombe avec lui. Je n\'en propose que sur une planète défendue : ouvre une fois la page Défense pour que je voie la tienne, ou monte la centrale.'});
+  /* Le jeu dit son énergie libre mines bridées ; le moteur les compte à 100 %.
+     La marge est donc ce qui resterait une fois le bridage levé. */
+  const br = bridage(p);
+  if(br){
+    const marge = Math.round(pr.eBal - br.extra);
+    if(marge >= 0) out.push({sev:'good', what:`Remonter les mines à 100 %${where}`, why:`Tu les as bridées à ${br.min} %. L'énergie suffit de nouveau : il en resterait ${marge} de libre une fois les mines remontées.`});
+    else if(pr.factor>=1) out.push({sev:'warn', what:`Mines bridées à ${br.min} %${where}`, why:`Il manque ${-marge} d'énergie pour les remonter à 100 %. Monte la centrale solaire, je te dirai quand les remonter.`});
+  }
   ['m','c','d'].forEach((x,k)=>{
     const rate=[pr.m,pr.c,pr.d][k], name=['Hangar de métal','Hangar de cristal','Réservoir de deutérium'][k], bk=['smetal','scrystal','sdeut'][k];
     if(st[k]>=pr.cap[k]*0.98) out.push({sev:'bad', what:`${name} plein${where}`, why:`La production de ${['métal','cristal','deutérium'][k]} est arrêtée. Dépense ou monte ${name} ${p.b[bk]+1}.`});

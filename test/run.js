@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -2773,6 +2773,59 @@ t('avec une défense sur la planète, les satellites reviennent', () => {
   const g = app(s => { s.planets[0].def = 12; });
   assert.ok(sats(g).length > 0, 'la planète est défendue, le prix décide');
   assert.ok(!g.planetAlerts(g.S.planets[0]).some(x => /Satellites écartés/.test(x.what)), 'rien à expliquer');
+});
+
+/* ---------- mines bridées à la main ---------- */
+
+/* Le panneau d'une colonie dont le métal tourne à 80 % et le deutérium à 30 %.
+   Pleines, ces deux mines coûteraient 1.791 et 2.002 d'énergie : le bridage en
+   économise 1.761. */
+const PANNEAU_BRIDE = [
+  'Facteur de production: 100%',
+  'Mine de métal (Niveau 22)\t34.384\t0\t0\t-1.432\t80%',
+  'Mine de cristal (Niveau 19)\t0\t18.592\t0\t-1.162\t100%',
+  'Synthétiseur de deutérium (Niveau 18)\t0\t0\t2.776\t-600\t30%',
+  'Total par heure:\t1\t1\t1\t39/4.000'
+].join('\n');
+
+/** La colonie, son relevé bridé en place, avec le solde d'énergie voulu. */
+function bride(solde) {
+  const g = app();
+  const p = g.S.planets[1];
+  p.gid = 'colo1';
+  p.eAdj = solde - g.production(p).eBal;
+  g.S.prod = { colo1: Object.assign(g.parseProdPanel(PANNEAU_BRIDE), { at: SOIR }) };
+  return { g, p };
+}
+
+t('le bridage des mines est lu, avec ce qu\'il économise', () => {
+  const { g, p } = bride(0);
+  assert.deepEqual(g.bridage(p), { min: 30, extra: 1761 });
+});
+
+t('l\'énergie revenue, le rappel de remonter les mines', () => {
+  const { g, p } = bride(1800);
+  const a = g.planetAlerts(p).find(x => /Remonter les mines/.test(x.what));
+  assert.ok(a, 'rien ne rappelle de les remonter : ' + JSON.stringify(g.planetAlerts(p)));
+  assert.match(a.why, /bridées à 30 %/);
+  assert.match(a.why, /39 de libre/, 'la marge restante est dite');
+});
+
+t('l\'énergie encore courte, le bridage est rappelé sans dire de remonter', () => {
+  const { g, p } = bride(1000);
+  const alerts = g.planetAlerts(p);
+  assert.ok(!alerts.some(x => /Remonter les mines/.test(x.what)), 'l\'énergie ne suffit pas');
+  const a = alerts.find(x => /Mines bridées/.test(x.what));
+  assert.ok(a && /manque 761/.test(a.why), 'ce qui manque est chiffré : ' + JSON.stringify(a));
+});
+
+t('mines à 100 %, rien à dire', () => {
+  const g = app();
+  const p = g.S.planets[1];
+  p.gid = 'colo1';
+  g.S.prod = { colo1: Object.assign(g.parseProdPanel(PANNEAU_CARIBOU), { at: SOIR }) };
+  assert.equal(g.bridage(p), null);
+  assert.ok(!g.planetAlerts(p).some(x => /mines/i.test(x.what)));
 });
 
 if (failures.length) {
