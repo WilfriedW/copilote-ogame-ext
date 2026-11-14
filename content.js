@@ -123,6 +123,21 @@
       });
     }
 
+    /* La page Défense se lit comme le chantier : même balisage, identifiants
+       400 à 499. Le total n'est publié que depuis cette page, pour que « aucune
+       défense » se distingue de « page jamais ouverte » — c'est la différence
+       qui décide entre satellites et centrale. */
+    let def = null;
+    if (/defen[cs]e/i.test(component)) {
+      def = 0;
+      document.querySelectorAll('[data-technology]').forEach(el => {
+        const id = +el.dataset.technology;
+        if (id < 400 || id >= 500) return;
+        const a = el.querySelector('.amount[data-value]') || el.querySelector('.level[data-value]');
+        if (a) def += +a.dataset.value || 0;
+      });
+    }
+
     const moves = [], seen = new Set();
     document.querySelectorAll('[data-mission-type][data-arrival-time]').forEach(el => {
       const arrival = +el.dataset.arrivalTime;
@@ -211,6 +226,7 @@
       energy: raw('energy'),
       planets,
       ships,
+      def,
       moves,
       movePage: /movement/i.test(component),
       artefacts,

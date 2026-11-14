@@ -2757,6 +2757,24 @@ t('sans bridage, la carte ne parle pas d\'Ordinateur', () => {
   assert.ok(!/Ordinateur/.test(txt), 'rien à lever : ' + txt);
 });
 
+/* ---------- satellites contre centrale ---------- */
+
+const sats = g => g.simulateDay().sessions.flatMap(x => x.acts).filter(a => a.kind === 'sats');
+/* La planète mère de la fixture tourne déjà à 82 % faute d'énergie. */
+
+t('sans défense vue sur la planète, aucun satellite proposé', () => {
+  const g = app();
+  assert.equal(sats(g).length, 0, 'ils partiraient en débris au premier raid');
+  const a = g.planetAlerts(g.S.planets[0]).find(x => /Satellites écartés/.test(x.what));
+  assert.ok(a, 'et la raison est dite');
+});
+
+t('avec une défense sur la planète, les satellites reviennent', () => {
+  const g = app(s => { s.planets[0].def = 12; });
+  assert.ok(sats(g).length > 0, 'la planète est défendue, le prix décide');
+  assert.ok(!g.planetAlerts(g.S.planets[0]).some(x => /Satellites écartés/.test(x.what)), 'rien à expliquer');
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

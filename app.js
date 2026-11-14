@@ -739,6 +739,8 @@ function planetAlerts(p){
     const best = r[0];
     out.push({sev:'bad', what:`Rétablir l'énergie${where}`, why:`Tes mines tournent à ${Math.round(pr.factor*100)} %. ${best ? `Le plus rentable : ${B_SHORT[best.key]} ${best.lvl}${best.extraSolar?` avec solaire ${p.b.solar+best.extraSolar}`:''}.` : 'Monte la centrale solaire.'}`});
   }
+  if(pr.factor<1 && p.b.shipyard>=1 && !p.def)
+    out.push({sev:'warn', what:`Satellites écartés${where}`, why:'Ils coûteraient moins cher que la centrale, mais un satellite part en débris au premier raid et l\'énergie retombe avec lui. Je n\'en propose que sur une planète défendue : ouvre une fois la page Défense pour que je voie la tienne, ou monte la centrale.'});
   ['m','c','d'].forEach((x,k)=>{
     const rate=[pr.m,pr.c,pr.d][k], name=['Hangar de métal','Hangar de cristal','Réservoir de deutérium'][k], bk=['smetal','scrystal','sdeut'][k];
     if(st[k]>=pr.cap[k]*0.98) out.push({sev:'bad', what:`${name} plein${where}`, why:`La production de ${['métal','cristal','deutérium'][k]} est arrêtée. Dépense ou monte ${name} ${p.b[bk]+1}.`});
@@ -1241,7 +1243,7 @@ function pickBuildings(p, ctx){
 function simulateDay(){
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
-  const P = S.planets.map((p,i)=>({i, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload}));
+  const P = S.planets.map((p,i)=>({i, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, def:p.def}));
   const expoBusy = [];
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
@@ -1423,6 +1425,12 @@ function simulateDay(){
       }
       for(const p of P){
         if(p.b.shipyard<1 || p.sq>Tm) continue;
+        /* Le prix n'est pas le seul critère : un satellite ne se répare pas,
+           il part en débris au premier raid et l'énergie retombe le jour où on
+           en a le plus besoin. Sans défense vue sur la planète, la centrale —
+           qui ne se pille pas — l'emporte quelle que soit la différence de
+           prix. planetAlerts dit pourquoi. */
+        if(!p.def) continue;
         if(wantColony && p===dep && !sim.colShip && sim.tech.impulse>=3 && p.b.shipyard>=4) continue;
         const pr = production(p), best = rankUpgrades(p).find(u=>u.payback<Infinity);
         const satE = Math.max(1,Math.floor(p.tmax/4+20)) * (1 + (S.settings.cls==='collector'?.1:0) + (S.settings.eng?.1:0));
@@ -2587,6 +2595,7 @@ function importEmpire(d){
       const k = matchKey(label, MATCH_B); if(k) p.b[k]=lvlOf(v); else rep.unknown.add(label);
     }
     for(const [label,v] of Object.entries(src.ships||{})){ if(/satellite|solar sat/i.test(norm(label))){ p.sats = lvlOf(v); continue; } const k = matchKey(label, MATCH_S); if(k){ p.ships = p.ships||{}; p.ships[k] = lvlOf(v); } }
+    if(src.defense) p.def = Object.values(src.defense).reduce((a,v)=>a+lvlOf(v),0);
     if(src.res) p.stock = {m:+src.res.metal||0, c:+src.res.crystal||0, d:+src.res.deut||0, at};
     if(src.energy && src.energy.balance != null){ p.eAdj = 0; p.eAdj = +src.energy.balance - production(p).eBal; }
     (src.alerts||[]).forEach(a=>rep.alerts.push(`${src.name} : ${a}`));
@@ -2690,6 +2699,7 @@ function applyGame(g){
     Object.assign(p.b, gp.b || {});
     if(gp.sats != null) p.sats = gp.sats;
     if(gp.crawlers != null) p.crawlers = gp.crawlers;
+    if(gp.def != null) p.def = gp.def;
     if(gp.energy != null){ p.eAdj = 0; p.eAdj = gp.energy - production(p).eBal; }
     if(gp.ships){ p.ships = Object.assign({}, gp.ships); p.shipsAt = gp.shipsAt || 0; }
     if(gp.stock && gp.stock.m != null && gp.stock.at !== p.stockGameAt){ p.stock = {...gp.stock}; p.stockGameAt = gp.stock.at; }
