@@ -121,6 +121,25 @@ S.roles = S.roles || {}; S.raids = S.raids || {};
 S.daily = Object.assign(sample().daily, S.daily);
 function save(){ try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 
+/* Les rangs des planètes bougent : le jeu les réordonne, un import les
+   reclasse, le joueur en retire une. Tout ce qui garde un rang doit suivre au
+   même instant. Le plan le faisait à deux de ces trois endroits, les minuteurs
+   à aucun : un minuteur resté sur l'ancien rang créditait le niveau, les
+   satellites ou les vaisseaux à la planète voisine. Un seul endroit
+   renumérote, pour les trois cas.
+   Une planète absente de la nouvelle liste emporte ce qui la visait : ici le
+   rang est la seule identité, et un rang qui ne pointe plus sur rien ne peut
+   pas être gardé sans pointer sur la voisine. */
+function reindexPlanets(before, kept){
+  const rang = p => kept.indexOf(p);
+  const suit = (x, k) => { const ni = rang(before[x[k]]); return ni < 0 ? null : Object.assign({}, x, {[k]: ni}); };
+  S.plan = (S.plan || []).map(it => it.type === 'b' ? suit(it, 'p') : it).filter(Boolean);
+  S.timers = (S.timers || []).map(t => t.p == null ? t : suit(t, 'p')).filter(Boolean);
+  const dep = rang(before[+S.colo.from || 0]);
+  S.colo.from = dep < 0 ? 0 : dep;
+  S.planets = kept;
+}
+
 const IS_EXT = !!(window.chrome && window.chrome.runtime && window.chrome.runtime.id);
 let API = window.__api || null;
 /* ---------- formatting ---------- */
@@ -2718,7 +2737,7 @@ function bind(){
     card.querySelectorAll('input[data-p]').forEach(el=>el.addEventListener('input',()=>{ const k=el.dataset.p; p[k] = (k==='tmax'||k==='sats') ? (parseInt(el.value)||0) : el.value; changed(); }));
     card.querySelectorAll('input[data-s]').forEach(el=>el.addEventListener('input',()=>{ const st=stockNow(p); p.stock={m:st[0],c:st[1],d:st[2],at:Date.now()}; p.stock[el.dataset.s]=parseFloat(el.value)||0; changed(); }));
   });
-  view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ S.planets.splice(+b.dataset.del,1); S.plan=S.plan.filter(x=>x.type!=='b'||x.p<S.planets.length); save(); render(); }));
+  view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ const avant=S.planets, i=+b.dataset.del; reindexPlanets(avant, avant.filter((_,j)=>j!==i)); save(); render(); }));
   on('addPlanet','click',()=>{ S.planets.push(newPlanet('Colonie '+S.planets.length,'1:1:'+(S.planets.length+4),20,{})); S.sample=false; save(); render(); });
   view.querySelectorAll('input[data-t]').forEach(el=>el.addEventListener('input',()=>{ S.tech[el.dataset.t]=Math.max(0,parseInt(el.value)||0); changed(); }));
   view.querySelectorAll('[data-addt]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.addt; S.plan.push({type:'t',k,lvl:S.tech[k]+1}); save(); toast('Ajouté au plan'); }));
@@ -2851,8 +2870,8 @@ function importEmpire(d){
   for(const [label,v] of Object.entries(d.research||{})){
     const k = matchKey(label, MATCH_T); if(k){ S.tech[k]=lvlOf(v); rep.techs++; } else rep.unknown.add(label);
   }
-  S.plan = S.plan.map(it=>{ if(it.type!=='b') return it; const old=S.planets[it.p]; const ni=kept.indexOf(old); return ni<0?null:{...it,p:ni}; }).filter(Boolean);
-  S.planets = kept; S.sample = false; S.lastImport = at;
+  reindexPlanets(S.planets, kept);
+  S.sample = false; S.lastImport = at;
   S.lastAlerts = rep.alerts.map(a=>String(a).replace(/[\p{Extended_Pictographic}\uFE0F]/gu,'').trim());
   save();
   return rep;
@@ -2952,10 +2971,7 @@ function applyGame(g){
     if(gp.stock && gp.stock.m != null && gp.stock.at !== p.stockGameAt){ p.stock = {...gp.stock}; p.stockGameAt = gp.stock.at; }
     kept.push(p);
   }
-  if(kept.length){
-    S.plan = S.plan.map(it=>{ if(it.type!=='b') return it; const ni = kept.indexOf(S.planets[it.p]); return ni<0 ? null : {...it, p:ni}; }).filter(Boolean);
-    S.planets = kept;
-  }
+  if(kept.length) reindexPlanets(S.planets, kept);
   S.timers = (S.timers || []).filter(t=>!t.game);
   for(const t of (g.timers || [])){
     const tm = {id:'g'+t.end+(t.techId||t.type)+(t.planetId||''), game:true, queue:t.type, end:t.end*1000, done:t.end*1000 <= Date.now()};

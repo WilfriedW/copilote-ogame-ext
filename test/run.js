@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'cargoGaps', 'cargoCap', 'pickCargo'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'cargoGaps', 'cargoCap', 'pickCargo', 'reindexPlanets'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -3021,6 +3021,48 @@ t('soute suffisante partout : aucune carte de répartition', () => {
   const g = app(s => { relie(s); s.planets[0].ships = { lc: 40 }; s.planets[1].ships = { lc: 10 }; });
   assert.deepEqual(g.cargoGaps(), []);
   assert.ok(!g.dailyMissions().some(x => /^cargo-split/.test(x.id)));
+});
+
+/* ---------- les rangs des planètes bougent ---------- */
+
+t('un réordonnancement garde minuteur, étape du plan et départ de colonie sur leur planète', () => {
+  const g = app(s => {
+    s.timers = [{ id: 'm1', manual: true, kind: 'b', k: 'metal', lvl: 15, p: 1, end: SOIR + 36e5 }];
+    s.plan = [{ type: 'b', p: 1, k: 'crystal', lvl: 13 }];
+    s.colo.from = 1;
+  });
+  const avant = g.S.planets;
+  g.reindexPlanets(avant, [avant[1], avant[0]]);
+  assert.equal(g.S.planets[g.S.timers[0].p].name, 'Colonie');
+  assert.equal(g.S.planets[g.S.plan[0].p].name, 'Colonie');
+  assert.equal(g.S.colo.from, 0);
+});
+
+t('une planète retirée emporte ce qui la visait, et rien d\'autre', () => {
+  const g = app(s => {
+    s.timers = [{ id: 'm1', manual: true, kind: 'b', k: 'metal', lvl: 15, p: 1, end: SOIR + 36e5 },
+                { id: 'm2', manual: true, kind: 't', k: 'astro', lvl: 4, end: SOIR + 36e5 }];
+    s.plan = [{ type: 'b', p: 1, k: 'crystal', lvl: 13 }, { type: 't', k: 'astro', lvl: 4 }];
+    s.colo.from = 1;
+  });
+  const avant = g.S.planets;
+  g.reindexPlanets(avant, [avant[0]]);
+  // une recherche ne vise pas de planète : elle ne bouge pas et ne part pas
+  assert.deepEqual(g.S.timers.map(t => t.id), ['m2']);
+  assert.deepEqual(g.S.plan.map(x => x.type), ['t']);
+  assert.equal(g.S.colo.from, 0);
+});
+
+t('un relevé qui réordonne les planètes laisse le minuteur sur la bonne', () => {
+  const g = app(s => {
+    s.planets[0].gid = '33001'; s.planets[1].gid = '33002';
+    s.timers = [{ id: 'm1', manual: true, kind: 'b', k: 'metal', lvl: 15, p: 1, end: SOIR + 36e5 }];
+  });
+  g.applyGame({ order: ['33002', '33001'],
+    planets: { 33001: { coords: '1:142:8' }, 33002: { coords: '1:142:6' } },
+    timers: [], moves: [] });
+  assert.equal(g.S.planets[0].name, 'Colonie', 'le jeu dicte l\'ordre');
+  assert.equal(g.S.planets[g.S.timers[0].p].name, 'Colonie');
 });
 
 if (failures.length) {
