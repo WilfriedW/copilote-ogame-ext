@@ -2593,7 +2593,7 @@ today(){
   for(const m of timed){ let host = null; for(const x of plan.sessions) if(x.T <= m.at) host = x; if(host && host!==s0){ if(!slotMs.has(host)) slotMs.set(host, []); slotMs.get(host).push(m); } else m.at = 0; }
   const nowMs = missions.filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
   const infoMs = missions.filter(m=>m.info);
-  const taskHtml = m=>`<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}</div><div class="w">${esc(m.what)}</div></div><button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button><div class="m">${(m.tags||[]).map(planetTag).join('')}<span>${esc(m.why)}</span>${copyChips(m)}</div><details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
+  const taskHtml = m=>`<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}</div><div class="w">${esc(m.what)}</div></div><button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button><div class="m">${(m.tags||[]).map(planetTag).join('')}${whyHtml([m.why])}${copyChips(m)}</div><details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${s0.acts.map(a=>actHtml(a,true)).join('')}${nowMs.map(taskHtml).join('')}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };

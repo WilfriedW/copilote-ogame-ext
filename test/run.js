@@ -2439,7 +2439,7 @@ t('un prix lu porte l\'heure de sa lecture', () => {
   assert.equal(a.src, 'lu');
   assert.equal(a.at, g.S.planets[0].lf[11101].seenAt[3]);
   assert.ok(a.at > 0);
-  assert.ok(/prix lu à/.test(g.actHtml(a, false)));
+  assert.ok(/[Pp]rix lu à/.test(g.actHtml(a, false)));
 });
 
 t('le prix qu\'on vient d\'ouvrir porte aussi son heure de lecture', () => {
