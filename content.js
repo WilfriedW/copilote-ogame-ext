@@ -499,8 +499,16 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     const comp = new URLSearchParams(location.search).get('component') || '';
     const lignes = ((band || {}).pages || {})[comp] || [];
     const pins = pastilles();
-    const premiere = document.querySelector('li.technology[data-technology]');
-    const liste = premiere && premiere.parentNode;
+    /* Au-dessus des tuiles quand la page n'en a qu'une liste — c'est là que
+       l'œil travaille. Quand elle en range plusieurs côte à côte, comme la page
+       Recherche et ses quatre encadrés, se poser devant la première, c'est se
+       poser au milieu de ses cases : la bande descend alors en bas de la
+       colonne, où elle ne dérange aucune mise en page. */
+    const listes = [];
+    document.querySelectorAll('li.technology[data-technology]').forEach(li => {
+      if (li.parentNode && listes.indexOf(li.parentNode) < 0) listes.push(li.parentNode);
+    });
+    const liste = listes.length === 1 ? listes[0] : null;
     const hote = liste ? liste.parentNode : document.getElementById('middle');
     const vieille = laBande && laBande.parentNode === hote ? laBande : null;
     if (!hote || (!lignes.length && !pins.length)) {
@@ -595,7 +603,8 @@ color:#0c1120;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shado
 box-shadow:inset 0 0 0 1px rgba(138,169,255,.3)}
 .copilote-pin.copilote-gris:hover{background:rgba(138,169,255,.14);color:#e4edff}
 .copilote-bande .cb-l.copilote-gris{color:#9fb2d4;font-weight:400}
-.copilote-bande{display:flex;flex-wrap:wrap;gap:14px;
+.copilote-bande{display:flex;flex-wrap:wrap;gap:14px;width:100%;box-sizing:border-box;
+flex-basis:100%;grid-column:1/-1;
 margin:10px 0 18px;padding:10px 12px;border:1px solid rgba(138,169,255,.45);
 border-left:3px solid #8aa9ff;background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55);
 font:400 12px/1.6 Arial,sans-serif;color:#e4edff;text-shadow:none}

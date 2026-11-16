@@ -84,10 +84,17 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
 
   // Les tuiles du jeu, rangées dans leur liste : c'est devant cette liste que
   // la barre de tournée se pose.
-  const tuiles = tiles.map(id => el('li', { className: 'technology', dataset: { technology: String(id) } }));
-  if (tuiles.length) {
+  /* Une liste de tuiles, ou plusieurs : la page Recherche range ses cases en
+     quatre encadrés, chacun avec sa propre liste. */
+  const groupes = tiles.length && Array.isArray(tiles[0]) ? tiles : (tiles.length ? [tiles] : []);
+  const tuiles = [];
+  for (const g of groupes) {
     const ul = el('ul');
-    tuiles.forEach(li => ul.appendChild(li));
+    for (const id of g) {
+      const li = el('li', { className: 'technology', dataset: { technology: String(id) } });
+      ul.appendChild(li);
+      tuiles.push(li);
+    }
     body.appendChild(ul);
   }
 
@@ -212,6 +219,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     };
     return {
       poses: bande ? +bande.dataset.pose : 0,
+      bandeDansMilieu: !!milieu.children.find(estNotre),
       bandes: toutes(),
       bande: bande ? { ici: zone('ici').map(x => ({ txt: x.textContent, href: x.href || null,
         why: x.title || '', grisee: x.className.split(' ').includes('copilote-gris') })) } : null,
