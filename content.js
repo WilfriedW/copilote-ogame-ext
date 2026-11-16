@@ -510,7 +510,10 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
         // grisée quand le plan ne peut pas encore la payer : un état, pas une
         // interdiction — la page reste à un clic
         n.className = 'cb-l' + (l.gris ? ' copilote-gris' : '');
-        n.textContent = l.what + (l.ou ? ' · ' + l.ou : '') + (l.quand ? ' · ' + l.quand : '');
+        /* L'heure tient en un seul morceau : sans espaces insécables, « vers »
+           reste accroché à l'action et l'heure tombe seule à la ligne suivante. */
+        n.textContent = l.what + (l.ou ? ' · ' + l.ou : '')
+          + (l.quand ? ' ·\u00a0' + l.quand.replace(/ /g, '\u00a0') : '');
         // le pourquoi tient dans l'infobulle : quatre lignes de raisons
         // rendraient la bande illisible, et elle se lit d'un coup d'œil
         if (l.why) n.title = l.why;
@@ -554,7 +557,7 @@ margin:10px 0 18px;padding:10px 12px;border:1px solid rgba(138,169,255,.45);
 border-left:3px solid #8aa9ff;background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55);
 font:400 12px/1.6 Arial,sans-serif;color:#e4edff;text-shadow:none}
 .copilote-zone{min-width:0}
-.copilote-zone[data-zone="ici"]{flex:0 1 240px}
+.copilote-zone[data-zone="ici"]{flex:1 1 240px}
 .copilote-zone[data-zone="tour"]{flex:1 1 320px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
 .copilote-zone[data-zone="tour"]::before{flex:0 0 100%}
 .copilote-zone + .copilote-zone{border-left:1px solid rgba(138,169,255,.18);padding-left:14px}

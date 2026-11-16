@@ -912,7 +912,9 @@ t('une ligne qui attend ses ressources se grise et porte sa date', () => {
     ou: 'Caribou Land', quand: 'vers 16:40', why: 'Il manque 1 000 métal',
     url: '/game/index.php?page=ingame&component=facilities&cp=101', gris: true }] } } };
   const b = runPage({ skin: att, search: '?page=ingame&component=facilities' }).bande;
-  assert.equal(b.ici[0].txt, 'Usine de robots 7 · Caribou Land · vers 16:40');
+  // l'heure tient en un seul morceau : espace insécable, sinon « vers » reste
+  // sur la ligne de l'action et l'heure tombe toute seule à la ligne suivante
+  assert.equal(b.ici[0].txt, 'Usine de robots 7 · Caribou Land ·\u00a0vers\u00a016:40');
   assert.equal(b.ici[0].grisee, true, 'ce n\'est pas lançable maintenant');
   assert.ok(b.ici[0].href, 'mais la page reste à un clic');
 });
