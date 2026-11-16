@@ -660,6 +660,73 @@ t('le t\u00e9moin d\'\u00e9tat dit ce que la page a re\u00e7u', () => {
   assert.ok(/ici=33657643/.test(d), d);
 });
 
+/* ---------- la tournée d'une tuile, dans la page du jeu ---------- */
+
+const TOUR = { hints: {}, rates: {}, lean: false, tour: {
+  '33657643': { n: 'Planète mère', b: { '21': 4 }, cost: {}, bq: 0, lfq: 0, st: [0, 0, 0] },
+  '102': { n: 'Colonie', b: { '21': 2 }, cost: {}, bq: 0, lfq: 0, st: [0, 0, 0] },
+  '103': { n: 'Lune bleue', b: {}, cost: {}, bq: 0, lfq: 0, st: [0, 0, 0] }
+} };
+const ARRIVEE = { skin: TOUR, tiles: ['21'], search: '?page=ingame&component=facilities&openTech=21' };
+
+/** Les pastilles par nom de planète : l'ordre a son propre test. */
+const pins = r => Object.fromEntries(r.map(x => [x.txt.split(' · ')[0], x]));
+
+t('la barre liste les planètes et ouvre la même tuile ailleurs', () => {
+  const r = runPage(ARRIVEE).tour;
+  assert.equal(r.length, 3);
+  assert.equal(pins(r)['Colonie'].txt, 'Colonie · 2 → 3');
+  assert.equal(pins(r)['Colonie'].href,
+    '/game/index.php?page=ingame&component=facilities&cp=102&openTech=21');
+});
+
+t('les pastilles suivent l\'identifiant de planète, pas le hasard', () => {
+  // L'ordre vient de JS : des clés entières se parcourent en croissant, ce qui
+  // range les planètes par ancienneté — stable d'une page à l'autre.
+  assert.deepEqual(runPage(ARRIVEE).tour.map(x => x.txt.split(' · ')[0]),
+    ['Colonie', 'Lune bleue', 'Planète mère']);
+});
+
+t('la planète courante est marquée et n\'est pas un lien', () => {
+  const p = pins(runPage(ARRIVEE).tour)['Planète mère'];
+  assert.equal(p.courante, true);
+  assert.equal(p.href, null);
+});
+
+t('un niveau inconnu se dit, et ne s\'invente pas', () => {
+  assert.equal(pins(runPage(ARRIVEE).tour)['Lune bleue'].txt, 'Lune bleue · →');
+});
+
+t('sans tuile en main, pas de barre', () => {
+  assert.deepEqual(runPage({ ...ARRIVEE, search: '?page=ingame&component=facilities' }).tour, []);
+});
+
+t('une tuile inconnue ou absurde ne produit pas de barre', () => {
+  for (const q of ['openTech=9e9', 'openTech=__proto__', 'openTech=999']) {
+    assert.deepEqual(runPage({ ...ARRIVEE, search: '?page=ingame&component=facilities&' + q }).tour, []);
+  }
+});
+
+t('une recherche n\'ouvre pas de tournée : une seule file pour l\'empire', () => {
+  const r = runPage({ ...ARRIVEE, tiles: ['124'], search: '?page=ingame&component=research&openTech=124' });
+  assert.deepEqual(r.tour, []);
+});
+
+t('sans tournée publiée, pas de barre', () => {
+  assert.deepEqual(runPage({ ...ARRIVEE, skin: { hints: {}, rates: {}, lean: false } }).tour, []);
+});
+
+t('seule à porter la tuile, une planète n\'ouvre pas de tournée', () => {
+  const seule = { ...TOUR, tour: { '33657643': TOUR.tour['33657643'] } };
+  assert.deepEqual(runPage({ ...ARRIVEE, skin: seule }).tour, []);
+});
+
+t('une secousse de la page ne duplique pas la barre', () => {
+  const p = runPage(ARRIVEE);
+  p.secousse();
+  assert.equal(p.read().tour.length, 3);
+});
+
 /* ---------- ouvrir la bonne page du jeu ---------- */
 
 /** Un empire synchronisé : on connaît le serveur et l'identifiant des planètes. */

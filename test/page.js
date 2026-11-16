@@ -41,6 +41,14 @@ function el(tag, attrs = {}) {
     remove() { if (e.parent) e.parent.children = e.parent.children.filter(x => x !== e); },
     querySelector() { return null; },
     querySelectorAll() { return []; },
+    /* Le seul `closest` qu'emploie content.js : la tuile sous le clic. */
+    closest(sel) {
+      if (sel !== 'li.technology[data-technology]') throw new Error('closest non prévu par le faux DOM : ' + sel);
+      for (let n = e; n; n = n.parent) {
+        if (n.className.split(' ').includes('technology') && n.dataset.technology != null) return n;
+      }
+      return null;
+    },
     getAttribute() { return null; },
     setAttribute() {}
   };
@@ -56,7 +64,8 @@ function el(tag, attrs = {}) {
  * @param {number[]} opts.stock stocks affichés [métal, cristal, deutérium]
  * @returns {object} { html, eta, dataset }
  */
-function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], details = true }) {
+function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], details = true,
+  search = '?page=ingame&component=research', tiles = [] }) {
   const html = el('html');
   const head = el('head');
   const body = el('body');
@@ -73,6 +82,15 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     resources_deuterium: el('div', { id: 'resources_deuterium', dataset: { raw: String(stock[2]) } })
   };
 
+  // Les tuiles du jeu, rangées dans leur liste : c'est devant cette liste que
+  // la barre de tournée se pose.
+  const tuiles = tiles.map(id => el('li', { className: 'technology', dataset: { technology: String(id) } }));
+  if (tuiles.length) {
+    const ul = el('ul');
+    tuiles.forEach(li => ul.appendChild(li));
+    body.appendChild(ul);
+  }
+
   const byId = { ...res };
   if (det) byId.technologydetails = det;
 
@@ -86,7 +104,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     'h3': () => null,
     '.information .level[data-value]': () => null,
     '.build_duration time[datetime]': () => null,
-    'li.technology[data-technology]': () => [],
+    'li.technology[data-technology]': () => tuiles,
+    '.copilote-tour': () => body.children.find(c => c.className.split(' ').includes('copilote-tour')) || null,
     '[data-end]': () => [],
     '[data-technology]': () => [],
     '[data-mission-type][data-arrival-time]': () => [],
@@ -109,6 +128,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     e.querySelectorAll = sel => pick(sel, true);
   }
 
+  const clics = [];
   const document = {
     documentElement: html,
     head, body,
@@ -117,7 +137,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     createElement: tag => el(tag),
     querySelector: sel => pick(sel, false),
     querySelectorAll: sel => pick(sel, true),
-    addEventListener() {}
+    addEventListener(type, fn) { if (type === 'click') clics.push(fn); }
   };
   byId['copilote-style'] = null;
   const realGet = document.getElementById;
@@ -141,7 +161,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   const args = {
     document, chrome,
     window: {},
-    location: { search: '?page=ingame&component=research', pathname: '/game/index.php', href: 'https://x/game/index.php' },
+    location: { search, pathname: '/game/index.php', href: 'https://x/game/index.php' + search },
     MutationObserver: class { constructor(cb) { secousse = cb; } observe() {} },
     setTimeout: fn => { fn(); return 0; },
     setInterval: () => 0,
@@ -154,7 +174,14 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   const read = () => {
     const eta = det ? det.children.find(c => c.className === 'copilote-eta') : null;
     const lien = eta ? eta.children.find(c => c.tagName === 'A') : null;
+    const barre = body.children.find(c => c.className.split(' ').includes('copilote-tour'));
     return {
+      tour: barre ? barre.children.map(x => ({
+        txt: x.textContent,
+        href: x.href || null,
+        courante: x.className.split(' ').includes('copilote-ici'),
+        grisee: x.className.split(' ').includes('copilote-gris')
+      })) : [],
       eta: eta ? eta.textContent : null,
       etaLink: lien ? lien.href : null,
       etaLinkText: lien ? lien.textContent : null,
@@ -168,6 +195,12 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     efface: () => { const e = det && det.children.find(c => c.className === 'copilote-eta'); if (e) e.remove(); },
     /** Une secousse de la page, comme en produit le jeu. */
     secousse: () => secousse && secousse(),
+    /** Le joueur ouvre une tuile : le jeu ne recharge rien, il déplie son panneau. */
+    clic: id => {
+      const li = tuiles.find(t => t.dataset.technology === String(id));
+      if (!li) throw new Error('aucune tuile ' + id + ' dans cette page');
+      clics.forEach(fn => fn({ target: li }));
+    },
     dataset: html.dataset,
     styleInjected: !!document.getElementById('copilote-style')
   };

@@ -250,7 +250,7 @@
   /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On
      n'ajoute qu'une classe et une étiquette inerte : rien n'est cliqué, rien
      n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
-  let hints = {}, rates = {}, donors = {}, cargo = null, lean = false;
+  let hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {};
   /* Chaque règle vise un bloc nommé, repéré sur la page, et ne fait que le
      masquer. Elles ne s'appliquent que si le joueur a coché « Épurer », et
      décocher les retire toutes d'un coup. */
@@ -382,6 +382,56 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     }
   }
 
+  /* La tournée : la même tuile sur les autres planètes. Monter un bâtiment sur
+     tout un empire est une corvée de navigation, pas de décision — et le jeu
+     accepte `openTech` dans ses URL, comme le montrent ses propres encadrés de
+     production. Un lien peut donc ouvrir la bonne page, la bonne planète et la
+     bonne tuile d'un coup : il reste deux clics par planète, la pastille puis
+     « Améliorer ». Rien n'est cliqué ni écrit dans la page, comme partout
+     ailleurs : la barre pose des liens, le joueur décide. */
+
+  /** La tuile dont le joueur fait le tour, ou '' quand il n'en ouvre aucune. */
+  function tuileEnMain() {
+    const t = new URLSearchParams(location.search).get('openTech');
+    return /^\d+$/.test(String(t || '')) ? String(t) : '';
+  }
+
+  function peintTour() {
+    const tuile = tuileEnMain();
+    const gids = Object.keys(tour).filter(g => /^\d+$/.test(g));
+    /* Deux planètes au moins doivent connaître le niveau de cette tuile. C'est
+       ce seuil qui écarte les recherches — une seule file pour tout l'empire —
+       et les vaisseaux, dont aucune planète ne porte de niveau, sans avoir à
+       tenir la liste des pages interdites. */
+    const connus = gids.filter(g => ((tour[g] || {}).b || {})[tuile] != null);
+    const premiere = document.querySelector('li.technology[data-technology]');
+    const liste = premiere && premiere.parentNode;
+    const vieille = document.querySelector('.copilote-tour');
+    if (!tuile || connus.length < 2 || !liste) { if (vieille) vieille.remove(); return; }
+    const comp = new URLSearchParams(location.search).get('component') || '';
+    const ici = meta('planet-id');
+    const pins = gids.map(g => {
+      const e = tour[g], lvl = (e.b || {})[tuile];
+      // Un niveau inconnu se dit : écrire 0 enverrait monter ce qui est déjà là.
+      return { g, txt: e.n + ' · ' + (lvl == null ? '→' : lvl + ' → ' + (lvl + 1)), ici: g === ici };
+    });
+    // La barre se refait entière quand son contenu change, et se tait sinon :
+    // le jeu secoue sa page à chaque tuile ouverte.
+    const cle = tuile + '|' + comp + '|' + pins.map(p => p.txt + (p.ici ? '*' : '')).join(';');
+    if (vieille && vieille.dataset.cle === cle) return;
+    if (vieille) vieille.remove();
+    const barre = liste.parentNode.insertBefore(document.createElement('div'), liste);
+    barre.className = 'copilote-tour';
+    barre.dataset.cle = cle;
+    for (const p of pins) {
+      // La planète courante n'est pas un lien : elle est déjà là.
+      const n = barre.appendChild(document.createElement(p.ici ? 'span' : 'a'));
+      n.className = 'copilote-pin' + (p.ici ? ' copilote-ici' : '');
+      n.textContent = p.txt;
+      if (!p.ici) n.href = location.pathname + '?page=ingame&component=' + comp + '&cp=' + p.g + '&openTech=' + tuile;
+    }
+  }
+
   const STYLE = `li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-offset:2px;border-radius:4px}
 .copilote-tag{position:absolute;top:3px;right:3px;z-index:5;pointer-events:none;max-width:calc(100% - 6px);
 overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
@@ -392,7 +442,14 @@ background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55);
 color:#e4edff;font:700 12px/1.5 Arial,sans-serif;text-shadow:none}
 .copilote-eta .copilote-go{display:inline-block;margin-top:6px;padding:3px 9px;border-radius:3px;
 background:#8aa9ff;color:#0c1120;font-weight:700;text-decoration:none}
-.copilote-eta .copilote-go:hover{background:#c3d4ff;color:#0c1120}`;
+.copilote-eta .copilote-go:hover{background:#c3d4ff;color:#0c1120}
+.copilote-tour{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px;padding:8px 10px;
+border:1px solid rgba(138,169,255,.45);border-left:3px solid #8aa9ff;border-radius:4px;
+background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55)}
+.copilote-pin{display:inline-block;padding:3px 9px;border-radius:3px;background:#8aa9ff;
+color:#0c1120;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shadow:none}
+.copilote-pin:hover{background:#c3d4ff;color:#0c1120}
+.copilote-pin.copilote-ici{background:transparent;color:#e4edff;box-shadow:inset 0 0 0 1px #8aa9ff}`;
 
   function paint() {
     if (!document.getElementById('copilote-style')) {
@@ -423,6 +480,7 @@ background:#8aa9ff;color:#0c1120;font-weight:700;text-decoration:none}
       li.appendChild(tag);
     }
     paintEta();
+    peintTour();
     // Témoin lisible depuis la console de la page : le script vit dans un
     // monde isolé, donc ses variables y sont invisibles. L'heure dit s'il
     // tourne encore, le reste dit ce qu'il a reçu du panneau.
@@ -447,6 +505,7 @@ background:#8aa9ff;color:#0c1120;font-weight:700;text-decoration:none}
       donors = (skin && skin.donors) || {};
       cargo = (skin && skin.cargo) || null;
       lean = !!(skin && skin.lean);
+      tour = (skin && skin.tour) || {};
     };
     chrome.storage.local.get('skin', v => { take(v && v.skin); paint(); });
     chrome.storage.onChanged.addListener((ch, area) => {
