@@ -377,8 +377,13 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
 .copilote-tag{position:absolute;top:3px;right:3px;z-index:5;pointer-events:none;max-width:calc(100% - 6px);
 overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
 border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}
-.copilote-eta{margin:6px 0 0;padding:3px 8px;white-space:pre-line;border-left:3px solid #8aa9ff;background:rgba(138,169,255,.12);
-color:#cfe0ff;font:700 12px/1.5 Arial,sans-serif}\n.copilote-eta .copilote-go{display:block;margin-top:2px;color:#8aa9ff;text-decoration:underline}`;
+.copilote-eta{position:relative;z-index:2;margin:8px 0;padding:8px 10px;white-space:pre-line;
+border:1px solid rgba(138,169,255,.45);border-left:3px solid #8aa9ff;border-radius:4px;
+background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55);
+color:#e4edff;font:700 12px/1.5 Arial,sans-serif;text-shadow:none}
+.copilote-eta .copilote-go{display:inline-block;margin-top:6px;padding:3px 9px;border-radius:3px;
+background:#8aa9ff;color:#0c1120;font-weight:700;text-decoration:none}
+.copilote-eta .copilote-go:hover{background:#c3d4ff;color:#0c1120}`;
 
   function paint() {
     if (!document.getElementById('copilote-style')) {
