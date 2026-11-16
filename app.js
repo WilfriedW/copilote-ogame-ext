@@ -120,7 +120,11 @@ S.lf = Object.assign(sample().lf, S.lf);
 S.roles = S.roles || {}; S.raids = S.raids || {};
 migratePlanetIds();
 S.daily = Object.assign(sample().daily, S.daily);
-function save(){ try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+/* Une sauvegarde perdue en silence est pire qu'une erreur : l'écran montre la
+   case cochée, et le rechargement suivant l'a oubliée. */
+function saveFailed(e){ console.error('Copilote : sauvegarde impossible', e); try{ toast('Sauvegarde impossible : recharge le panneau'); }catch(err){} }
+window.__saveFailed = saveFailed;
+function save(){ try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){ saveFailed(e); } }
 
 /* L'identité d'une planète est son id. Le rang change dès que le jeu
    réordonne, le nom se répète d'une colonie à l'autre, le gid n'existe qu'une
@@ -1681,9 +1685,21 @@ function copyChips(a){
   if(!out.length) return '';
   return `<div class="cp"><span class="cpl">À recopier</span>` + out.map(([l,v])=>`<button class="chip" data-copy="${esc(v)}" aria-label="Copier ${esc(v)}" title="Copier ${esc(v)}">${esc(l)} <b>${esc(v)}</b><span class="ci" aria-hidden="true">⧉</span></button>`).join('') + `</div>`;
 }
+/* Une carte dit d'abord quoi faire, ce que ça coûte et quand c'est fini : le
+   reste — pourquoi cette action, d'où viennent les chiffres, ce que le lien
+   fait vraiment — se lit à la demande derrière le ⓘ. Ces phrases restent
+   vraies et atteignables ; les empiler sur la carte les rendait illisibles.
+   `summary` est déjà exclu du clic qui ouvre le jeu : le ⓘ ne navigue pas. */
+function whyHtml(parts){
+  const p = parts.filter(Boolean);
+  if(!p.length) return '';
+  return `<details class="why"><summary aria-label="Pourquoi cette action">ⓘ</summary>${p.map(x=>`<p>${esc(x)}</p>`).join('')}</details>`;
+}
 function actHtml(a, withBtn){
-  const note = goNote(a);
-  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : '', a.src==='estimé' ? '<span>Prix et durée estimés d\'après les niveaux déjà vus, pas lus sur le jeu ; la durée est probablement sous-estimée.</span>' : a.src==='lu' && a.at ? `<span>prix lu à ${hm(a.at)}</span>` : '', note ? `<span>${esc(note)}</span>` : '', copyChips(a)].filter(Boolean).join('');
+  const why = whyHtml([a.why,
+    a.src==='estimé' ? 'Prix et durée estimés d\'après les niveaux déjà vus, pas lus sur le jeu ; la durée est probablement sous-estimée.' : a.src==='lu' && a.at ? `Prix lu à ${hm(a.at)}.` : '',
+    goNote(a)]);
+  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', why, copyChips(a)].filter(Boolean).join('');
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,pid:(S.planets[a.p]||{}).id,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
@@ -2063,11 +2079,18 @@ function dailyMissions(){
      « Nombre maximal de flottes atteint » : proposer la carte quand même, c'est
      envoyer le joueur cliquer sur rien. La carte des emplacements pleins, elle,
      sort déjà plus haut et explique quoi faire. */
-  if(!(fs && fs[0] >= fs[1]))
-    out.push({id:'discovery', q:'Exploration', every:24, sev:'info', what:'Missions de découverte (formes de vie)', why:`Elles rapportent des artefacts et de nouvelles races. Chacune occupe un emplacement de flotte jusqu'à son retour.${fs?` Il t'en reste ${fs[1]-fs[0]} sur ${fs[1]}.`:''} Trouvées : ${foundLifeforms().map(k=>LIFEFORMS[k].n).join(', ')}.${S.artefacts!=null?` Artefacts : ${fmt(S.artefacts)}.`:''}`,
-      how:['Galaxie : bouton <b>Découverte</b> en haut, ou icône ADN violette sur une ligne.', 'Fais-en sur plusieurs systèmes : le nombre par jour est limité.', 'Garde un emplacement libre pour tes expéditions : elles rapportent plus.', 'Une race trouvée qui n\'est pas encore lue sur tes planètes ? Coche-la dans Réglages › Formes de vie pour que Copilote en tienne compte.']
+  if(!(fs && fs[0] >= fs[1])){
+    /* Les quatre races trouvées, il n'y a plus rien à découvrir de ce côté :
+       promettre « de nouvelles races » et renvoyer vers les cases à cocher,
+       c'est faire cliquer pour rien celui qui a déjà tout. Restent les
+       artefacts, qui font tourner les technologies de forme de vie. */
+    const trouvees = foundLifeforms(), toutes = trouvees.length === Object.keys(LIFEFORMS).length;
+    out.push({id:'discovery', q:'Exploration', every:24, sev:'info', what:'Missions de découverte (formes de vie)', why:`${toutes ? 'Tu as les quatre races : elles ne rapportent plus que des artefacts.' : 'Elles rapportent des artefacts et de nouvelles races.'} Chacune occupe un emplacement de flotte jusqu'à son retour.${fs?` Il t'en reste ${fs[1]-fs[0]} sur ${fs[1]}.`:''}${toutes?'':` Trouvées : ${trouvees.map(k=>LIFEFORMS[k].n).join(', ')}.`}${S.artefacts!=null?` Artefacts : ${fmt(S.artefacts)}.`:''}`,
+      how:['Galaxie : bouton <b>Découverte</b> en haut, ou icône ADN violette sur une ligne.', 'Fais-en sur plusieurs systèmes : le nombre par jour est limité.', 'Garde un emplacement libre pour tes expéditions : elles rapportent plus.']
+        .concat(toutes ? [] : ['Une race trouvée qui n\'est pas encore lue sur tes planètes ? Coche-la dans Réglages › Formes de vie pour que Copilote en tienne compte.'])
         // Un seul emplacement libre : la prochaine découverte bloque les expéditions.
         .concat(fs && fs[1]-fs[0] <= 1 ? [leverFlotte()] : [])});
+  }
   if(S.artefacts!=null && S.artefacts>=200) out.push({id:'artefacts', q:'Formes de vie', every:24, sev:'good', what:`${fmt(S.artefacts)} artefacts : choisis une technologie de forme de vie`, why:'Au palier 1, 200 artefacts permettent de choisir précisément la technologie d\'un slot au lieu du tirage aléatoire.', how:['Forme de vie › Recherche : sur un slot libre, choisis la technologie voulue.', 'Attention : changer un slot déjà pris oblige à réinitialiser tout le palier.']});
   if(IS_EXT && S.syncAt && now - S.syncAt < 3600e3){
     // Trois situations, trois messages : page jamais ouverte, page lue mais

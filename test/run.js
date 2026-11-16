@@ -2719,6 +2719,17 @@ t('la carte de d\u00e9couverte nomme les esp\u00e8ces lues et coch\u00e9es, et n
   assert.ok(/pas encore lue/i.test(c.how.join(' ')), 'la consigne ne vaut que pour ce qui n\'est pas lu');
 });
 
+t('les quatre races trouv\u00e9es, la d\u00e9couverte ne parle plus que d\'art\u00e9facts', () => {
+  const g = app(s => {
+    s.slots = { expo: [0, 2], fleet: [2, 7], at: SOIR }; s.syncAt = SOIR;
+    s.lf.found = ['humans', 'rocktal', 'mechas', 'kaelesh'];
+  }, SOIR);
+  const c = g.dailyMissions().find(m => m.id === 'discovery');
+  assert.ok(/quatre races/.test(c.why), 'elle le dit : ' + c.why);
+  assert.ok(!/nouvelles races/.test(c.why), 'elle n\'en promet plus : ' + c.why);
+  assert.ok(!/Coche-la/.test(c.how.join(' ')), 'plus rien \u00e0 cocher');
+});
+
 t('les r\u00e9glages montrent les esp\u00e8ces lues sans case \u00e0 cocher', () => {
   const g = app(s => {
     s.planets[0].gid = '33001';
