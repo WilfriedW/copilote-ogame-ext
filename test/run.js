@@ -952,6 +952,25 @@ t('une cible espionnée hier ne revient pas aujourd\'hui', () => {
   assert.ok(/1:140:6/.test(espionnage(apres).what), 'après 24 h, on la réespionne');
 });
 
+t('sans sonde au sol, la consigne dit d\'en construire', () => {
+  const chantier = ships => app(s => {
+    s.me = 'moi';
+    s.syncAt = SOIR;
+    s.slots = { fleet: [2, 8], at: SOIR };
+    s.planets[0].shipsAt = SOIR;
+    s.planets[0].ships = ships;
+  }, SOIR, INACTIFS);
+  // L'œil de la Galaxie envoie les sondes déjà au sol : sans sonde, le jeu
+  // répond « Vous n'avez pas sélectionné de vaisseaux » et la consigne ment.
+  assert.ok(/chantier spatial/.test(espionnage(chantier({ sc: 4 })).how[0]),
+    espionnage(chantier({ sc: 4 })).how[0]);
+  assert.ok(/Galaxie/.test(espionnage(chantier({ pr: 3 })).how[0]),
+    'avec des sondes, on retourne à la Galaxie');
+  // chantier jamais ouvert : on ne sait rien, on ne prétend rien
+  assert.ok(/Galaxie/.test(espionnage(avecSlots(2, 8)).how[0]),
+    'sans relevé du chantier, la consigne ne change pas');
+});
+
 t('la liste espionnée part avec la carte', () => {
   const m = espionnage(avecSlots(2, 8));
   assert.deepEqual(m.mark, ['1:140:6', '1:138:6', '1:145:10'].filter(c => m.what.includes(c)),
@@ -1520,6 +1539,33 @@ t('un Collectionneur ne se voit jamais proposer un éclaireur', () => {
     'le chantier d\'un Collectionneur ne l\'affiche pas');
 });
 
+/* ---------- le carburant voyage dans la soute ---------- */
+/* Le plein sort de la soute : ce que la flotte emporte, c'est la soute moins le
+   carburant. Compté brut, le copilote annonçait un butin qu'elle ne pouvait pas
+   charger, et un vol lointain le faisait d'autant plus. */
+
+t('la soute annoncée par un vol est nette du carburant', () => {
+  const g = app();
+  const pres = g.flight('1:142:8', '1:142:9', { lc: 10 }, 100);
+  const loin = g.flight('1:142:8', '5:300:8', { lc: 10 }, 100);
+  assert.ok(loin.fuel > pres.fuel, 'le trajet lointain coûte plus de carburant');
+  // La soute du vaisseau ne change pas avec la distance : soute + plein est donc
+  // constant, et ce qui reste à charger baisse avec l'éloignement.
+  assert.equal(pres.cargo + pres.fuel, loin.cargo + loin.fuel);
+  assert.ok(loin.cargo < pres.cargo, `${loin.cargo} contre ${pres.cargo}`);
+});
+
+t('un pillage lointain n\'emporte pas plus que sa soute moins le plein', () => {
+  const g = app(s => {
+    s.planets[0].ships = { lc: 2 };
+    s.raid = { coords: '4:300:9', m: 60000, c: 0, d: 0, safe: true, at: SOIR - 600e3 };
+  });
+  const r = g.raidPlan();
+  assert.ok(r.fuel > 0, 'le trajet coûte du carburant : ' + r.fuel);
+  assert.ok(r.got <= 2 * 25000 - r.fuel,
+    `${r.got} emportés pour ${2 * 25000 - r.fuel} de soute utile`);
+});
+
 /* ---------- un rapport d'espionnage vieillit ---------- */
 
 t('un rapport de plus de deux heures est marqué périmé', () => {
@@ -1539,12 +1585,21 @@ t('un rapport périmé ne produit aucune carte de pillage', () => {
 
 t('les foreuses se classent avec les mines quand le chantier les permet', () => {
   const g = app(s => {
-    s.planets[0].b.shipyard = 5; s.tech.combustion = 4; s.tech.armour = 4;
+    s.planets[0].b.shipyard = 5; s.tech.combustion = 4; s.tech.armour = 4; s.tech.laser = 4;
   });
   const r = g.rankUpgrades(g.S.planets[0]);
   const cw = r.find(u => u.key === 'crawl');
   assert.ok(cw, 'les foreuses sont une option du classement');
   assert.ok(cw.payback > 0 && isFinite(cw.payback), 'avec un amortissement chiffré : ' + cw.payback);
+});
+
+/* Le jeu exige aussi Laser 4 pour la foreuse. Sans ce prérequis le plan la
+   proposait, et le chantier refusait. */
+t('sans Laser 4, aucune foreuse proposée', () => {
+  const g = app(s => {
+    s.planets[0].b.shipyard = 5; s.tech.combustion = 4; s.tech.armour = 4; s.tech.laser = 3;
+  });
+  assert.ok(!g.rankUpgrades(g.S.planets[0]).some(u => u.key === 'crawl'));
 });
 
 t('sans le chantier qui les construit, aucune foreuse proposée', () => {
@@ -1579,6 +1634,8 @@ t('un minuteur lu dans le jeu ne touche pas au compte', () => {
 const MINES_HAUTES = armour => s => {
   const p = s.planets[0];
   Object.assign(p.b, { metal: 28, crystal: 26, deut: 24, solar: 44, shipyard: 6 });
+  // Laser 4 est l'autre prérequis de la foreuse ; l'armure reste l'interrupteur.
+  s.tech.laser = 4;
   s.tech.armour = armour;
   p.stock = { m: 9e7, c: 9e7, d: 9e7, at: SOIR };
 };

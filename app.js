@@ -760,6 +760,15 @@ function distance(a,b){
   if(a[2]!==b[2]) return 1000 + 5*Math.abs(a[2]-b[2]);
   return 5;
 }
+/**
+ * Ce qu'une flotte peut vraiment emporter : le carburant voyage dans la soute,
+ * donc il en sort. Sans ça le copilote annonce un butin, une mise à l'abri ou
+ * un kit de colonie que la flotte ne peut pas charger.
+ * @param {number} cargo soute brute
+ * @param {number} fuel plein du trajet, aller-retour compris quand il y en a un
+ * @returns {number}
+ */
+const souteUtile = (cargo, fuel) => Math.max(0, cargo - fuel);
 /** Effective drive, speed and fuel of a ship given current research. */
 function shipStats(k){
   const sh = Object.assign({}, SHIPS[k]), t=S.tech;
@@ -778,7 +787,8 @@ function flight(from, to, ships, pct){
   const secs = (10 + 35000/(pct/10)*Math.sqrt(10*D/V))/fs;
   let cons = 0;
   for(const s of list){ const spd = 35000/(secs*fs - 10)*Math.sqrt(D*10/s.speedEff); cons += s.n*s.fuel*D/35000*Math.pow(spd/10+1,2); }
-  return {D, V, secs:Math.round(secs), fuel:Math.round(cons)+1, cargo:list.reduce((x,s)=>x+s.n*s.cargoEff,0), slowest:SHIPS[list.find(s=>s.speedEff===V).k].n};
+  const fuel = Math.round(cons)+1;
+  return {D, V, secs:Math.round(secs), fuel, cargo:souteUtile(list.reduce((x,s)=>x+s.n*s.cargoEff,0), fuel), slowest:SHIPS[list.find(s=>s.speedEff===V).k].n};
 }
 
 /* ---------- views ---------- */
@@ -1846,7 +1856,8 @@ function fsFor(p, now, wake){
   // le jour, pas à chaque rafraîchissement, sinon le plan se contredirait.
   const ch = choix[new Date(now).getDate() % Math.min(3, choix.length)];
   return {from:p, ships:ch.ships, dest:ch.dest, mission:ch.mode, oneWay:ch.oneWay, pct:ch.pct,
-          arrive: now + ch.fl.secs*1000, back: ch.fin, fuel:ch.fl.fuel, load:need, cargo};
+          arrive: now + ch.fl.secs*1000, back: ch.fin, fuel:ch.fl.fuel,
+          load:need, cargo:souteUtile(cargo, ch.fl.fuel*(ch.oneWay?1:2))};
 }
 
 /**
@@ -2164,8 +2175,14 @@ function dailyMissions(){
   /* Plus de cibles que d'emplacements : ce n'est pas la chasse qui manque,
      c'est la place. Le dire sans nommer ce qui la donne laisse le joueur
      devant un constat. */
+  /* L'œil de la Galaxie n'ouvre pas de formulaire : il envoie les sondes
+     déjà au sol. Sans sonde, le jeu répond « Vous n'avez pas sélectionné de
+     vaisseaux » et le joueur cherche l'erreur chez lui. On ne le sait qu'une
+     fois le chantier lu : sinon p.ships est vide sans rien prouver. */
+  const vuesChantier = S.planets.filter(p=>p.shipsAt);
+  const sansSonde = vuesChantier.length > 0 && !vuesChantier.some(p=>((p.ships||{}).pr||0) > 0);
   const bride = rtAll.length > rt.length;
-  if(rt.length) out.push({id:'raid', q:'Pillage', every:12, sev:'good', coords:rt[0].coords, mark:rt.map(r=>r.coords), what:`Espionner ${rt.length>1?'ces inactifs':'cet inactif'} : ${rt.map(r=>r.coords).join(', ')}`, why:`Inactifs proches et moins forts que toi : pas d'avertissement hors-la-loi.${bride?` ${rtAll.length} repérés, mais ${libres} emplacement${libres>1?'s':''} de flotte libre${libres>1?'s':''}.`:''} Détail dans Outils › Cibles.`, how:['Galaxie : clique sur l\'œil de la ligne pour envoyer une sonde.', 'Chaque sonde occupe un emplacement de flotte jusqu\'à son retour.', 'Rapport sans flotte ni défense et avec des ressources : mission Attaquer, assez de soute pour la moitié de son stock.'].concat(bride ? [leverFlotte()] : [])});
+  if(rt.length) out.push({id:'raid', q:'Pillage', every:12, sev:'good', coords:rt[0].coords, mark:rt.map(r=>r.coords), what:`Espionner ${rt.length>1?'ces inactifs':'cet inactif'} : ${rt.map(r=>r.coords).join(', ')}`, why:`Inactifs proches et moins forts que toi : pas d'avertissement hors-la-loi.${bride?` ${rtAll.length} repérés, mais ${libres} emplacement${libres>1?'s':''} de flotte libre${libres>1?'s':''}.`:''} Détail dans Outils › Cibles.`, how:[sansSonde ? 'Aucune sonde au sol : construis-en au chantier spatial avant d\'espionner. L\'œil de la Galaxie envoie les sondes déjà là, sinon le jeu répond « Vous n\'avez pas sélectionné de vaisseaux ».' : 'Galaxie : clique sur l\'œil de la ligne pour envoyer une sonde.', 'Un chiffre ou une étoile dans sa ligne : les minutes depuis la dernière activité sur la planète. Sur un inactif, c\'est le plus souvent la sonde d\'un autre pilleur — le stock sera maigre.', 'Chaque sonde occupe un emplacement de flotte jusqu\'à son retour.', 'Rapport sans flotte ni défense et avec des ressources : mission Attaquer, assez de soute pour la moitié de son stock.'].concat(bride ? [leverFlotte()] : [])});
   else if(!rtAll.length) out.push({id:'inactive', q:'Pillage', every:24, sev:'info', what:'Repérer des inactifs à piller', why:'Les joueurs marqués (i) ou (I) ne se défendent plus. À piller dès qu\'ils sont dans ta tranche de points.',
     how:['Galaxie : parcours ton système et les voisins, note les noms gris (i)/(I).', 'Espionne-les. Si le jeu affiche « joueur plus puissant », réponds <b>Non</b> : tu perdrais ta protection pendant 7 jours.', 'Sans flotte ni défense et avec des ressources : mission Attaquer avec assez de soute.']});
   const ns = +S.day.nightStart, nd = new Date(now); nd.setHours(ns,0,0,0); if(nd.getTime() <= now) nd.setDate(nd.getDate()+1);
@@ -2350,7 +2367,7 @@ const DEF_POURQUOI = {
   ld: 'dix mille points de bouclier d\'un bloc, sans tir rapide de personne',
 };
 const SHIP_COST = {sc:[2000,2000,0], lc:[6000,6000,0], pr:[0,1000,0], pf:[8000,15000,8000], crawl:CRAWLER_COST};
-const SHIP_REQ = {sc:{b:{shipyard:2}, t:{combustion:2}}, lc:{b:{shipyard:4}, t:{combustion:6}}, pr:{b:{shipyard:3}, t:{combustion:3, espionage:2}}, pf:{b:{shipyard:5}, t:{hyperdrive:2}}, crawl:{b:{shipyard:5}, t:{combustion:4, armour:4}}};
+const SHIP_REQ = {sc:{b:{shipyard:2}, t:{combustion:2}}, lc:{b:{shipyard:4}, t:{combustion:6}}, pr:{b:{shipyard:3}, t:{combustion:3, espionage:2}}, pf:{b:{shipyard:5}, t:{hyperdrive:2}}, crawl:{b:{shipyard:5}, t:{combustion:4, armour:4, laser:4}}};
 /* La défense passe par le même chantier, la même file et les mêmes wants que
    les vaisseaux : un seul endroit la nomme et la tarife. */
 for(const [k,d] of Object.entries(DEF)){ SHIP_COST[k] = d.c; SHIP_REQ[k] = d.r; SHIP_PLURAL[k] = d.p; SHIP_ONE[k] = d.o; }
@@ -2446,7 +2463,7 @@ function raidPlan(){
   let left = need; const lc = Math.min(av.lc||0, Math.ceil(left/lcC)); left -= lc*lcC; const sc = left>0 ? Math.min(av.sc||0, Math.ceil(left/scC)) : 0; left -= sc*scC;
   const ships = {}; if(lc) ships.lc = lc; if(sc) ships.sc = sc;
   const fl = (lc||sc) ? flight(home.coords, r.coords, ships, 100) : null;
-  const cargo = lc*lcC + sc*scC, got = Math.min(need, cargo), fuel = fl ? fl.fuel*2 : 0;
+  const fuel = fl ? fl.fuel*2 : 0, cargo = souteUtile(lc*lcC + sc*scC, fuel), got = Math.min(need, cargo);
   return {home, loot, need, ships, fl, cargo, got, fuel, stale, short: Math.max(0,left), net: got - fuel*S.settings.ratio[0]/S.settings.ratio[2]};
 }
 
