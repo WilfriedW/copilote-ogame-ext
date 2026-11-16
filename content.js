@@ -415,10 +415,27 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     if (!tuile || connus.length < 2 || !liste) { if (vieille) vieille.remove(); return; }
     const comp = new URLSearchParams(location.search).get('component') || '';
     const ici = meta('planet-id');
+    const maintenant = Date.now();
     const pins = gids.map(g => {
       const e = tour[g], lvl = (e.b || {})[tuile];
+      /* Ce qui empêche de lancer là-bas, pour n'ouvrir aucune planète pour
+         rien : une file encore prise, ou un stock qui ne paie pas. Les deux
+         grisent la pastille sans fermer le lien — c'est un état, pas une
+         interdiction, et le joueur a le droit d'aller voir. */
+      const fin = (+tuile >= 11000 ? e.lfq : e.bq) || 0;
+      const c = (e.cost || {})[tuile], st = e.st || [0, 0, 0];
+      let etat = '';
+      if (fin > maintenant) etat = 'file jusqu\'à ' + new Date(fin).toTimeString().slice(0, 5);
+      else if (c) {
+        // La plus grosse ressource manquante suffit : c'est elle qui fait attendre.
+        let pire = 0, j = -1;
+        c.forEach((x, i) => { const m = x - (st[i] || 0); if (m > pire) { pire = m; j = i; } });
+        // Un prix que le panneau ne connaît pas ne fait manquer personne.
+        if (j >= 0) etat = 'manque ' + qte(pire) + ' ' + RES_NOMS[j];
+      }
       // Un niveau inconnu se dit : écrire 0 enverrait monter ce qui est déjà là.
-      return { g, txt: e.n + ' · ' + (lvl == null ? '→' : lvl + ' → ' + (lvl + 1)), ici: g === ici };
+      return { g, ici: g === ici, gris: !!etat,
+        txt: e.n + ' · ' + (lvl == null ? '→' : lvl + ' → ' + (lvl + 1)) + (etat ? ' · ' + etat : '') };
     });
     // La barre se refait entière quand son contenu change, et se tait sinon :
     // le jeu secoue sa page à chaque tuile ouverte.
@@ -431,7 +448,7 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     for (const p of pins) {
       // La planète courante n'est pas un lien : elle est déjà là.
       const n = barre.appendChild(document.createElement(p.ici ? 'span' : 'a'));
-      n.className = 'copilote-pin' + (p.ici ? ' copilote-ici' : '');
+      n.className = 'copilote-pin' + (p.ici ? ' copilote-ici' : '') + (p.gris ? ' copilote-gris' : '');
       n.textContent = p.txt;
       if (!p.ici) n.href = location.pathname + '?page=ingame&component=' + comp + '&cp=' + p.g + '&openTech=' + tuile;
     }
@@ -454,7 +471,8 @@ background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55)}
 .copilote-pin{display:inline-block;padding:3px 9px;border-radius:3px;background:#8aa9ff;
 color:#0c1120;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shadow:none}
 .copilote-pin:hover{background:#c3d4ff;color:#0c1120}
-.copilote-pin.copilote-ici{background:transparent;color:#e4edff;box-shadow:inset 0 0 0 1px #8aa9ff}`;
+.copilote-pin.copilote-ici{background:transparent;color:#e4edff;box-shadow:inset 0 0 0 1px #8aa9ff}
+.copilote-pin.copilote-gris{opacity:.55}`;
 
   function paint() {
     if (!document.getElementById('copilote-style')) {

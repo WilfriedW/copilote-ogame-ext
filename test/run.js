@@ -748,6 +748,30 @@ t('openTech l\'emporte sur un clic plus ancien', () => {
   assert.equal(p.read().tour.length, 3);
 });
 
+const occupee = { ...TOUR, tour: { ...TOUR.tour,
+  '102': { ...TOUR.tour['102'], bq: Date.now() + 3600000 } } };
+const pauvre = { ...TOUR, tour: { ...TOUR.tour,
+  '102': { ...TOUR.tour['102'], cost: { '21': [1000, 500, 0] }, st: [400, 500, 0] } } };
+
+t('une file occupée se dit, avec son heure de fin', () => {
+  const p = pins(runPage({ ...ARRIVEE, skin: occupee }).tour)['Colonie'];
+  assert.equal(p.grisee, true);
+  assert.ok(/file jusqu'à \d\d:\d\d/.test(p.txt), p.txt);
+  assert.ok(p.href, 'grisée mais cliquable');
+});
+
+t('un stock trop court nomme ce qui manque', () => {
+  const p = pins(runPage({ ...ARRIVEE, skin: pauvre }).tour)['Colonie'];
+  assert.equal(p.grisee, true);
+  assert.ok(/manque 600 métal/.test(p.txt), p.txt);
+});
+
+t('un coût inconnu ne fait pas manquer', () => {
+  const p = pins(runPage(ARRIVEE).tour)['Colonie'];
+  assert.equal(p.grisee, false);
+  assert.ok(!/manque/.test(p.txt), p.txt);
+});
+
 /* ---------- ouvrir la bonne page du jeu ---------- */
 
 /** Un empire synchronisé : on connaît le serveur et l'identifiant des planètes. */
