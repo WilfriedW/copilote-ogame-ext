@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.37.0';
+const APP_VERSION = '1.38.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1729,13 +1729,17 @@ function simulateDay(){
              complète en dernier, avec ce que le chantier a de libre.
              def valant null, la page Défense n'a jamais été lue : proposer
              reviendrait à doubler ce qui existe déjà. dailyMissions le réclame. */
-          const besoin = defNeed(p);
+          /* Une planète nue se complète d'un coup : le raid y est gratuit.
+             Au-dessus de zéro, par paquets d'au moins une tournée de
+             production : un laser à l'unité vaudrait une connexion pour
+             cinquante secondes de chantier. La cible monte avec les mines, donc
+             un écart trop petit n'est pas perdu — il attend d'en valoir la
+             peine pendant que le plan passe à la pièce suivante. */
+          const lotDe = k => Math.max(1, Math.ceil(tournee(p)/mse(...DEF[k].c)));
+          const besoin = defNeed(p, p.def ? lotDe : null);
           if(besoin){
             const d = DEF[besoin.k], pourquoi = DEF_POURQUOI[besoin.k];
-            /* Une planète nue se complète d'un coup : le raid y est gratuit.
-               Au-dessus de zéro, par quarts, avec ce que le chantier a de
-               libre — un bouclier, lui, est une pièce ou rien. */
-            const n = p.def ? (d.un ? 1 : Math.max(1, Math.ceil(besoin.n/4))) : besoin.n;
+            const n = p.def ? (d.un ? 1 : Math.min(besoin.n, Math.max(lotDe(besoin.k), Math.ceil(besoin.n/4)))) : besoin.n;
             const w = {k:besoin.k, n,
               why:p.def
                 ? `${d.un ? `Aucun ${d.o} sur une planète qui en mérite un` : `${besoin.have} ${besoin.have>1?d.p:d.o} sur ${besoin.cible} vis${besoin.cible>1?'és':'é'}`} : ${pourquoi}`
@@ -1747,6 +1751,11 @@ function simulateDay(){
             const c = SHIP_COST[w.k], afford = Math.min(...c.map((x,j)=>x>0 ? Math.floor((p.st[j]-res[j])/x) : Infinity));
             const n = Math.min(w.n, afford); if(n<1) continue;
             const cost = c.map(x=>x*n), d = shipTime(w.k,n,p), k=w.k;
+            /* Un lot plus petit qu'une tournée de production ne vaut pas la
+               connexion : personne ne revient toutes les vingt secondes pour un
+               laser. Le reliquat reste au stock et sort en paquet la fois
+               d'après. Un lot qui termine ce qui était visé passe quand même. */
+            if(n < w.n && mse(...cost) < tournee(p)) continue;
             // La foreuse se compte à part, comme le fait la lecture du jeu :
             // production() et rankUpgrades() lisent p.crawlers, jamais la flotte.
             pay(p,cost); p.sq = Tm+d; sim.ev.push({at:Tm+d, fn:()=>addBuilt(p, {[k]:n})});
@@ -2508,7 +2517,7 @@ function defTarget(p){ const m = defMix(p); return m ? m.n : 0; }
  * @param {object} p planète
  * @returns {{k:string, n:number, cible:number, have:number, mix:object}|null}
  */
-function defNeed(p){
+function defNeed(p, lot){
   const mix = defMix(p), have = defsOf(p);
   if(!mix || !have) return null;
   const chair = defFodder(have);
@@ -2518,12 +2527,18 @@ function defNeed(p){
        il protège ce qui tire, il ne remplace rien. */
     if(DEF[k].un){ if(chair >= DEF[k].un && !(have[k] > 0)) return {k, n:1, cible:1, have:0, mix}; continue; }
     const manque = mix.cible[k] - (have[k]||0);
-    if(manque > 0) return {k, n:manque, cible:mix.cible[k], have:have[k]||0, mix};
+    /* Un écart plus petit qu'un lot ne vaut pas la connexion : on passe à la
+       pièce suivante. Le plancher ne dépasse jamais la cible, sinon une petite
+       planète dont toute la défense coûte moins d'une tournée n'en aurait
+       jamais. */
+    if(manque > 0 && (!lot || manque >= Math.min(lot(k), mix.cible[k]))) return {k, n:manque, cible:mix.cible[k], have:have[k]||0, mix};
   }
   return null;
 }
 /** Le mélange visé en clair : « 120 lanceurs de missiles, 120 lasers légers… ». */
 function defMixList(p){ const m = defMix(p); return m ? shipList(m.cible) : ''; }
+/** Ce que cette planète produit entre deux connexions, en métal. */
+function tournee(p){ const r = production(p); return mse(r.m, r.c, r.d) * Math.max(15,+S.day.interval||90)/60; }
 const ROLES = {hub:'Centre (recherche, flotte)', mines:'Mines', deut:'Deutérium', crystal:'Cristal et énergie'};
 function hubIndex(){ let best=0; S.planets.forEach((p,i)=>{ if(p.b.lab+p.b.shipyard > S.planets[best].b.lab+S.planets[best].b.shipyard) best=i; }); return best; }
 function autoRole(p, i){ if(i===hubIndex()) return 'hub'; const pos=(parseC(p.coords)||[])[2]||8; return pos>=13 ? 'deut' : pos<=3 ? 'crystal' : 'mines'; }

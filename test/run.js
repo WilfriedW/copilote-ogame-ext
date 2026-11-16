@@ -3489,6 +3489,23 @@ t('un tas de lanceurs ne suffit pas : le plan vise aussi des lasers légers', ()
   assert.match(act.why, /croiseur|destructeur/, 'et on dit pourquoi : ' + act.why);
 });
 
+/* Ce qui agaçait : deux cartes d'affilée pour un laser, cinquante secondes de
+   chantier chacune. Un lot vaut au moins une tournée de production, sinon il
+   attend. */
+t('la défense sort par paquets, jamais une pièce à la fois', () => {
+  const petit = s => { chercheur(s); mineuse(s); s.planets[0].stock = { m: 2000, c: 700, d: 0, at: SOIR }; };
+  const { g, acts } = defense({ rl: 500 }, petit);
+  const lots = acts.filter(a => a.kind === 'def');
+  assert.ok(lots.length, 'la défense manque toujours : ' + JSON.stringify(acts.map(a => a.what)));
+  // La cible monte avec les mines : sans plancher, chaque tournée sortait une
+  // carte pour une pièce, cinquante secondes de chantier. Les boucliers, eux,
+  // sont une pièce ou rien.
+  for (const a of lots)
+    assert.ok(a.ships.sd || a.ships.ld || Object.values(a.ships)[0] > 1,
+      'une pièce à la fois, personne ne se reconnecte pour ça : ' + a.what);
+  assert.ok(lots.some(a => Object.values(a.ships)[0] > 10), 'aucun vrai paquet : ' + lots.map(a => a.what).join(' | '));
+});
+
 t('chaque pièce de défense a son prix et ses prérequis', () => {
   const g = app(s => { relie(s); chercheur(s); });
   // Relevé sur le wiki OGame : un prix faux fait mentir tout le plan.
