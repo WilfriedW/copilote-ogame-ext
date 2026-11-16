@@ -951,6 +951,27 @@ t('la tournée et les lignes de la page tiennent dans la même bande', () => {
   assert.equal(r.tour.length, 3, 'et la tournée, dans la même bande');
 });
 
+t('un chiffre qui bouge met la bande à jour, il ne la repose pas', () => {
+  // Les manques et les délais bougent sans arrêt : démolir la bande à chaque
+  // fois, c'est la faire clignoter sous les yeux du joueur.
+  const p = runPage(ARRIVEE);
+  const pose = p.read().poses;
+  const bouge = { ...TOUR, tour: { ...TOUR.tour,
+    '102': { ...TOUR.tour['102'], cost: { '21': [9000, 0, 0] }, st: [0, 0, 0] } } };
+  p.majSkin(bouge);
+  assert.equal(p.read().poses, pose, 'la même bande, mise à jour');
+  assert.ok(/manque 9K métal/.test(pins(p.read().tour)['Colonie'].txt), pins(p.read().tour)['Colonie'].txt);
+});
+
+t('une planète qui entre dans la tournée repose la bande', () => {
+  const p = runPage(ARRIVEE);
+  const pose = p.read().poses;
+  const { '103': _, ...moins } = TOUR.tour;
+  p.majSkin({ ...TOUR, tour: moins });
+  assert.ok(p.read().poses > pose, 'la forme a changé : on repose');
+  assert.equal(p.read().tour.length, 2);
+});
+
 t('une secousse ne duplique pas la bande', () => {
   const p = runPage({ skin: BANDE, search: '?page=ingame&component=galaxy' });
   p.secousse();

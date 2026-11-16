@@ -489,6 +489,8 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
      sur la page ouverte, et la tournée de la tuile en main.
      Elle se pose au-dessus des tuiles quand la page en a, et en bas de la
      colonne sinon : une bande à la fois, là où les yeux sont. */
+  let poses = 0;
+
   function peintBande() {
     const comp = new URLSearchParams(location.search).get('component') || '';
     const lignes = ((band || {}).pages || {})[comp] || [];
@@ -498,44 +500,62 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     const hote = liste ? liste.parentNode : document.getElementById('middle');
     const vieille = document.querySelector('.copilote-bande');
     if (!hote || (!lignes.length && !pins.length)) { if (vieille) vieille.remove(); return; }
-    const cle = JSON.stringify([comp, lignes, pins.map(p => p.txt + (p.ici ? '*' : ''))]);
+    // ce qu'on veut afficher, zone par zone
+    const voulu = [];
+    if (lignes.length) voulu.push(['ici', 'à faire sur cette page', lignes.map(l => ({
+      /* L'heure tient en un seul morceau : sans espaces insécables, « vers »
+         reste accroché à l'action et l'heure tombe seule à la ligne suivante. */
+      txt: l.what + (l.ou ? ' · ' + l.ou : '')
+        + (l.quand ? ' · ' + String(l.quand).replace(/ /g, ' ') : ''),
+      href: l.url || '', titre: l.why || '',
+      // grisée quand le plan ne peut pas encore la payer : un état, pas une
+      // interdiction — la page reste à un clic
+      cls: 'cb-l' + (l.gris ? ' copilote-gris' : '')
+    }))]);
+    if (pins.length) voulu.push(['tour', 'la même tuile ailleurs', pins.map(p => ({
+      txt: p.txt, href: p.href || '', titre: '',
+      cls: 'copilote-pin' + (p.ici ? ' copilote-ici' : '') + (p.gris ? ' copilote-gris' : '')
+    }))]);
+    /* Les manques et les délais bougent sans arrêt. Démolir la bande à chaque
+       chiffre la ferait clignoter sous les yeux du joueur : tant que la forme
+       ne change pas — mêmes zones, mêmes liens — on réécrit les textes en
+       place, et on ne repose la bande que lorsqu'elle change vraiment. */
+    const forme = JSON.stringify(voulu.map(([n, , l]) => [n, l.map(x => x.href)]));
+    const cle = JSON.stringify(voulu);
     if (vieille && vieille.dataset.cle === cle) return;
+    if (vieille && vieille.dataset.forme === forme) {
+      vieille.dataset.cle = cle;
+      voulu.forEach(([, , l], i) => {
+        const z = vieille.children[i];
+        l.forEach((x, j) => {
+          const n = z.children[j];
+          n.textContent = x.txt;
+          n.className = x.cls;
+          if (x.titre) n.title = x.titre;
+        });
+      });
+      return;
+    }
     if (vieille) vieille.remove();
     const hud = document.createElement('div');
     hud.className = 'copilote-bande';
     hud.dataset.cle = cle;
-    const zone = (nom, titre) => {
+    hud.dataset.forme = forme;
+    hud.dataset.pose = String(++poses);
+    for (const [nom, titre, lignesZone] of voulu) {
       const z = hud.appendChild(document.createElement('div'));
       z.className = 'copilote-zone';
       z.dataset.zone = nom;
       // le titre se dessine en CSS : ce n'est pas une ligne de la zone
       z.dataset.titre = titre;
-      return z;
-    };
-    if (lignes.length) {
-      const z = zone('ici', 'à faire sur cette page');
-      for (const l of lignes) {
-        const n = z.appendChild(document.createElement(l.url ? 'a' : 'div'));
-        // grisée quand le plan ne peut pas encore la payer : un état, pas une
-        // interdiction — la page reste à un clic
-        n.className = 'cb-l' + (l.gris ? ' copilote-gris' : '');
-        /* L'heure tient en un seul morceau : sans espaces insécables, « vers »
-           reste accroché à l'action et l'heure tombe seule à la ligne suivante. */
-        n.textContent = l.what + (l.ou ? ' · ' + l.ou : '')
-          + (l.quand ? ' ·\u00a0' + l.quand.replace(/ /g, '\u00a0') : '');
+      for (const x of lignesZone) {
+        const n = z.appendChild(document.createElement(x.href ? 'a' : 'div'));
+        n.className = x.cls;
+        n.textContent = x.txt;
         // le pourquoi tient dans l'infobulle : quatre lignes de raisons
         // rendraient la bande illisible, et elle se lit d'un coup d'œil
-        if (l.why) n.title = l.why;
-        if (l.url) n.href = l.url;
-      }
-    }
-    if (pins.length) {
-      const z = zone('tour', 'la même tuile ailleurs');
-      for (const p of pins) {
-        const n = z.appendChild(document.createElement(p.href ? 'a' : 'span'));
-        n.className = 'copilote-pin' + (p.ici ? ' copilote-ici' : '') + (p.gris ? ' copilote-gris' : '');
-        n.textContent = p.txt;
-        if (p.href) n.href = p.href;
+        if (x.titre) n.title = x.titre;
+        if (x.href) n.href = x.href;
       }
     }
     if (liste) hote.insertBefore(hud, liste); else hote.appendChild(hud);
@@ -642,7 +662,10 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
       'bande=' + (!document.getElementById('middle') ? 'sans-middle'
         : !document.querySelector('.copilote-bande') ? 'rien'
         : (((band || {}).pages || {})[new URLSearchParams(location.search).get('component') || ''] || []).length
-          + ':' + pastilles().length),
+          + ':' + pastilles().length
+          // combien de fois la bande a été reposée : si ce compte grimpe seul,
+          // c'est le jeu qui l'emporte à chaque rafraîchissement de sa page
+          + '@' + poses),
       'ici=' + meta('planet-id'),
       'epure=' + (lean ? 1 : 0)
     ].join(' ');

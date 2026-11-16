@@ -167,10 +167,12 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     return realGet(id);
   };
 
+  // Le panneau republie son envoi : on garde l'écouteur pour rejouer la scène.
+  let republie = null;
   const chrome = {
     storage: {
       local: { get(k, cb) { cb({ skin }); }, set() {} },
-      onChanged: { addListener() {} }
+      onChanged: { addListener(fn) { republie = fn; } }
     },
     runtime: { sendMessage() { return { catch() {} }; } }
   };
@@ -201,6 +203,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
       return z ? z.children : [];
     };
     return {
+      poses: bande ? +bande.dataset.pose : 0,
       bande: bande ? { ici: zone('ici').map(x => ({ txt: x.textContent, href: x.href || null,
         why: x.title || '', grisee: x.className.split(' ').includes('copilote-gris') })) } : null,
       tour: zone('tour').map(x => ({
@@ -220,6 +223,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     read,
     /** Ce que fait le jeu en ouvrant une autre tuile : il refait son panneau. */
     efface: () => { const e = det && det.children.find(c => c.className === 'copilote-eta'); if (e) e.remove(); },
+    /** Le panneau republie un envoi : les chiffres bougent, la page suit. */
+    majSkin: neuf => republie && republie({ skin: { newValue: neuf } }, 'local'),
     /** Une secousse de la page, comme en produit le jeu. */
     secousse: () => secousse && secousse(),
     /** Le joueur ouvre une tuile : le jeu ne recharge rien, il déplie son panneau. */
