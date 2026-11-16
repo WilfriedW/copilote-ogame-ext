@@ -727,6 +727,27 @@ t('une secousse de la page ne duplique pas la barre', () => {
   assert.equal(p.read().tour.length, 3);
 });
 
+const DEPART = { skin: TOUR, tiles: ['21', '1'], search: '?page=ingame&component=facilities' };
+
+t('ouvrir une tuile ouvre la tournée', () => {
+  const p = runPage(DEPART);
+  assert.deepEqual(p.read().tour, []);
+  p.clic('21');
+  assert.equal(p.read().tour.length, 3);
+});
+
+t('ouvrir une autre tuile change de tournée', () => {
+  const p = runPage(DEPART);
+  p.clic('21'); p.clic('1');
+  assert.deepEqual(p.read().tour, []);   // personne n'a de niveau pour la tuile 1
+});
+
+t('openTech l\'emporte sur un clic plus ancien', () => {
+  const p = runPage({ ...DEPART, search: '?page=ingame&component=facilities&openTech=21' });
+  p.clic('1');
+  assert.equal(p.read().tour.length, 3);
+});
+
 /* ---------- ouvrir la bonne page du jeu ---------- */
 
 /** Un empire synchronisé : on connaît le serveur et l'identifiant des planètes. */

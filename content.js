@@ -390,9 +390,14 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
      « Améliorer ». Rien n'est cliqué ni écrit dans la page, comme partout
      ailleurs : la barre pose des liens, le joueur décide. */
 
+  /* La tuile cliquée à la main : c'est la première planète d'une tournée, celle
+     où le joueur décide ce qu'il fait le tour. Le jeu ne recharge rien en
+     ouvrant une tuile, donc l'URL ne le dit pas — seul le clic le dit. */
+  let tuileVue = '';
+
   /** La tuile dont le joueur fait le tour, ou '' quand il n'en ouvre aucune. */
   function tuileEnMain() {
-    const t = new URLSearchParams(location.search).get('openTech');
+    const t = new URLSearchParams(location.search).get('openTech') || tuileVue;
     return /^\d+$/.test(String(t || '')) ? String(t) : '';
   }
 
@@ -533,6 +538,16 @@ color:#0c1120;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shado
      ses propres comptes à rebours. Repeindre n'écrit rien quand rien n'a
      changé, donc la secousse que nous causons nous-mêmes s'arrête là.
      L'envoi du relevé, lui, reste au rythme de garde : c'est le coûteux. */
+  /* Un seul écouteur, par délégation : le jeu refait sa liste de tuiles à tout
+     bout de champ, et un écouteur par tuile mourrait avec elle. Écouter n'est
+     pas cliquer — rien n'est écrit dans la page. */
+  document.addEventListener('click', e => {
+    const li = e.target && e.target.closest && e.target.closest('li.technology[data-technology]');
+    if (!li) return;
+    tuileVue = li.dataset.technology || '';
+    paint();
+  });
+
   let bientot = null;
   new MutationObserver(() => {
     dirty = true;
