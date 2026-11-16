@@ -499,17 +499,13 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     const comp = new URLSearchParams(location.search).get('component') || '';
     const lignes = ((band || {}).pages || {})[comp] || [];
     const pins = pastilles();
-    /* Au-dessus des tuiles quand la page n'en a qu'une liste — c'est là que
-       l'œil travaille. Quand elle en range plusieurs côte à côte, comme la page
-       Recherche et ses quatre encadrés, se poser devant la première, c'est se
-       poser au milieu de ses cases : la bande descend alors en bas de la
-       colonne, où elle ne dérange aucune mise en page. */
-    const listes = [];
-    document.querySelectorAll('li.technology[data-technology]').forEach(li => {
-      if (li.parentNode && listes.indexOf(li.parentNode) < 0) listes.push(li.parentNode);
-    });
-    const liste = listes.length === 1 ? listes[0] : null;
-    const hote = liste ? liste.parentNode : document.getElementById('middle');
+    /* Une seule place, sur toutes les pages : en tête du contenu principal.
+       `#middle > .maincontent` est le squelette commun du jeu — seul son
+       identifiant change d'une page à l'autre. S'y poser plutôt que dans un
+       encadré met la bande au-dessus de la page sans se mêler de sa mise en
+       page : la page Recherche range ses cases en quatre listes côte à côte,
+       et s'y glisser la cassait. */
+    const hote = document.querySelector('#middle .maincontent') || document.getElementById('middle');
     const vieille = laBande && laBande.parentNode === hote ? laBande : null;
     if (!hote || (!lignes.length && !pins.length)) {
       if (vieille) vieille.remove();
@@ -577,7 +573,7 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
         if (x.href) n.href = x.href;
       }
     }
-    if (liste) hote.insertBefore(hud, liste); else hote.appendChild(hud);
+    if (hote.children[0]) hote.insertBefore(hud, hote.children[0]); else hote.appendChild(hud);
     laBande = hud;
   }
 

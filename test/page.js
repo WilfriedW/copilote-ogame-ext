@@ -84,6 +84,14 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
 
   // Les tuiles du jeu, rangées dans leur liste : c'est devant cette liste que
   // la barre de tournée se pose.
+  /* La colonne du jeu et son contenu principal : `#middle > .maincontent`, le
+     même squelette sur toutes les pages — seul l'identifiant change
+     (`#suppliescomponent`, `#researchcomponent`…). */
+  const milieu = el('div', { id: 'middle' });
+  const principal = el('div', { id: 'pagecomponent', className: 'maincontent' });
+  milieu.appendChild(principal);
+  body.appendChild(milieu);
+
   /* Une liste de tuiles, ou plusieurs : la page Recherche range ses cases en
      quatre encadrés, chacun avec sa propre liste. */
   const groupes = tiles.length && Array.isArray(tiles[0]) ? tiles : (tiles.length ? [tiles] : []);
@@ -95,7 +103,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
       ul.appendChild(li);
       tuiles.push(li);
     }
-    body.appendChild(ul);
+    principal.appendChild(ul);
   }
 
   /* Une feuille de style laissée par une version précédente du script : c'est
@@ -106,13 +114,9 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     head.appendChild(vieux);
   }
 
-  // La colonne du jeu : c'est en bas d'elle que la bande se pose.
-  const milieu = el('div', { id: 'middle' });
-  body.appendChild(milieu);
-
   /* Un élément de la page qui porte la même classe que la nôtre : sur une page
      d'alliance, le contenu vient d'autres joueurs. */
-  if (intruse) milieu.appendChild(el('div', { className: 'copilote-bande' }));
+  if (intruse) principal.appendChild(el('div', { className: 'copilote-bande' }));
 
   const byId = { ...res, middle: milieu };
   if (det) byId.technologydetails = det;
@@ -123,10 +127,11 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   const estBande = c => c.className.split(' ').includes('copilote-bande');
   // la nôtre se reconnaît à son compteur de poses
   const estNotre = c => estBande(c) && c.dataset.pose;
-  const laBande = () => milieu.children.find(estNotre) || body.children.find(estNotre) || null;
-  const toutes = () => milieu.children.filter(estBande).length + body.children.filter(estBande).length;
+  const laBande = () => principal.children.find(estNotre) || milieu.children.find(estNotre) || null;
+  const toutes = () => principal.children.filter(estBande).length + milieu.children.filter(estBande).length;
 
   const routes = {
+    '#middle .maincontent': () => principal,
     'meta[name="ogame-planet-id"]': () => metaEl,
     '.costs': () => costsBox,
     '.copilote-eta': () => (det ? det.children.find(c => c.className === 'copilote-eta') || null : null),
@@ -137,7 +142,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     '.build_duration time[datetime]': () => null,
     'li.technology[data-technology]': () => tuiles,
     // comme un vrai navigateur : la première du document, intruse comprise
-    '.copilote-bande': () => milieu.children.find(estBande) || body.children.find(estBande) || null,
+    '.copilote-bande': () => principal.children.find(estBande) || milieu.children.find(estBande) || null,
     '[data-end]': () => [],
     '[data-technology]': () => [],
     '[data-mission-type][data-arrival-time]': () => [],
@@ -219,7 +224,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     };
     return {
       poses: bande ? +bande.dataset.pose : 0,
-      bandeDansMilieu: !!milieu.children.find(estNotre),
+      bandeEnTete: principal.children[0] === laBande(),
       bandes: toutes(),
       bande: bande ? { ici: zone('ici').map(x => ({ txt: x.textContent, href: x.href || null,
         why: x.title || '', grisee: x.className.split(' ').includes('copilote-gris') })) } : null,

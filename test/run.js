@@ -981,19 +981,15 @@ t('un élément de la page qui porte notre classe n\'est ni réécrit ni retiré
   assert.deepEqual(r.bande.ici.map(x => x.txt), ['Espionner 1:140:6']);
 });
 
-t('une page à plusieurs listes de tuiles reçoit la bande en bas, pas dans la première', () => {
-  // La page Recherche range ses cases en quatre encadrés côte à côte : se poser
-  // devant le premier, c'est se poser au milieu de ses tuiles.
-  const r = runPage({ skin: TOUR, tiles: [['21', '1'], ['124', '113']],
+t('la bande se pose en tête du contenu, quelle que soit la page', () => {
+  // `#middle > .maincontent` est le squelette commun : une seule place, haute,
+  // et jamais à l'intérieur d'un encadré du jeu — la page Recherche range ses
+  // cases en quatre listes côte à côte, s'y glisser cassait sa mise en page.
+  const quatre = runPage({ skin: TOUR, tiles: [['21', '1'], ['124', '113']],
     search: '?page=ingame&component=research&openTech=21' });
-  assert.equal(r.bandeDansMilieu, true, 'en bas de la colonne, hors des encadrés');
-  assert.equal(r.tour.length, 3, 'et la tournée reste');
-});
-
-t('une page à une seule liste garde la bande au-dessus des tuiles', () => {
-  const r = runPage(ARRIVEE);
-  assert.equal(r.bandeDansMilieu, false);
-  assert.equal(r.tour.length, 3);
+  assert.equal(quatre.bandeEnTete, true, 'en tête, hors des encadrés');
+  assert.equal(quatre.tour.length, 3, 'et la tournée reste');
+  assert.equal(runPage(ARRIVEE).bandeEnTete, true, 'même place sur une page à une seule liste');
 });
 
 t('une secousse ne duplique pas la bande', () => {
