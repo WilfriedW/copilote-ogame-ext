@@ -742,22 +742,35 @@ t('ouvrir une autre tuile change de tournée', () => {
   assert.deepEqual(p.read().tour, []);   // personne n'a de niveau pour la tuile 1
 });
 
-t('openTech l\'emporte sur un clic plus ancien', () => {
+t('un clic l\'emporte sur l\'openTech de l\'arrivée', () => {
+  // Arrivé par une pastille, le joueur ouvre une autre tuile : c'est elle qu'il
+  // regarde. La barre qui resterait sur la précédente afficherait les niveaux
+  // d'un bâtiment dont plus rien à l'écran ne parle.
   const p = runPage({ ...DEPART, search: '?page=ingame&component=facilities&openTech=21' });
+  assert.equal(p.read().tour.length, 3, 'à l\'arrivée, la tournée est celle du lien');
   p.clic('1');
-  assert.equal(p.read().tour.length, 3);
+  assert.deepEqual(p.read().tour, []);
 });
 
 const occupee = { ...TOUR, tour: { ...TOUR.tour,
-  '102': { ...TOUR.tour['102'], bq: Date.now() + 3600000 } } };
+  '102': { ...TOUR.tour['102'], bq: Date.now() + 5400000 } } };
 const pauvre = { ...TOUR, tour: { ...TOUR.tour,
   '102': { ...TOUR.tour['102'], cost: { '21': [1000, 500, 0] }, st: [400, 500, 0] } } };
 
-t('une file occupée se dit, avec son heure de fin', () => {
+t('une file occupée se dit, en temps restant', () => {
   const p = pins(runPage({ ...ARRIVEE, skin: occupee }).tour)['Colonie'];
   assert.equal(p.grisee, true);
-  assert.ok(/file jusqu'à \d\d:\d\d/.test(p.txt), p.txt);
+  assert.ok(/file 1h 30m/.test(p.txt), p.txt);
   assert.ok(p.href, 'grisée mais cliquable');
+});
+
+t('une file de plus d\'un jour ne se dit pas en heure du jour', () => {
+  // « file jusqu'à 18:17 » pour une file qui finit demain à 18:17 se lit
+  // aujourd'hui : un temps restant ne se lit jamais pour un autre.
+  const longue = { ...TOUR, tour: { ...TOUR.tour,
+    '102': { ...TOUR.tour['102'], bq: Date.now() + 30.5 * 3600000 } } };
+  assert.ok(/file 30h 30m/.test(pins(runPage({ ...ARRIVEE, skin: longue }).tour)['Colonie'].txt),
+    pins(runPage({ ...ARRIVEE, skin: longue }).tour)['Colonie'].txt);
 });
 
 t('un stock trop court nomme ce qui manque', () => {
@@ -770,6 +783,59 @@ t('un coût inconnu ne fait pas manquer', () => {
   const p = pins(runPage(ARRIVEE).tour)['Colonie'];
   assert.equal(p.grisee, false);
   assert.ok(!/manque/.test(p.txt), p.txt);
+});
+
+t('une recherche de forme de vie lit sa propre file, pas celle des bâtiments', () => {
+  // 112xx : par planète comme les bâtiments de forme de vie, mais pas la même
+  // file. Lire `lfq` pour une recherche annonce « libre » une planète occupée.
+  const lfr = { hints: {}, rates: {}, lean: false, tour: {
+    '33657643': { n: 'Planète mère', b: { '11201': 3 }, cost: {}, bq: 0, lfq: 0, lfr: 0, st: [0, 0, 0] },
+    '102': { n: 'Colonie', b: { '11201': 1 }, cost: {}, bq: 0, lfq: 0,
+      lfr: Date.now() + 5400000, st: [0, 0, 0] }
+  } };
+  const r = runPage({ skin: lfr, tiles: ['11201'],
+    search: '?page=ingame&component=lfresearch&openTech=11201' });
+  assert.ok(/file 1h 30m/.test(pins(r.tour)['Colonie'].txt), pins(r.tour)['Colonie'].txt);
+});
+
+t('un bâtiment de forme de vie lit toujours la file des bâtiments', () => {
+  const lfb = { hints: {}, rates: {}, lean: false, tour: {
+    '33657643': { n: 'Planète mère', b: { '11101': 3 }, cost: {}, bq: 0, lfq: 0, lfr: 0, st: [0, 0, 0] },
+    '102': { n: 'Colonie', b: { '11101': 1 }, cost: {}, bq: 0, lfr: 0,
+      lfq: Date.now() + 5400000, st: [0, 0, 0] }
+  } };
+  const r = runPage({ skin: lfb, tiles: ['11101'],
+    search: '?page=ingame&component=lfbuildings&openTech=11101' });
+  assert.ok(/file 1h 30m/.test(pins(r.tour)['Colonie'].txt), pins(r.tour)['Colonie'].txt);
+});
+
+t('un component fabriqué ne détourne pas les liens', () => {
+  // Une URL forgée, ouverte depuis un message ou un forum, ne doit pas faire
+  // mentir la pastille sur la page où elle mène.
+  const r = runPage({ ...ARRIVEE,
+    search: '?page=ingame&component=facilities%26component%3Dfleetdispatch&openTech=21' });
+  const href = pins(r.tour)['Colonie'].href;
+  assert.equal(href.match(/component=/g).length, 1, href);
+});
+
+t('le stock publié avance avec la production entre deux envois', () => {
+  // Le panneau ne republie que toutes les 30 s, et seulement ouvert sur
+  // Aujourd'hui : un stock gelé grise une planète qui paie depuis une heure.
+  const vieux = { hints: {}, rates: { '102': [3600, 0, 0] }, lean: false, tour: {
+    '33657643': TOUR.tour['33657643'],
+    '102': { n: 'Colonie', b: { '21': 2 }, cost: { '21': [1000, 0, 0] }, bq: 0, lfq: 0,
+      st: [0, 0, 0], at: Date.now() - 3600000 }
+  } };
+  const p = pins(runPage({ ...ARRIVEE, skin: vieux }).tour)['Colonie'];
+  assert.ok(!/manque/.test(p.txt), p.txt);
+  assert.equal(p.grisee, false);
+});
+
+t('une tournée mal formée ne casse pas la surcouche', () => {
+  const casse = { ...TOUR, tour: { ...TOUR.tour, '104': null,
+    '105': { n: 'X', b: { '21': 1 }, cost: { '21': 'beaucoup' }, bq: 0, lfq: 0, st: [0, 0, 0] } } };
+  const r = runPage({ ...ARRIVEE, skin: casse });
+  assert.ok(/ici=33657643/.test(r.dataset.copilote), 'la peinture va jusqu\'au bout');
 });
 
 /* ---------- ouvrir la bonne page du jeu ---------- */
@@ -933,6 +999,37 @@ t('la fin de file de bâtiment est publiée, par planète', () => {
 t('une clé de planète hostile ne crée pas de pastille', () => {
   const g = app(s => { nommees(s); s.planets[1].gid = '__proto__'; });
   assert.deepEqual(Object.keys(g.tourData()), ['101']);
+});
+
+t('la file des recherches de forme de vie part à part', () => {
+  const g = app(s => { nommees(s); s.timers = [
+    { id: 'c', game: true, queue: 'lfresearch', kind: 'x', k: 'other', label: 'Étude', pid: 'mere', end: SOIR + 1200000 }
+  ]; });
+  assert.equal(g.tourData()['101'].lfr, SOIR + 1200000);
+  assert.equal(g.tourData()['101'].lfq, 0);
+});
+
+t('une planète que la synchro vient de révéler ne publie aucun niveau', () => {
+  // Le jeu nomme toutes les planètes dès la première page lue, mais ne dit les
+  // niveaux que de celle qu'on regarde : les autres sont à zéro par défaut, et
+  // « 0 → 1 » enverrait monter ce qui est peut-être au niveau 8.
+  const g = app(nommees);
+  g.applyGame({ meta: { host: 's1.ogame.gameforge.com' }, planets: {
+    '101': { name: 'Planète mère', coords: '1:142:8', b: { metal: 14 } },
+    '999': { name: 'Colonie neuve', coords: '1:142:3' }
+  } });
+  const t1 = g.tourData();
+  assert.equal(t1['101'].b['1'], 14, 'la planète lue publie ses niveaux');
+  assert.deepEqual(t1['999'].b, {}, 'la planète jamais lue n\'en publie aucun');
+  assert.deepEqual(t1['999'].cost, {});
+});
+
+t('un prix de forme de vie estimé ne voyage pas comme un fait', () => {
+  const g = app(s => { nommees(s);
+    s.planets[0].lf = { '11101': { lvl: 3, seen: { 1: [100, 50, 0], 2: [200, 100, 0] } } }; });
+  const e = g.tourData()['101'];
+  assert.equal(e.b['11101'], 3, 'le niveau, lui, est connu');
+  assert.equal(e.cost['11101'], undefined, 'un prix estimé ne grise personne');
 });
 
 t('la tournée voyage dans le skin', () => {

@@ -124,3 +124,28 @@ deux planètes portent cette tuile.
   file occupée est marquée, une planète sans `gid` est absente) et la
   barre dans `test/page.js` (trois planètes connues, tuile ouverte → deux
   liens plus la planète courante marquée).
+
+## Après revue (16 novembre 2026)
+
+La revue de branche a renversé trois décisions écrites plus haut, et corrigé un
+oubli. Ce qui suit l'emporte sur les sections précédentes.
+
+- **Le clic passe devant `openTech`.** « D'où vient la tuile » disait l'inverse.
+  Arrivé par une pastille, un joueur qui ouvre une autre tuile regarde cette
+  autre tuile : la barre la suit. Figée sur la précédente, elle affichait les
+  niveaux d'un bâtiment dont plus rien à l'écran ne parlait.
+- **La file se dit en temps restant, pas en heure du jour.** « file jusqu'à
+  18:17 » se lit aujourd'hui, même quand la file finit demain.
+- **Une planète que la synchro vient de révéler ne publie aucun niveau.** Le jeu
+  nomme toutes les planètes dès la première page lue, mais ne dit les niveaux
+  que de celle qu'on regarde : le zéro par défaut tombait droit dans
+  l'anti-objectif « jamais un niveau 0 ». Elle porte donc une pastille sans
+  niveau jusqu'à la première lecture, la première saisie à la main, ou un import
+  d'empire.
+- **Les recherches de forme de vie ont leur propre file.** 112xx se construit
+  dans `lfresearch`, pas dans `lfbuilding` : la barre lit désormais la bonne, et
+  le relevé publie les deux.
+
+Reste à vérifier dans le jeu, faute de pouvoir l'éprouver hors ligne : que
+`openTech` ouvre bien la tuile sur les quatre pages à tuiles, et que la barre se
+pose au-dessus de la liste et non au-dessus d'un encadré de production.

@@ -476,21 +476,28 @@ function tourData(){
     // sont jamais une planète du jeu
     if(!/^\d+$/.test(String(p.gid || ''))) continue;
     const b = {}, cost = {};
-    for(const k of Object.keys(B)){
+    /* Le jeu nomme toutes les planètes dès la première page lue, mais ne dit
+       les niveaux que de celle qu'on regarde : les autres sont à zéro par
+       défaut. Publier ce zéro enverrait monter ce qui est peut-être au niveau
+       huit. Tant que rien n'a été lu ni saisi, cette planète n'a pas de niveau
+       à donner — la page sait le dire. */
+    if(!p.bNeuve) for(const k of Object.keys(B)){
       const id = BUILD_ID[k];
-      if(!id) continue; // les foreuses n'ont pas de tuile à elles
+      if(!id) continue; // une clé de B sans tuile du jeu : rien à montrer
       b[id] = p.b[k] || 0;
       cost[id] = levelCost(B[k], b[id] + 1);
     }
     for(const [id, v] of Object.entries(p.lf || {})){
       const lvl = (v && v.lvl) || 0;
       b[id] = lvl;
-      // un prix de forme de vie ne s'invente pas : il se lit sur le jeu, ou se
-      // tait
+      /* Un prix de forme de vie ne s'invente pas : il se lit sur le jeu. Un
+         prix estimé reste au panneau, qui l'étiquette — une pastille qui
+         grise sur une estimation ferait manquer ce qui ne manque pas. */
       const c = lfCost(v, lvl + 1);
-      if(c) cost[id] = c.cost;
+      if(c && c.src === 'lu') cost[id] = c.cost;
     }
     out[p.gid] = {n: planetRef(p), b, cost, bq: fin(p, 'building'), lfq: fin(p, 'lfbuilding'),
+                  lfr: fin(p, 'lfresearch'), at: Date.now(),
                   st: stockNow(p).map(x=>Math.round(x))};
   }
   return out;
@@ -2935,7 +2942,7 @@ function bind(){
 
   view.querySelectorAll('[data-pi]').forEach(card=>{
     const p = S.planets[+card.dataset.pi];
-    card.querySelectorAll('input[data-b]').forEach(el=>el.addEventListener('input',()=>{ p.b[el.dataset.b]=Math.max(0,parseInt(el.value)||0); changed(); }));
+    card.querySelectorAll('input[data-b]').forEach(el=>el.addEventListener('input',()=>{ p.b[el.dataset.b]=Math.max(0,parseInt(el.value)||0); delete p.bNeuve; changed(); }));
     card.querySelectorAll('input[data-p]').forEach(el=>el.addEventListener('input',()=>{ const k=el.dataset.p; p[k] = (k==='tmax'||k==='sats') ? (parseInt(el.value)||0) : el.value; changed(); }));
     card.querySelectorAll('input[data-s]').forEach(el=>el.addEventListener('input',()=>{ const st=stockNow(p); p.stock={m:st[0],c:st[1],d:st[2],at:Date.now()}; p.stock[el.dataset.s]=parseFloat(el.value)||0; changed(); }));
   });
@@ -3080,7 +3087,7 @@ function importEmpire(d){
     p.name = src.name || p.name; p.coords = coords;
     const tm = tempMax(src.temp); if(tm!=null) p.tmax = tm;
     for(const grp of ['supply','station']) for(const [label,v] of Object.entries(src[grp]||{})){
-      const k = matchKey(label, MATCH_B); if(k) p.b[k]=lvlOf(v); else rep.unknown.add(label);
+      const k = matchKey(label, MATCH_B); if(k){ p.b[k]=lvlOf(v); delete p.bNeuve; } else rep.unknown.add(label);
     }
     for(const [label,v] of Object.entries(src.ships||{})){ if(/satellite|solar sat/i.test(norm(label))){ p.sats = lvlOf(v); continue; } const k = matchKey(label, MATCH_S); if(k){ p.ships = p.ships||{}; p.ships[k] = lvlOf(v); } }
     if(src.defense){
@@ -3182,7 +3189,11 @@ function applyGame(g){
   for(const id of ids){
     const gp = (g.planets || {})[id]; if(!gp) continue;
     let p = S.planets.find(x=>x.gid===id) || S.planets.find(x=>!x.gid && x.coords===gp.coords);
-    if(!p) p = (S.sample && kept.length===0) ? S.planets[0] : newPlanet(gp.name||'Planète', gp.coords||'', gp.tmax ?? 20, {});
+    if(!p){
+      p = (S.sample && kept.length===0) ? S.planets[0] : newPlanet(gp.name||'Planète', gp.coords||'', gp.tmax ?? 20, {});
+      // révélée par la liste du jeu : elle a un nom, pas encore de niveaux
+      if(p !== S.planets[0]) p.bNeuve = 1;
+    }
     p.gid = id;
     if(gp.name) p.name = gp.name;
     if(gp.coords) p.coords = gp.coords;
@@ -3190,6 +3201,7 @@ function applyGame(g){
     if(gp.lfSeen) p.lfSeen = Object.assign({}, p.lfSeen, gp.lfSeen);
     if(gp.tmax != null) p.tmax = gp.tmax;
     Object.assign(p.b, gp.b || {});
+    if(gp.b && Object.keys(gp.b).length) delete p.bNeuve; // ses niveaux sont lus
     if(gp.sats != null) p.sats = gp.sats;
     if(gp.crawlers != null) p.crawlers = gp.crawlers;
     if(gp.def != null) p.def = gp.def;

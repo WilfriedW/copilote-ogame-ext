@@ -395,20 +395,22 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
      ouvrant une tuile, donc l'URL ne le dit pas — seul le clic le dit. */
   let tuileVue = '';
 
-  /** La tuile dont le joueur fait le tour, ou '' quand il n'en ouvre aucune. */
+  /** La tuile dont le joueur fait le tour, ou '' quand il n'en ouvre aucune.
+      Un clic passe devant l'`openTech` de l'arrivée : il est plus récent, et
+      c'est bien la tuile que le joueur regarde. */
   function tuileEnMain() {
-    const t = new URLSearchParams(location.search).get('openTech') || tuileVue;
+    const t = tuileVue || new URLSearchParams(location.search).get('openTech');
     return /^\d+$/.test(String(t || '')) ? String(t) : '';
   }
 
   function peintTour() {
     const tuile = tuileEnMain();
-    const gids = Object.keys(tour).filter(g => /^\d+$/.test(g));
+    const gids = Object.keys(tour).filter(g => /^\d+$/.test(g) && tour[g] && tour[g].n);
     /* Deux planètes au moins doivent connaître le niveau de cette tuile. C'est
        ce seuil qui écarte les recherches — une seule file pour tout l'empire —
        et les vaisseaux, dont aucune planète ne porte de niveau, sans avoir à
        tenir la liste des pages interdites. */
-    const connus = gids.filter(g => ((tour[g] || {}).b || {})[tuile] != null);
+    const connus = gids.filter(g => (tour[g].b || {})[tuile] != null);
     const premiere = document.querySelector('li.technology[data-technology]');
     const liste = premiere && premiere.parentNode;
     const vieille = document.querySelector('.copilote-tour');
@@ -422,11 +424,24 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
          rien : une file encore prise, ou un stock qui ne paie pas. Les deux
          grisent la pastille sans fermer le lien — c'est un état, pas une
          interdiction, et le joueur a le droit d'aller voir. */
-      const fin = (+tuile >= 11000 ? e.lfq : e.bq) || 0;
-      const c = (e.cost || {})[tuile], st = e.st || [0, 0, 0];
+      // Les cases de forme de vie ont deux files, construire et chercher : lire
+      // l'une pour l'autre annonce libre une planète occupée.
+      const fin = (+tuile >= 11000 ? (lfQueue(tuile) === 'lfresearch' ? e.lfr : e.lfq) : e.bq) || 0;
+      const c = (e.cost || {})[tuile];
+      /* Le stock part du panneau, qui ne republie que toutes les trente
+         secondes et seulement ouvert sur Aujourd'hui : gelé, il grise une
+         planète qui paie depuis une heure. On l'avance avec le débit, déjà
+         publié par planète.
+         ponytail: avance linéaire, sans plafond de hangar — à borner si une
+         pastille se met à promettre ce que le hangar ne peut pas garder. */
+      const heures = Math.max(0, (maintenant - (e.at || maintenant)) / 3600000);
+      const debit = rates[g] || [];
+      const st = (Array.isArray(e.st) ? e.st : []).map((x, i) => x + (debit[i] || 0) * heures);
       let etat = '';
-      if (fin > maintenant) etat = 'file jusqu\'à ' + new Date(fin).toTimeString().slice(0, 5);
-      else if (c) {
+      // Un temps restant ne se lit jamais pour un autre : « jusqu'à 18:17 » se
+      // lit aujourd'hui, même quand la file finit demain.
+      if (fin > maintenant) etat = 'file ' + hms((fin - maintenant) / 1000);
+      else if (Array.isArray(c)) {
         // La plus grosse ressource manquante suffit : c'est elle qui fait attendre.
         let pire = 0, j = -1;
         c.forEach((x, i) => { const m = x - (st[i] || 0); if (m > pire) { pire = m; j = i; } });
@@ -450,7 +465,8 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
       const n = barre.appendChild(document.createElement(p.ici ? 'span' : 'a'));
       n.className = 'copilote-pin' + (p.ici ? ' copilote-ici' : '') + (p.gris ? ' copilote-gris' : '');
       n.textContent = p.txt;
-      if (!p.ici) n.href = location.pathname + '?page=ingame&component=' + comp + '&cp=' + p.g + '&openTech=' + tuile;
+      if (!p.ici) n.href = location.pathname + '?page=ingame&component=' + encodeURIComponent(comp)
+        + '&cp=' + p.g + '&openTech=' + tuile;
     }
   }
 
