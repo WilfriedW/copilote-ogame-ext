@@ -553,12 +553,41 @@ function donorsOf(){
  * @param {object[]} acts actions de la session en cours
  * @returns {object} charge utile pour le script de page
  */
-function gameSkin(acts){
+/**
+ * Ce que la bande du bas affiche, sur toutes les pages du jeu : ce que le plan
+ * conseille sur la planète ouverte, ce qui tourne déjà, ce qui reste à faire
+ * aujourd'hui, et l'alerte la plus grave. Le panneau dit déjà tout cela, mais
+ * il faut l'ouvrir et quitter la page des yeux — la bande le pose là où le
+ * joueur est.
+ * Tout est calculé ici : la page du jeu ne sait rien faire d'autre qu'afficher.
+ * @param {object[]} acts actions de la session en cours
+ * @param {object} [plan] sortie de simulateDay, pour `busy` et `alerts`
+ * @param {object[]} [missions] missions du jour restantes
+ * @returns {object} { ici, encours, afaire, alerte }
+ */
+function bandData(acts, plan, missions){
+  const ici = {};
+  for(const a of acts || []){
+    const p = S.planets[a.p];
+    if(!p || !p.gid || ici[p.gid] || !a.what) continue;
+    ici[p.gid] = {what: a.what, why: a.why || ''};
+  }
+  const busy = ((plan || {}).busy || []).slice().sort((x,y)=>x.end-y.end).slice(0, 3)
+    .map(b=>({what: b.what, end: b.end}));
+  const todo = (missions || []).filter(m=>!m.info).slice(0, 2)
+    .map(m=>({what: m.what, url: missionGo(m) || ''}));
+  /* Le grave passe devant : une alerte de confort sous une perte de production
+     ferait lire la mauvaise. */
+  const al = ((plan || {}).alerts || []).slice().sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1))[0];
+  return {ici, encours: busy, afaire: todo, alerte: al ? {what: al.what, why: al.why || '', sev: al.sev} : null};
+}
+function gameSkin(acts, plan, missions){
   // Les débits suivent les indices : la page du jeu sait lire un coût et un
   // stock, mais pas à quelle vitesse une planète produit.
   const rates = {};
   for(const p of S.planets){ if(!p.gid) continue; const pr = production(p); rates[p.gid] = [pr.m, pr.c, pr.d]; }
   return {hints: planHints(acts), rates, donors: donorsOf(), tour: tourData(),
+          band: bandData(acts, plan, missions),
           cargo: [shipStats('lc').cargoEff, shipStats('sc').cargoEff],
           lean: !!S.settings.lean};
 }
@@ -2746,11 +2775,12 @@ function crawlerPill(p){
 const REFRESH = {
 today(){
   const plan = simulateDay(), s0 = plan.sessions[0];
-  // La page du jeu surligne ce que le plan recommande. Elle n'en fait rien
-  // d'autre : aucun clic, aucun envoi, c'est un repère visuel.
-  if(IS_EXT) try{ chrome.storage.local.set({skin: gameSkin(s0.acts)}); }catch(e){}
   const nowParts = [];
   const missions = dailyMissions().filter(m=>!missionDone(m));
+  /* La page du jeu surligne ce que le plan recommande et pose la bande du bas.
+     Elle n'en fait rien d'autre : aucun clic, aucun envoi, ce sont des repères.
+     Publié ici, après les missions, parce que la bande les porte. */
+  if(IS_EXT) try{ chrome.storage.local.set({skin: gameSkin(s0.acts, plan, missions)}); }catch(e){}
   const timed = missions.filter(m=>m.at && m.at > plan.now), slotMs = new Map();
   for(const m of timed){ let host = null; for(const x of plan.sessions) if(x.T <= m.at) host = x; if(host && host!==s0){ if(!slotMs.has(host)) slotMs.set(host, []); slotMs.get(host).push(m); } else m.at = 0; }
   const nowMs = missions.filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));

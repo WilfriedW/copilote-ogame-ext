@@ -1085,6 +1085,34 @@ t('un prix de forme de vie estimé ne voyage pas comme un fait', () => {
   assert.equal(e.cost['11101'], undefined, 'un prix estimé ne grise personne');
 });
 
+t('la bande dit ce que le plan conseille sur chaque planète', () => {
+  const g = app(relie);
+  const b = g.gameSkin([{ kind: 'b', k: 'metal', lvl: 9, p: 1,
+    what: 'Mine de métal 9', why: 'Première en amortissement' }]).band;
+  assert.equal(b.ici['33602'].what, 'Mine de métal 9');
+  assert.equal(b.ici['33602'].why, 'Première en amortissement');
+});
+
+t('la bande porte ce qui tourne, ce qui reste à faire, et l\'alerte la plus grave', () => {
+  const g = app(relie);
+  const plan = { busy: [{ q: 'Bâtiment', what: 'Mine de métal 10', end: SOIR + 23000 }],
+    alerts: [{ sev: 'warn', what: 'Énergie négative', why: '' },
+      { sev: 'bad', what: 'Hangar de métal plein', why: 'La production est perdue.' }] };
+  const missions = [{ id: 'raid', q: 'Pillage', what: 'Espionner 1:140:6', how: [] }];
+  const b = g.gameSkin([], plan, missions).band;
+  assert.deepEqual(b.encours, [{ what: 'Mine de métal 10', end: SOIR + 23000 }]);
+  assert.equal(b.afaire[0].what, 'Espionner 1:140:6');
+  assert.ok(/component=galaxy/.test(b.afaire[0].url), b.afaire[0].url);
+  assert.equal(b.alerte.what, 'Hangar de métal plein', 'le grave passe devant');
+});
+
+t('sans plan ni mission, la bande se tait sans casser', () => {
+  const b = app(relie).gameSkin([]).band;
+  assert.deepEqual(b.encours, []);
+  assert.deepEqual(b.afaire, []);
+  assert.equal(b.alerte, null);
+});
+
 t('la tournée voyage dans le skin', () => {
   assert.ok(app(nommees).gameSkin([]).tour['101']);
 });
