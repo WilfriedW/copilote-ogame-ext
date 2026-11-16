@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'cargoGaps', 'cargoCap', 'pickCargo'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -2883,6 +2883,77 @@ t('la cible suit la production, et une défense suffisante se tait', () => {
   const { act } = defense(cible - 50);
   assert.ok(act, 'sous la cible, le plan complète');
   assert.match(act.why, /sur \d+ lanceurs visés/, 'la cible est chiffrée : ' + act.why);
+});
+
+/* ---------- inventaire des transporteurs ---------- */
+/* Le cas vécu : les rapatriements laissent la soute stationnée sur les
+   colonies, et la planète la plus riche passe la nuit pleine et nue. */
+
+/** Caribou pleine et sans un vaisseau, toute la soute sur la colonie. */
+function nue(mod) {
+  return app(s => {
+    relie(s);
+    s.planets[0].name = 'Caribou';
+    s.planets[0].ships = { pr: 4 };
+    s.planets[0].stock = { m: 9e5, c: 4e5, d: 7e5, at: SOIR };
+    s.planets[1].ships = { lc: 40, sc: 10 };
+    if (mod) mod(s);
+  });
+}
+
+t('la soute partie sur la colonie est inventoriée, pas ignorée', () => {
+  const g = nue();
+  const trous = g.cargoGaps();
+  assert.equal(trous.length, 1, 'une seule planète manque de soute : ' + JSON.stringify(trous.map(x => x.p.name)));
+  assert.equal(trous[0].p.name, 'Caribou');
+  assert.ok(trous[0].cargo === 0 && trous[0].manque > 0, 'le manque est chiffré');
+  assert.equal(trous[0].ailleurs[0].p.name, 'Colonie', 'et on sait où est la flotte');
+});
+
+t('une carte dit de ramener les transporteurs, en Stationner', () => {
+  const g = nue();
+  const m = g.dailyMissions().find(x => /^cargo-split/.test(x.id));
+  assert.ok(m, 'rien ne propose de ramener la soute');
+  assert.match(m.what, /de Colonie vers Caribou/, m.what);
+  assert.equal(m.mission, 4, 'Stationner : un Transporter repartirait seul');
+  assert.match(m.how[0], /Stationner/);
+  const u = g.missionGo(m);
+  assert.match(u, /mission=4/, 'le lien prépare la mission : ' + u);
+  assert.match(u, /cp=33602/, 'elle part de la colonie, où sont les vaisseaux : ' + u);
+  assert.match(u, /am203=/, 'avec les grands transporteurs : ' + u);
+});
+
+t('le donneur garde de quoi lever sa propre charge', () => {
+  const g = nue();
+  const m = g.dailyMissions().find(x => /^cargo-split/.test(x.id));
+  const colo = g.S.planets[1];
+  const reste = { lc: (colo.ships.lc || 0) - (m.ships.lc || 0), sc: (colo.ships.sc || 0) - (m.ships.sc || 0) };
+  const souteReste = g.cargoCap({ ships: reste });
+  const charge = colo.stock.m + colo.stock.c + colo.stock.d;
+  assert.ok(souteReste >= charge, `la colonie garde ${souteReste} de soute pour lever ${charge}`);
+});
+
+t('la mise à l\'abri protège la planète qui PEUT partir, pas seulement la plus chargée', () => {
+  // Avant, elle ne regardait que la plus chargée : sans vaisseau dessus, elle
+  // rendait null et la carte du soir retombait sur un conseil général.
+  const fs = nue().fleetsavePlan(SOIR);
+  assert.ok(fs, 'aucun plan alors que la colonie a 40 grands transporteurs');
+  assert.equal(fs.from.name, 'Colonie');
+});
+
+t('chaque planète chargée a son lot, et la carte du soir les nomme tous', () => {
+  const g = nue(s => { s.planets[0].ships = { lc: 40, pr: 4 }; s.planets[1].ships = { lc: 10 }; });
+  const fs = g.fleetsavePlan(SOIR);
+  assert.ok(fs && fs.rest && fs.rest.length === 1, 'le second lot manque : ' + JSON.stringify(fs && (fs.rest || []).length));
+  assert.equal(fs.from.name, 'Caribou', 'le plus gros lot protégeable passe en premier');
+  const m = g.dailyMissions().find(x => x.id === 'night');
+  assert.ok(m.how.some(h => /Puis depuis Colonie/.test(h)), 'le second lot n\'est pas dit : ' + JSON.stringify(m.how));
+});
+
+t('soute suffisante partout : aucune carte de répartition', () => {
+  const g = app(s => { relie(s); s.planets[0].ships = { lc: 40 }; s.planets[1].ships = { lc: 10 }; });
+  assert.deepEqual(g.cargoGaps(), []);
+  assert.ok(!g.dailyMissions().some(x => /^cargo-split/.test(x.id)));
 });
 
 if (failures.length) {

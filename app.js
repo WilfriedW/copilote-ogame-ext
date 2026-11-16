@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.34.0';
+const APP_VERSION = '1.35.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1673,46 +1673,92 @@ function wakeTime(now){
  * @param {number} now horodatage courant
  * @returns {object|null} {from, ships, dest, mission, pct, back, fuel, load, cargo}
  */
-function fleetsavePlan(now){
-  const wake = wakeTime(now);
-  if(!wake) return null;
-
-  const load = p => { const st = stockNow(p); return st[0]+st[1]+st[2]; };
-  const from = S.planets.slice().sort((a,b)=>load(b)-load(a))[0];
-  if(!from) return null;
-  const need = load(from);
-  if(need < FS_MIN) return null;
-
+/** Ce qu'une planète a au sol, en soute. */
+function cargoCap(p){ return ['lc','sc'].reduce((a,k)=>a + ((p.ships||{})[k]||0)*shipStats(k).cargoEff, 0); }
+/** Ce qui dort sur une planète, les trois ressources additionnées. */
+function fsLoad(p){ const st = stockNow(p); return st[0]+st[1]+st[2]; }
+/**
+ * Les transporteurs à prendre sur cette planète pour lever `amount` de soute.
+ * Les grands d'abord : moins de vaisseaux, un seul temps de vol.
+ * @returns {object} {ships, cargo} — cargo plafonné par ce qui est au sol
+ */
+function pickCargo(p, amount){
   const ships = {}; let cargo = 0;
   for(const k of ['lc','sc']){
-    const have = (from.ships||{})[k] || 0, unit = shipStats(k).cargoEff;
-    if(!have || !unit || cargo >= need) continue;
-    const n = Math.min(have, Math.ceil((need-cargo)/unit));
+    const have = (p.ships||{})[k] || 0, unit = shipStats(k).cargoEff;
+    if(!have || !unit || cargo >= amount) continue;
+    const n = Math.min(have, Math.ceil((amount-cargo)/unit));
     if(n>0){ ships[k] = n; cargo += n*unit; }
   }
+  return {ships, cargo};
+}
+
+/** La mise à l'abri d'une seule planète, avec ce qu'elle a sur place. */
+function fsFor(p, now, wake){
+  const need = fsLoad(p);
+  if(need < FS_MIN) return null;
+  const {ships, cargo} = pickCargo(p, need);
   if(!Object.keys(ships).length) return null;
 
   // Vers une autre planète si tu en as une, sinon une expédition : elle garde
   // la flotte en l'air aussi bien, et ne demande pas de destination amie.
-  const other = S.planets.find(p => p !== from && p.coords);
-  const c = parseC(from.coords);
+  const other = S.planets.find(q => q !== p && q.coords);
+  const c = parseC(p.coords);
   const dest = other ? other.coords : (c ? `${c[0]}:${c[1]}:16` : null);
   if(!dest) return null;
 
   let pct = null, back = null, fuel = 0;
-  for(const s of FS_SPEEDS){
-    const fl = flight(from.coords, dest, ships, s);
+  for(const sp of FS_SPEEDS){
+    const fl = flight(p.coords, dest, ships, sp);
     if(!fl) continue;
     const b = now + 2*fl.secs*1000;
-    if(b > wake){ pct = s; back = b; fuel = fl.fuel; break; }
+    if(b > wake){ pct = sp; back = b; fuel = fl.fuel; break; }
   }
   if(back == null){
-    const fl = flight(from.coords, dest, ships, 10);
+    const fl = flight(p.coords, dest, ships, 10);
     if(!fl) return null;
     pct = 10; back = now + 2*fl.secs*1000; fuel = fl.fuel;
   }
-  return {from, ships, dest, mission: other ? 'transport' : 'expedition',
+  return {from:p, ships, dest, mission: other ? 'transport' : 'expedition',
           pct, back, fuel, load: need, cargo};
+}
+
+/**
+ * Ce qu'il faut envoyer en l'air avant de dormir, planète par planète.
+ * Ne regardait que la planète la plus chargée, et n'utilisait que SES
+ * vaisseaux : à force de rapatriements les transporteurs finissent stationnés
+ * sur les colonies, la principale se retrouvait pleine et sans soute, et la
+ * fonction rendait null — la carte du soir retombait sur un conseil général
+ * pendant que la planète la plus riche passait la nuit à découvert.
+ * Chaque planète part donc avec ce qu'elle a ; `rest` porte les autres lots,
+ * et cargoGaps() dit où est la flotte quand elle manque.
+ * @returns {object|null} le plus gros lot protégeable, plus `rest`
+ */
+function fleetsavePlan(now){
+  const wake = wakeTime(now);
+  if(!wake) return null;
+  const lots = S.planets.map(p=>fsFor(p, now, wake)).filter(Boolean)
+    .sort((a,b)=>Math.min(b.load,b.cargo) - Math.min(a.load,a.cargo));
+  if(!lots.length) return null;
+  return Object.assign({}, lots[0], {rest:lots.slice(1)});
+}
+
+/**
+ * Les planètes dont la soute au sol ne lèvera pas ce qui dort dessus, et où
+ * sont les transporteurs qui manquent. C'est l'inventaire : sans lui, « mes
+ * grands transporteurs sont tous sur les colonies » reste invisible.
+ * @returns {Array<object>} {p, load, cargo, manque, ailleurs:[{p, dispo}]}
+ */
+function cargoGaps(){
+  /* Un donneur ne prête que son surplus : ce qu'il a en soute moins ce qu'il
+     devra lever lui-même le soir. Sinon le conseil déplace le trou. */
+  const dispo = S.planets.map(p=>({p, cargo:cargoCap(p), dispo:Math.max(0, cargoCap(p) - pickCargo(p, fsLoad(p)).cargo)}));
+  return dispo.map(({p, cargo})=>{
+    const load = fsLoad(p);
+    if(load < FS_MIN || cargo >= load) return null;
+    return {p, load, cargo, manque: load - cargo,
+            ailleurs: dispo.filter(x=>x.p!==p && x.dispo>0).sort((a,b)=>b.dispo-a.dispo)};
+  }).filter(Boolean);
 }
 
 /* ---------- daily missions ---------- */
@@ -1991,6 +2037,27 @@ function dailyMissions(){
     how:['Galaxie : parcours ton système et les voisins, note les noms gris (i)/(I).', 'Espionne-les. Si le jeu affiche « joueur plus puissant », réponds <b>Non</b> : tu perdrais ta protection pendant 7 jours.', 'Sans flotte ni défense et avec des ressources : mission Attaquer avec assez de soute.']});
   const ns = +S.day.nightStart, nd = new Date(now); nd.setHours(ns,0,0,0); if(nd.getTime() <= now) nd.setDate(nd.getDate()+1);
   const nightAt = nd.getTime() - 3600e3;
+  /* Un rapatriement laisse les transporteurs stationnés là où ils ont chargé —
+     c'est voulu, un Transporter repartirait seul et ne serait plus là pour la
+     charge suivante. Mais rien ne les ramenait : au bout de quelques colonies,
+     toute la soute dort sur les colonies et la planète la plus riche passe la
+     nuit pleine, sans un vaisseau pour lever quoi que ce soit. L'inventaire le
+     dit, cette carte le répare. */
+  for(const g of cargoGaps()){
+    const don = g.ailleurs[0]; if(!don) continue;
+    const {ships, cargo} = pickCargo(don.p, Math.min(g.manque, don.dispo));
+    if(!Object.keys(ships).length) continue;
+    const fl = flight(don.p.coords, g.p.coords, ships, 100); if(!fl) continue;
+    const arrive = now + fl.secs*1000;
+    const tard = arrive > nightAt + 3600e3;
+    out.push({id:'cargo-split:'+g.p.id, q:'Sécurité', every:12, sev:tard?'warn':'bad',
+      what:`Ramène ${shipList(ships)} de ${planetRef(don.p)} vers ${planetRef(g.p)}`,
+      ships, dest:g.p.coords, mission:4, p:S.planets.indexOf(don.p),
+      why:`${planetRef(g.p)} garde ${fmt(g.load)} de ressources et ${g.cargo ? `seulement ${fmt(g.cargo)} de soute au sol` : 'aucun transporteur'} : ce soir, il n'y a rien pour les mettre à l'abri. ${fmt(don.dispo)} de soute libre dorment sur ${planetRef(don.p)}.`,
+      how:['Mission <b>Stationner</b>, pas Transporter : un Transporter repartirait seul et les vaisseaux ne seraient plus là au coucher.',
+        `${dur(fl.secs)} de vol, ${fmt(fl.fuel)} deutérium${tard ? ` — arrivée vers ${hm(arrive)}, après le début de la nuit. Pour cette nuit-là, dépense le stock sur place.` : `, arrivée vers ${hm(arrive)}, avant la nuit.`}`,
+        `Il te restera ${fmt(cargo)} de soute à demeure sur ${planetRef(g.p)} : garde-la là, c'est elle qui part chaque soir.`]});
+  }
   if(!isNight(now) && nightAt - now <= (+S.day.horizon||24)*3600e3){
     const fs = fleetsavePlan(now);
     const m = {id:'night', q:'Sécurité', at:nightAt, every:24, sev:'warn',
@@ -2007,6 +2074,7 @@ function dailyMissions(){
         `Charge le reste dans ${shipList(fs.ships)} sur ${esc(fs.from.name)}, destination ${fs.dest}, mission ${fs.mission==='transport'?'Transporter':'Expédition'}.`,
         `Règle la vitesse sur ${fs.pct} % — c'est la seule chose que le lien ne prépare pas. La flotte rentre vers ${hm(fs.back)}, après ton réveil. Coût : ${fmt(fs.fuel)} deutérium.`
       ];
+      for(const r of fs.rest||[]) m.how.push(`Puis depuis ${esc(planetRef(r.from))} : ${shipList(r.ships)} vers ${r.dest}, mission ${r.mission==='transport'?'Transporter':'Expédition'} à ${r.pct} %, chargés de ${fmt(Math.min(r.load, r.cargo))} — retour vers ${hm(r.back)}.`);
     }
     /* La mise à l'abri protège la flotte et ce qu'elle emporte, pas les planètes
        qu'elle laisse derrière : elles produisent huit heures de plus. Les nommer,
@@ -2017,6 +2085,8 @@ function dailyMissions(){
       const fin = [0,1,2].map(j=>Math.min(pr.cap[j], st[j] + [pr.m,pr.c,pr.d][j]*nuit));
       return {p, eq: mse(fin[0], fin[1], fin[2])};
     }).filter(x=>x.eq > 50000).sort((a,b)=>b.eq-a.eq);
+    const trous = cargoGaps();
+    if(trous.length) m.how.push(`Sans soute pour les lever : ${trous.map(x=>`${esc(planetRef(x.p))} (${fmt(x.load)}, il manque ${fmt(x.manque)} de soute)`).join(', ')}. Les cartes « Ramène… » disent d'où la faire venir.`);
     if(exposees.length) m.how.push(`Resteront exposés au matin : ${exposees.map(x=>`${esc(planetRef(x.p))} (~${fmt(x.eq)} éq.)`).join(', ')}. ${exposees[0].p.def == null ? 'Ouvre la page Défense pour que le plan monte ce qu\'il faut de lanceurs.' : `Le plan monte ${esc(planetRef(exposees[0].p))} à ${defTarget(exposees[0].p)} lanceurs : à ce prix-là, percer coûte plus cher qu'emporter.`}`);
     out.push(m);
   }
