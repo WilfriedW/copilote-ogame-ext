@@ -893,43 +893,48 @@ t('une tournée mal formée ne casse pas la surcouche', () => {
 
 /* ---------- la bande du bas ---------- */
 
-const BANDE = { hints: {}, rates: {}, lean: false, tour: {}, band: {
-  ici: { '33657643': { what: 'Laboratoire 8', why: 'Débloque la recherche suivante' } },
-  encours: [{ what: 'Mine de métal 10 · Caribou Land', end: new Date(2026, 10, 16, 18, 17).getTime() }],
-  afaire: [{ what: 'Espionner 1:140:6', url: '/game/index.php?page=ingame&component=galaxy' }],
-  alerte: { what: 'Hangar de métal plein · Wesh land', why: 'La production est perdue.', sev: 'bad' }
-} };
+const BANDE = { hints: {}, rates: {}, lean: false, tour: {}, band: { pages: {
+  facilities: [{ what: 'Usine de robots 7', ou: 'Caribou Land', why: 'Accélère les constructions',
+    url: '/game/index.php?page=ingame&component=facilities&cp=101' }],
+  galaxy: [{ what: 'Espionner 1:140:6', ou: '', why: '',
+    url: '/game/index.php?page=ingame&component=galaxy' }]
+} } };
 
-t('la bande pose les trois zones en bas de la colonne du jeu', () => {
-  const b = runPage({ skin: BANDE }).bande;
-  assert.deepEqual(b.ici.map(x => x.txt), ['Laboratoire 8', 'Débloque la recherche suivante']);
-  assert.deepEqual(b.encours.map(x => x.txt), ['Mine de métal 10 · Caribou Land · fin 18:17']);
-  assert.equal(b.afaire[0].txt, 'Espionner 1:140:6');
-  assert.equal(b.afaire[0].href, '/game/index.php?page=ingame&component=galaxy');
+t('la bande porte ce qui se fait sur la page ouverte', () => {
+  const b = runPage({ skin: BANDE, search: '?page=ingame&component=facilities' }).bande;
+  assert.deepEqual(b.ici.map(x => x.txt), ['Usine de robots 7 · Caribou Land']);
+  assert.equal(b.ici[0].why, 'Accélère les constructions', 'le pourquoi tient dans l\'infobulle');
+  assert.ok(b.ici[0].href);
 });
 
-t('l\'alerte la plus grave se lit dans la bande', () => {
-  const b = runPage({ skin: BANDE }).bande;
-  assert.equal(b.afaire[1].txt, 'Hangar de métal plein · Wesh land');
-  assert.equal(b.afaire[1].href, null, 'une alerte n\'est pas un lien');
-});
-
-t('la bande est là sur une page sans tuile', () => {
-  // Galaxie, Flotte, Vue d'ensemble : pas de tuile, donc pas de barre — c'est
-  // justement là que la bande vaut le plus.
+t('chaque page montre ses propres lignes', () => {
   const b = runPage({ skin: BANDE, search: '?page=ingame&component=galaxy' }).bande;
-  assert.equal(b.encours.length, 1);
+  assert.deepEqual(b.ici.map(x => x.txt), ['Espionner 1:140:6']);
 });
 
-t('sur une planète sans conseil, la zone « ici » se tait au lieu de mentir', () => {
-  const b = runPage({ skin: BANDE, planetId: '999' }).bande;
-  assert.deepEqual(b.ici.map(x => x.txt), ['Rien à lancer ici']);
-});
-
-t('sans rien à dire, pas de bande', () => {
-  const vide = { ...BANDE, band: { ici: {}, encours: [], afaire: [], alerte: null } };
-  assert.equal(runPage({ skin: vide }).bande, null);
+t('une page dont le copilote n\'a rien à dire n\'a pas de bande', () => {
+  assert.equal(runPage({ skin: BANDE, search: '?page=ingame&component=alliance' }).bande, null);
   assert.equal(runPage({ skin: { hints: {}, rates: {}, lean: false } }).bande, null);
+});
+
+t('la tournée et les lignes de la page tiennent dans la même bande', () => {
+  const deux = { ...TOUR, band: BANDE.band };
+  const r = runPage({ skin: deux, tiles: ['21'],
+    search: '?page=ingame&component=facilities&openTech=21' });
+  assert.equal(r.bande.ici.length, 1, 'ce qui se fait ici');
+  assert.equal(r.tour.length, 3, 'et la tournée, dans la même bande');
+});
+
+t('une secousse ne duplique pas la bande', () => {
+  const p = runPage({ skin: BANDE, search: '?page=ingame&component=galaxy' });
+  p.secousse();
+  assert.equal(p.read().bande.ici.length, 1);
+});
+
+t('le témoin dit ce que la bande a trouvé à dire', () => {
+  assert.ok(/bande=1:0/.test(runPage({ skin: BANDE, search: '?page=ingame&component=galaxy' }).dataset.copilote));
+  assert.ok(/bande=0:3/.test(runPage(ARRIVEE).dataset.copilote));
+  assert.ok(/bande=rien/.test(runPage({ skin: BANDE, search: '?page=ingame&component=alliance' }).dataset.copilote));
 });
 
 t('une feuille de style laissée par l\'ancienne version est remplacée', () => {
@@ -939,18 +944,6 @@ t('une feuille de style laissée par l\'ancienne version est remplacée', () => 
   const r = runPage({ skin: BANDE, vieuxStyle: '.copilote-eta{color:red}' });
   assert.ok(/copilote-bande/.test(r.styleTxt), 'la feuille porte les règles de cette version');
   assert.equal(r.styles, 1, 'une seule feuille, pas deux');
-});
-
-t('le témoin dit si la bande a trouvé où se poser', () => {
-  assert.ok(/bande=3/.test(runPage({ skin: BANDE }).dataset.copilote));
-  const vide = { ...BANDE, band: { ici: {}, encours: [], afaire: [], alerte: null } };
-  assert.ok(/bande=rien/.test(runPage({ skin: vide }).dataset.copilote));
-});
-
-t('une secousse ne duplique pas la bande', () => {
-  const p = runPage({ skin: BANDE });
-  p.secousse();
-  assert.equal(p.read().bande.encours.length, 1);
 });
 
 /* ---------- ouvrir la bonne page du jeu ---------- */
@@ -1147,32 +1140,34 @@ t('un prix de forme de vie estimé ne voyage pas comme un fait', () => {
   assert.equal(e.cost['11101'], undefined, 'un prix estimé ne grise personne');
 });
 
-t('la bande dit ce que le plan conseille sur chaque planète', () => {
+t('le plan se range par page du jeu', () => {
   const g = app(relie);
-  const b = g.gameSkin([{ kind: 'b', k: 'metal', lvl: 9, p: 1,
-    what: 'Mine de métal 9', why: 'Première en amortissement' }]).band;
-  assert.equal(b.ici['33602'].what, 'Mine de métal 9');
-  assert.equal(b.ici['33602'].why, 'Première en amortissement');
+  const pages = g.gameSkin([
+    { kind: 'b', k: 'metal', lvl: 9, p: 1, what: 'Mine de métal 9',
+      why: 'Première en amortissement', q: 'Bâtiment · Colonie' },
+    { kind: 'def', p: 0, what: 'Construire 12 Lanceurs de missiles', q: 'Défense · Planète mère' }
+  ]).band.pages;
+  assert.equal(pages.supplies[0].what, 'Mine de métal 9');
+  assert.equal(pages.supplies[0].ou, 'Colonie', 'la planète se dit, le lien n\'est pas lisible');
+  assert.equal(pages.supplies[0].why, 'Première en amortissement');
+  assert.ok(/cp=33602/.test(pages.supplies[0].url), pages.supplies[0].url);
+  assert.equal(pages.defenses[0].what, 'Construire 12 Lanceurs de missiles');
 });
 
-t('la bande porte ce qui tourne, ce qui reste à faire, et l\'alerte la plus grave', () => {
-  const g = app(relie);
-  const plan = { busy: [{ q: 'Bâtiment', what: 'Mine de métal 10', end: SOIR + 23000 }],
-    alerts: [{ sev: 'warn', what: 'Énergie négative', why: '' },
-      { sev: 'bad', what: 'Hangar de métal plein', why: 'La production est perdue.' }] };
-  const missions = [{ id: 'raid', q: 'Pillage', what: 'Espionner 1:140:6', how: [] }];
-  const b = g.gameSkin([], plan, missions).band;
-  assert.deepEqual(b.encours, [{ what: 'Mine de métal 10', end: SOIR + 23000 }]);
-  assert.equal(b.afaire[0].what, 'Espionner 1:140:6');
-  assert.ok(/component=galaxy/.test(b.afaire[0].url), b.afaire[0].url);
-  assert.equal(b.alerte.what, 'Hangar de métal plein', 'le grave passe devant');
+t('une mission du jour se range sur la page où elle se fait', () => {
+  const pages = app(relie).gameSkin([],
+    [{ id: 'raid', q: 'Pillage', what: 'Espionner 1:140:6', how: [] }]).band.pages;
+  assert.equal(pages.galaxy[0].what, 'Espionner 1:140:6');
 });
 
-t('sans plan ni mission, la bande se tait sans casser', () => {
-  const b = app(relie).gameSkin([]).band;
-  assert.deepEqual(b.encours, []);
-  assert.deepEqual(b.afaire, []);
-  assert.equal(b.alerte, null);
+t('quatre lignes au plus par page : au-delà, la bande redevient une liste', () => {
+  const acts = [1, 2, 3, 4, 5, 6].map(n => ({ kind: 'b', k: 'metal', lvl: n, p: 0,
+    what: 'Mine de métal ' + n, q: 'Bâtiment · Planète mère' }));
+  assert.equal(app(relie).gameSkin(acts).band.pages.supplies.length, 4);
+});
+
+t('sans action ni mission, aucune page n\'a de ligne', () => {
+  assert.deepEqual(app(relie).gameSkin([]).band.pages, {});
 });
 
 t('la tournée voyage dans le skin', () => {

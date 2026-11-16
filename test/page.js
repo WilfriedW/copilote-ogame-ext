@@ -107,6 +107,11 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   if (det) byId.technologydetails = det;
 
   // Sélecteurs exacts employés par content.js, et ce que la vraie page y répond.
+  /* La bande se pose au-dessus des tuiles quand la page en a, sinon en bas de
+     la colonne : on la cherche aux deux endroits. */
+  const estBande = c => c.className.split(' ').includes('copilote-bande');
+  const laBande = () => milieu.children.find(estBande) || body.children.find(estBande) || null;
+
   const routes = {
     'meta[name="ogame-planet-id"]': () => metaEl,
     '.costs': () => costsBox,
@@ -117,8 +122,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     '.information .level[data-value]': () => null,
     '.build_duration time[datetime]': () => null,
     'li.technology[data-technology]': () => tuiles,
-    '.copilote-tour': () => body.children.find(c => c.className.split(' ').includes('copilote-tour')) || null,
-    '.copilote-bande': () => milieu.children.find(c => c.className.split(' ').includes('copilote-bande')) || null,
+    '.copilote-bande': () => laBande() || null,
     '[data-end]': () => [],
     '[data-technology]': () => [],
     '[data-mission-type][data-arrival-time]': () => [],
@@ -191,20 +195,19 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   const read = () => {
     const eta = det ? det.children.find(c => c.className === 'copilote-eta') : null;
     const lien = eta ? eta.children.find(c => c.tagName === 'A') : null;
-    const barre = body.children.find(c => c.className.split(' ').includes('copilote-tour'));
-    const bande = milieu.children.find(c => c.className.split(' ').includes('copilote-bande'));
+    const bande = laBande();
     const zone = n => {
       const z = bande && bande.children.find(c => c.dataset.zone === n);
-      return z ? z.children.map(x => ({ txt: x.textContent, href: x.href || null })) : [];
+      return z ? z.children : [];
     };
     return {
-      bande: bande ? { ici: zone('ici'), encours: zone('encours'), afaire: zone('afaire') } : null,
-      tour: barre ? barre.children.map(x => ({
+      bande: bande ? { ici: zone('ici').map(x => ({ txt: x.textContent, href: x.href || null, why: x.title || '' })) } : null,
+      tour: zone('tour').map(x => ({
         txt: x.textContent,
         href: x.href || null,
         courante: x.className.split(' ').includes('copilote-ici'),
         grisee: x.className.split(' ').includes('copilote-gris')
-      })) : [],
+      })),
       eta: eta ? eta.textContent : null,
       etaLink: lien ? lien.href : null,
       etaLinkText: lien ? lien.textContent : null,

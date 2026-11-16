@@ -554,40 +554,37 @@ function donorsOf(){
  * @returns {object} charge utile pour le script de page
  */
 /**
- * Ce que la bande du bas affiche, sur toutes les pages du jeu : ce que le plan
- * conseille sur la planète ouverte, ce qui tourne déjà, ce qui reste à faire
- * aujourd'hui, et l'alerte la plus grave. Le panneau dit déjà tout cela, mais
- * il faut l'ouvrir et quitter la page des yeux — la bande le pose là où le
- * joueur est.
- * Tout est calculé ici : la page du jeu ne sait rien faire d'autre qu'afficher.
+ * Ce que le copilote a à dire sur chaque page du jeu, rangé par composant.
+ * Le panneau est déjà à côté du joueur : répéter ses minuteurs et ses alertes
+ * en bas de page ne lui apprend rien. Ce qu'il ne peut pas dire, c'est ce qui
+ * se fait **ici**, sur la page ouverte — et c'est ce que la bande porte.
+ * Le rangement se lit dans les liens que le plan produit déjà : une action qui
+ * ouvre `component=defenses` est une action de la page Défense. Rien à tenir à
+ * jour quand une action nouvelle apparaît.
  * @param {object[]} acts actions de la session en cours
- * @param {object} [plan] sortie de simulateDay, pour `busy` et `alerts`
  * @param {object[]} [missions] missions du jour restantes
- * @returns {object} { ici, encours, afaire, alerte }
+ * @returns {object} { pages: { [composant]: [{what, ou, why, url}] } }
  */
-function bandData(acts, plan, missions){
-  const ici = {};
-  for(const a of acts || []){
-    const p = S.planets[a.p];
-    if(!p || !p.gid || ici[p.gid] || !a.what) continue;
-    ici[p.gid] = {what: a.what, why: a.why || ''};
-  }
-  const busy = ((plan || {}).busy || []).slice().sort((x,y)=>x.end-y.end).slice(0, 3)
-    .map(b=>({what: b.what, end: b.end}));
-  const todo = (missions || []).filter(m=>!m.info).slice(0, 2)
-    .map(m=>({what: m.what, url: missionGo(m) || ''}));
-  /* Le grave passe devant : une alerte de confort sous une perte de production
-     ferait lire la mauvaise. */
-  const al = ((plan || {}).alerts || []).slice().sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1))[0];
-  return {ici, encours: busy, afaire: todo, alerte: al ? {what: al.what, why: al.why || '', sev: al.sev} : null};
+function bandData(acts, missions){
+  const pages = {};
+  const pose = (url, what, ou, why) => {
+    const c = /[?&]component=([a-z]+)/.exec(url || '');
+    if(!c || !what) return;
+    const l = pages[c[1]] = pages[c[1]] || [];
+    // quatre lignes au plus : au-delà, la bande redevient une liste à lire
+    if(l.length < 4) l.push({what, ou: ou || '', why: why || '', url});
+  };
+  for(const a of acts || []) pose(actGo(a), a.what, (a.q || '').split(' · ')[1], a.why);
+  for(const m of (missions || []).filter(x=>!x.info)) pose(missionGo(m), m.what, (m.tags || [])[0], m.why);
+  return {pages};
 }
-function gameSkin(acts, plan, missions){
+function gameSkin(acts, missions){
   // Les débits suivent les indices : la page du jeu sait lire un coût et un
   // stock, mais pas à quelle vitesse une planète produit.
   const rates = {};
   for(const p of S.planets){ if(!p.gid) continue; const pr = production(p); rates[p.gid] = [pr.m, pr.c, pr.d]; }
   return {hints: planHints(acts), rates, donors: donorsOf(), tour: tourData(),
-          band: bandData(acts, plan, missions),
+          band: bandData(acts, missions),
           cargo: [shipStats('lc').cargoEff, shipStats('sc').cargoEff],
           lean: !!S.settings.lean};
 }
@@ -2780,7 +2777,7 @@ today(){
   /* La page du jeu surligne ce que le plan recommande et pose la bande du bas.
      Elle n'en fait rien d'autre : aucun clic, aucun envoi, ce sont des repères.
      Publié ici, après les missions, parce que la bande les porte. */
-  if(IS_EXT) try{ chrome.storage.local.set({skin: gameSkin(s0.acts, plan, missions)}); }catch(e){}
+  if(IS_EXT) try{ chrome.storage.local.set({skin: gameSkin(s0.acts, missions)}); }catch(e){}
   const timed = missions.filter(m=>m.at && m.at > plan.now), slotMs = new Map();
   for(const m of timed){ let host = null; for(const x of plan.sessions) if(x.T <= m.at) host = x; if(host && host!==s0){ if(!slotMs.has(host)) slotMs.set(host, []); slotMs.get(host).push(m); } else m.at = 0; }
   const nowMs = missions.filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));

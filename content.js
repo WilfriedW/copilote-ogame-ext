@@ -415,7 +415,8 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     return /^\d+$/.test(String(t || '')) ? String(t) : '';
   }
 
-  function peintTour() {
+  /** Les pastilles de la tournée, ou [] quand il n'y a pas de tournée à faire. */
+  function pastilles() {
     const tuile = tuileEnMain();
     const gids = Object.keys(tour).filter(g => /^\d+$/.test(g) && tour[g] && tour[g].n);
     /* Deux planètes au moins doivent connaître le niveau de cette tuile. C'est
@@ -423,10 +424,7 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
        et les vaisseaux, dont aucune planète ne porte de niveau, sans avoir à
        tenir la liste des pages interdites. */
     const connus = gids.filter(g => (tour[g].b || {})[tuile] != null);
-    const premiere = document.querySelector('li.technology[data-technology]');
-    const liste = premiere && premiere.parentNode;
-    const vieille = document.querySelector('.copilote-tour');
-    if (!tuile || connus.length < 2 || !liste) { if (vieille) vieille.remove(); return; }
+    if (!tuile || connus.length < 2) return [];
     const comp = new URLSearchParams(location.search).get('component') || '';
     const ici = meta('planet-id');
     const maintenant = Date.now();
@@ -468,75 +466,65 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
           + (isFinite(eta) ? 'payable dans ' + hms(eta) : 'hors de portée');
       }
       // Un niveau inconnu se dit : écrire 0 enverrait monter ce qui est déjà là.
-      return { g, ici: g === ici, gris: !!etat,
-        txt: e.n + ' · ' + (lvl == null ? '→' : lvl + ' → ' + (lvl + 1)) + (etat ? ' · ' + etat : '') };
+      return { ici: g === ici, gris: !!etat,
+        txt: e.n + ' · ' + (lvl == null ? '→' : lvl + ' → ' + (lvl + 1)) + (etat ? ' · ' + etat : ''),
+        href: g === ici ? '' : location.pathname + '?page=ingame&component=' + encodeURIComponent(comp)
+          + '&cp=' + g + '&openTech=' + tuile };
     });
-    // La barre se refait entière quand son contenu change, et se tait sinon :
-    // le jeu secoue sa page à chaque tuile ouverte.
-    const cle = tuile + '|' + comp + '|' + pins.map(p => p.txt + (p.ici ? '*' : '')).join(';');
-    if (vieille && vieille.dataset.cle === cle) return;
-    if (vieille) vieille.remove();
-    const barre = liste.parentNode.insertBefore(document.createElement('div'), liste);
-    barre.className = 'copilote-tour';
-    barre.dataset.cle = cle;
-    for (const p of pins) {
-      // La planète courante n'est pas un lien : elle est déjà là.
-      const n = barre.appendChild(document.createElement(p.ici ? 'span' : 'a'));
-      n.className = 'copilote-pin' + (p.ici ? ' copilote-ici' : '') + (p.gris ? ' copilote-gris' : '');
-      n.textContent = p.txt;
-      if (!p.ici) n.href = location.pathname + '?page=ingame&component=' + encodeURIComponent(comp)
-        + '&cp=' + p.g + '&openTech=' + tuile;
-    }
+    return pins;
   }
-
-  /* La bande du bas. Le panneau dit déjà tout ce qu'elle porte, mais il faut
-     l'ouvrir et quitter la page des yeux ; la bande le pose là où le joueur
-     est, sur toutes les pages — y compris celles sans tuile, Galaxie ou
-     Flotte, où la barre de tournée n'a rien à dire.
-     Trois zones : ce que le plan conseille ici, ce qui tourne déjà, ce qui
-     reste à faire aujourd'hui avec l'alerte la plus grave. Rien n'est calculé
-     ici : le panneau a tout fait, la page affiche. */
-  const hhmm = ms => new Date(ms).toTimeString().slice(0, 5);
-
+   /* Une seule bande, et ce qu'elle porte dépend de la page. Le panneau est
+     déjà à côté du joueur : lui répéter ses minuteurs et ses alertes en bas de
+     page ne lui apprend rien. Ce que le panneau ne peut pas dire, c'est ce qui
+     se fait ici — les actions du plan et les missions du jour qui se lancent
+     sur la page ouverte, et la tournée de la tuile en main.
+     Elle se pose au-dessus des tuiles quand la page en a, et en bas de la
+     colonne sinon : une bande à la fois, là où les yeux sont. */
   function peintBande() {
-    const hote = document.getElementById('middle');
+    const comp = new URLSearchParams(location.search).get('component') || '';
+    const lignes = ((band || {}).pages || {})[comp] || [];
+    const pins = pastilles();
+    const premiere = document.querySelector('li.technology[data-technology]');
+    const liste = premiere && premiere.parentNode;
+    const hote = liste ? liste.parentNode : document.getElementById('middle');
     const vieille = document.querySelector('.copilote-bande');
-    const ici = (band.ici || {})[meta('planet-id')];
-    const encours = band.encours || [], afaire = band.afaire || [], alerte = band.alerte;
-    if (!hote || (!ici && !encours.length && !afaire.length && !alerte)) {
-      if (vieille) vieille.remove();
-      return;
-    }
-    // [nom, titre, [[texte, genre, lien?], …]] — « f » fort, « n » note,
-    // « l » lien, « a » alerte.
-    const zones = [
-      ['ici', 'ici', ici ? [[ici.what, 'f'], [ici.why, 'n']].filter(x => x[0])
-        : [['Rien à lancer ici', 'n']]],
-      ['encours', 'en cours', encours.length
-        ? encours.map(x => [x.what + ' · fin ' + hhmm(x.end), 'n'])
-        : [['Rien en construction', 'n']]],
-      ['afaire', 'à faire', afaire.map(x => [x.what, 'l', x.url])
-        .concat(alerte ? [[alerte.what, 'a']] : [])]
-    ];
-    const cle = JSON.stringify(zones);
+    if (!hote || (!lignes.length && !pins.length)) { if (vieille) vieille.remove(); return; }
+    const cle = JSON.stringify([comp, lignes, pins.map(p => p.txt + (p.ici ? '*' : ''))]);
     if (vieille && vieille.dataset.cle === cle) return;
     if (vieille) vieille.remove();
-    const hud = hote.appendChild(document.createElement('div'));
+    const hud = document.createElement('div');
     hud.className = 'copilote-bande';
     hud.dataset.cle = cle;
-    for (const [nom, titre, lignes] of zones) {
+    const zone = (nom, titre) => {
       const z = hud.appendChild(document.createElement('div'));
       z.className = 'copilote-zone';
       z.dataset.zone = nom;
       // le titre se dessine en CSS : ce n'est pas une ligne de la zone
       z.dataset.titre = titre;
-      for (const [txt, genre, url] of lignes) {
-        const n = z.appendChild(document.createElement(genre === 'l' && url ? 'a' : 'div'));
-        n.className = 'cb-' + genre;
-        n.textContent = txt;
-        if (genre === 'l' && url) n.href = url;
+      return z;
+    };
+    if (lignes.length) {
+      const z = zone('ici', 'à faire sur cette page');
+      for (const l of lignes) {
+        const n = z.appendChild(document.createElement(l.url ? 'a' : 'div'));
+        n.className = 'cb-l';
+        n.textContent = l.what + (l.ou ? ' · ' + l.ou : '');
+        // le pourquoi tient dans l'infobulle : quatre lignes de raisons
+        // rendraient la bande illisible, et elle se lit d'un coup d'œil
+        if (l.why) n.title = l.why;
+        if (l.url) n.href = l.url;
       }
     }
+    if (pins.length) {
+      const z = zone('tour', 'la même tuile ailleurs');
+      for (const p of pins) {
+        const n = z.appendChild(document.createElement(p.href ? 'a' : 'span'));
+        n.className = 'copilote-pin' + (p.ici ? ' copilote-ici' : '') + (p.gris ? ' copilote-gris' : '');
+        n.textContent = p.txt;
+        if (p.href) n.href = p.href;
+      }
+    }
+    if (liste) hote.insertBefore(hud, liste); else hote.appendChild(hud);
   }
 
   const STYLE = `li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-offset:2px;border-radius:4px}
@@ -558,11 +546,14 @@ color:#0c1120;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shado
 .copilote-pin:hover{background:#c3d4ff;color:#0c1120}
 .copilote-pin.copilote-ici{background:transparent;color:#e4edff;box-shadow:inset 0 0 0 1px #8aa9ff}
 .copilote-pin.copilote-gris{opacity:.55}
-.copilote-bande{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;
+.copilote-bande{display:flex;flex-wrap:wrap;gap:14px;
 margin:10px 0 18px;padding:10px 12px;border:1px solid rgba(138,169,255,.45);
 border-left:3px solid #8aa9ff;background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55);
 font:400 12px/1.6 Arial,sans-serif;color:#e4edff;text-shadow:none}
 .copilote-zone{min-width:0}
+.copilote-zone[data-zone="ici"]{flex:0 1 240px}
+.copilote-zone[data-zone="tour"]{flex:1 1 320px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+.copilote-zone[data-zone="tour"]::before{flex:0 0 100%}
 .copilote-zone + .copilote-zone{border-left:1px solid rgba(138,169,255,.18);padding-left:14px}
 .copilote-zone::before{content:attr(data-titre);display:block;margin-bottom:4px;
 font-size:11px;letter-spacing:.08em;color:#8aa9ff}
@@ -611,7 +602,6 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
       li.appendChild(tag);
     }
     paintEta();
-    peintTour();
     peintBande();
     // Témoin lisible depuis la console de la page : le script vit dans un
     // monde isolé, donc ses variables y sont invisibles. L'heure dit s'il
@@ -633,7 +623,9 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
       // `sans-middle` : la colonne du jeu n'a pas été trouvée, la bande n'a
       // nulle part où se poser ; `rien` : elle n'a rien à dire.
       'bande=' + (!document.getElementById('middle') ? 'sans-middle'
-        : (document.querySelector('.copilote-bande') || { children: [] }).children.length || 'rien'),
+        : !document.querySelector('.copilote-bande') ? 'rien'
+        : (((band || {}).pages || {})[new URLSearchParams(location.search).get('component') || ''] || []).length
+          + ':' + pastilles().length),
       'ici=' + meta('planet-id'),
       'epure=' + (lean ? 1 : 0)
     ].join(' ');
