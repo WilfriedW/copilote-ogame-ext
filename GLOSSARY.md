@@ -20,3 +20,19 @@ Trois choses que le jeu dit d'une planète. Chacune se lit, s'affiche et sert
 à parler au jeu ; aucune ne désigne la planète de façon sûre. Un rang dans
 une liste n'en est pas une non plus : il change dès que la liste change.
 _Éviter_ : désigner une planète par l'une d'elles.
+
+**défense** :
+Ce qui est posé au sol d'une planète et ne bouge pas. Elle ne protège pas la
+planète : elle rend le pillage non rentable, en valant plus que ce qu'un
+pilleur peut emporter. Contre une flotte décidée, rien ne tient — c'est la
+mise à l'abri qui sert. Elle se compte par type, jamais en bloc : un tas d'un
+seul type est gratuit à percer.
+_Éviter_ : protection, bouclier (le bouclier est une pièce de la défense, pas
+la défense), invulnérable.
+
+**chair à canon** :
+Les pièces nombreuses et peu chères — lanceurs de missiles, lasers légers —
+dont la masse encaisse les tirs pour que les gros canons tirent. Deux types
+valent mieux qu'un : chaque vaisseau d'attaque a un tir rapide contre l'un et
+rien contre l'autre.
+_Éviter_ : piétaille, remplissage.

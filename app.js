@@ -95,13 +95,16 @@ function sample(){
   };
 }
 /* Le chantier sort trois choses qui ne se rangent pas au même endroit : des
-   vaisseaux, des foreuses que production() compte à part, et de la défense dont
-   on ne garde que le total. Chaque file le réinventait ; un seul endroit le dit,
-   sinon un lot de lanceurs finit dans p.ships et ne défend rien. */
+   vaisseaux, des foreuses que production() compte à part, et de la défense,
+   comptée par type et par total. Chaque file le réinventait ; un seul endroit
+   le dit, sinon un lot de lanceurs finit dans p.ships et ne défend rien. */
 function addBuilt(p, ships){
   for(const [k,n] of Object.entries(ships||{})){
     if(k==='crawl') p.crawlers=(p.crawlers||0)+n;
-    else if(k==='rl') p.def=(p.def||0)+n;
+    /* Le détail part du relevé, pas de rien : sur une planète dont on ne
+       connaissait que le total, poser {ll:2} effacerait les lanceurs déjà au
+       sol et le plan les redemanderait un par un. */
+    else if(DEF[k]){ const d = Object.assign({}, defsOf(p)); d[k] = (d[k]||0)+n; p.def=(p.def||0)+n; p.defs = d; }
     else { p.ships=p.ships||{}; p.ships[k]=(p.ships[k]||0)+n; }
   }
 }
@@ -1075,8 +1078,9 @@ function expoFleet(avail){
   const ships = {}; if(lc) ships.lc=lc; if(sc) ships.sc=sc; if(pf) ships.pf=1; if((avail.pr||0)>0) ships.pr=1;
   return {ships, cap, cargo: lc*lcC + sc*scC + (pf?shipStats('pf').cargoEff:0)};
 }
-const SHIP_PLURAL = {rl:'lanceurs de missiles', crawl:'foreuses', sc:'petits transporteurs', lc:'grands transporteurs', pf:'éclaireurs', lf:'chasseurs légers', hf:'chasseurs lourds', cr:'croiseurs', bs:'vaisseaux de bataille', bc:'traqueurs', bb:'bombardiers', ds:'destructeurs', rp:'faucheurs', rec:'recycleurs', col:'vaisseaux de colonisation', pr:"sondes d'espionnage"};
-const SHIP_ONE = {rl:'lanceur de missiles', crawl:'foreuse'};
+const SHIP_PLURAL = {crawl:'foreuses', sc:'petits transporteurs', lc:'grands transporteurs', pf:'éclaireurs', lf:'chasseurs légers', hf:'chasseurs lourds', cr:'croiseurs', bs:'vaisseaux de bataille', bc:'traqueurs', bb:'bombardiers', ds:'destructeurs', rp:'faucheurs', rec:'recycleurs', col:'vaisseaux de colonisation', pr:"sondes d'espionnage"};
+/* DEF complète ces deux tables avec les noms de la défense. */
+const SHIP_ONE = {crawl:'foreuse'};
 function shipList(ships){ return Object.entries(ships||{}).filter(([,n])=>n>0).map(([k,n])=>`${n} ${n>1 ? SHIP_PLURAL[k] : SHIPS[k] ? SHIPS[k].n.toLowerCase() : SHIP_ONE[k] || SHIP_PLURAL[k]}`).join(', '); }
 
 /* ---------- daily planner ---------- */
@@ -1338,7 +1342,7 @@ function pickBuildings(p, ctx){
 function simulateDay(){
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
-  const P = S.planets.map((p,i)=>({i, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, def:p.def}));
+  const P = S.planets.map((p,i)=>({i, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
   const expoBusy = [];
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
@@ -1633,13 +1637,18 @@ function simulateDay(){
              complète en dernier, avec ce que le chantier a de libre.
              def valant null, la page Défense n'a jamais été lue : proposer
              reviendrait à doubler ce qui existe déjà. dailyMissions le réclame. */
-          if(p.def != null && shipReqOk('rl',p)){
-            const cible = defTarget(p), manque = cible - p.def;
-            if(manque > 0){
-              const w = {k:'rl', n:p.def ? Math.max(1, Math.ceil(manque/4)) : manque,
-                why:p.def ? `Défense à ${p.def} sur ${cible} lanceurs visés : de quoi valoir la moitié d'une nuit de production` : `Aucune défense : le premier pilleur repart avec la moitié de ton stock sans rien perdre. ${cible} lanceurs visés. Elle te rend non rentable, pas invulnérable : le stock, lui, se protège en vol.`};
-              p.def ? wants.push(w) : wants.unshift(w);
-            }
+          const besoin = defNeed(p);
+          if(besoin){
+            const d = DEF[besoin.k], pourquoi = DEF_POURQUOI[besoin.k];
+            /* Une planète nue se complète d'un coup : le raid y est gratuit.
+               Au-dessus de zéro, par quarts, avec ce que le chantier a de
+               libre — un bouclier, lui, est une pièce ou rien. */
+            const n = p.def ? (d.un ? 1 : Math.max(1, Math.ceil(besoin.n/4))) : besoin.n;
+            const w = {k:besoin.k, n,
+              why:p.def
+                ? `${d.un ? `Aucun ${d.o} sur une planète qui en mérite un` : `${besoin.have} ${besoin.have>1?d.p:d.o} sur ${besoin.cible} vis${besoin.cible>1?'és':'é'}`} : ${pourquoi}`
+                : `Aucune défense : le premier pilleur repart avec la moitié de ton stock sans rien perdre. Visé ici : ${shipList(besoin.mix.cible)}, de quoi valoir la moitié d'une nuit de production. Elle te rend non rentable, pas invulnérable : le stock, lui, se protège en vol.`};
+            p.def ? wants.push(w) : wants.unshift(w);
           }
           const res = reserveOf(p,Tm).map((x,j)=>x+softRes(p)[j]);
           for(const w of wants){
@@ -1649,7 +1658,7 @@ function simulateDay(){
             // La foreuse se compte à part, comme le fait la lecture du jeu :
             // production() et rankUpgrades() lisent p.crawlers, jamais la flotte.
             pay(p,cost); p.sq = Tm+d; sim.ev.push({at:Tm+d, fn:()=>addBuilt(p, {[k]:n})});
-            const estDef = k==='rl';
+            const estDef = !!DEF[k];
             acts.push({q:(estDef?'Défense · ':'Chantier spatial · ')+planetRef(p), what:'Construire '+shipList({[k]:n}), why:w.why, cost, dur:d, end:Tm+d, kind:estDef?'def':'shipbuild', ships:{[k]:n}, p:p.i});
             break;
           }
@@ -2139,7 +2148,7 @@ function dailyMissions(){
   if(aveugles.length) out.push({id:'defseen', q:'Sécurité', every:24, sev:'warn',
     what:aveugles.length>1 ? `Ouvrir la page Défense (${aveugles.length} planètes)` : `Ouvrir la page Défense sur ${planetRef(aveugles[0])}`,
     why:`Sans elle, le copilote ne sait pas ce qui te protège : il ne propose ni défense ni satellites. Une planète sans défense rend la moitié de son stock au premier pilleur, et lui ne perd rien.`,
-    how:['Ouvre Défense sur chaque planète : le copilote lit le total au passage.', `Il ajoute ensuite les lanceurs manquants au plan, avec leur prix et leur durée.`]});
+    how:['Ouvre Défense sur chaque planète : le copilote lit chaque type au passage.', `Il ajoute ensuite les pièces manquantes au plan, avec leur prix et leur durée.`]});
   const occ = API && API.planets ? occupied() : null;
   if(occ && parseC(S.colo.target) && occ.has(S.colo.target) && occ.get(S.colo.target)!==S.me && !colSentNow()){ const alt = colonyCandidates()[0]; out.unshift({id:'colo-taken', q:'Colonie', every:6, sev:'bad', coords:S.colo.target, what:`${S.colo.target} est déjà occupée`, why:alt?`Meilleure position libre proche : ${alt.coords} (${alt.bonus||'pas de bonus'}, ~${alt.fields} cases).`:'Choisis une autre position dans Outils › Cibles.', how:['Outils › Cibles › Où coloniser : clique sur Choisir pour changer la destination.']}); }
   // Chaque sonde occupe un emplacement de flotte jusqu'à son retour : en
@@ -2228,7 +2237,7 @@ function dailyMissions(){
     }).filter(x=>x.eq > 50000).sort((a,b)=>b.eq-a.eq);
     const trous = cargoGaps();
     if(trous.length) m.how.push(`Sans soute pour les lever : ${trous.map(x=>`${esc(planetRef(x.p))} (${fmt(x.load)}, il manque ${fmt(x.manque)} de soute)`).join(', ')}. Les cartes « Ramène… » disent d'où la faire venir.`);
-    if(exposees.length) m.how.push(`Resteront exposés au matin : ${exposees.map(x=>`${esc(planetRef(x.p))} (~${fmt(x.eq)} éq.)`).join(', ')}. ${exposees[0].p.def == null ? 'Ouvre la page Défense pour que le plan monte ce qu\'il faut de lanceurs.' : `Le plan monte ${esc(planetRef(exposees[0].p))} à ${defTarget(exposees[0].p)} lanceurs : à ce prix-là, percer coûte plus cher qu'emporter.`}`);
+    if(exposees.length) m.how.push(`Resteront exposés au matin : ${exposees.map(x=>`${esc(planetRef(x.p))} (~${fmt(x.eq)} éq.)`).join(', ')}. ${exposees[0].p.def == null ? 'Ouvre la page Défense pour que le plan monte ce qu\'il faut.' : `Le plan monte ${esc(planetRef(exposees[0].p))} à ${esc(defMixList(exposees[0].p))} : à ce prix-là, percer coûte plus cher qu'emporter.`}`);
     out.push(m);
   }
   /* Les files vides relevées par le dernier import de la Vue empire. Le garde
@@ -2301,19 +2310,60 @@ function exploreSystems(){
 }
 
 /* ---------- fleet building, roles, raids ---------- */
-/* Le lanceur de missiles, et lui seul : métal pur, aucune recherche, le moins
-   cher au point de bouclier. Les lasers et au-dessus demandent des technologies
-   que le joueur n'a pas encore le jour où on vient le farmer.
-   ponytail: on ne lit que le TOTAL des unités de défense, pas leur type, donc le
-   compte existant est rapporté en lanceurs ; relever les identifiants 400-499 un
-   par un dans content.js le jour où quelqu'un monte des lasers. */
-const DEF_COST = [2000,0,0];
-const SHIP_COST = {sc:[2000,2000,0], lc:[6000,6000,0], pr:[0,1000,0], pf:[8000,15000,8000], crawl:CRAWLER_COST, rl:DEF_COST};
-const SHIP_REQ = {sc:{b:{shipyard:2}, t:{combustion:2}}, lc:{b:{shipyard:4}, t:{combustion:6}}, pr:{b:{shipyard:3}, t:{combustion:3, espionage:2}}, pf:{b:{shipyard:5}, t:{hyperdrive:2}}, crawl:{b:{shipyard:5}, t:{combustion:4, armour:4}}, rl:{b:{shipyard:1}, t:{}}};
+/* Un tas d'un seul type ne défend rien, quelle que soit la somme dépensée :
+   le croiseur tire dix fois par lanceur de missiles et pas une fois par laser
+   léger, le destructeur l'inverse. Les deux ensemble, et aucune des deux
+   flottes ne fait l'affaire. Au-dessus, les gros canons sont la seule chose
+   qui abîme un gros vaisseau, et le bouclier est le point de bouclier le
+   moins cher du jeu, sans tir rapide de personne contre lui.
+   Les proportions sont celles des stratégies de début de partie du wiki
+   OGame, rapportées à une unité de chair à canon (`per`) ; `un` marque ce qui
+   ne se construit qu'une fois, à partir de tant de chair à canon au sol.
+   Coûts, prérequis et tirs rapides relevés sur le wiki.
+   ponytail: pas de missiles — ils demandent un silo que le copilote ne lit
+   pas ; et les proportions restent celles du début de partie, celles de la fin
+   supposeraient que le joueur voie passer des étoiles de la mort. */
+const DEF = {
+  rl: {n:'Lanceur de missiles', o:'lanceur de missiles',   p:'lanceurs de missiles',  c:[2000,0,0],          per:'fodder', r:{b:{shipyard:1}, t:{}}},
+  ll: {n:'Laser léger',         o:'laser léger',           p:'lasers légers',         c:[1500,500,0],        per:'fodder', r:{b:{shipyard:2}, t:{laser:3}}},
+  sd: {n:'Petit bouclier',      o:'petit bouclier',        p:'petits boucliers',      c:[10000,10000,0],     un:20,        r:{b:{shipyard:1}, t:{shielding:2}}},
+  hl: {n:'Laser lourd',         o:'laser lourd',           p:'lasers lourds',         c:[6000,2000,0],       per:1/10,     r:{b:{shipyard:4}, t:{energy:3, laser:6}}},
+  ic: {n:'Artillerie à ions',   o:'artillerie à ions',     p:'artilleries à ions',    c:[5000,3000,0],       per:1/20,     r:{b:{shipyard:4}, t:{ion:4}}},
+  gc: {n:'Canon de Gauss',      o:'canon de Gauss',        p:'canons de Gauss',       c:[20000,15000,2000],  per:1/50,     r:{b:{shipyard:6}, t:{weapons:3, energy:6, shielding:1}}},
+  ld: {n:'Grand bouclier',      o:'grand bouclier',        p:'grands boucliers',      c:[50000,50000,0],     un:100,       r:{b:{shipyard:6}, t:{shielding:6}}},
+  pt: {n:'Lanceur de plasma',   o:'lanceur de plasma',     p:'lanceurs de plasma',    c:[50000,50000,30000], per:1/100,    r:{b:{shipyard:8}, t:{plasma:7}}},
+};
+/* L'ordre de construction : la chair à canon d'abord, elle protège le reste et
+   c'est elle que la masse rend dissuasive ; les canons ensuite, du moins cher
+   au plus cher. Le même ordre que le wiki fait suivre au joueur. */
+const DEF_ORDER = ['rl','ll','sd','hl','ic','gc','ld','pt'];
+/* Ce que chaque pièce apporte, en une proposition qui se compose. Sans ça le
+   joueur lit « 4 canons de Gauss » sans savoir ce qu'ils arrêtent. */
+const DEF_POURQUOI = {
+  rl: 'du métal pur, aucune recherche : la masse qui encaisse les tirs',
+  ll: 'le croiseur dévore les lanceurs de missiles et ne peut rien contre les lasers légers, le destructeur l\'inverse : les deux ensemble, et aucune des deux flottes ne fait l\'affaire',
+  hl: 'balaie les chasseurs légers que les pilleurs mettent devant, pour que les gros canons tirent sur les gros vaisseaux',
+  ic: 'cinq cents points de bouclier chacune, le double de tout le reste : ce qui absorbe',
+  gc: 'le premier canon qui abîme un vaisseau de bataille ; seule une étoile de la mort a un tir rapide contre lui',
+  pt: 'le seul canon que personne ne survole : aucun vaisseau n\'a de tir rapide contre lui',
+  sd: 'soixante-quinze points de bouclier par millier dépensé, sept fois tout le reste, et personne n\'a de tir rapide contre lui',
+  ld: 'dix mille points de bouclier d\'un bloc, sans tir rapide de personne',
+};
+const SHIP_COST = {sc:[2000,2000,0], lc:[6000,6000,0], pr:[0,1000,0], pf:[8000,15000,8000], crawl:CRAWLER_COST};
+const SHIP_REQ = {sc:{b:{shipyard:2}, t:{combustion:2}}, lc:{b:{shipyard:4}, t:{combustion:6}}, pr:{b:{shipyard:3}, t:{combustion:3, espionage:2}}, pf:{b:{shipyard:5}, t:{hyperdrive:2}}, crawl:{b:{shipyard:5}, t:{combustion:4, armour:4}}};
+/* La défense passe par le même chantier, la même file et les mêmes wants que
+   les vaisseaux : un seul endroit la nomme et la tarife. */
+for(const [k,d] of Object.entries(DEF)){ SHIP_COST[k] = d.c; SHIP_REQ[k] = d.r; SHIP_PLURAL[k] = d.p; SHIP_ONE[k] = d.o; }
 function shipReqOk(k, p){ const r = SHIP_REQ[k]; return Object.entries(r.b).every(([b,l])=>p.b[b]>=l) && Object.entries(r.t).every(([t,l])=>S.tech[t]>=l); }
 function shipTime(k, n, p){ const c = SHIP_COST[k]; return n*(c[0]+c[1])/(2500*(1+p.b.shipyard)*Math.pow(2,p.b.nanite)*S.settings.eco)*3600; }
+/* Le relevé d'avant ne donnait qu'un total et le comptait en lanceurs : on lui
+   laisse ce sens plutôt que de le jeter, sinon une défense déjà construite
+   disparaît le jour de la mise à jour et le plan la redemande. */
+const defsOf = p => p.defs || (p.def == null ? null : {rl:p.def});
+/** Chair à canon au sol, les deux types confondus comme le fait le wiki. */
+const defFodder = have => (have.rl||0) + (have.ll||0);
 /**
- * Combien de lanceurs cette planète mérite.
+ * Le mélange que cette planète mérite, et ce qu'il coûte.
  * Ce que le pilleur d'inactifs vient chercher, c'est la production accumulée
  * pendant la plus longue absence de la journée — la nuit — et il en emporte la
  * moitié. Une défense qui vaut cette moitié-là lui coûte plus cher à percer
@@ -2321,15 +2371,60 @@ function shipTime(k, n, p){ const c = SHIP_COST[k]; return n*(c[0]+c[1])/(2500*(
  * elle ne tient pas, rien ne tient, et c'est la mise à l'abri qui sert.
  * La cible suit donc la production, pas le stock : un stock se vide, une mine
  * continue de remplir.
+ * Le budget s'achète par paquets, pas par pièces : une unité de chair à canon
+ * traîne sa part de gros canons, et c'est ce paquet qu'on paie. Ce que le
+ * joueur n'a pas encore les moyens de chercher sort du paquet, et son budget
+ * repart dans ce qui reste.
  * @param {object} p planète
- * @returns {number} nombre de lanceurs de missiles visés
+ * @returns {{n:number, cible:object, types:string[]}|null} null si même le
+ *   lanceur de missiles est hors de portée
  */
-function defTarget(p){
+function defMix(p){
+  const types = DEF_ORDER.filter(k=>shipReqOk(k,p));
+  const chair = types.filter(k=>DEF[k].per==='fodder');
+  if(!chair.length) return null;
+  const poids = k => DEF[k].per==='fodder' ? 1/chair.length : DEF[k].per;
+  const paquet = types.filter(k=>DEF[k].per).reduce((a,k)=>a + poids(k)*mse(...DEF[k].c), 0);
   const nuit = (+S.day.nightEnd - +S.day.nightStart + 24) % 24 || 8;
   const pr = production(p);
   const butin = mse(pr.m, pr.c, pr.d) * nuit / 2;
-  return Math.ceil(butin / mse(...DEF_COST));
+  const n = Math.max(1, Math.ceil(butin / paquet));
+  const cible = {};
+  /* Le bouclier ne rejoint le mélange qu'à partir de la taille où le wiki le
+     place : annoncé plus tôt, il promet une pièce qui coûte dix fois toute la
+     défense visée et que le plan ne proposera jamais. */
+  for(const k of types) cible[k] = DEF[k].un ? (n >= DEF[k].un ? 1 : 0) : Math.ceil(n * poids(k));
+  return {n, cible, types};
 }
+/**
+ * Combien de chair à canon cette planète mérite, les deux types confondus.
+ * @param {object} p planète
+ * @returns {number} 0 si rien n'est constructible
+ */
+function defTarget(p){ const m = defMix(p); return m ? m.n : 0; }
+/**
+ * La pièce qui manque le plus tôt dans l'ordre de construction, ou null quand
+ * le mélange est au complet. Une pièce à la fois : le chantier n'en sort
+ * qu'une, et un plan qui réclame tout d'un coup ne se lit pas.
+ * @param {object} p planète
+ * @returns {{k:string, n:number, cible:number, have:number, mix:object}|null}
+ */
+function defNeed(p){
+  const mix = defMix(p), have = defsOf(p);
+  if(!mix || !have) return null;
+  const chair = defFodder(have);
+  for(const k of DEF_ORDER){
+    if(!mix.cible[k]) continue;
+    /* Un bouclier ne se construit qu'une fois, et pas sur une planète nue :
+       il protège ce qui tire, il ne remplace rien. */
+    if(DEF[k].un){ if(chair >= DEF[k].un && !(have[k] > 0)) return {k, n:1, cible:1, have:0, mix}; continue; }
+    const manque = mix.cible[k] - (have[k]||0);
+    if(manque > 0) return {k, n:manque, cible:mix.cible[k], have:have[k]||0, mix};
+  }
+  return null;
+}
+/** Le mélange visé en clair : « 120 lanceurs de missiles, 120 lasers légers… ». */
+function defMixList(p){ const m = defMix(p); return m ? shipList(m.cible) : ''; }
 const ROLES = {hub:'Centre (recherche, flotte)', mines:'Mines', deut:'Deutérium', crystal:'Cristal et énergie'};
 function hubIndex(){ let best=0; S.planets.forEach((p,i)=>{ if(p.b.lab+p.b.shipyard > S.planets[best].b.lab+S.planets[best].b.shipyard) best=i; }); return best; }
 function autoRole(p, i){ if(i===hubIndex()) return 'hub'; const pos=(parseC(p.coords)||[])[2]||8; return pos>=13 ? 'deut' : pos<=3 ? 'crystal' : 'mines'; }
@@ -2904,6 +2999,16 @@ const MATCH_T = [
   ['shielding',[['bouclier'],['shield']]], ['armour',[['protection'],['armour']]], ['ion',[['ion']]],
 ];
 const MATCH_S = [['sc',[['petit','transp'],['small','cargo']]], ['lc',[['grand','transp'],['large','cargo']]], ['lf',[['chasseur','leger'],['light','fighter']]], ['hf',[['chasseur','lourd'],['heavy','fighter']]], ['cr',[['croiseur'],['cruiser']]], ['bs',[['bataille'],['battleship']]], ['col',[['colonisation'],['colony']]], ['rec',[['recycl']]], ['pr',[['sonde'],['probe']]], ['bb',[['bombard']]], ['ds',[['destructeur'],['destroyer']]], ['bc',[['traqueur'],['battlecruiser']]], ['rp',[['faucheur'],['reaper']]], ['pf',[['eclaireur'],['pathfinder']]]];
+/* L'import de la Vue empire donne la défense par libellé : sans cette table il
+   ne resterait qu'un total, et le plan proposerait des lasers par-dessus des
+   lasers. « Lanceur de plasma » avant « lanceur de missiles » : les deux
+   contiennent « lanceur ». */
+const MATCH_DEF = [
+  ['pt',[['lanceur','plasma'],['plasma','turret']]], ['rl',[['lanceur','missile'],['rocket','launcher']]],
+  ['ll',[['laser','leger'],['light','laser']]], ['hl',[['laser','lourd'],['heavy','laser']]],
+  ['gc',[['gauss']]], ['ic',[['ion']]],
+  ['sd',[['petit','bouclier'],['small','shield']]], ['ld',[['grand','bouclier'],['large','shield']]],
+];
 /** Returns the internal key matching a translated game label, or null. */
 function matchKey(label, table){ const n=norm(label); for(const [k,alts] of table) if(alts.some(a=>a.every(w=>n.includes(w)))) return k; return null; }
 const lvlOf = v => typeof v==='object' && v ? +v.lvl||0 : +v||0;
@@ -2924,7 +3029,12 @@ function importEmpire(d){
       const k = matchKey(label, MATCH_B); if(k) p.b[k]=lvlOf(v); else rep.unknown.add(label);
     }
     for(const [label,v] of Object.entries(src.ships||{})){ if(/satellite|solar sat/i.test(norm(label))){ p.sats = lvlOf(v); continue; } const k = matchKey(label, MATCH_S); if(k){ p.ships = p.ships||{}; p.ships[k] = lvlOf(v); } }
-    if(src.defense) p.def = Object.values(src.defense).reduce((a,v)=>a+lvlOf(v),0);
+    if(src.defense){
+      p.def = Object.values(src.defense).reduce((a,v)=>a+lvlOf(v),0);
+      const d = {};
+      for(const [label,v] of Object.entries(src.defense)){ const k = matchKey(label, MATCH_DEF); if(k) d[k] = lvlOf(v); else rep.unknown.add(label); }
+      p.defs = d;
+    }
     if(src.res) p.stock = {m:+src.res.metal||0, c:+src.res.crystal||0, d:+src.res.deut||0, at};
     if(src.energy && src.energy.balance != null){ p.eAdj = 0; p.eAdj = +src.energy.balance - production(p).eBal; }
     (src.alerts||[]).forEach(a=>rep.alerts.push(`${src.name} : ${a}`));
@@ -3029,6 +3139,7 @@ function applyGame(g){
     if(gp.sats != null) p.sats = gp.sats;
     if(gp.crawlers != null) p.crawlers = gp.crawlers;
     if(gp.def != null) p.def = gp.def;
+    if(gp.defs) p.defs = Object.assign({}, gp.defs);
     if(gp.energy != null){ p.eAdj = 0; p.eAdj = gp.energy - production(p).eBal; }
     if(gp.ships){ p.ships = Object.assign({}, gp.ships); p.shipsAt = gp.shipsAt || 0; }
     if(gp.stock && gp.stock.m != null && gp.stock.at !== p.stockGameAt){ p.stock = {...gp.stock}; p.stockGameAt = gp.stock.at; }

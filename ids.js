@@ -92,6 +92,15 @@ function lfEffect(text) {
 
 var OG_SHIPS = {202:'sc', 203:'lc', 204:'lf', 205:'hf', 206:'cr', 207:'bs', 208:'col', 209:'rec', 210:'pr', 211:'bb', 213:'ds', 215:'bc', 218:'rp', 219:'pf'};
 
+/* Défense, relevée sur le jeu : la page Défense balise ses cases comme le
+   chantier, et l'ordre des identifiants suit celui des colonnes. Le total ne
+   suffit pas : un tas d'un seul type est gratuit à percer — le croiseur a un
+   tir rapide de 10 sur le lanceur de missiles, le destructeur de 10 sur le
+   laser léger, et aucun des deux sur l'autre. Savoir lequel manque demande de
+   les compter séparément. Les missiles (502, 503) ont besoin d'un silo que le
+   copilote ne lit pas : ils restent dehors. */
+var OG_DEF = {401:'rl', 402:'ll', 403:'hl', 404:'gc', 405:'ic', 406:'pt', 407:'sd', 408:'ld'};
+
 var OG_MISSIONS = {1:'attaque', 2:'attaque groupée', 3:'transport', 4:'stationnement', 5:'stationnement allié', 6:'espionnage', 7:'colonisation', 8:'recyclage', 9:'destruction de lune', 15:'expédition', 18:'exploration'};
 
 var OG_CLASS = {0:'none', 1:'collector', 2:'general', 3:'explorer'};

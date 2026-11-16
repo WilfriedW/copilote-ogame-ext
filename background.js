@@ -119,6 +119,7 @@ async function merge(s) {
       cur.shipsAt = s.at;
     }
     if (s.def != null) cur.def = s.def;
+    if (s.defs) cur.defs = s.defs;
   }
   for (const [id, lvl] of Object.entries(s.levels)) if (OG_TECH[id]) game.tech[OG_TECH[id]] = lvl;
 

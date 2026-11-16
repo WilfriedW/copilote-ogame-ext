@@ -124,17 +124,25 @@
     }
 
     /* La page Défense se lit comme le chantier : même balisage, identifiants
-       400 à 499. Le total n'est publié que depuis cette page, pour que « aucune
-       défense » se distingue de « page jamais ouverte » — c'est la différence
-       qui décide entre satellites et centrale. */
-    let def = null;
+       400 à 499. Rien n'est publié tant qu'elle n'a pas été ouverte, pour que
+       « aucune défense » se distingue de « page jamais ouverte » — c'est la
+       différence qui décide entre satellites et centrale.
+       Chaque type se compte à part : un tas d'un seul type est gratuit à
+       percer, et savoir lequel manque demande de les distinguer. Le total
+       reste publié, c'est lui que lisent les pages qui ne veulent qu'un oui
+       ou non. */
+    let def = null, defs = null;
     if (/defen[cs]e/i.test(component)) {
-      def = 0;
+      def = 0; defs = {};
       document.querySelectorAll('[data-technology]').forEach(el => {
         const id = +el.dataset.technology;
         if (id < 400 || id >= 500) return;
         const a = el.querySelector('.amount[data-value]') || el.querySelector('.level[data-value]');
-        if (a) def += +a.dataset.value || 0;
+        if (!a) return;
+        const n = +a.dataset.value || 0;
+        def += n;
+        const k = OG_DEF[id];
+        if (k) defs[k] = n;
       });
     }
 
@@ -227,6 +235,7 @@
       planets,
       ships,
       def,
+      defs,
       moves,
       movePage: /movement/i.test(component),
       artefacts,

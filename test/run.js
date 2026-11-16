@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -2919,20 +2919,37 @@ t('mines à 100 %, rien à dire', () => {
    pleine restait une ferme gratuite. On vérifie les trois états de p.def :
    jamais lu, lu à zéro, lu au-dessus de la cible. */
 
-/** Planète mère riche, chantier libre de la colonie, avec le total donné. */
-function defense(def) {
+/** Planète mère riche, chantier libre de la colonie, avec la défense donnée.
+    `def` vaut null (page jamais ouverte), un total (ancien relevé) ou le
+    détail par type. */
+function defense(def, mod) {
   const g = app(s => {
     relie(s);
     s.colo.built = true;
     const p = s.planets[0];
-    if (def != null) p.def = def;
+    if (typeof def === 'number') p.def = def;
+    else if (def) { p.defs = def; p.def = Object.values(def).reduce((a, n) => a + n, 0); }
     p.stock = { m: 5e6, c: 2e6, d: 1e6, at: SOIR };
     p.ships = { lc: 50, sc: 20, pr: 10 };
+    if (mod) mod(s);
   });
   const plan = g.simulateDay();
   const acts = plan.sessions.flatMap(x => x.acts);
   return { g, acts, act: acts.find(a => a.kind === 'def') };
 }
+
+/** Des mines assez hautes pour mériter les deux boucliers. */
+const mineuse = s => {
+  const p = s.planets[0];
+  p.b.metal = p.b.crystal = p.b.deut = 34;
+  p.b.solar = 42;
+};
+
+/** La technologie qui débloque tout le mélange de début de partie. */
+const chercheur = s => {
+  Object.assign(s.tech, { laser: 6, energy: 6, ion: 4, shielding: 6, weapons: 3 });
+  s.planets[0].b.shipyard = 6;
+};
 
 t('page Défense jamais ouverte : rien n\'est proposé, mais on la réclame', () => {
   const { g, act } = defense(null);
@@ -2961,14 +2978,94 @@ t('zéro défense passe devant le reste du chantier', () => {
   if (iSh >= 0) assert.ok(iDef < iSh, 'le raid est gratuit, la défense d\'abord : ' + q.join(' | '));
 });
 
-t('la cible suit la production, et une défense suffisante se tait', () => {
-  const g = app(relie);
-  const cible = g.defTarget(g.S.planets[0]);
-  assert.ok(cible > 0, 'une planète qui produit mérite une défense');
-  assert.equal(defense(cible * 3).act, undefined, 'la cible dépassée, on arrête');
-  const { act } = defense(cible - 50);
+t('la cible suit la production, et un mélange au complet se tait', () => {
+  const g = app(s => { relie(s); chercheur(s); });
+  const mix = g.defMix(g.S.planets[0]);
+  assert.ok(mix.n > 0, 'une planète qui produit mérite une défense');
+  // Le mélange au complet, et largement : plus rien à réclamer.
+  const plein = {};
+  for (const [k, n] of Object.entries(mix.cible)) plein[k] = n * 5;
+  assert.equal(defense(plein, chercheur).act, undefined,
+    'la cible dépassée partout, on arrête');
+  const { act } = defense({ rl: 1 }, chercheur);
   assert.ok(act, 'sous la cible, le plan complète');
-  assert.match(act.why, /sur \d+ lanceurs visés/, 'la cible est chiffrée : ' + act.why);
+  assert.match(act.why, /sur \d+ vis[eé]/, 'la cible est chiffrée : ' + act.why);
+});
+
+/* Le point que le wiki martèle : un tas d'un seul type est gratuit à percer.
+   Le croiseur a un tir rapide de 10 sur le lanceur de missiles et rien du tout
+   sur le laser léger ; le destructeur l'inverse. Le plan doit donc viser les
+   deux, et le dire. */
+t('un tas de lanceurs ne suffit pas : le plan vise aussi des lasers légers', () => {
+  const g = app(s => { relie(s); chercheur(s); });
+  const mix = g.defMix(g.S.planets[0]);
+  assert.ok(mix.cible.rl > 0 && mix.cible.ll > 0, 'les deux chairs à canon : ' + JSON.stringify(mix.cible));
+  assert.ok(mix.cible.hl > 0 && mix.cible.gc > 0, 'et des gros canons : ' + JSON.stringify(mix.cible));
+  // 500 lanceurs, pas un laser : c'est le laser que le plan réclame.
+  const { act } = defense({ rl: 500 }, chercheur);
+  assert.ok(act, 'un tas d\'un seul type laisse quelque chose à faire');
+  assert.ok(act.ships.ll > 0, 'des lasers légers : ' + act.what);
+  assert.match(act.why, /croiseur|destructeur/, 'et on dit pourquoi : ' + act.why);
+});
+
+t('chaque pièce de défense a son prix et ses prérequis', () => {
+  const g = app(s => { relie(s); chercheur(s); });
+  // Relevé sur le wiki OGame : un prix faux fait mentir tout le plan.
+  const { act } = defense({ rl: 500 }, chercheur);
+  assert.deepEqual(act.cost, [act.ships.ll * 1500, act.ships.ll * 500, 0], JSON.stringify(act.cost));
+  // Sans Laser 3, le laser léger n'existe pas et le lanceur reste seul.
+  const sans = app(relie);
+  assert.deepEqual(Object.keys(sans.defMix(sans.S.planets[0]).cible), ['rl'],
+    'rien d\'autre n\'est à portée au départ');
+});
+
+t('le bouclier vient après la chair à canon, et une seule fois', () => {
+  // Un bouclier coûte vingt-six fois un lanceur : il ne vaut la dépense qu'à
+  // partir d'une planète qui produit assez pour mériter une vraie défense.
+  const g = app(s => { relie(s); chercheur(s); mineuse(s); });
+  const p = g.S.planets[0];
+  const cible = g.defMix(p).cible;
+  assert.ok(cible.sd === 1 && cible.ld === 1, 'les deux boucliers visés : ' + JSON.stringify(cible));
+  p.defs = { rl: 2 };
+  assert.notEqual(g.defNeed(p).k, 'sd', 'pas de bouclier sur une planète nue');
+  p.defs = { rl: cible.rl, ll: cible.ll };
+  assert.equal(g.defNeed(p).k, 'sd', 'de la chair à canon : le bouclier vient');
+  p.defs = { rl: cible.rl, ll: cible.ll, sd: 1 };
+  assert.notEqual(g.defNeed(p).k, 'sd', 'un seul petit bouclier, jamais deux');
+});
+
+t('une petite planète ne se voit pas promettre de bouclier', () => {
+  // Le mélange annoncé est celui que le plan proposera : y mettre un bouclier
+  // hors de prix, c'est promettre une pièce qui ne viendra jamais.
+  const g = app(s => { relie(s); chercheur(s); });
+  const cible = g.defMix(g.S.planets[0]).cible;
+  assert.equal(cible.sd, 0, JSON.stringify(cible));
+  assert.ok(!/bouclier/.test(g.defMixList(g.S.planets[0])), g.defMixList(g.S.planets[0]));
+});
+
+t('un ancien relevé ne compte qu\'un total, et ne se perd pas en route', () => {
+  // Avant, le copilote ne lisait que le total : il le comptait en lanceurs.
+  // Poser le premier laser ne doit pas effacer ces lanceurs.
+  const { acts } = defense(300, chercheur);
+  const lanceurs = acts.filter(a => a.kind === 'def' && a.ships.rl);
+  const vus = acts.filter(a => a.kind === 'def').map(a => a.why).join(' | ');
+  assert.ok(!/0 lanceur de missiles sur/.test(vus), 'les 300 lanceurs restent comptés : ' + vus);
+  assert.equal(lanceurs.length, 0, 'et rien ne les redemande : ' + vus);
+});
+
+t('l\'import de la Vue empire range la défense par type', () => {
+  const g = app(relie);
+  g.importEmpire({
+    planets: [{
+      name: 'Planète mère', coords: '1:140:8', temp: '20 °C à 60 °C',
+      supply: { 'Mine de métal': 10 },
+      defense: { 'Lanceur de missiles': 40, 'Laser léger': 12, 'Canon de Gauss': 2, 'Lanceur de plasma': 1 }
+    }],
+    research: {}
+  });
+  const p = g.S.planets[0];
+  assert.deepEqual(p.defs, { rl: 40, ll: 12, gc: 2, pt: 1 }, JSON.stringify(p.defs));
+  assert.equal(p.def, 55, 'le total reste lisible');
 });
 
 /* ---------- inventaire des transporteurs ---------- */
