@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'cargoGaps', 'cargoCap', 'pickCargo', 'reindexPlanets'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -1553,7 +1553,7 @@ t('sans le chantier qui les construit, aucune foreuse proposée', () => {
 t('la fin d\'un minuteur de foreuses crédite le compte, pas la flotte', () => {
   const g = app();
   const p = g.S.planets[0];
-  g.finishTimer({ kind: 'x', k: 'shipyard', p: 0, ships: { crawl: 40 }, end: SOIR });
+  g.finishTimer({ kind: 'x', k: 'shipyard', pid: p.id, ships: { crawl: 40 }, end: SOIR });
   assert.equal(p.crawlers, 40, 'les foreuses doivent compter');
   assert.ok(!(p.ships && p.ships.crawl), 'et ne pas atterrir dans la flotte');
 });
@@ -1562,7 +1562,7 @@ t('un minuteur lu dans le jeu ne touche pas au compte', () => {
   const g = app();
   const p = g.S.planets[0];
   p.crawlers = 120;
-  g.finishTimer({ kind: 'x', k: 'shipyard', p: 0, ships: { crawl: 40 }, end: SOIR, game: true });
+  g.finishTimer({ kind: 'x', k: 'shipyard', pid: p.id, ships: { crawl: 40 }, end: SOIR, game: true });
   assert.equal(p.crawlers, 120, 'la lecture du jeu fait foi');
 });
 
@@ -3023,34 +3023,23 @@ t('soute suffisante partout : aucune carte de répartition', () => {
   assert.ok(!g.dailyMissions().some(x => /^cargo-split/.test(x.id)));
 });
 
-/* ---------- les rangs des planètes bougent ---------- */
+/* ---------- une planète, une identité ---------- */
 
-t('un réordonnancement garde minuteur, étape du plan et départ de colonie sur leur planète', () => {
+t('un état en rangs se convertit au chargement, et la conversion rejouée ne change rien', () => {
   const g = app(s => {
     s.timers = [{ id: 'm1', manual: true, kind: 'b', k: 'metal', lvl: 15, p: 1, end: SOIR + 36e5 }];
-    s.plan = [{ type: 'b', p: 1, k: 'crystal', lvl: 13 }];
-    s.colo.from = 1;
-  });
-  const avant = g.S.planets;
-  g.reindexPlanets(avant, [avant[1], avant[0]]);
-  assert.equal(g.S.planets[g.S.timers[0].p].name, 'Colonie');
-  assert.equal(g.S.planets[g.S.plan[0].p].name, 'Colonie');
-  assert.equal(g.S.colo.from, 0);
-});
-
-t('une planète retirée emporte ce qui la visait, et rien d\'autre', () => {
-  const g = app(s => {
-    s.timers = [{ id: 'm1', manual: true, kind: 'b', k: 'metal', lvl: 15, p: 1, end: SOIR + 36e5 },
-                { id: 'm2', manual: true, kind: 't', k: 'astro', lvl: 4, end: SOIR + 36e5 }];
     s.plan = [{ type: 'b', p: 1, k: 'crystal', lvl: 13 }, { type: 't', k: 'astro', lvl: 4 }];
     s.colo.from = 1;
   });
-  const avant = g.S.planets;
-  g.reindexPlanets(avant, [avant[0]]);
-  // une recherche ne vise pas de planète : elle ne bouge pas et ne part pas
-  assert.deepEqual(g.S.timers.map(t => t.id), ['m2']);
-  assert.deepEqual(g.S.plan.map(x => x.type), ['t']);
-  assert.equal(g.S.colo.from, 0);
+  const colonie = g.S.planets[1];
+  assert.equal(g.S.timers[0].pid, colonie.id);
+  assert.equal(g.S.plan[0].pid, colonie.id);
+  assert.equal(g.S.colo.fromId, colonie.id);
+  assert.ok(!('p' in g.S.timers[0]) && !('p' in g.S.plan[0]), 'le rang ne traîne pas à côté de l\'identité');
+  assert.equal(g.S.v, 2);
+  const avant = JSON.stringify(g.S);
+  g.migratePlanetIds();
+  assert.equal(JSON.stringify(g.S), avant);
 });
 
 t('un relevé qui réordonne les planètes laisse le minuteur sur la bonne', () => {
@@ -3062,7 +3051,32 @@ t('un relevé qui réordonne les planètes laisse le minuteur sur la bonne', () 
     planets: { 33001: { coords: '1:142:8' }, 33002: { coords: '1:142:6' } },
     timers: [], moves: [] });
   assert.equal(g.S.planets[0].name, 'Colonie', 'le jeu dicte l\'ordre');
-  assert.equal(g.S.planets[g.S.timers[0].p].name, 'Colonie');
+  assert.equal(g.planetById(g.S.timers[0].pid).name, 'Colonie');
+});
+
+t('une planète retirée emporte ce qui la visait, et rien d\'autre', () => {
+  const g = app(s => {
+    s.timers = [{ id: 'm1', manual: true, kind: 'b', k: 'metal', lvl: 15, p: 1, end: SOIR + 36e5 },
+                { id: 'm2', manual: true, kind: 't', k: 'astro', lvl: 4, end: SOIR + 36e5 }];
+    s.plan = [{ type: 'b', p: 1, k: 'crystal', lvl: 13 }, { type: 't', k: 'astro', lvl: 4 }];
+    s.colo.from = 1;
+  });
+  g.forgetPlanet(g.S.planets[1].id);
+  assert.deepEqual(g.S.planets.map(p => p.name), ['Planète mère']);
+  // une recherche ne vise pas de planète : elle reste
+  assert.deepEqual(g.S.timers.map(t => t.id), ['m2']);
+  assert.deepEqual(g.S.plan.map(x => x.type), ['t']);
+  assert.equal(g.S.colo.fromId, null);
+});
+
+t('un id qui ne répond plus : le minuteur sonne, rien ne se crédite', () => {
+  const g = app();
+  const p = g.S.planets[0];
+  const niveau = p.b.metal;
+  g.finishTimer({ kind: 'b', pid: 'disparue', k: 'metal', lvl: niveau + 9, end: SOIR });
+  assert.equal(p.b.metal, niveau, 'aucun niveau posé sur une voisine');
+  g.finishTimer({ kind: 'x', k: 'sats', pid: 'disparue', n: 7, end: SOIR });
+  assert.equal(p.sats, 0, 'aucun satellite non plus');
 });
 
 if (failures.length) {

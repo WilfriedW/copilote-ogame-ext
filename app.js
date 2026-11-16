@@ -91,7 +91,7 @@ function sample(){
     lf:{found:['humans','rocktal']},
     roles:{}, raid:null, raids:{},
     daily:{done:{}},
-    colo:{from:0, objective:'balanced', bonus:0, target:'', kit:'std', tr:'sc', built:false, fields:'', fpos:''},
+    colo:{fromId:null, objective:'balanced', bonus:0, target:'', kit:'std', tr:'sc', built:false, fields:'', fpos:''},
   };
 }
 /* Le chantier sort trois choses qui ne se rangent pas au même endroit : des
@@ -118,26 +118,42 @@ S.day = Object.assign(sample().day, S.day);
 S.ui = Object.assign(sample().ui, S.ui);
 S.lf = Object.assign(sample().lf, S.lf);
 S.roles = S.roles || {}; S.raids = S.raids || {};
+migratePlanetIds();
 S.daily = Object.assign(sample().daily, S.daily);
 function save(){ try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 
-/* Les rangs des planètes bougent : le jeu les réordonne, un import les
-   reclasse, le joueur en retire une. Tout ce qui garde un rang doit suivre au
-   même instant. Le plan le faisait à deux de ces trois endroits, les minuteurs
-   à aucun : un minuteur resté sur l'ancien rang créditait le niveau, les
-   satellites ou les vaisseaux à la planète voisine. Un seul endroit
-   renumérote, pour les trois cas.
-   Une planète absente de la nouvelle liste emporte ce qui la visait : ici le
-   rang est la seule identité, et un rang qui ne pointe plus sur rien ne peut
-   pas être gardé sans pointer sur la voisine. */
-function reindexPlanets(before, kept){
-  const rang = p => kept.indexOf(p);
-  const suit = (x, k) => { const ni = rang(before[x[k]]); return ni < 0 ? null : Object.assign({}, x, {[k]: ni}); };
-  S.plan = (S.plan || []).map(it => it.type === 'b' ? suit(it, 'p') : it).filter(Boolean);
-  S.timers = (S.timers || []).map(t => t.p == null ? t : suit(t, 'p')).filter(Boolean);
-  const dep = rang(before[+S.colo.from || 0]);
-  S.colo.from = dep < 0 ? 0 : dep;
-  S.planets = kept;
+/* L'identité d'une planète est son id. Le rang change dès que le jeu
+   réordonne, le nom se répète d'une colonie à l'autre, le gid n'existe qu'une
+   fois le jeu lu : aucun des trois ne la désigne. Un id qui ne répond plus ne
+   désigne aucune planète, et l'appelant le traite comme tel — il ne se rabat
+   jamais sur une voisine, ce qui était la vieille faute du rang. */
+function planetById(id){ return S.planets.find(p => p.id === id) || null; }
+function planetIndexById(id){ return S.planets.findIndex(p => p.id === id); }
+
+/* Ce que le joueur retire, il le retire vraiment : ici l'absence est une
+   certitude et non un défaut d'appariement, donc ce qui visait cette planète
+   s'en va avec elle. Ailleurs, un id muet laisse les choses en place. */
+function forgetPlanet(id){
+  S.planets = S.planets.filter(p => p.id !== id);
+  S.plan = (S.plan || []).filter(it => it.type !== 'b' || it.pid !== id);
+  S.timers = (S.timers || []).filter(t => t.pid !== id);
+  if(S.colo.fromId === id) S.colo.fromId = null;
+}
+
+/* Les rangs enregistrés deviennent des identités. Un rang écrit hier ne
+   désigne plus la même planète après un réordonnancement : il désigne la
+   voisine, sans rien dire. La conversion se décide sur le type — un nombre est
+   encore un rang — donc elle se rejoue sans dommage sur un état déjà converti.
+   S.v ne pouvait pas servir de repère : sample() écrit v:1 et le fusionne dans
+   tout état relu, converti ou non. */
+function migratePlanetIds(){
+  for(const p of S.planets) if(!p.id) p.id = Math.random().toString(36).slice(2,9);
+  const idAt = i => (S.planets[i] || {}).id || null;
+  const mue = x => { if(typeof x.p !== 'number') return x; const y = Object.assign({}, x, {pid: idAt(x.p)}); delete y.p; return y; };
+  S.plan = (S.plan || []).map(it => it.type === 'b' ? mue(it) : it).filter(it => it.type !== 'b' || it.pid);
+  S.timers = (S.timers || []).map(mue);
+  if(typeof S.colo.from === 'number'){ S.colo.fromId = idAt(S.colo.from); delete S.colo.from; }
+  S.v = 2;
 }
 
 const IS_EXT = !!(window.chrome && window.chrome.runtime && window.chrome.runtime.id);
@@ -837,12 +853,12 @@ function parseLeft(txt){
 }
 function timerOptions(){
   const r = Object.keys(T).map(k=>`<option value="t:${k}">${T[k].n} ${S.tech[k]+1}</option>`).join('');
-  const b = S.planets.map((p,i)=>`<optgroup label="Bâtiments · ${esc(p.name)}">${Object.keys(B).map(k=>`<option value="b:${i}:${k}">${B[k].n} ${p.b[k]+1}</option>`).join('')}</optgroup>`).join('');
+  const b = S.planets.map(p=>`<optgroup label="Bâtiments · ${esc(p.name)}">${Object.keys(B).map(k=>`<option value="b:${p.id}:${k}">${B[k].n} ${p.b[k]+1}</option>`).join('')}</optgroup>`).join('');
   return `<optgroup label="Recherche">${r}</optgroup>${b}<optgroup label="Autre"><option value="x:fleet">Retour de flotte</option><option value="x:expo">Retour d'expédition</option><option value="x:other">Autre</option></optgroup>`;
 }
 function timerLabel(tm){
   if(tm.kind==='t') return `${T[tm.k].n} ${tm.lvl}`;
-  if(tm.kind==='b'){ const p=S.planets[tm.p]; return `${B[tm.k].n} ${tm.lvl}${p&&S.planets.length>1?` · ${p.name}`:''}`; }
+  if(tm.kind==='b'){ const p=planetById(tm.pid); return `${B[tm.k].n} ${tm.lvl}${p&&S.planets.length>1?` · ${p.name}`:''}`; }
   return tm.label || ({fleet:'Retour de flotte',expo:'Retour d\'expédition',other:'Minuteur'})[tm.k];
 }
 let audioCtx = null;
@@ -873,9 +889,13 @@ function finishTimer(tm){
   tm.done = true;
   if(tm.kind==='t' && S.tech[tm.k] < tm.lvl) S.tech[tm.k] = tm.lvl;
   if(tm.kind==='x' && tm.k==='colship') S.colo.built = true;
-  if(tm.kind==='x' && tm.k==='sats' && S.planets[tm.p] && !tm.game) S.planets[tm.p].sats += tm.n||0;
-  if(tm.kind==='x' && tm.k==='shipyard' && tm.ships && S.planets[tm.p] && !tm.game) addBuilt(S.planets[tm.p], tm.ships);
-  if(tm.kind==='b'){ const p=S.planets[tm.p]; if(p && p.b[tm.k] < tm.lvl) p.b[tm.k] = tm.lvl; }
+  /* Un id muet — la planète n'a pas été appariée au dernier relevé : le
+     minuteur sonne et prévient, mais rien ne se crédite. Un niveau à ressaisir
+     se rattrape ; un niveau posé sur la voisine, non. */
+  const cible = planetById(tm.pid);
+  if(tm.kind==='x' && tm.k==='sats' && cible && !tm.game) cible.sats += tm.n||0;
+  if(tm.kind==='x' && tm.k==='shipyard' && tm.ships && cible && !tm.game) addBuilt(cible, tm.ships);
+  if(tm.kind==='b' && cible && cible.b[tm.k] < tm.lvl) cible.b[tm.k] = tm.lvl;
   save(); chime(); flashTitle(timerLabel(tm));
   const extHandles = tm.game && window.chrome && chrome.runtime && chrome.runtime.id;
   if(!extHandles) showBigAlert(timerLabel(tm));
@@ -942,7 +962,7 @@ function colShipAt(){ return S.planets.findIndex(p=>((p.ships||{}).col||0)>0); }
 function colSentNow(){ return (S.moves||[]).some(m=>m.mission===7 && !m.ret && m.arrival*1000>Date.now()) || !!(S.colo.sentAt && Date.now()-S.colo.sentAt<48*3600e3 && !S.planets.some(p=>((p.ships||{}).col||0)>0 && (p.shipsAt||0)>S.colo.sentAt)); }
 function colBuilt(){ return !!S.colo.built || colShipAt()>=0; }
 function maxPlanets(){ return 1 + Math.floor((S.tech.astro+1)/2); }
-function coloFrom(){ const i = colShipAt(); return S.planets[i>=0 ? i : S.colo.from] || S.planets[0]; }
+function coloFrom(){ const i = colShipAt(); return (i>=0 ? S.planets[i] : planetById(S.colo.fromId)) || S.planets[0]; }
 function coloSystem(){ const c = parseC(coloFrom().coords) || [1,1,8]; return c; }
 /** Simulated hourly output of a colony at each position, using the departure planet's mine levels. */
 function rankPositions(){
@@ -1321,14 +1341,15 @@ function simulateDay(){
   const busy = [];
   for(const t of S.timers||[]){
     if(t.done || t.end<=now) continue;
+    const pi = planetIndexById(t.pid);
     if(t.kind==='t' && T[t.k]){ sim.rq=Math.max(sim.rq,t.end); busy.push({q:'Recherche · '+planetRef(labPlanet()), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ sim.tech[t.k]=Math.max(sim.tech[t.k],t.lvl); }}); }
-    else if(t.kind==='b' && P[t.p]){ const p=P[t.p]; p.bq=Math.max(p.bq,t.end); p.bqKey=t.k; busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.b[t.k]=Math.max(p.b[t.k],t.lvl); }}); }
-    else if(t.kind==='x' && t.k==='expo'){ expoBusy.push(t.end); busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[t.p]){ const p=P[t.p]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
-    else if(t.kind==='x' && t.k==='fleet'){ busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[t.p]){ const p=P[t.p]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
-    else if(t.kind==='x' && (t.k==='shipyard' || t.queue==='shipyard') && P[t.p]){ const p=P[t.p]; p.sq=Math.max(p.sq,t.end); busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); if(t.manual && t.ships) sim.ev.push({at:t.end, fn:()=>addBuilt(p, t.ships)}); }
-    else if(t.kind==='x' && (t.queue==='lfbuilding' || t.queue==='lfresearch') && P[t.p]){ const p=P[t.p]; p.lfq[t.queue]=Math.max(p.lfq[t.queue],t.end); busy.push({q:'Forme de vie · '+planetRef(p), what:timerLabel(t), end:t.end}); }
-    else if(t.kind==='x' && t.k==='sats' && P[t.p]){ const p=P[t.p]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
-    else if(t.kind==='x' && t.k==='colship'){ const p=P[+S.colo.from]||P[0]; p.sq=t.end; sim.colShip=true; sim.colReady=t.end; busy.push({q:'Chantier spatial', what:'Vaisseau de colonisation', end:t.end}); }
+    else if(t.kind==='b' && P[pi]){ const p=P[pi]; p.bq=Math.max(p.bq,t.end); p.bqKey=t.k; busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.b[t.k]=Math.max(p.b[t.k],t.lvl); }}); }
+    else if(t.kind==='x' && t.k==='expo'){ expoBusy.push(t.end); busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[pi]){ const p=P[pi]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
+    else if(t.kind==='x' && t.k==='fleet'){ busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[pi]){ const p=P[pi]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
+    else if(t.kind==='x' && (t.k==='shipyard' || t.queue==='shipyard') && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); if(t.manual && t.ships) sim.ev.push({at:t.end, fn:()=>addBuilt(p, t.ships)}); }
+    else if(t.kind==='x' && (t.queue==='lfbuilding' || t.queue==='lfresearch') && P[pi]){ const p=P[pi]; p.lfq[t.queue]=Math.max(p.lfq[t.queue],t.end); busy.push({q:'Forme de vie · '+planetRef(p), what:timerLabel(t), end:t.end}); }
+    else if(t.kind==='x' && t.k==='sats' && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
+    else if(t.kind==='x' && t.k==='colship'){ const p=P[planetIndexById(S.colo.fromId)]||P[0]; p.sq=t.end; sim.colShip=true; sim.colReady=t.end; busy.push({q:'Chantier spatial', what:'Vaisseau de colonisation', end:t.end}); }
   }
   /* Les expéditions en vol, prises sur les mouvements de flotte du jeu
      (mission 15, trajet de retour). Les compter sur les seuls minuteurs les
@@ -1389,7 +1410,7 @@ function simulateDay(){
       const softAll = p=>{ const pr=production(p), r=[pr.m,pr.c,pr.d], out=[0,0,0]; for(const x of soft){ if(x.p!==p) continue; x.cost.forEach((c,j)=>out[j]+=Math.max(0, c - r[j]*(x.eta/3600+iv))); } return out; };
       const softRes = p=>{ const pr=production(p), r=[pr.m,pr.c,pr.d], out=[0,0,0]; for(const x of soft){ if(x.p!==p || !(x.eta<=3*3600)) continue; x.cost.forEach((c,j)=>out[j]+=Math.max(0, c - r[j]*(x.eta/3600+iv))); } return out; };
       const labP = P.reduce((a,p)=>p.b.lab>a.b.lab?p:a, P[0]);
-      const dep = P[colShipAt()>=0 ? colShipAt() : Math.min(+S.colo.from||0, P.length-1)];
+      const dep = P[colShipAt()>=0 ? colShipAt() : planetIndexById(S.colo.fromId)] || P[0];
       const wantColony = S.day.focus!=='eco' && P.length < maxPlanets() && !sim.colSent;
       const nr = nextResearch();
       if(nr.labNeed && labP.b.lab<nr.labNeed && labP.bq<=Tm && sim.rq<=Tm){
@@ -1665,7 +1686,7 @@ function actHtml(a, withBtn){
   const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', a.why ? `<span>${esc(a.why)}</span>` : '', a.src==='estimé' ? '<span>Prix et durée estimés d\'après les niveaux déjà vus, pas lus sur le jeu ; la durée est probablement sous-estimée.</span>' : a.src==='lu' && a.at ? `<span>prix lu à ${hm(a.at)}</span>` : '', note ? `<span>${esc(note)}</span>` : '', copyChips(a)].filter(Boolean).join('');
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
-  else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,p:a.p,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
+  else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,pid:(S.planets[a.p]||{}).id,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
   return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}</div><div class="w">${esc(a.what)}</div></div>${btn||'<span></span>'}<div class="m">${m}</div></li>`;
 }
 
@@ -2427,7 +2448,7 @@ colony(){
   return `<section class="panel">
     <div class="card"><div class="row spread"><h2>Prêt à coloniser ?</h2><span id="coSlots"></span></div>
       <div class="grid">
-        <label class="f">Planète de départ<select id="coFrom" data-colo="from">${S.planets.map((p,i)=>`<option value="${i}" ${+c.from===i?'selected':''}>${esc(p.name)} [${esc(p.coords)}]</option>`).join('')}</select></label>
+        <label class="f">Planète de départ<select id="coFrom" data-colo="fromId">${S.planets.map(p=>`<option value="${p.id}" ${c.fromId===p.id?'selected':''}>${esc(p.name)} [${esc(p.coords)}]</option>`).join('')}</select></label>
         <label class="f">Vaisseau de colonisation<select id="coBuilt" data-colo="built"><option value="0" ${!colBuilt()?'selected':''}>À construire</option><option value="1" ${colBuilt()?'selected':''}>Déjà construit${colShipAt()>=0?' (vu dans ta flotte)':''}</option></select></label>
       </div>
       <ul class="advice" id="coReq"></ul>
@@ -2467,7 +2488,7 @@ plan(){
   return `<section class="panel">
     <div class="card"><h2>Ajouter un objectif</h2>
       <div class="grid">
-        <label class="f">Planète<select id="plP">${S.planets.map((p,i)=>`<option value="${i}">${esc(p.name)}</option>`).join('')}</select></label>
+        <label class="f">Planète<select id="plP">${S.planets.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label>
         <label class="f">Bâtiment<select id="plB">${Object.keys(B).map(k=>`<option value="${k}">${B[k].n}</option>`).join('')}</select></label>
         <label class="f">Niveau visé<input id="plL" type="number" min="1" value="5"></label>
       </div>
@@ -2665,7 +2686,7 @@ colony(){
   if(S.tech.impulse>=3) req.push({sev:'good', what:'Réacteur à impulsion 3', why:'Prérequis du vaisseau de colonisation.'});
   else { let t=0; for(let L=S.tech.impulse+1; L<=3; L++) t+=researchTime('impulse',L); req.push({sev:'bad', what:`Réacteur à impulsion ${S.tech.impulse} → 3`, why:`Coût ${fmt(rangeCost(T.impulse,S.tech.impulse,3).reduce((a,b)=>a+b,0))} au total, environ ${dur(t)} de recherche.`, add:'t:impulse'}); }
   if(dp.b.shipyard>=4) req.push({sev:'good', what:`Chantier spatial 4 sur ${dp.name}`, why:'Prérequis du vaisseau de colonisation.'});
-  else req.push({sev:'bad', what:`Chantier spatial ${dp.b.shipyard} → 4 sur ${dp.name}`, why:`Coût total : ${fmt(rangeCost(B.shipyard,dp.b.shipyard,4).reduce((a,b)=>a+b,0))} ressources.`, add:`b:${S.colo.from}:shipyard`});
+  else req.push({sev:'bad', what:`Chantier spatial ${dp.b.shipyard} → 4 sur ${dp.name}`, why:`Coût total : ${fmt(rangeCost(B.shipyard,dp.b.shipyard,4).reduce((a,b)=>a+b,0))} ressources.`, add:`b:${dp.id}:shipyard`});
   const w = F.wait;
   req.push({sev: w.sec===0 ? 'good' : w.storage!=null ? 'bad' : 'warn',
     what: colBuilt() ? 'Ressources du kit et carburant' : 'Ressources du vaisseau, du kit et carburant',
@@ -2703,7 +2724,7 @@ plan(){
   const tot=[0,0,0]; let tTime=0;
   const items = S.plan.map((it,i)=>{
     let name, cost, time, from;
-    if(it.type==='b'){ const p=S.planets[it.p]; if(!p) return ''; from=p.b[it.k]; cost=rangeCost(B[it.k],from,it.lvl); time=0; for(let L=from+1;L<=it.lvl;L++) time+=buildTime(it.k,L,p); name=`${B[it.k].n} ${it.lvl} · ${esc(p.name)}`; }
+    if(it.type==='b'){ const p=planetById(it.pid); if(!p) return ''; from=p.b[it.k]; cost=rangeCost(B[it.k],from,it.lvl); time=0; for(let L=from+1;L<=it.lvl;L++) time+=buildTime(it.k,L,p); name=`${B[it.k].n} ${it.lvl} · ${esc(p.name)}`; }
     else { from=S.tech[it.k]; cost=rangeCost(T[it.k],from,it.lvl); time=0; for(let L=from+1;L<=it.lvl;L++) time+=researchTime(it.k,L); name=`${T[it.k].n} ${it.lvl}`; }
     const done = from>=it.lvl;
     cost.forEach((x,j)=>tot[j]+=x); tTime+=time;
@@ -2727,7 +2748,7 @@ function bind(){
   }));
   view.querySelectorAll('[data-colo]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k = el.dataset.colo;
-    S.colo[k] = k==='built' ? el.value==='1' : (k==='from'||k==='bonus') ? (+el.value||0) : el.value.trim();
+    S.colo[k] = k==='built' ? el.value==='1' : k==='bonus' ? (+el.value||0) : el.value.trim();
     save(); refresh();
   }));
 
@@ -2737,7 +2758,7 @@ function bind(){
     card.querySelectorAll('input[data-p]').forEach(el=>el.addEventListener('input',()=>{ const k=el.dataset.p; p[k] = (k==='tmax'||k==='sats') ? (parseInt(el.value)||0) : el.value; changed(); }));
     card.querySelectorAll('input[data-s]').forEach(el=>el.addEventListener('input',()=>{ const st=stockNow(p); p.stock={m:st[0],c:st[1],d:st[2],at:Date.now()}; p.stock[el.dataset.s]=parseFloat(el.value)||0; changed(); }));
   });
-  view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ const avant=S.planets, i=+b.dataset.del; reindexPlanets(avant, avant.filter((_,j)=>j!==i)); save(); render(); }));
+  view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ const p=S.planets[+b.dataset.del]; if(p) forgetPlanet(p.id); save(); render(); }));
   on('addPlanet','click',()=>{ S.planets.push(newPlanet('Colonie '+S.planets.length,'1:1:'+(S.planets.length+4),20,{})); S.sample=false; save(); render(); });
   view.querySelectorAll('input[data-t]').forEach(el=>el.addEventListener('input',()=>{ S.tech[el.dataset.t]=Math.max(0,parseInt(el.value)||0); changed(); }));
   view.querySelectorAll('[data-addt]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.addt; S.plan.push({type:'t',k,lvl:S.tech[k]+1}); save(); toast('Ajouté au plan'); }));
@@ -2752,7 +2773,7 @@ function bind(){
   view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.value==='1'; changed(); }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
   view.querySelectorAll('[data-ship]').forEach(el=>el.addEventListener('input',()=>{ S.fleetCalc.ships[el.dataset.ship]=Math.max(0,parseInt(el.value)||0); changed(); }));
-  on('plAdd','click',()=>{ const pi=+document.getElementById('plP').value, k=document.getElementById('plB').value, lvl=Math.max(1,parseInt(document.getElementById('plL').value)||1); S.plan.push({type:'b',p:pi,k,lvl}); save(); refresh(); toast('Ajouté au plan'); });
+  on('plAdd','click',()=>{ const pid=document.getElementById('plP').value, k=document.getElementById('plB').value, lvl=Math.max(1,parseInt(document.getElementById('plL').value)||1); S.plan.push({type:'b',pid,k,lvl}); save(); refresh(); toast('Ajouté au plan'); });
   on('ioCopy','click',()=>{ const txt=JSON.stringify(S); const ta=document.getElementById('ioText'); ta.value=txt;
     (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>msg('Copié dans le presse-papiers')).catch(()=>{ ta.select(); msg('Sélectionné : copie-le manuellement'); }); });
   on('ioImport','click',()=>{ try{ const d=JSON.parse(document.getElementById('ioText').value); if(!d.planets||!d.settings) throw 0; S=Object.assign(sample(),d); S.sample=false; save(); render(); toast('Données importées'); }catch(e){ msg('Texte invalide : colle une sauvegarde complète'); } });
@@ -2769,7 +2790,7 @@ view.addEventListener('click', e=>{
   else window.open(url, '_blank', 'noopener');
 });
 view.addEventListener('click',e=>{
-  const ab=e.target.closest('[data-addb]'); if(ab){ const [p,k,l]=ab.dataset.addb.split(':'); S.plan.push({type:'b',p:+p,k,lvl:+l}); save(); toast('Ajouté au plan'); }
+  const ab=e.target.closest('[data-addb]'); if(ab){ const [pid,k,l]=ab.dataset.addb.split(':'); S.plan.push({type:'b',pid,k,lvl:+l}); save(); toast('Ajouté au plan'); }
   const rm=e.target.closest('[data-rm]'); if(rm){ S.plan.splice(+rm.dataset.rm,1); save(); refresh(); }
   const up=e.target.closest('[data-up]'); if(up){ const i=+up.dataset.up; if(i>0){ [S.plan[i-1],S.plan[i]]=[S.plan[i],S.plan[i-1]]; save(); refresh(); } }
 });
@@ -2780,7 +2801,7 @@ view.addEventListener('click', e=>{
   if(ca){
     const [kind,a,c] = ca.dataset.coadd.split(':');
     if(kind==='t') S.plan.push({type:'t', k:a, lvl: a==='impulse' ? 3 : S.tech[a] + (S.tech[a]%2===0?1:2)});
-    else S.plan.push({type:'b', p:+a, k:c, lvl:4});
+    else S.plan.push({type:'b', pid:a, k:c, lvl:4});
     save(); toast('Ajouté au plan');
   }
 });
@@ -2807,16 +2828,19 @@ view.addEventListener('click', e=>{
   if(la){
     const a = JSON.parse(la.dataset.launch), tm = {id:Math.random().toString(36).slice(2,8), manual:true, end:Date.now()+a.dur*1000, done:false};
     if(a.kind==='t'){ tm.kind='t'; tm.k=a.k; tm.lvl=a.lvl; }
-    else if(a.kind==='b'){ tm.kind='b'; tm.p=a.p; tm.k=a.k; tm.lvl=a.lvl; }
-    else if(a.kind==='shipbuild' || a.kind==='def'){ tm.kind='x'; tm.k='shipyard'; tm.ships=a.ships; tm.p=a.p; tm.label=a.what; }
-    else if(a.kind==='transfer' || a.kind==='raid'){ tm.kind='x'; tm.k='fleet'; tm.ships=a.ships; tm.p=a.p; tm.label=a.kind==='raid' ? `Retour du pillage ${a.coords}` : 'Arrivée du rapatriement'; }
-    else if(a.kind==='expo'){ tm.kind='x'; tm.k='expo'; tm.ships=a.ships; tm.p=a.p; tm.label="Retour d'expédition"; }
-    else if(a.kind==='sats'){ tm.kind='x'; tm.k='sats'; tm.n=a.n; tm.p=a.p; tm.label=a.what; }
-    else if(a.kind==='lf'){ tm.kind='x'; tm.k='other'; tm.queue=lfQueue(a.id); tm.p=a.p; tm.label=a.what; }
+    else if(a.kind==='b'){ tm.kind='b'; tm.pid=a.pid; tm.k=a.k; tm.lvl=a.lvl; }
+    else if(a.kind==='shipbuild' || a.kind==='def'){ tm.kind='x'; tm.k='shipyard'; tm.ships=a.ships; tm.pid=a.pid; tm.label=a.what; }
+    else if(a.kind==='transfer' || a.kind==='raid'){ tm.kind='x'; tm.k='fleet'; tm.ships=a.ships; tm.pid=a.pid; tm.label=a.kind==='raid' ? `Retour du pillage ${a.coords}` : 'Arrivée du rapatriement'; }
+    else if(a.kind==='expo'){ tm.kind='x'; tm.k='expo'; tm.ships=a.ships; tm.pid=a.pid; tm.label="Retour d'expédition"; }
+    else if(a.kind==='sats'){ tm.kind='x'; tm.k='sats'; tm.n=a.n; tm.pid=a.pid; tm.label=a.what; }
+    else if(a.kind==='lf'){ tm.kind='x'; tm.k='other'; tm.queue=lfQueue(a.id); tm.pid=a.pid; tm.label=a.what; }
     else { tm.kind='x'; tm.k='colship'; tm.label='Vaisseau de colonisation'; }
-    const p = S.planets[a.p] || S.planets[+S.colo.from] || S.planets[0];
+    /* Sans planète identifiée, personne n'est débité : c'était le dernier
+       endroit où un rang périmé faisait payer la voisine. Le minuteur part
+       quand même — le joueur a bien lancé quelque chose. */
+    const p = planetById(a.pid);
     const cost = a.cost || COL_SHIP_COST;
-    const st = stockNow(p); p.stock = {m:Math.max(0,st[0]-cost[0]), c:Math.max(0,st[1]-cost[1]), d:Math.max(0,st[2]-cost[2]), at:Date.now()};
+    if(p){ const st = stockNow(p); p.stock = {m:Math.max(0,st[0]-cost[0]), c:Math.max(0,st[1]-cost[1]), d:Math.max(0,st[2]-cost[2]), at:Date.now()}; }
     if(a.kind==='raid'){ S.raids[a.coords] = {at:Date.now()}; S.raid = null; }
     S.timers.push(tm); save(); a.kind==='raid' ? render() : refresh(); toast(`Suivi : ${a.what}`);
   }
@@ -2870,7 +2894,7 @@ function importEmpire(d){
   for(const [label,v] of Object.entries(d.research||{})){
     const k = matchKey(label, MATCH_T); if(k){ S.tech[k]=lvlOf(v); rep.techs++; } else rep.unknown.add(label);
   }
-  reindexPlanets(S.planets, kept);
+  S.planets = kept;
   S.sample = false; S.lastImport = at;
   S.lastAlerts = rep.alerts.map(a=>String(a).replace(/[\p{Extended_Pictographic}\uFE0F]/gu,'').trim());
   save();
@@ -2907,7 +2931,7 @@ view.addEventListener('click', e=>{
     const [kind,a,b] = document.getElementById('tmWhat').value.split(':');
     const tm = {id:Math.random().toString(36).slice(2,8), kind, end:Date.now()+sec*1000, done:false};
     if(kind==='t'){ tm.k=a; tm.lvl=S.tech[a]+1; }
-    else if(kind==='b'){ tm.p=+a; tm.k=b; tm.lvl=S.planets[+a].b[b]+1; }
+    else if(kind==='b'){ const p=planetById(a); if(!p) return; tm.pid=a; tm.k=b; tm.lvl=p.b[b]+1; }
     else tm.k=a;
     S.timers.push(tm); save(); document.getElementById('tmLeft').value=''; renderTimers(); toast(`Minuteur lancé : ${clock(sec)}`);
   }
@@ -2971,18 +2995,18 @@ function applyGame(g){
     if(gp.stock && gp.stock.m != null && gp.stock.at !== p.stockGameAt){ p.stock = {...gp.stock}; p.stockGameAt = gp.stock.at; }
     kept.push(p);
   }
-  if(kept.length) reindexPlanets(S.planets, kept);
+  if(kept.length) S.planets = kept;
   S.timers = (S.timers || []).filter(t=>!t.game);
   for(const t of (g.timers || [])){
     const tm = {id:'g'+t.end+(t.techId||t.type)+(t.planetId||''), game:true, queue:t.type, end:t.end*1000, done:t.end*1000 <= Date.now()};
     const pi = S.planets.findIndex(p=>p.gid===t.planetId);
     if(OG_TECH[t.techId]){ tm.kind='t'; tm.k=OG_TECH[t.techId]; tm.lvl=S.tech[tm.k]+1; }
-    else if(OG_BUILD[t.techId] && pi>=0){ tm.kind='b'; tm.p=pi; tm.k=OG_BUILD[t.techId]; tm.lvl=S.planets[pi].b[tm.k]+1; }
+    else if(OG_BUILD[t.techId] && pi>=0){ tm.kind='b'; tm.pid=S.planets[pi].id; tm.k=OG_BUILD[t.techId]; tm.lvl=S.planets[pi].b[tm.k]+1; }
     else if(t.type==='fleet'){ tm.kind='x'; tm.k = /exp/i.test(t.label) ? 'expo' : 'fleet'; tm.label = t.label; }
-    else { tm.kind='x'; tm.k = t.type==='shipyard' ? 'shipyard' : 'other'; tm.p = pi; tm.label = t.label + (pi>=0 && S.planets.length>1 ? ` · ${S.planets[pi].name}` : ''); }
+    else { tm.kind='x'; tm.k = t.type==='shipyard' ? 'shipyard' : 'other'; tm.pid = (S.planets[pi]||{}).id; tm.label = t.label + (pi>=0 && S.planets.length>1 ? ` · ${S.planets[pi].name}` : ''); }
     S.timers.push(tm);
   }
-  S.timers = S.timers.filter(t=>t.game || !t.manual || !S.timers.some(g=>g.game && !g.done && g.kind===t.kind && g.k===t.k && (g.kind!=='b' || g.p===t.p)));
+  S.timers = S.timers.filter(t=>t.game || !t.manual || !S.timers.some(g=>g.game && !g.done && g.kind===t.kind && g.k===t.k && (g.kind!=='b' || g.pid===t.pid)));
   S.moves = g.moves || [];
   if(g.artefacts != null) S.artefacts = g.artefacts;
   if(g.slots) S.slots = g.slots;
