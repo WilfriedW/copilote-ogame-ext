@@ -932,6 +932,15 @@ t('sans rien à dire, pas de bande', () => {
   assert.equal(runPage({ skin: { hints: {}, rates: {}, lean: false } }).bande, null);
 });
 
+t('une feuille de style laissée par l\'ancienne version est remplacée', () => {
+  // Recharger l'extension sans recharger la page réinjecte le script : le JS
+  // est neuf, le <style> de la version d'avant est toujours là. Laisser
+  // l'ancien, c'était des éléments neufs sans aucun style.
+  const r = runPage({ skin: BANDE, vieuxStyle: '.copilote-eta{color:red}' });
+  assert.ok(/copilote-bande/.test(r.styleTxt), 'la feuille porte les règles de cette version');
+  assert.equal(r.styles, 1, 'une seule feuille, pas deux');
+});
+
 t('le témoin dit si la bande a trouvé où se poser', () => {
   assert.ok(/bande=3/.test(runPage({ skin: BANDE }).dataset.copilote));
   const vide = { ...BANDE, band: { ici: {}, encours: [], afaire: [], alerte: null } };

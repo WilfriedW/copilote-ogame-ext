@@ -572,8 +572,18 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
 .copilote-bande .cb-l{display:block;color:#8aa9ff;text-decoration:none;font-weight:700}
 .copilote-bande .cb-l:hover{color:#c3d4ff}`;
 
+  /* Recharger l'extension sans recharger la page réinjecte ce script : le code
+     est neuf, mais le <style> posé par la version d'avant est toujours dans la
+     page. Le garder laissait les éléments neufs sans aucune règle — une barre
+     et une bande en texte brut. On repose donc la feuille une fois par vie du
+     script, en retirant celle qu'on trouve. */
+  let styleFait = false;
+
   function paint() {
-    if (!document.getElementById('copilote-style')) {
+    if (!styleFait) {
+      styleFait = true;
+      const vieille = document.getElementById('copilote-style');
+      if (vieille) vieille.remove();
       const st = document.createElement('style');
       st.id = 'copilote-style';
       st.textContent = STYLE + '\n' + LEAN;

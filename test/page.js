@@ -65,7 +65,7 @@ function el(tag, attrs = {}) {
  * @returns {object} { html, eta, dataset }
  */
 function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], details = true,
-  search = '?page=ingame&component=research', tiles = [] }) {
+  search = '?page=ingame&component=research', tiles = [], vieuxStyle = null }) {
   const html = el('html');
   const head = el('head');
   const body = el('body');
@@ -89,6 +89,14 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     const ul = el('ul');
     tuiles.forEach(li => ul.appendChild(li));
     body.appendChild(ul);
+  }
+
+  /* Une feuille de style laissée par une version précédente du script : c'est
+     ce que trouve la réinjection qui suit une mise à jour de l'extension. */
+  if (vieuxStyle != null) {
+    const vieux = el('style', { id: 'copilote-style' });
+    vieux.textContent = vieuxStyle;
+    head.appendChild(vieux);
   }
 
   // La colonne du jeu : c'est en bas d'elle que la bande se pose.
@@ -217,7 +225,9 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
       clics.forEach(fn => fn({ target: li }));
     },
     dataset: html.dataset,
-    styleInjected: !!document.getElementById('copilote-style')
+    styleInjected: !!document.getElementById('copilote-style'),
+    styleTxt: (document.getElementById('copilote-style') || {}).textContent || '',
+    styles: head.children.filter(c => c.id === 'copilote-style').length
   };
 }
 
