@@ -2950,6 +2950,16 @@ t('chaque planète chargée a son lot, et la carte du soir les nomme tous', () =
   assert.ok(m.how.some(h => /Puis depuis Colonie/.test(h)), 'le second lot n\'est pas dit : ' + JSON.stringify(m.how));
 });
 
+t('un nom de planète ne peut pas injecter de balise dans les étapes', () => {
+  // taskHtml pose les lignes de `how` telles quelles dans innerHTML, pour que
+  // le <b> voulu rende ; un nom de planète vient de la page du jeu.
+  const g = nue(s => { s.planets[0].name = '<img src=x onerror=alert(1)>'; });
+  const m = g.dailyMissions().find(x => /^cargo-split/.test(x.id));
+  const how = m.how.join(' ');
+  assert.ok(!/<img/.test(how), 'la balise passe telle quelle : ' + how);
+  assert.match(how, /&lt;img/, 'le nom est échappé : ' + how);
+});
+
 t('soute suffisante partout : aucune carte de répartition', () => {
   const g = app(s => { relie(s); s.planets[0].ships = { lc: 40 }; s.planets[1].ships = { lc: 10 }; });
   assert.deepEqual(g.cargoGaps(), []);
