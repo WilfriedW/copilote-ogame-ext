@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.33.0';
+const APP_VERSION = '1.34.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -94,6 +94,17 @@ function sample(){
     colo:{from:0, objective:'balanced', bonus:0, target:'', kit:'std', tr:'sc', built:false, fields:'', fpos:''},
   };
 }
+/* Le chantier sort trois choses qui ne se rangent pas au même endroit : des
+   vaisseaux, des foreuses que production() compte à part, et de la défense dont
+   on ne garde que le total. Chaque file le réinventait ; un seul endroit le dit,
+   sinon un lot de lanceurs finit dans p.ships et ne défend rien. */
+function addBuilt(p, ships){
+  for(const [k,n] of Object.entries(ships||{})){
+    if(k==='crawl') p.crawlers=(p.crawlers||0)+n;
+    else if(k==='rl') p.def=(p.def||0)+n;
+    else { p.ships=p.ships||{}; p.ships[k]=(p.ships[k]||0)+n; }
+  }
+}
 function newPlanet(name, coords, tmax, b){
   const lv = Object.fromEntries(Object.keys(B).map(k=>[k,0]));
   return {id:Math.random().toString(36).slice(2,9), name, coords, tmax, b:Object.assign(lv,b||{}), sats:0, stock:{m:500,c:500,d:0,at:Date.now()}};
@@ -163,11 +174,11 @@ function qHtml(q){
 }
 /* Le copilote n'ouvre que des pages du jeu : il ne remplit aucun formulaire,
    ne clique sur rien et ne lance rien à ta place. Un lien, pas un robot. */
-const GO_KIND = {t:'research', ship:'shipyard', shipbuild:'shipyard', sats:'shipyard',
+const GO_KIND = {t:'research', ship:'shipyard', shipbuild:'shipyard', sats:'shipyard', def:'defenses',
   transfer:'fleetdispatch', fleet:'fleetdispatch', expo:'fleetdispatch', raid:'galaxy'};
 const GO_MISSION = {lfb:'lfbuildings', lfr:'lfresearch', artefacts:'lfresearch',
   discovery:'galaxy', raid:'galaxy', inactive:'galaxy', 'raid-go':'galaxy', 'colo-taken':'galaxy',
-  expomax:'research', expocargo:'shipyard', fleetslots:'movement', 'colo-fly':'movement', 'colo-eval':'overview', night:'fleetdispatch'};
+  expomax:'research', expocargo:'shipyard', fleetslots:'movement', 'colo-fly':'movement', 'colo-eval':'overview', night:'fleetdispatch', defseen:'defenses'};
 /* Les bâtiments se répartissent sur deux pages ; les hangars sont côté Ressources. */
 const GO_FACILITIES = new Set(['robot','shipyard','lab','nanite']);
 
@@ -844,7 +855,7 @@ function finishTimer(tm){
   if(tm.kind==='t' && S.tech[tm.k] < tm.lvl) S.tech[tm.k] = tm.lvl;
   if(tm.kind==='x' && tm.k==='colship') S.colo.built = true;
   if(tm.kind==='x' && tm.k==='sats' && S.planets[tm.p] && !tm.game) S.planets[tm.p].sats += tm.n||0;
-  if(tm.kind==='x' && tm.k==='shipyard' && tm.ships && S.planets[tm.p] && !tm.game){ const pl=S.planets[tm.p]; pl.ships=pl.ships||{}; for(const [k,n] of Object.entries(tm.ships)){ if(k==='crawl') pl.crawlers=(pl.crawlers||0)+n; else pl.ships[k]=(pl.ships[k]||0)+n; } }
+  if(tm.kind==='x' && tm.k==='shipyard' && tm.ships && S.planets[tm.p] && !tm.game) addBuilt(S.planets[tm.p], tm.ships);
   if(tm.kind==='b'){ const p=S.planets[tm.p]; if(p && p.b[tm.k] < tm.lvl) p.b[tm.k] = tm.lvl; }
   save(); chime(); flashTitle(timerLabel(tm));
   const extHandles = tm.game && window.chrome && chrome.runtime && chrome.runtime.id;
@@ -1021,8 +1032,9 @@ function expoFleet(avail){
   const ships = {}; if(lc) ships.lc=lc; if(sc) ships.sc=sc; if(pf) ships.pf=1; if((avail.pr||0)>0) ships.pr=1;
   return {ships, cap, cargo: lc*lcC + sc*scC + (pf?shipStats('pf').cargoEff:0)};
 }
-const SHIP_PLURAL = {crawl:'foreuses', sc:'petits transporteurs', lc:'grands transporteurs', pf:'éclaireurs', lf:'chasseurs légers', hf:'chasseurs lourds', cr:'croiseurs', bs:'vaisseaux de bataille', bc:'traqueurs', bb:'bombardiers', ds:'destructeurs', rp:'faucheurs', rec:'recycleurs', col:'vaisseaux de colonisation', pr:"sondes d'espionnage"};
-function shipList(ships){ return Object.entries(ships||{}).filter(([,n])=>n>0).map(([k,n])=>`${n} ${n>1 || !SHIPS[k] ? SHIP_PLURAL[k] : SHIPS[k].n.toLowerCase()}`).join(', '); }
+const SHIP_PLURAL = {rl:'lanceurs de missiles', crawl:'foreuses', sc:'petits transporteurs', lc:'grands transporteurs', pf:'éclaireurs', lf:'chasseurs légers', hf:'chasseurs lourds', cr:'croiseurs', bs:'vaisseaux de bataille', bc:'traqueurs', bb:'bombardiers', ds:'destructeurs', rp:'faucheurs', rec:'recycleurs', col:'vaisseaux de colonisation', pr:"sondes d'espionnage"};
+const SHIP_ONE = {rl:'lanceur de missiles', crawl:'foreuse'};
+function shipList(ships){ return Object.entries(ships||{}).filter(([,n])=>n>0).map(([k,n])=>`${n} ${n>1 ? SHIP_PLURAL[k] : SHIPS[k] ? SHIPS[k].n.toLowerCase() : SHIP_ONE[k] || SHIP_PLURAL[k]}`).join(', '); }
 
 /* ---------- daily planner ---------- */
 /* Ce que chaque recherche rapporte, en une proposition qui se compose : « …, qui
@@ -1294,7 +1306,7 @@ function simulateDay(){
     else if(t.kind==='b' && P[t.p]){ const p=P[t.p]; p.bq=Math.max(p.bq,t.end); p.bqKey=t.k; busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.b[t.k]=Math.max(p.b[t.k],t.lvl); }}); }
     else if(t.kind==='x' && t.k==='expo'){ expoBusy.push(t.end); busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[t.p]){ const p=P[t.p]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
     else if(t.kind==='x' && t.k==='fleet'){ busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[t.p]){ const p=P[t.p]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
-    else if(t.kind==='x' && (t.k==='shipyard' || t.queue==='shipyard') && P[t.p]){ const p=P[t.p]; p.sq=Math.max(p.sq,t.end); busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); if(t.manual && t.ships) sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); }
+    else if(t.kind==='x' && (t.k==='shipyard' || t.queue==='shipyard') && P[t.p]){ const p=P[t.p]; p.sq=Math.max(p.sq,t.end); busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); if(t.manual && t.ships) sim.ev.push({at:t.end, fn:()=>addBuilt(p, t.ships)}); }
     else if(t.kind==='x' && (t.queue==='lfbuilding' || t.queue==='lfresearch') && P[t.p]){ const p=P[t.p]; p.lfq[t.queue]=Math.max(p.lfq[t.queue],t.end); busy.push({q:'Forme de vie · '+planetRef(p), what:timerLabel(t), end:t.end}); }
     else if(t.kind==='x' && t.k==='sats' && P[t.p]){ const p=P[t.p]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
     else if(t.kind==='x' && t.k==='colship'){ const p=P[+S.colo.from]||P[0]; p.sq=t.end; sim.colShip=true; sim.colReady=t.end; busy.push({q:'Chantier spatial', what:'Vaisseau de colonisation', end:t.end}); }
@@ -1534,7 +1546,7 @@ function simulateDay(){
       // de l'empire, une colonie pour ses propres transporteurs.
       for(const p of P){
         const estHub = p === hubP;
-        if(p.b.shipyard>=2 && p.sq<=Tm){
+        if(p.b.shipyard>=1 && p.sq<=Tm){
           const total = k=>P.reduce((a,q)=>a+(q.ships[k]||0),0) + (sim.away[k]||0);
           const pr = P.reduce((a,q)=>{ const r=production(q); return a+mse(r.m,r.c,r.d); },0);
           const cap = expoFind(total('pf')>0);
@@ -1567,6 +1579,24 @@ function simulateDay(){
               wants.unshift({k:big, n:miss, why:`Transporteurs à demeure : cette colonie rapatrie sans attendre une flotte venue d'ailleurs`});
             }
           }
+          /* La défense n'entrait jamais dans le plan : mines, transporteurs,
+             satellites, et une planète pleine restait une ferme gratuite. Elle
+             passe par le même chantier et la même file que les vaisseaux, donc
+             par les mêmes wants : ce qui la rendait absente, c'est qu'aucun ne
+             la demandait.
+             Aucune défense du tout passe devant tout le reste — c'est le cas où
+             le raid est gratuit pour l'attaquant. Au-dessus de zéro elle se
+             complète en dernier, avec ce que le chantier a de libre.
+             def valant null, la page Défense n'a jamais été lue : proposer
+             reviendrait à doubler ce qui existe déjà. dailyMissions le réclame. */
+          if(p.def != null && shipReqOk('rl',p)){
+            const cible = defTarget(p), manque = cible - p.def;
+            if(manque > 0){
+              const w = {k:'rl', n:p.def ? Math.max(1, Math.ceil(manque/4)) : manque,
+                why:p.def ? `Défense à ${p.def} sur ${cible} lanceurs visés : de quoi valoir la moitié d'une nuit de production` : `Aucune défense : le premier pilleur repart avec la moitié de ton stock sans rien perdre. ${cible} lanceurs visés.`};
+              p.def ? wants.push(w) : wants.unshift(w);
+            }
+          }
           const res = reserveOf(p,Tm).map((x,j)=>x+softRes(p)[j]);
           for(const w of wants){
             const c = SHIP_COST[w.k], afford = Math.min(...c.map((x,j)=>x>0 ? Math.floor((p.st[j]-res[j])/x) : Infinity));
@@ -1574,8 +1604,9 @@ function simulateDay(){
             const cost = c.map(x=>x*n), d = shipTime(w.k,n,p), k=w.k;
             // La foreuse se compte à part, comme le fait la lecture du jeu :
             // production() et rankUpgrades() lisent p.crawlers, jamais la flotte.
-            pay(p,cost); p.sq = Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ if(k==='crawl') p.crawlers=(p.crawlers||0)+n; else p.ships[k]=(p.ships[k]||0)+n; }});
-            acts.push({q:'Chantier spatial · '+planetRef(p), what:'Construire '+shipList({[k]:n}), why:w.why, cost, dur:d, end:Tm+d, kind:'shipbuild', ships:{[k]:n}, p:p.i});
+            pay(p,cost); p.sq = Tm+d; sim.ev.push({at:Tm+d, fn:()=>addBuilt(p, {[k]:n})});
+            const estDef = k==='rl';
+            acts.push({q:(estDef?'Défense · ':'Chantier spatial · ')+planetRef(p), what:'Construire '+shipList({[k]:n}), why:w.why, cost, dur:d, end:Tm+d, kind:estDef?'def':'shipbuild', ships:{[k]:n}, p:p.i});
             break;
           }
         }
@@ -1601,7 +1632,7 @@ function copyChips(a){
   // Ce que le lien fait remplir par le jeu n'a pas à être retapé ; les
   // ressources, elles, restent à saisir à la main.
   if(!fleetUrl(a)){
-    for(const [k,n] of Object.entries((a && a.ships) || {})) if(n>0) out.push([SHIPS[k] ? SHIPS[k].n : k, String(n)]);
+    for(const [k,n] of Object.entries((a && a.ships) || {})) if(n>0) out.push([SHIPS[k] ? SHIPS[k].n : SHIP_PLURAL[k] || k, String(n)]);
     const c = a && a.dest ? parseC(a.dest) : null;
     if(c) [['galaxie',c[0]],['système',c[1]],['position',c[2]]].forEach(x=>out.push([x[0], String(x[1])]));
   }
@@ -1930,6 +1961,15 @@ function dailyMissions(){
     lfCard('lfbuilding', 'lfb', 'de bâtiment', 'les bâtiments de forme de vie');
     lfCard('lfresearch', 'lfr', 'de recherche', 'les recherches de forme de vie');
   }
+  /* Tant que la page Défense n'a pas été ouverte une fois, def vaut null et le
+     copilote ignore ce qui protège la planète : il ne peut ni compléter la
+     défense sans doubler ce qui existe, ni trancher entre satellites et
+     centrale. Un clic contre un raid. */
+  const aveugles = S.planets.filter(p=>p.def == null && p.b.shipyard>=1);
+  if(aveugles.length) out.push({id:'defseen', q:'Sécurité', every:24, sev:'warn',
+    what:aveugles.length>1 ? `Ouvrir la page Défense (${aveugles.length} planètes)` : `Ouvrir la page Défense sur ${planetRef(aveugles[0])}`,
+    why:`Sans elle, le copilote ne sait pas ce qui te protège : il ne propose ni défense ni satellites. Une planète sans défense rend la moitié de son stock au premier pilleur, et lui ne perd rien.`,
+    how:['Ouvre Défense sur chaque planète : le copilote lit le total au passage.', `Il ajoute ensuite les lanceurs manquants au plan, avec leur prix et leur durée.`]});
   const occ = API && API.planets ? occupied() : null;
   if(occ && parseC(S.colo.target) && occ.has(S.colo.target) && occ.get(S.colo.target)!==S.me && !colSentNow()){ const alt = colonyCandidates()[0]; out.unshift({id:'colo-taken', q:'Colonie', every:6, sev:'bad', coords:S.colo.target, what:`${S.colo.target} est déjà occupée`, why:alt?`Meilleure position libre proche : ${alt.coords} (${alt.bonus||'pas de bonus'}, ~${alt.fields} cases).`:'Choisis une autre position dans Outils › Cibles.', how:['Outils › Cibles › Où coloniser : clique sur Choisir pour changer la destination.']}); }
   // Chaque sonde occupe un emplacement de flotte jusqu'à son retour : en
@@ -1957,16 +1997,6 @@ function dailyMissions(){
       what:`Avant la nuit (${ns} h) : mettre tes ressources à l'abri`,
       why:'Une planète pleine pendant ton sommeil est une cible.',
       how:['Dépense tout ce que tu peux (files longues, satellites).', 'Envoie le reste avec tes transporteurs en mission longue (transport vers une colonie à vitesse 10 %, ou expédition).', 'Au réveil, rappelle ou récupère la flotte.']};
-    /* La mise à l'abri protège la flotte et ce qu'elle emporte, pas les planètes
-       qu'elle laisse derrière : elles produisent huit heures de plus. Les nommer,
-       parce que c'est exactement ce que le pilleur d'inactifs vient chercher. */
-    const nuit = (+S.day.nightEnd - +S.day.nightStart + 24) % 24 || 8;
-    const exposees = S.planets.map(p=>{
-      const pr = production(p), st = stockNow(p);
-      const fin = [0,1,2].map(j=>Math.min(pr.cap[j], st[j] + [pr.m,pr.c,pr.d][j]*nuit));
-      return {p, eq: mse(fin[0], fin[1], fin[2])};
-    }).filter(x=>x.eq > 50000).sort((a,b)=>b.eq-a.eq);
-    if(exposees.length) m.how.push(`Resteront exposés au matin : ${exposees.map(x=>`${esc(planetRef(x.p))} (~${fmt(x.eq)} éq.)`).join(', ')}. Une défense minimale dissuade les pilleurs d'inactifs.`);
     if(fs){
       m.what = `Avant la nuit (${ns} h) : envoie ${shipList(fs.ships)} vers ${fs.dest}`;
       m.ships = fs.ships; m.dest = fs.dest; m.p = S.planets.indexOf(fs.from);
@@ -1978,6 +2008,16 @@ function dailyMissions(){
         `Règle la vitesse sur ${fs.pct} % — c'est la seule chose que le lien ne prépare pas. La flotte rentre vers ${hm(fs.back)}, après ton réveil. Coût : ${fmt(fs.fuel)} deutérium.`
       ];
     }
+    /* La mise à l'abri protège la flotte et ce qu'elle emporte, pas les planètes
+       qu'elle laisse derrière : elles produisent huit heures de plus. Les nommer,
+       parce que c'est exactement ce que le pilleur d'inactifs vient chercher. */
+    const nuit = (+S.day.nightEnd - +S.day.nightStart + 24) % 24 || 8;
+    const exposees = S.planets.map(p=>{
+      const pr = production(p), st = stockNow(p);
+      const fin = [0,1,2].map(j=>Math.min(pr.cap[j], st[j] + [pr.m,pr.c,pr.d][j]*nuit));
+      return {p, eq: mse(fin[0], fin[1], fin[2])};
+    }).filter(x=>x.eq > 50000).sort((a,b)=>b.eq-a.eq);
+    if(exposees.length) m.how.push(`Resteront exposés au matin : ${exposees.map(x=>`${esc(planetRef(x.p))} (~${fmt(x.eq)} éq.)`).join(', ')}. ${exposees[0].p.def == null ? 'Ouvre la page Défense pour que le plan monte ce qu\'il faut de lanceurs.' : `Le plan monte ${esc(planetRef(exposees[0].p))} à ${defTarget(exposees[0].p)} lanceurs : à ce prix-là, percer coûte plus cher qu'emporter.`}`);
     out.push(m);
   }
   /* Les files vides relevées par le dernier import de la Vue empire. Le garde
@@ -2050,10 +2090,35 @@ function exploreSystems(){
 }
 
 /* ---------- fleet building, roles, raids ---------- */
-const SHIP_COST = {sc:[2000,2000,0], lc:[6000,6000,0], pr:[0,1000,0], pf:[8000,15000,8000], crawl:CRAWLER_COST};
-const SHIP_REQ = {sc:{b:{shipyard:2}, t:{combustion:2}}, lc:{b:{shipyard:4}, t:{combustion:6}}, pr:{b:{shipyard:3}, t:{combustion:3, espionage:2}}, pf:{b:{shipyard:5}, t:{hyperdrive:2}}, crawl:{b:{shipyard:5}, t:{combustion:4, armour:4}}};
+/* Le lanceur de missiles, et lui seul : métal pur, aucune recherche, le moins
+   cher au point de bouclier. Les lasers et au-dessus demandent des technologies
+   que le joueur n'a pas encore le jour où on vient le farmer.
+   ponytail: on ne lit que le TOTAL des unités de défense, pas leur type, donc le
+   compte existant est rapporté en lanceurs ; relever les identifiants 400-499 un
+   par un dans content.js le jour où quelqu'un monte des lasers. */
+const DEF_COST = [2000,0,0];
+const SHIP_COST = {sc:[2000,2000,0], lc:[6000,6000,0], pr:[0,1000,0], pf:[8000,15000,8000], crawl:CRAWLER_COST, rl:DEF_COST};
+const SHIP_REQ = {sc:{b:{shipyard:2}, t:{combustion:2}}, lc:{b:{shipyard:4}, t:{combustion:6}}, pr:{b:{shipyard:3}, t:{combustion:3, espionage:2}}, pf:{b:{shipyard:5}, t:{hyperdrive:2}}, crawl:{b:{shipyard:5}, t:{combustion:4, armour:4}}, rl:{b:{shipyard:1}, t:{}}};
 function shipReqOk(k, p){ const r = SHIP_REQ[k]; return Object.entries(r.b).every(([b,l])=>p.b[b]>=l) && Object.entries(r.t).every(([t,l])=>S.tech[t]>=l); }
 function shipTime(k, n, p){ const c = SHIP_COST[k]; return n*(c[0]+c[1])/(2500*(1+p.b.shipyard)*Math.pow(2,p.b.nanite)*S.settings.eco)*3600; }
+/**
+ * Combien de lanceurs cette planète mérite.
+ * Ce que le pilleur d'inactifs vient chercher, c'est la production accumulée
+ * pendant la plus longue absence de la journée — la nuit — et il en emporte la
+ * moitié. Une défense qui vaut cette moitié-là lui coûte plus cher à percer
+ * qu'elle ne rapporte : il passe à la planète suivante. Contre une vraie flotte
+ * elle ne tient pas, rien ne tient, et c'est la mise à l'abri qui sert.
+ * La cible suit donc la production, pas le stock : un stock se vide, une mine
+ * continue de remplir.
+ * @param {object} p planète
+ * @returns {number} nombre de lanceurs de missiles visés
+ */
+function defTarget(p){
+  const nuit = (+S.day.nightEnd - +S.day.nightStart + 24) % 24 || 8;
+  const pr = production(p);
+  const butin = mse(pr.m, pr.c, pr.d) * nuit / 2;
+  return Math.ceil(butin / mse(...DEF_COST));
+}
 const ROLES = {hub:'Centre (recherche, flotte)', mines:'Mines', deut:'Deutérium', crystal:'Cristal et énergie'};
 function hubIndex(){ let best=0; S.planets.forEach((p,i)=>{ if(p.b.lab+p.b.shipyard > S.planets[best].b.lab+S.planets[best].b.shipyard) best=i; }); return best; }
 function autoRole(p, i){ if(i===hubIndex()) return 'hub'; const pos=(parseC(p.coords)||[])[2]||8; return pos>=13 ? 'deut' : pos<=3 ? 'crystal' : 'mines'; }
@@ -2582,7 +2647,7 @@ view.addEventListener('click', e=>{
     const a = JSON.parse(la.dataset.launch), tm = {id:Math.random().toString(36).slice(2,8), manual:true, end:Date.now()+a.dur*1000, done:false};
     if(a.kind==='t'){ tm.kind='t'; tm.k=a.k; tm.lvl=a.lvl; }
     else if(a.kind==='b'){ tm.kind='b'; tm.p=a.p; tm.k=a.k; tm.lvl=a.lvl; }
-    else if(a.kind==='shipbuild'){ tm.kind='x'; tm.k='shipyard'; tm.ships=a.ships; tm.p=a.p; tm.label=a.what; }
+    else if(a.kind==='shipbuild' || a.kind==='def'){ tm.kind='x'; tm.k='shipyard'; tm.ships=a.ships; tm.p=a.p; tm.label=a.what; }
     else if(a.kind==='transfer' || a.kind==='raid'){ tm.kind='x'; tm.k='fleet'; tm.ships=a.ships; tm.p=a.p; tm.label=a.kind==='raid' ? `Retour du pillage ${a.coords}` : 'Arrivée du rapatriement'; }
     else if(a.kind==='expo'){ tm.kind='x'; tm.k='expo'; tm.ships=a.ships; tm.p=a.p; tm.label="Retour d'expédition"; }
     else if(a.kind==='sats'){ tm.kind='x'; tm.k='sats'; tm.n=a.n; tm.p=a.p; tm.label=a.what; }

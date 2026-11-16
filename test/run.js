@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -2826,6 +2826,63 @@ t('mines à 100 %, rien à dire', () => {
   g.S.prod = { colo1: Object.assign(g.parseProdPanel(PANNEAU_CARIBOU), { at: SOIR }) };
   assert.equal(g.bridage(p), null);
   assert.ok(!g.planetAlerts(p).some(x => /mines/i.test(x.what)));
+});
+
+/* ---------- défense ---------- */
+/* Ce qui manquait : le plan ne proposait jamais de défense, et une planète
+   pleine restait une ferme gratuite. On vérifie les trois états de p.def :
+   jamais lu, lu à zéro, lu au-dessus de la cible. */
+
+/** Planète mère riche, chantier libre de la colonie, avec le total donné. */
+function defense(def) {
+  const g = app(s => {
+    relie(s);
+    s.colo.built = true;
+    const p = s.planets[0];
+    if (def != null) p.def = def;
+    p.stock = { m: 5e6, c: 2e6, d: 1e6, at: SOIR };
+    p.ships = { lc: 50, sc: 20, pr: 10 };
+  });
+  const plan = g.simulateDay();
+  const acts = plan.sessions.flatMap(x => x.acts);
+  return { g, acts, act: acts.find(a => a.kind === 'def') };
+}
+
+t('page Défense jamais ouverte : rien n\'est proposé, mais on la réclame', () => {
+  const { g, act } = defense(null);
+  assert.equal(act, undefined, 'sans lecture, proposer doublerait ce qui existe');
+  const m = g.dailyMissions().find(x => x.id === 'defseen');
+  assert.ok(m, 'la carte réclamant la page manque');
+  assert.match(g.missionGo(m), /component=defenses/, 'la carte mène à la page Défense');
+});
+
+t('aucune défense : des lanceurs entrent dans le plan, sur la page Défense', () => {
+  const { g, acts, act } = defense(0);
+  assert.ok(act, 'aucune défense proposée : ' + JSON.stringify(acts.map(a => a.what)));
+  assert.ok(act.ships.rl > 0, 'des lanceurs de missiles');
+  assert.equal(act.cost[0], act.ships.rl * 2000, 'métal seul, 2 000 par lanceur');
+  assert.equal(act.cost[1] + act.cost[2], 0);
+  assert.match(act.what, /lanceurs de missiles/, 'nommés en clair : ' + act.what);
+  assert.match(g.actGo(act), /component=defenses/, 'le lien ouvre la page Défense');
+  assert.match(act.q, /^Défense · /, 'rangé sous Défense : ' + act.q);
+  assert.ok(!g.dailyMissions().some(x => x.id === 'defseen'), 'la page est lue, plus rien à réclamer');
+});
+
+t('zéro défense passe devant le reste du chantier', () => {
+  const { acts } = defense(0);
+  const q = acts.map(a => a.q);
+  const iDef = q.findIndex(x => /^Défense/.test(x)), iSh = q.findIndex(x => /^Chantier/.test(x));
+  if (iSh >= 0) assert.ok(iDef < iSh, 'le raid est gratuit, la défense d\'abord : ' + q.join(' | '));
+});
+
+t('la cible suit la production, et une défense suffisante se tait', () => {
+  const g = app(relie);
+  const cible = g.defTarget(g.S.planets[0]);
+  assert.ok(cible > 0, 'une planète qui produit mérite une défense');
+  assert.equal(defense(cible * 3).act, undefined, 'la cible dépassée, on arrête');
+  const { act } = defense(cible - 50);
+  assert.ok(act, 'sous la cible, le plan complète');
+  assert.match(act.why, /sur \d+ lanceurs visés/, 'la cible est chiffrée : ' + act.why);
 });
 
 if (failures.length) {
