@@ -489,7 +489,11 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
      sur la page ouverte, et la tournée de la tuile en main.
      Elle se pose au-dessus des tuiles quand la page en a, et en bas de la
      colonne sinon : une bande à la fois, là où les yeux sont. */
-  let poses = 0;
+  /* La bande que ce script a posée, et aucune autre : on ne la retrouve pas par
+     sa classe. Une page d'alliance affiche du contenu écrit par d'autres
+     joueurs, et réécrire — ou retirer — un élément de la page parce qu'il porte
+     le même nom que le nôtre serait à la fois faux et grossier. */
+  let laBande = null, poses = 0, bandeErr = '';
 
   function peintBande() {
     const comp = new URLSearchParams(location.search).get('component') || '';
@@ -498,8 +502,12 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     const premiere = document.querySelector('li.technology[data-technology]');
     const liste = premiere && premiere.parentNode;
     const hote = liste ? liste.parentNode : document.getElementById('middle');
-    const vieille = document.querySelector('.copilote-bande');
-    if (!hote || (!lignes.length && !pins.length)) { if (vieille) vieille.remove(); return; }
+    const vieille = laBande && laBande.parentNode === hote ? laBande : null;
+    if (!hote || (!lignes.length && !pins.length)) {
+      if (vieille) vieille.remove();
+      laBande = null;
+      return;
+    }
     // ce qu'on veut afficher, zone par zone
     const voulu = [];
     if (lignes.length) voulu.push(['ici', 'à faire sur cette page', lignes.map(l => ({
@@ -523,7 +531,10 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     const forme = JSON.stringify(voulu.map(([n, , l]) => [n, l.map(x => x.href)]));
     const cle = JSON.stringify(voulu);
     if (vieille && vieille.dataset.cle === cle) return;
-    if (vieille && vieille.dataset.forme === forme) {
+    // même forme : on réécrit en place, à condition que la bande soit bien celle
+    // qu'on croit — sinon on la repose plutôt que d'écrire à l'aveugle
+    if (vieille && vieille.dataset.forme === forme
+        && voulu.every(([, , l], i) => vieille.children[i] && vieille.children[i].children.length === l.length)) {
       vieille.dataset.cle = cle;
       voulu.forEach(([, , l], i) => {
         const z = vieille.children[i];
@@ -559,6 +570,7 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
       }
     }
     if (liste) hote.insertBefore(hud, liste); else hote.appendChild(hud);
+    laBande = hud;
   }
 
   const STYLE = `li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-offset:2px;border-radius:4px}
@@ -639,7 +651,9 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
       li.appendChild(tag);
     }
     paintEta();
-    peintBande();
+    /* Le témoin se lit après : une anomalie de la page ne doit pas emporter le
+       seul moyen de savoir ce qui s'est passé. */
+    try { peintBande(); bandeErr = ''; } catch (e) { bandeErr = String((e && e.message) || e).slice(0, 60); }
     // Témoin lisible depuis la console de la page : le script vit dans un
     // monde isolé, donc ses variables y sont invisibles. L'heure dit s'il
     // tourne encore, le reste dit ce qu'il a reçu du panneau.
@@ -659,7 +673,8 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
       'tournee=' + (tuileEnMain() || '-') + ':' + Object.keys(tour).length,
       // `sans-middle` : la colonne du jeu n'a pas été trouvée, la bande n'a
       // nulle part où se poser ; `rien` : elle n'a rien à dire.
-      'bande=' + (!document.getElementById('middle') ? 'sans-middle'
+      'bande=' + (bandeErr ? 'erreur ' + bandeErr
+        : !document.getElementById('middle') ? 'sans-middle'
         : !document.querySelector('.copilote-bande') ? 'rien'
         : (((band || {}).pages || {})[new URLSearchParams(location.search).get('component') || ''] || []).length
           + ':' + pastilles().length

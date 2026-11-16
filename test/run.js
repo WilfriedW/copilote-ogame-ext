@@ -972,6 +972,15 @@ t('une planète qui entre dans la tournée repose la bande', () => {
   assert.equal(p.read().tour.length, 2);
 });
 
+t('un élément de la page qui porte notre classe n\'est ni réécrit ni retiré', () => {
+  // Les pages d'alliance affichent du contenu écrit par d'autres joueurs : la
+  // bande ne se retrouve donc pas par sa classe, mais par ce que ce script a
+  // posé lui-même.
+  const r = runPage({ skin: BANDE, search: '?page=ingame&component=galaxy', intruse: true });
+  assert.equal(r.bandes, 2, 'l\'intruse est restée, la nôtre s\'est ajoutée');
+  assert.deepEqual(r.bande.ici.map(x => x.txt), ['Espionner 1:140:6']);
+});
+
 t('une secousse ne duplique pas la bande', () => {
   const p = runPage({ skin: BANDE, search: '?page=ingame&component=galaxy' });
   p.secousse();

@@ -65,7 +65,7 @@ function el(tag, attrs = {}) {
  * @returns {object} { html, eta, dataset }
  */
 function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], details = true,
-  search = '?page=ingame&component=research', tiles = [], vieuxStyle = null }) {
+  search = '?page=ingame&component=research', tiles = [], vieuxStyle = null, intruse = false }) {
   const html = el('html');
   const head = el('head');
   const body = el('body');
@@ -103,6 +103,10 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   const milieu = el('div', { id: 'middle' });
   body.appendChild(milieu);
 
+  /* Un élément de la page qui porte la même classe que la nôtre : sur une page
+     d'alliance, le contenu vient d'autres joueurs. */
+  if (intruse) milieu.appendChild(el('div', { className: 'copilote-bande' }));
+
   const byId = { ...res, middle: milieu };
   if (det) byId.technologydetails = det;
 
@@ -110,7 +114,10 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   /* La bande se pose au-dessus des tuiles quand la page en a, sinon en bas de
      la colonne : on la cherche aux deux endroits. */
   const estBande = c => c.className.split(' ').includes('copilote-bande');
-  const laBande = () => milieu.children.find(estBande) || body.children.find(estBande) || null;
+  // la nôtre se reconnaît à son compteur de poses
+  const estNotre = c => estBande(c) && c.dataset.pose;
+  const laBande = () => milieu.children.find(estNotre) || body.children.find(estNotre) || null;
+  const toutes = () => milieu.children.filter(estBande).length + body.children.filter(estBande).length;
 
   const routes = {
     'meta[name="ogame-planet-id"]': () => metaEl,
@@ -122,7 +129,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     '.information .level[data-value]': () => null,
     '.build_duration time[datetime]': () => null,
     'li.technology[data-technology]': () => tuiles,
-    '.copilote-bande': () => laBande() || null,
+    // comme un vrai navigateur : la première du document, intruse comprise
+    '.copilote-bande': () => milieu.children.find(estBande) || body.children.find(estBande) || null,
     '[data-end]': () => [],
     '[data-technology]': () => [],
     '[data-mission-type][data-arrival-time]': () => [],
@@ -204,6 +212,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     };
     return {
       poses: bande ? +bande.dataset.pose : 0,
+      bandes: toutes(),
       bande: bande ? { ici: zone('ici').map(x => ({ txt: x.textContent, href: x.href || null,
         why: x.title || '', grisee: x.className.split(' ').includes('copilote-gris') })) } : null,
       tour: zone('tour').map(x => ({
