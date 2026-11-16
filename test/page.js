@@ -114,7 +114,11 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   };
   const pick = (sel, all) => {
     if (!(sel in routes)) {
-      if (/^li\.technology\[data-technology="\d+"\]$/.test(sel)) return all ? [] : null;
+      const une = sel.match(/^li\.technology\[data-technology="(\d+)"\]$/);
+      if (une) {
+        const v = tuiles.filter(t => t.dataset.technology === une[1]);
+        return all ? v : v[0] || null;
+      }
       // les autres balises meta du jeu : absentes de ce faux DOM
       if (/^meta\[name="ogame-/.test(sel)) return all ? [] : null;
       throw new Error('sélecteur non prévu par le faux DOM : ' + sel);

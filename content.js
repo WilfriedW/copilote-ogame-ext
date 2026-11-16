@@ -395,11 +395,23 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
      ouvrant une tuile, donc l'URL ne le dit pas — seul le clic le dit. */
   let tuileVue = '';
 
-  /** La tuile dont le joueur fait le tour, ou '' quand il n'en ouvre aucune.
+  /* Sans tuile ouverte, la tournée part de ce que le copilote conseille ici :
+     il entoure déjà une tuile sur chaque planète. La barre est donc là dès
+     l'arrivée sur la page, et elle dit « voilà ce que je conseille ici, et
+     voilà où ça en est ailleurs ». Un conseil qui n'est pas sur la page
+     ouverte ne compte pas : son lien ne mènerait nulle part. */
+  function tuileConseillee() {
+    const want = hints[meta('planet-id')] || {};
+    return Object.keys(want).find(id =>
+      /^\d+$/.test(id) && document.querySelector('li.technology[data-technology="' + id + '"]')) || '';
+  }
+
+  /** La tuile dont le joueur fait le tour, ou '' quand il n'y en a aucune.
       Un clic passe devant l'`openTech` de l'arrivée : il est plus récent, et
-      c'est bien la tuile que le joueur regarde. */
+      c'est bien la tuile que le joueur regarde. Le conseil vient en dernier :
+      c'est un défaut, pas un choix du joueur. */
   function tuileEnMain() {
-    const t = tuileVue || new URLSearchParams(location.search).get('openTech');
+    const t = tuileVue || new URLSearchParams(location.search).get('openTech') || tuileConseillee();
     return /^\d+$/.test(String(t || '')) ? String(t) : '';
   }
 
@@ -442,11 +454,18 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
       // lit aujourd'hui, même quand la file finit demain.
       if (fin > maintenant) etat = 'file ' + hms((fin - maintenant) / 1000);
       else if (Array.isArray(c)) {
-        // La plus grosse ressource manquante suffit : c'est elle qui fait attendre.
-        let pire = 0, j = -1;
-        c.forEach((x, i) => { const m = x - (st[i] || 0); if (m > pire) { pire = m; j = i; } });
+        // La plus grosse ressource manquante suffit à nommer ce qui bloque ;
+        // le délai, lui, est celui de la dernière à tomber.
+        let pire = 0, j = -1, eta = 0;
+        c.forEach((x, i) => {
+          const m = x - (st[i] || 0);
+          if (m > pire) { pire = m; j = i; }
+          const e = etaSecs(m, debit[i] || 0);
+          if (e > eta) eta = e;
+        });
         // Un prix que le panneau ne connaît pas ne fait manquer personne.
-        if (j >= 0) etat = 'manque ' + qte(pire) + ' ' + RES_NOMS[j];
+        if (j >= 0) etat = 'manque ' + qte(pire) + ' ' + RES_NOMS[j] + ' · '
+          + (isFinite(eta) ? 'payable dans ' + hms(eta) : 'hors de portée');
       }
       // Un niveau inconnu se dit : écrire 0 enverrait monter ce qui est déjà là.
       return { g, ici: g === ici, gris: !!etat,

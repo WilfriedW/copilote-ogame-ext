@@ -841,6 +841,49 @@ t('le témoin dit la tuile en main et le nombre de planètes reçues', () => {
   assert.ok(/tournee=-:3/.test(sansTuile.dataset.copilote), sansTuile.dataset.copilote);
 });
 
+t('sans tuile ouverte, la barre suit celle que le copilote conseille', () => {
+  const conseil = { ...TOUR, hints: { '33657643': { '21': 5 } } };
+  const r = runPage({ skin: conseil, tiles: ['21'], search: '?page=ingame&component=facilities' });
+  assert.equal(r.tour.length, 3, 'la barre est là dès l\'arrivée sur la page');
+});
+
+t('un conseil qui n\'est pas sur cette page n\'ouvre pas de tournée', () => {
+  // Le copilote conseille la mine de métal, qui vit sur Ressources : sur
+  // Installations, un lien vers cette tuile ne mènerait nulle part.
+  const ailleurs = { ...TOUR, hints: { '33657643': { '1': 9 } } };
+  const r = runPage({ skin: ailleurs, tiles: ['21'], search: '?page=ingame&component=facilities' });
+  assert.deepEqual(r.tour, []);
+});
+
+t('une tuile ouverte l\'emporte sur le conseil', () => {
+  const conseil = { ...TOUR, hints: { '33657643': { '21': 5 } },
+    tour: { ...TOUR.tour, '102': { ...TOUR.tour['102'], b: { '21': 2, '1': 7 } },
+      '33657643': { ...TOUR.tour['33657643'], b: { '21': 4, '1': 9 } } } };
+  const p = runPage({ skin: conseil, tiles: ['21', '1'], search: '?page=ingame&component=facilities' });
+  assert.equal(p.read().tour.length, 3);
+  p.clic('1');
+  assert.equal(pins(p.read().tour)['Colonie'].txt, 'Colonie · 7 → 8');
+});
+
+t('une pastille dit quand la planète pourra payer', () => {
+  const lent = { hints: {}, rates: { '102': [1000, 0, 0] }, lean: false, tour: {
+    '33657643': TOUR.tour['33657643'],
+    '102': { n: 'Colonie', b: { '21': 2 }, cost: { '21': [3000, 0, 0] }, bq: 0, lfq: 0, st: [0, 0, 0] }
+  } };
+  const p = pins(runPage({ ...ARRIVEE, skin: lent }).tour)['Colonie'];
+  assert.ok(/manque/.test(p.txt) && /payable dans 3h/.test(p.txt), p.txt);
+});
+
+t('sans production connue, la planète se dit hors de portée', () => {
+  const mort = { hints: {}, rates: {}, lean: false, tour: {
+    '33657643': TOUR.tour['33657643'],
+    '102': { n: 'Colonie', b: { '21': 2 }, cost: { '21': [3000, 0, 0] }, bq: 0, lfq: 0, st: [0, 0, 0] }
+  } };
+  const p = pins(runPage({ ...ARRIVEE, skin: mort }).tour)['Colonie'];
+  assert.ok(/hors de portée/.test(p.txt), p.txt);
+  assert.ok(!/payable/.test(p.txt), p.txt);
+});
+
 t('une tournée mal formée ne casse pas la surcouche', () => {
   const casse = { ...TOUR, tour: { ...TOUR.tour, '104': null,
     '105': { n: 'X', b: { '21': 1 }, cost: { '21': 'beaucoup' }, bq: 0, lfq: 0, st: [0, 0, 0] } } };
