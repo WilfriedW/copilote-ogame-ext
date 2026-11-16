@@ -2449,6 +2449,17 @@ t('un prix lu porte l\'heure de sa lecture', () => {
   assert.ok(/[Pp]rix lu à/.test(g.actHtml(a, false)));
 });
 
+/* Le ⓘ vit sur la ligne du type, son texte sous la carte : si les deux cessent
+   de porter le même identifiant, le bouton n'ouvre plus rien et rien ne crie. */
+t('le ⓘ ouvre bien son propre texte', () => {
+  const g = app();
+  const a = g.simulateDay().sessions[0].acts.find(x => x.why);
+  const h = g.actHtml(a, false);
+  const btn = h.match(/aria-controls="(why\d+)"/), txt = h.match(/<div class="why" id="(why\d+)"/);
+  assert.ok(btn && txt, 'le ⓘ et son texte sont tous les deux posés');
+  assert.equal(btn[1], txt[1], 'le bouton pointe sur son propre texte');
+});
+
 t('le prix qu\'on vient d\'ouvrir porte aussi son heure de lecture', () => {
   const g = avecGid();
   ouvre(g, 11101, 5, [1000, 500, 0], 60);

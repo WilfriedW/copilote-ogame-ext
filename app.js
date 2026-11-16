@@ -1689,21 +1689,27 @@ function copyChips(a){
    reste — pourquoi cette action, d'où viennent les chiffres, ce que le lien
    fait vraiment — se lit à la demande derrière le ⓘ. Ces phrases restent
    vraies et atteignables ; les empiler sur la carte les rendait illisibles.
-   `summary` est déjà exclu du clic qui ouvre le jeu : le ⓘ ne navigue pas. */
-function whyHtml(parts){
+   Le ⓘ se pose sur la ligne du type de carte, son texte s'ouvre sous la carte :
+   un <details> ne sait pas séparer son résumé de son corps, d'où ce repli à la
+   main. `button` est déjà exclu du clic qui ouvre le jeu : le ⓘ ne navigue pas. */
+let whyN = 0;
+/** @returns {string[]} [le bouton ⓘ, le texte replié] — vides s'il n'y a rien à dire. */
+function whyParts(parts){
   const p = parts.filter(Boolean);
-  if(!p.length) return '';
-  return `<details class="why"><summary aria-label="Pourquoi cette action">ⓘ</summary>${p.map(x=>`<p>${esc(x)}</p>`).join('')}</details>`;
+  if(!p.length) return ['', ''];
+  const id = 'why' + (++whyN);
+  return [`<button class="i" type="button" aria-expanded="false" aria-controls="${id}" aria-label="Pourquoi cette action">ⓘ</button>`,
+    `<div class="why" id="${id}" hidden>${p.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`];
 }
 function actHtml(a, withBtn){
-  const why = whyHtml([a.why,
+  const [wi, wb] = whyParts([a.why,
     a.src==='estimé' ? 'Prix et durée estimés d\'après les niveaux déjà vus, pas lus sur le jeu ; la durée est probablement sous-estimée.' : a.src==='lu' && a.at ? `Prix lu à ${hm(a.at)}.` : '',
     goNote(a)]);
-  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', why, copyChips(a)].filter(Boolean).join('');
+  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', copyChips(a)].filter(Boolean).join('');
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,pid:(S.planets[a.p]||{}).id,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
-  return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}</div><div class="w">${esc(a.what)}</div></div>${btn||'<span></span>'}<div class="m">${m}</div></li>`;
+  return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div></div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
 }
 
 /* ---------- mise à l'abri ---------- */
@@ -2593,7 +2599,10 @@ today(){
   for(const m of timed){ let host = null; for(const x of plan.sessions) if(x.T <= m.at) host = x; if(host && host!==s0){ if(!slotMs.has(host)) slotMs.set(host, []); slotMs.get(host).push(m); } else m.at = 0; }
   const nowMs = missions.filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
   const infoMs = missions.filter(m=>m.info);
-  const taskHtml = m=>`<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}</div><div class="w">${esc(m.what)}</div></div><button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button><div class="m">${(m.tags||[]).map(planetTag).join('')}${whyHtml([m.why])}${copyChips(m)}</div><details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
+  const taskHtml = m=>{
+    const [wi, wb] = whyParts([m.why]), meta = (m.tags||[]).map(planetTag).join('') + copyChips(m);
+    return `<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${esc(m.what)}</div></div><button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
+  };
   if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${s0.acts.map(a=>actHtml(a,true)).join('')}${nowMs.map(taskHtml).join('')}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
@@ -2829,6 +2838,13 @@ view.addEventListener('click', e=>{
   }
 });
 view.addEventListener('click', e=>{
+  // Le ⓘ de la ligne du type ouvre son texte, posé plus bas dans la carte.
+  const wq = e.target.closest('button.i');
+  if(wq){
+    const body = document.getElementById(wq.getAttribute('aria-controls'));
+    if(body){ body.hidden = !body.hidden; wq.setAttribute('aria-expanded', String(!body.hidden)); }
+    return;
+  }
   const cp = e.target.closest('[data-copy]');
   if(cp){
     const v = cp.dataset.copy;
