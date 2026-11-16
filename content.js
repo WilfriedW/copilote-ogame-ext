@@ -250,7 +250,7 @@
   /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On
      n'ajoute qu'une classe et une étiquette inerte : rien n'est cliqué, rien
      n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
-  let hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {};
+  let hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {};
   /* Chaque règle vise un bloc nommé, repéré sur la page, et ne fait que le
      masquer. Elles ne s'appliquent que si le joueur a coché « Épurer », et
      décocher les retire toutes d'un coup. */
@@ -489,6 +489,56 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     }
   }
 
+  /* La bande du bas. Le panneau dit déjà tout ce qu'elle porte, mais il faut
+     l'ouvrir et quitter la page des yeux ; la bande le pose là où le joueur
+     est, sur toutes les pages — y compris celles sans tuile, Galaxie ou
+     Flotte, où la barre de tournée n'a rien à dire.
+     Trois zones : ce que le plan conseille ici, ce qui tourne déjà, ce qui
+     reste à faire aujourd'hui avec l'alerte la plus grave. Rien n'est calculé
+     ici : le panneau a tout fait, la page affiche. */
+  const hhmm = ms => new Date(ms).toTimeString().slice(0, 5);
+
+  function peintBande() {
+    const hote = document.getElementById('middle');
+    const vieille = document.querySelector('.copilote-bande');
+    const ici = (band.ici || {})[meta('planet-id')];
+    const encours = band.encours || [], afaire = band.afaire || [], alerte = band.alerte;
+    if (!hote || (!ici && !encours.length && !afaire.length && !alerte)) {
+      if (vieille) vieille.remove();
+      return;
+    }
+    // [nom, titre, [[texte, genre, lien?], …]] — « f » fort, « n » note,
+    // « l » lien, « a » alerte.
+    const zones = [
+      ['ici', 'ici', ici ? [[ici.what, 'f'], [ici.why, 'n']].filter(x => x[0])
+        : [['Rien à lancer ici', 'n']]],
+      ['encours', 'en cours', encours.length
+        ? encours.map(x => [x.what + ' · fin ' + hhmm(x.end), 'n'])
+        : [['Rien en construction', 'n']]],
+      ['afaire', 'à faire', afaire.map(x => [x.what, 'l', x.url])
+        .concat(alerte ? [[alerte.what, 'a']] : [])]
+    ];
+    const cle = JSON.stringify(zones);
+    if (vieille && vieille.dataset.cle === cle) return;
+    if (vieille) vieille.remove();
+    const hud = hote.appendChild(document.createElement('div'));
+    hud.className = 'copilote-bande';
+    hud.dataset.cle = cle;
+    for (const [nom, titre, lignes] of zones) {
+      const z = hud.appendChild(document.createElement('div'));
+      z.className = 'copilote-zone';
+      z.dataset.zone = nom;
+      // le titre se dessine en CSS : ce n'est pas une ligne de la zone
+      z.dataset.titre = titre;
+      for (const [txt, genre, url] of lignes) {
+        const n = z.appendChild(document.createElement(genre === 'l' && url ? 'a' : 'div'));
+        n.className = 'cb-' + genre;
+        n.textContent = txt;
+        if (genre === 'l' && url) n.href = url;
+      }
+    }
+  }
+
   const STYLE = `li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-offset:2px;border-radius:4px}
 .copilote-tag{position:absolute;top:3px;right:3px;z-index:5;pointer-events:none;max-width:calc(100% - 6px);
 overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
@@ -507,7 +557,20 @@ background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55)}
 color:#0c1120;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shadow:none}
 .copilote-pin:hover{background:#c3d4ff;color:#0c1120}
 .copilote-pin.copilote-ici{background:transparent;color:#e4edff;box-shadow:inset 0 0 0 1px #8aa9ff}
-.copilote-pin.copilote-gris{opacity:.55}`;
+.copilote-pin.copilote-gris{opacity:.55}
+.copilote-bande{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;
+margin:10px 0 18px;padding:10px 12px;border:1px solid rgba(138,169,255,.45);
+border-left:3px solid #8aa9ff;background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55);
+font:400 12px/1.6 Arial,sans-serif;color:#e4edff;text-shadow:none}
+.copilote-zone{min-width:0}
+.copilote-zone + .copilote-zone{border-left:1px solid rgba(138,169,255,.18);padding-left:14px}
+.copilote-zone::before{content:attr(data-titre);display:block;margin-bottom:4px;
+font-size:11px;letter-spacing:.08em;color:#8aa9ff}
+.copilote-bande .cb-f{font-weight:700;color:#e4edff}
+.copilote-bande .cb-n{color:#9fb2d4}
+.copilote-bande .cb-a{color:#f0997b}
+.copilote-bande .cb-l{display:block;color:#8aa9ff;text-decoration:none;font-weight:700}
+.copilote-bande .cb-l:hover{color:#c3d4ff}`;
 
   function paint() {
     if (!document.getElementById('copilote-style')) {
@@ -539,6 +602,7 @@ color:#0c1120;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shado
     }
     paintEta();
     peintTour();
+    peintBande();
     // Témoin lisible depuis la console de la page : le script vit dans un
     // monde isolé, donc ses variables y sont invisibles. L'heure dit s'il
     // tourne encore, le reste dit ce qu'il a reçu du panneau.
@@ -556,6 +620,10 @@ color:#0c1120;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shado
          aucune tuile n'est ouverte, ou moins de deux planètes connaissent son
          niveau. Le témoin dit les deux premières d'un coup d'œil. */
       'tournee=' + (tuileEnMain() || '-') + ':' + Object.keys(tour).length,
+      // `sans-middle` : la colonne du jeu n'a pas été trouvée, la bande n'a
+      // nulle part où se poser ; `rien` : elle n'a rien à dire.
+      'bande=' + (!document.getElementById('middle') ? 'sans-middle'
+        : (document.querySelector('.copilote-bande') || { children: [] }).children.length || 'rien'),
       'ici=' + meta('planet-id'),
       'epure=' + (lean ? 1 : 0)
     ].join(' ');
@@ -569,6 +637,7 @@ color:#0c1120;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shado
       cargo = (skin && skin.cargo) || null;
       lean = !!(skin && skin.lean);
       tour = (skin && skin.tour) || {};
+      band = (skin && skin.band) || {};
     };
     chrome.storage.local.get('skin', v => { take(v && v.skin); paint(); });
     chrome.storage.onChanged.addListener((ch, area) => {

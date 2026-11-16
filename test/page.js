@@ -91,7 +91,11 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     body.appendChild(ul);
   }
 
-  const byId = { ...res };
+  // La colonne du jeu : c'est en bas d'elle que la bande se pose.
+  const milieu = el('div', { id: 'middle' });
+  body.appendChild(milieu);
+
+  const byId = { ...res, middle: milieu };
   if (det) byId.technologydetails = det;
 
   // Sélecteurs exacts employés par content.js, et ce que la vraie page y répond.
@@ -106,6 +110,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     '.build_duration time[datetime]': () => null,
     'li.technology[data-technology]': () => tuiles,
     '.copilote-tour': () => body.children.find(c => c.className.split(' ').includes('copilote-tour')) || null,
+    '.copilote-bande': () => milieu.children.find(c => c.className.split(' ').includes('copilote-bande')) || null,
     '[data-end]': () => [],
     '[data-technology]': () => [],
     '[data-mission-type][data-arrival-time]': () => [],
@@ -179,7 +184,13 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     const eta = det ? det.children.find(c => c.className === 'copilote-eta') : null;
     const lien = eta ? eta.children.find(c => c.tagName === 'A') : null;
     const barre = body.children.find(c => c.className.split(' ').includes('copilote-tour'));
+    const bande = milieu.children.find(c => c.className.split(' ').includes('copilote-bande'));
+    const zone = n => {
+      const z = bande && bande.children.find(c => c.dataset.zone === n);
+      return z ? z.children.map(x => ({ txt: x.textContent, href: x.href || null })) : [];
+    };
     return {
+      bande: bande ? { ici: zone('ici'), encours: zone('encours'), afaire: zone('afaire') } : null,
       tour: barre ? barre.children.map(x => ({
         txt: x.textContent,
         href: x.href || null,

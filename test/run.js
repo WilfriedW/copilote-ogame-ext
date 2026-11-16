@@ -891,6 +891,59 @@ t('une tournée mal formée ne casse pas la surcouche', () => {
   assert.ok(/ici=33657643/.test(r.dataset.copilote), 'la peinture va jusqu\'au bout');
 });
 
+/* ---------- la bande du bas ---------- */
+
+const BANDE = { hints: {}, rates: {}, lean: false, tour: {}, band: {
+  ici: { '33657643': { what: 'Laboratoire 8', why: 'Débloque la recherche suivante' } },
+  encours: [{ what: 'Mine de métal 10 · Caribou Land', end: new Date(2026, 10, 16, 18, 17).getTime() }],
+  afaire: [{ what: 'Espionner 1:140:6', url: '/game/index.php?page=ingame&component=galaxy' }],
+  alerte: { what: 'Hangar de métal plein · Wesh land', why: 'La production est perdue.', sev: 'bad' }
+} };
+
+t('la bande pose les trois zones en bas de la colonne du jeu', () => {
+  const b = runPage({ skin: BANDE }).bande;
+  assert.deepEqual(b.ici.map(x => x.txt), ['Laboratoire 8', 'Débloque la recherche suivante']);
+  assert.deepEqual(b.encours.map(x => x.txt), ['Mine de métal 10 · Caribou Land · fin 18:17']);
+  assert.equal(b.afaire[0].txt, 'Espionner 1:140:6');
+  assert.equal(b.afaire[0].href, '/game/index.php?page=ingame&component=galaxy');
+});
+
+t('l\'alerte la plus grave se lit dans la bande', () => {
+  const b = runPage({ skin: BANDE }).bande;
+  assert.equal(b.afaire[1].txt, 'Hangar de métal plein · Wesh land');
+  assert.equal(b.afaire[1].href, null, 'une alerte n\'est pas un lien');
+});
+
+t('la bande est là sur une page sans tuile', () => {
+  // Galaxie, Flotte, Vue d'ensemble : pas de tuile, donc pas de barre — c'est
+  // justement là que la bande vaut le plus.
+  const b = runPage({ skin: BANDE, search: '?page=ingame&component=galaxy' }).bande;
+  assert.equal(b.encours.length, 1);
+});
+
+t('sur une planète sans conseil, la zone « ici » se tait au lieu de mentir', () => {
+  const b = runPage({ skin: BANDE, planetId: '999' }).bande;
+  assert.deepEqual(b.ici.map(x => x.txt), ['Rien à lancer ici']);
+});
+
+t('sans rien à dire, pas de bande', () => {
+  const vide = { ...BANDE, band: { ici: {}, encours: [], afaire: [], alerte: null } };
+  assert.equal(runPage({ skin: vide }).bande, null);
+  assert.equal(runPage({ skin: { hints: {}, rates: {}, lean: false } }).bande, null);
+});
+
+t('le témoin dit si la bande a trouvé où se poser', () => {
+  assert.ok(/bande=3/.test(runPage({ skin: BANDE }).dataset.copilote));
+  const vide = { ...BANDE, band: { ici: {}, encours: [], afaire: [], alerte: null } };
+  assert.ok(/bande=rien/.test(runPage({ skin: vide }).dataset.copilote));
+});
+
+t('une secousse ne duplique pas la bande', () => {
+  const p = runPage({ skin: BANDE });
+  p.secousse();
+  assert.equal(p.read().bande.encours.length, 1);
+});
+
 /* ---------- ouvrir la bonne page du jeu ---------- */
 
 /** Un empire synchronisé : on connaît le serveur et l'identifiant des planètes. */
