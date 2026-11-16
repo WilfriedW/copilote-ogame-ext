@@ -31,14 +31,22 @@ t('sans transporteur à quai, rien à proposer', () => {
   assert.equal(g.fleetsavePlan(SOIR), null);
 });
 
-t('avec des transporteurs, la flotte, la destination et le retour sont nommés', () => {
-  const g = app(s => { s.planets[0].ships = { lc: 30, sc: 6 }; });
+/** Une colonie assez loin pour qu'un déploiement couvre la nuit. */
+const loin = s => { s.planets[1].coords = '1:260:6'; };
+
+t('avec des transporteurs, la flotte, la destination et l\'arrivée sont nommées', () => {
+  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30, sc: 6 }; });
   const fs = g.fleetsavePlan(SOIR);
   assert.ok(fs, 'un plan est proposé');
   assert.ok(fs.ships.lc > 0, 'des grands transporteurs sont choisis');
-  assert.equal(fs.dest, '1:142:6', 'vers l\'autre planète');
-  assert.equal(fs.mission, 'transport');
-  assert.ok(fs.back > REVEIL, 'la flotte rentre après le réveil');
+  assert.equal(fs.dest, '1:260:6', 'vers l\'autre planète');
+  // Le wiki : sans lune, le déploiement est la seule mise à l'abri sûre, parce
+  // qu'un déploiement rappelé est invisible à la phalange. Un Transporter se
+  // voit, et une fois le retour commencé il n'y a plus rien à faire.
+  assert.equal(fs.mission, 'deployment');
+  assert.ok(fs.oneWay, 'un déploiement ne vole qu\'à l\'aller');
+  assert.ok(fs.arrive === fs.back, 'il n\'y a pas de retour à attendre');
+  assert.ok(fs.arrive > REVEIL, 'la flotte se pose après le réveil, pour pouvoir être rappelée');
 });
 
 t('la soute embarque tout le stock quand elle le peut', () => {
@@ -47,16 +55,38 @@ t('la soute embarque tout le stock quand elle le peut', () => {
   assert.ok(fs.cargo >= fs.load, 'soute ' + fs.cargo + ' pour ' + fs.load + ' à sauver');
 });
 
-t('la vitesse retenue est la plus rapide qui tient jusqu\'au réveil', () => {
-  const g = app(s => { s.planets[0].ships = { lc: 30 }; });
+t('la vitesse retenue fait arriver après le réveil, et jamais à 100 %', () => {
+  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30 }; });
   const fs = g.fleetsavePlan(SOIR);
-  assert.ok(SOIR + 2 * g.flight('1:142:8', fs.dest, fs.ships, fs.pct).secs * 1000 > REVEIL,
-    'à ' + fs.pct + ' %, la flotte rentre après le réveil');
-  if (fs.pct < 100) {
-    const cran = fs.pct + 10;
-    assert.ok(SOIR + 2 * g.flight('1:142:8', fs.dest, fs.ships, cran).secs * 1000 <= REVEIL,
-      'à ' + cran + ' %, elle rentrerait trop tôt — donc ' + fs.pct + ' % est bien le plus rapide qui tient');
+  assert.ok(SOIR + g.flight('1:142:8', fs.dest, fs.ships, fs.pct).secs * 1000 > REVEIL,
+    'à ' + fs.pct + ' %, la flotte se pose après le réveil');
+  // « Avoid sending your fleets at 100% speed » : à 100 % le vol est le plus
+  // court connu, donc le plus facile à chronométrer.
+  assert.ok(fs.pct < 100, 'le cran 100 % est écarté, il est trop prévisible');
+});
+
+t('la vitesse ne reste pas la même tous les soirs', () => {
+  // « Avoid using the same speed each time you fleetsave. » Elle change avec le
+  // jour, et pas à chaque rafraîchissement : le plan ne doit pas se contredire
+  // dans la même journée.
+  const vu = new Set();
+  for (let j = 0; j < 6; j++) {
+    const soir = new Date(2026, 10, 8 + j, 22, 30, 0).getTime();
+    const g = app(s => { loin(s); s.planets[0].ships = { lc: 30 }; }, soir);
+    vu.add(g.fleetsavePlan(soir).pct);
   }
+  assert.ok(vu.size > 1, 'la même vitesse six soirs de suite : ' + [...vu]);
+  const soir = new Date(2026, 10, 8, 22, 30, 0).getTime();
+  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30 }; }, soir);
+  assert.equal(g.fleetsavePlan(soir).pct, g.fleetsavePlan(soir + 60000).pct,
+    'dans la même journée, la vitesse ne bouge pas');
+});
+
+t('le déploiement dit pourquoi, pas seulement quoi', () => {
+  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30 }; });
+  const how = g.dailyMissions().find(m => m.id === 'night').how.join(' ');
+  assert.match(how, /rappelle/i, 'le rappel est l\'intérêt de la méthode : ' + how);
+  assert.match(how, /phalange/i, 'et ce qu\'il évite');
 });
 
 /* ---------- quand se taire ---------- */
@@ -76,15 +106,31 @@ t('fenêtre de nuit dégénérée : pas de calcul, pas de boucle', () => {
 
 /* ---------- une seule planète ---------- */
 
-t('sans deuxième planète, la flotte part en expédition', () => {
+t('une seule planète mais une sonde : espionnage vers la position 16', () => {
+  // Deuxième méthode du wiki, et la seule qui ramène les ressources avec la
+  // flotte : rien ne se pose sur une planète qu'on laisserait exposée.
+  const g = app(s => {
+    s.planets = [s.planets[0]];
+    s.planets[0].ships = { lc: 20, pr: 1 };
+  });
+  const fs = g.fleetsavePlan(SOIR);
+  assert.ok(fs, 'un plan est proposé');
+  assert.equal(fs.mission, 'espionage');
+  assert.match(fs.dest, /^1:\d+:16$/, 'la position 16 d\'un système choisi sur le temps de vol');
+  assert.equal(fs.ships.pr, 1, 'la sonde part : sans elle le jeu refuse l\'ordre');
+  assert.ok(!fs.oneWay && fs.back > REVEIL, 'aller-retour, de retour après le réveil');
+});
+
+t('ni deuxième planète ni sonde : l\'expédition, en le disant', () => {
   const g = app(s => {
     s.planets = [s.planets[0]];
     s.planets[0].ships = { lc: 20 };
   });
   const fs = g.fleetsavePlan(SOIR);
-  assert.ok(fs, 'un plan est proposé quand même');
   assert.equal(fs.mission, 'expedition');
-  assert.equal(fs.dest, '1:142:16');
+  assert.match(fs.dest, /^1:\d+:16$/);
+  const how = g.dailyMissions().find(m => m.id === 'night').how.join(' ');
+  assert.match(how, /pis-aller/, 'le pis-aller est annoncé comme tel : ' + how);
 });
 
 /* ---------- ce que le joueur lit ---------- */
@@ -94,7 +140,17 @@ t('le rappel du soir nomme la flotte au lieu de rester vague', () => {
   const nuit = g.dailyMissions().find(m => m.id === 'night');
   assert.ok(nuit, 'le rappel existe le soir');
   assert.ok(/transporteur/.test(nuit.how.join(' ')), 'les étapes nomment la flotte');
-  assert.ok(/1:142:6/.test(nuit.how.join(' ')), 'et la destination');
+  assert.ok(/1:\d+:(6|16)\b/.test(nuit.how.join(' ')), 'et la destination : ' + nuit.how.join(' '));
+});
+
+t('ce que la flotte emporte n\'est plus compté comme exposé au matin', () => {
+  // Annoncer « resteront exposés : 237 k » juste après avoir dit de charger ces
+  // 237 k, c'est se contredire dans la même carte.
+  const pleine = g => g.dailyMissions().find(m => m.id === 'night').how.join(' ');
+  assert.ok(!/Resteront exposés/.test(pleine(app(s => { s.planets[0].ships = { lc: 30 }; }))),
+    'la soute suffit : il ne reste que la production de la nuit');
+  const court = pleine(app(s => { s.planets[0].ships = { lc: 1 }; }));
+  assert.match(court, /Resteront exposés/, 'un seul transporteur ne lève pas 198 000 : ' + court);
 });
 
 t('sans transporteur, le rappel reste utile mais générique', () => {
@@ -1184,12 +1240,13 @@ t('sans destination, le lien reste la simple page de flotte', () => {
 });
 
 t('la mise à l\'abri du soir ouvre aussi un formulaire préparé', () => {
-  const g = app(s => { relie(s); s.planets[0].ships = { lc: 30 }; });
+  const g = app(s => { relie(s); loin(s); s.planets[0].ships = { lc: 30 }; });
   const n = g.dailyMissions().find(m => m.id === 'night');
   assert.ok(n, 'le rappel du soir existe');
   const u = g.missionGo(n);
   assert.ok(/component=fleetdispatch/.test(u) && /am203=/.test(u), 'avec la flotte : ' + u);
-  assert.ok(/mission=3(&|$)/.test(u), 'en Transporter : ' + u);
+  assert.ok(/mission=4(&|$)/.test(u), 'en Stationner — le déploiement, seule mise à l\'abri sûre sans lune : ' + u);
+  assert.ok(/position=6(&|$)/.test(u), 'vers la colonie : ' + u);
 });
 
 t('le vaisseau de colonisation part en mission Coloniser', () => {

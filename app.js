@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.35.2';
+const APP_VERSION = '1.36.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1593,7 +1593,7 @@ function simulateDay(){
             const cible = defTarget(p), manque = cible - p.def;
             if(manque > 0){
               const w = {k:'rl', n:p.def ? Math.max(1, Math.ceil(manque/4)) : manque,
-                why:p.def ? `Défense à ${p.def} sur ${cible} lanceurs visés : de quoi valoir la moitié d'une nuit de production` : `Aucune défense : le premier pilleur repart avec la moitié de ton stock sans rien perdre. ${cible} lanceurs visés.`};
+                why:p.def ? `Défense à ${p.def} sur ${cible} lanceurs visés : de quoi valoir la moitié d'une nuit de production` : `Aucune défense : le premier pilleur repart avec la moitié de ton stock sans rien perdre. ${cible} lanceurs visés. Elle te rend non rentable, pas invulnérable : le stock, lui, se protège en vol.`};
               p.def ? wants.push(w) : wants.unshift(w);
             }
           }
@@ -1693,34 +1693,89 @@ function pickCargo(p, amount){
   return {ships, cargo};
 }
 
-/** La mise à l'abri d'une seule planète, avec ce qu'elle a sur place. */
+/* Codes de mission du jeu, et leur nom dans le client français. */
+const FS_MISSION = {deployment:4, espionage:6, expedition:15};
+const FS_MISSION_N = {deployment:'Stationner', espionage:'Espionner', expedition:'Expédition'};
+
+/**
+ * La mise à l'abri d'une seule planète, avec ce qu'elle a sur place.
+ *
+ * Le wiki OGame ne laisse pas le choix sur le seul cas que l'extension
+ * connaisse, celui du joueur sans lune : la seule mise à l'abri sûre est un
+ * DÉPLOIEMENT d'une de tes planètes vers une autre. Transport, recyclage et
+ * attaque se voient à la phalange, et dès que le retour commence il n'y a plus
+ * rien à faire ; un déploiement rappelé est la seule mission vers une planète
+ * qu'une phalange ne voie pas. L'extension proposait un Transporter, que le
+ * wiki range parmi les suicides.
+ *
+ * Un déploiement ne vole qu'à l'aller : la vitesse se cale donc pour qu'il
+ * ARRIVE après le réveil, et non pour qu'il revienne. Les ressources passent
+ * la nuit en vol et se posent quand le joueur est là pour les dépenser.
+ *
+ * Sans seconde planète : espionnage vers la position 16, aller-retour, les
+ * ressources reviennent avec la flotte — il y faut une sonde. À défaut une
+ * expédition, que le wiki ne compte pas parmi les mises à l'abri, mais qui
+ * vaut mieux que laisser le stock au sol.
+ *
+ * ponytail: pas de lune, pas de champ de débris, pas de portée de phalange —
+ * l'extension n'en lit aucun. Le déploiement de lune à lune, que le wiki met
+ * en tête, demanderait d'abord que le modèle connaisse les lunes.
+ */
 function fsFor(p, now, wake){
   const need = fsLoad(p);
   if(need < FS_MIN) return null;
   const {ships, cargo} = pickCargo(p, need);
   if(!Object.keys(ships).length) return null;
+  const c = parseC(p.coords); if(!c) return null;
 
-  // Vers une autre planète si tu en as une, sinon une expédition : elle garde
-  // la flotte en l'air aussi bien, et ne demande pas de destination amie.
-  const other = S.planets.find(q => q !== p && q.coords);
-  const c = parseC(p.coords);
-  const dest = other ? other.coords : (c ? `${c[0]}:${c[1]}:16` : null);
-  if(!dest) return null;
+  /* Les candidats, dans l'ordre de préférence du wiki : un déploiement vers une
+     de tes planètes d'abord, puis la position 16 d'un système choisi pour son
+     temps de vol — « choose the system according to flight time ». Le système
+     d'à côté ne suffit pas : entre deux planètes voisines, même à 10 %, un
+     déploiement se pose avant le réveil, et un aller-retour sur place garde la
+     flotte en l'air jusqu'au milieu de la matinée. */
+  const essais = [];
+  for(const q of S.planets) if(q !== p && q.coords) essais.push({mode:'deployment', dest:q.coords});
+  const rond = (p.ships||{}).pr > 0 ? 'espionage' : 'expedition';
+  for(const d of [0, 20, 50, 100, 200, 300]) essais.push({mode:rond, dest:`${c[0]}:${((c[1] - 1 + d) % 499) + 1}:16`});
 
-  let pct = null, back = null, fuel = 0;
-  for(const sp of FS_SPEEDS){
-    const fl = flight(p.coords, dest, ships, sp);
-    if(!fl) continue;
-    const b = now + 2*fl.secs*1000;
-    if(b > wake){ pct = sp; back = b; fuel = fl.fuel; break; }
+  /* Pour une destination donnée, plus lent veut dire plus tard : les crans qui
+     tiennent forment la fin de la liste. On s'arrête donc aux trois premiers,
+     ce qui borne aussi le nombre d'appels à flight(). */
+  const bons = [];
+  for(const e of essais){
+    const flotte = e.mode === 'espionage' ? Object.assign({pr:1}, ships) : ships;
+    const trajets = e.mode === 'deployment' ? 1 : 2;
+    const hold = e.mode === 'expedition' ? 3600e3 : 0;
+    let pris = 0;
+    for(const pct of FS_SPEEDS){
+      if(pct === 100 || pris >= 3) continue;   // 100 % : le vol le plus court, donc le plus facile à chronométrer
+      const fl = flight(p.coords, e.dest, flotte, pct); if(!fl) continue;
+      const fin = now + trajets*fl.secs*1000 + hold;
+      if(fin > wake){ bons.push({mode:e.mode, dest:e.dest, ships:flotte, pct, fl, fin, oneWay:trajets===1}); pris++; }
+    }
   }
-  if(back == null){
-    const fl = flight(p.coords, dest, ships, 10);
-    if(!fl) return null;
-    pct = 10; back = now + 2*fl.secs*1000; fuel = fl.fuel;
-  }
-  return {from:p, ships, dest, mission: other ? 'transport' : 'expedition',
-          pct, back, fuel, load: need, cargo};
+  if(!bons.length) return null;
+
+  /* On veut revenir le plus tôt possible APRÈS le réveil : plus tôt veut dire
+     moins de matinée sans flotte, et un système proche veut dire moins de
+     deutérium. Six heures de battement au-delà du réveil, sinon le « plus sûr »
+     devient une flotte indisponible toute la journée. */
+  const tot = x => x.fin;
+  const serre = bons.filter(x=>x.fin < wake + 6*3600e3);
+  const pool = serre.length ? serre : bons;
+  const dep = pool.filter(x=>x.mode==='deployment').sort((a,b)=>tot(a)-tot(b));
+  const alt = pool.filter(x=>x.mode!=='deployment').sort((a,b)=>tot(a)-tot(b));
+  /* Le déploiement d'abord dès qu'il tient : c'est le seul qui se rappelle, et
+     un déploiement rappelé est la seule mission vers une planète qu'une
+     phalange ne voie pas. Les autres, une fois le retour commencé, ne laissent
+     plus rien à faire. */
+  const choix = dep.length ? dep : alt;
+  // « Avoid using the same speed each time you fleetsave » : le cran change avec
+  // le jour, pas à chaque rafraîchissement, sinon le plan se contredirait.
+  const ch = choix[new Date(now).getDate() % Math.min(3, choix.length)];
+  return {from:p, ships:ch.ships, dest:ch.dest, mission:ch.mode, oneWay:ch.oneWay, pct:ch.pct,
+          arrive: now + ch.fl.secs*1000, back: ch.fin, fuel:ch.fl.fuel, load:need, cargo};
 }
 
 /**
@@ -2068,24 +2123,38 @@ function dailyMissions(){
       why:'Une planète pleine pendant ton sommeil est une cible.',
       how:['Dépense tout ce que tu peux (files longues, satellites).', 'Envoie le reste avec tes transporteurs en mission longue (transport vers une colonie à vitesse 10 %, ou expédition).', 'Au réveil, rappelle ou récupère la flotte.']};
     if(fs){
-      m.what = `Avant la nuit (${ns} h) : envoie ${shipList(fs.ships)} vers ${fs.dest}`;
+      m.what = `Avant la nuit (${ns} h) : envoie ${shipList(fs.ships)} en mission ${FS_MISSION_N[fs.mission]} vers ${fs.dest}`;
       m.ships = fs.ships; m.dest = fs.dest; m.p = S.planets.indexOf(fs.from);
-      m.mission = fs.mission === 'expedition' ? 15 : 3;
-      m.why = `${fmt(fs.load)} ressources à l'abri sur ${fs.from.name}. Une planète pleine pendant ton sommeil est une cible.`;
+      m.mission = FS_MISSION[fs.mission];
+      m.why = `${fmt(fs.load)} ressources à l'abri sur ${fs.from.name}. Une flotte en vol ne peut pas être détruite ; ce qui dort au sol se fait prendre.`;
       m.how = [
         'Dépense d\'abord ce que tu peux : lance une construction longue et une recherche.',
-        `Charge le reste dans ${shipList(fs.ships)} sur ${esc(fs.from.name)}, destination ${fs.dest}, mission ${fs.mission==='transport'?'Transporter':'Expédition'}.`,
-        `Règle la vitesse sur ${fs.pct} % — c'est la seule chose que le lien ne prépare pas. La flotte rentre vers ${hm(fs.back)}, après ton réveil. Coût : ${fmt(fs.fuel)} deutérium.`
+        `Charge <b>tout</b> le stock dans ${shipList(fs.ships)} sur ${esc(fs.from.name)}, destination ${esc(fs.dest)}, mission ${FS_MISSION_N[fs.mission]}. Ne laisse rien de valeur au sol.`,
+        `Règle la vitesse sur ${fs.pct} % — c'est la seule chose que le lien ne prépare pas, et elle change d'un jour à l'autre exprès : une routine se chronomètre. ${fs.oneWay ? `La flotte se pose vers ${hm(fs.arrive)}` : `La flotte rentre vers ${hm(fs.back)}`}, après ton réveil. Coût : ${fmt(fs.fuel)} deutérium.`
       ];
+      /* Le pourquoi de la méthode, et pas seulement le quoi : c'est lui qui
+         évite au joueur de « simplifier » en Transporter le soir où il est
+         pressé. */
+      if(fs.mission === 'deployment') m.how.push(`Sois en ligne <b>avant l'arrivée</b> : si une attaque se présente, <b>rappelle</b> le déploiement. Un déploiement rappelé est la seule mission vers une planète qu'une phalange ne voie pas — c'est ce qui en fait la seule mise à l'abri sûre tant que tu n'as pas de lune. Un Transporter, lui, se voit, et une fois le retour commencé tu ne peux plus rien.`);
+      else if(fs.mission === 'espionage') m.how.push(`La sonde fait la mission : sans elle le jeu refuse l'ordre. La flotte revient chargée, rien ne se pose ailleurs. Dès que tu auras une deuxième planète, le déploiement sera plus sûr : lui se rappelle.`);
+      else m.how.push(`L'expédition est un pis-aller : elle garde la flotte en l'air, mais peut te coûter des vaisseaux et le wiki ne la compte pas parmi les mises à l'abri. Garde une sonde au sol et tu pourras partir en Espionner vers la position 16 ; une deuxième planète te donnera le déploiement.`);
       for(const r of fs.rest||[]) m.how.push(`Puis depuis ${esc(planetRef(r.from))} : ${shipList(r.ships)} vers ${esc(r.dest)}, mission ${r.mission==='transport'?'Transporter':'Expédition'} à ${r.pct} %, chargés de ${fmt(Math.min(r.load, r.cargo))} — retour vers ${hm(r.back)}.`);
     }
     /* La mise à l'abri protège la flotte et ce qu'elle emporte, pas les planètes
        qu'elle laisse derrière : elles produisent huit heures de plus. Les nommer,
        parce que c'est exactement ce que le pilleur d'inactifs vient chercher. */
     const nuit = (+S.day.nightEnd - +S.day.nightStart + 24) % 24 || 8;
+    /* Ce que la mise à l'abri emporte ne reste pas exposé. Le compter quand
+       même annonçait au joueur qu'il laissait derrière lui le stock qu'on
+       venait de lui dire de charger : sur une planète vidée, il ne reste que
+       la production de la nuit. */
+    const emporte = new Map();
+    if(fs) for(const r of [fs].concat(fs.rest||[])) emporte.set(r.from, Math.min(r.load, r.cargo));
     const exposees = S.planets.map(p=>{
       const pr = production(p), st = stockNow(p);
-      const fin = [0,1,2].map(j=>Math.min(pr.cap[j], st[j] + [pr.m,pr.c,pr.d][j]*nuit));
+      const part = (emporte.get(p)||0) / Math.max(1, st[0]+st[1]+st[2]);
+      const reste = st.map(x=>x*Math.max(0, 1-part));
+      const fin = [0,1,2].map(j=>Math.min(pr.cap[j], reste[j] + [pr.m,pr.c,pr.d][j]*nuit));
       return {p, eq: mse(fin[0], fin[1], fin[2])};
     }).filter(x=>x.eq > 50000).sort((a,b)=>b.eq-a.eq);
     const trous = cargoGaps();
