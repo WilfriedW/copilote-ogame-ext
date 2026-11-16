@@ -3031,6 +3031,9 @@ function applyGame(g){
   }
   S.timers = S.timers.filter(t=>t.game || !t.manual || !S.timers.some(g=>g.game && !g.done && g.kind===t.kind && g.k===t.k && (g.kind!=='b' || g.pid===t.pid)));
   S.moves = g.moves || [];
+  /* Une sonde en vol vaut un « Fait » : la cible sort de la liste sans clic.
+     Mission 6 = espionnage ; le jeu la montre tant qu'elle n'est pas rentrée. */
+  for(const m of S.moves) if(m.mission===6 && !m.ret && m.dest) S.raids[m.dest] = {at:Date.now(), probe:true};
   if(g.artefacts != null) S.artefacts = g.artefacts;
   if(g.slots) S.slots = g.slots;
   if(g.prod && typeof g.prod === 'object'){

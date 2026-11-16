@@ -924,6 +924,13 @@ t('assez d\'emplacements : les trois cibles sont proposées', () => {
   assert.equal((m.what.match(/\d+:\d+:\d+/g) || []).length, 3, m.what);
 });
 
+t('une sonde en vol retire sa cible, sans cliquer sur Fait', () => {
+  const g = avecSlots(2, 8);
+  assert.ok(/1:140:6/.test(espionnage(g).what), 'elle est proposée au départ');
+  g.applyGame({ planets: {}, timers: [], moves: [{ mission: 6, ret: false, arrival: SOIR / 1000 + 600, origin: '1:140:1', dest: '1:140:6' }] });
+  assert.ok(!/1:140:6/.test(espionnage(g).what), 'sonde partie : la cible sort de la liste');
+});
+
 t('une cible espionnée hier ne revient pas aujourd\'hui', () => {
   const g = app(s => {
     s.me = 'moi';
