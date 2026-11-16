@@ -201,7 +201,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
       return z ? z.children : [];
     };
     return {
-      bande: bande ? { ici: zone('ici').map(x => ({ txt: x.textContent, href: x.href || null, why: x.title || '' })) } : null,
+      bande: bande ? { ici: zone('ici').map(x => ({ txt: x.textContent, href: x.href || null,
+        why: x.title || '', grisee: x.className.split(' ').includes('copilote-gris') })) } : null,
       tour: zone('tour').map(x => ({
         txt: x.textContent,
         href: x.href || null,

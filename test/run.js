@@ -907,6 +907,16 @@ t('la bande porte ce qui se fait sur la page ouverte', () => {
   assert.ok(b.ici[0].href);
 });
 
+t('une ligne qui attend ses ressources se grise et porte sa date', () => {
+  const att = { ...BANDE, band: { pages: { facilities: [{ what: 'Usine de robots 7',
+    ou: 'Caribou Land', quand: 'vers 16:40', why: 'Il manque 1 000 métal',
+    url: '/game/index.php?page=ingame&component=facilities&cp=101', gris: true }] } } };
+  const b = runPage({ skin: att, search: '?page=ingame&component=facilities' }).bande;
+  assert.equal(b.ici[0].txt, 'Usine de robots 7 · Caribou Land · vers 16:40');
+  assert.equal(b.ici[0].grisee, true, 'ce n\'est pas lançable maintenant');
+  assert.ok(b.ici[0].href, 'mais la page reste à un clic');
+});
+
 t('chaque page montre ses propres lignes', () => {
   const b = runPage({ skin: BANDE, search: '?page=ingame&component=galaxy' }).bande;
   assert.deepEqual(b.ici.map(x => x.txt), ['Espionner 1:140:6']);
@@ -1164,6 +1174,33 @@ t('quatre lignes au plus par page : au-delà, la bande redevient une liste', () 
   const acts = [1, 2, 3, 4, 5, 6].map(n => ({ kind: 'b', k: 'metal', lvl: n, p: 0,
     what: 'Mine de métal ' + n, q: 'Bâtiment · Planète mère' }));
   assert.equal(app(relie).gameSkin(acts).band.pages.supplies.length, 4);
+});
+
+t('ce que le plan attend faute de ressources se dit aussi, avec sa date', () => {
+  // Un empire dont rien n'est payable n'a aucune action lançable : sans les
+  // attentes, la bande serait vide sur toutes les pages.
+  const waits = [{ kind: 'b', k: 'metal', p: 1, q: 'Bâtiment · Colonie',
+    what: 'Mine de métal 9', eta: 3600, miss: [1000, 0, 0] }];
+  const l = app(relie).gameSkin([], [], waits).band.pages.supplies[0];
+  assert.equal(l.what, 'Mine de métal 9');
+  assert.equal(l.ou, 'Colonie');
+  assert.ok(/vers \d\d:\d\d/.test(l.quand), l.quand);
+  assert.equal(l.gris, true, 'une attente se grise : ce n\'est pas lançable');
+  assert.ok(/manque 1 ?000 métal/.test(l.why.replace(/\u202f|\u00a0/g, ' ')), l.why);
+});
+
+t('une attente que la production ne comblera pas se dit à livrer', () => {
+  const waits = [{ kind: 'b', k: 'metal', p: 1, q: 'Bâtiment · Colonie',
+    what: 'Mine de métal 9', eta: Infinity, miss: [1000, 0, 0] }];
+  assert.equal(app(relie).gameSkin([], [], waits).band.pages.supplies[0].quand, 'à faire livrer');
+});
+
+t('le lançable passe devant ce qui attend', () => {
+  const acts = [{ kind: 'b', k: 'metal', lvl: 9, p: 0, what: 'Mine de métal 9', q: 'Bâtiment · Mère' }];
+  const waits = [{ kind: 'b', k: 'crystal', p: 1, q: 'Bâtiment · Colonie',
+    what: 'Mine de cristal 8', eta: 3600, miss: [0, 500, 0] }];
+  const pages = app(relie).gameSkin(acts, [], waits).band.pages;
+  assert.deepEqual(pages.supplies.map(l => l.what), ['Mine de métal 9', 'Mine de cristal 8']);
 });
 
 t('sans action ni mission, aucune page n\'a de ligne', () => {

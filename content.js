@@ -507,8 +507,10 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
       const z = zone('ici', 'à faire sur cette page');
       for (const l of lignes) {
         const n = z.appendChild(document.createElement(l.url ? 'a' : 'div'));
-        n.className = 'cb-l';
-        n.textContent = l.what + (l.ou ? ' · ' + l.ou : '');
+        // grisée quand le plan ne peut pas encore la payer : un état, pas une
+        // interdiction — la page reste à un clic
+        n.className = 'cb-l' + (l.gris ? ' copilote-gris' : '');
+        n.textContent = l.what + (l.ou ? ' · ' + l.ou : '') + (l.quand ? ' · ' + l.quand : '');
         // le pourquoi tient dans l'infobulle : quatre lignes de raisons
         // rendraient la bande illisible, et elle se lit d'un coup d'œil
         if (l.why) n.title = l.why;
@@ -546,6 +548,7 @@ color:#0c1120;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shado
 .copilote-pin:hover{background:#c3d4ff;color:#0c1120}
 .copilote-pin.copilote-ici{background:transparent;color:#e4edff;box-shadow:inset 0 0 0 1px #8aa9ff}
 .copilote-pin.copilote-gris{opacity:.55}
+.copilote-bande .cb-l.copilote-gris{opacity:.6;font-weight:400}
 .copilote-bande{display:flex;flex-wrap:wrap;gap:14px;
 margin:10px 0 18px;padding:10px 12px;border:1px solid rgba(138,169,255,.45);
 border-left:3px solid #8aa9ff;background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55);

@@ -561,30 +561,42 @@ function donorsOf(){
  * Le rangement se lit dans les liens que le plan produit déjà : une action qui
  * ouvre `component=defenses` est une action de la page Défense. Rien à tenir à
  * jour quand une action nouvelle apparaît.
+ * Ce que le plan ne peut pas encore payer compte autant que ce qu'il lance :
+ * un empire dont rien n'est payable n'a aucune action lançable, et la bande
+ * serait vide partout. Ces lignes-là se grisent et portent leur date.
  * @param {object[]} acts actions de la session en cours
  * @param {object[]} [missions] missions du jour restantes
- * @returns {object} { pages: { [composant]: [{what, ou, why, url}] } }
+ * @param {object[]} [waits] ce que le plan attend faute de ressources
+ * @returns {object} { pages: { [composant]: [{what, ou, quand, why, url, gris}] } }
  */
-function bandData(acts, missions){
+function bandData(acts, missions, waits){
   const pages = {};
-  const pose = (url, what, ou, why) => {
+  const pose = (url, what, ou, why, quand, gris) => {
     const c = /[?&]component=([a-z]+)/.exec(url || '');
     if(!c || !what) return;
     const l = pages[c[1]] = pages[c[1]] || [];
     // quatre lignes au plus : au-delà, la bande redevient une liste à lire
-    if(l.length < 4) l.push({what, ou: ou || '', why: why || '', url});
+    if(l.length < 4) l.push({what, ou: ou || '', quand: quand || '', why: why || '', url, gris: !!gris});
   };
+  const RES_B = ['métal', 'cristal', 'deutérium'];
+  const manque = w => (w.miss || []).map((x,j)=>x>0 ? `${fmt(Math.ceil(x))} ${RES_B[j]}` : '').filter(Boolean).join(' · ');
+  // le lançable d'abord, l'attendu ensuite : c'est l'ordre dans lequel on agit
   for(const a of acts || []) pose(actGo(a), a.what, (a.q || '').split(' · ')[1], a.why);
   for(const m of (missions || []).filter(x=>!x.info)) pose(missionGo(m), m.what, (m.tags || [])[0], m.why);
+  for(const w of waits || []){
+    const m = manque(w);
+    pose(actGo(w), w.what, (w.q || '').split(' · ')[1], m ? 'Il manque ' + m : '',
+      isFinite(w.eta) ? 'vers ' + hm(Date.now() + w.eta*1000) : 'à faire livrer', true);
+  }
   return {pages};
 }
-function gameSkin(acts, missions){
+function gameSkin(acts, missions, waits){
   // Les débits suivent les indices : la page du jeu sait lire un coût et un
   // stock, mais pas à quelle vitesse une planète produit.
   const rates = {};
   for(const p of S.planets){ if(!p.gid) continue; const pr = production(p); rates[p.gid] = [pr.m, pr.c, pr.d]; }
   return {hints: planHints(acts), rates, donors: donorsOf(), tour: tourData(),
-          band: bandData(acts, missions),
+          band: bandData(acts, missions, waits),
           cargo: [shipStats('lc').cargoEff, shipStats('sc').cargoEff],
           lean: !!S.settings.lean};
 }
@@ -1517,7 +1529,7 @@ function simulateDay(){
         const starving = Tm - sim.rSince[key] >= Math.max(4, 4*iv)*3600e3;
         const g = (R.crit || starving || mine) ? setGoal(key, `${T[R.k].n} ${R.lvl}`, c, labP, Tm) : null;
         if(phase==='pre') return;
-        waits.push({q:'Recherche · '+planetRef(labP), what:`${T[R.k].n} ${R.lvl}`, eta:wait(labP,c), miss:missOf(labP,c)});
+        waits.push({q:'Recherche · '+planetRef(labP), what:`${T[R.k].n} ${R.lvl}`, eta:wait(labP,c), miss:missOf(labP,c), kind:'t', k:R.k, p:labP.i});
         for(const F of nr.list.slice(1)){
           const fd = researchTime(F.k,F.lvl);
           if(g && Tm+fd*1000 > g.deadline) continue;
@@ -1528,7 +1540,7 @@ function simulateDay(){
       if(wantColony && !sim.colShip && sim.tech.impulse>=3 && dep.b.shipyard>=4 && dep.sq<=Tm && !(dep.bq>Tm && dep.bqKey==='shipyard')){
         const c = COL_SHIP_COST, key='ship:col', mine = goals.find(g=>g.key===key);
         if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*S.settings.eco)*3600; dep.sq=Tm+d; sim.colShip=true; sim.colReady=Tm+d; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'', cost:c, dur:d, end:Tm+d, kind:'ship', p:dep.i}); }
-        else { setGoal(key, 'le vaisseau de colonisation', c, dep, Tm); waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), miss:missOf(dep,c)}); }
+        else { setGoal(key, 'le vaisseau de colonisation', c, dep, Tm); waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), miss:missOf(dep,c), kind:'ship', p:dep.i}); }
       }
       if(wantColony && sim.colShip && sim.colReady<=Tm){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight, kind:'fleet', p:dep.i, dest:target, mission:7, ships:{col:1}}); }
       const hubP = P[Math.min(hubIndex(), P.length-1)];
@@ -1595,7 +1607,7 @@ function simulateDay(){
         const fl = flight(p.coords, tgt, f.ships, 100); if(!fl) break;
         const total = 2*fl.secs + 3600, fuel = fl.fuel*2, c=[0,0,fuel];
         const dRate = Math.max(1, production(p).d), smallFuel = p.st[2] >= fuel && fuel/dRate*3600 <= 15*60;
-        if(!smallFuel && !can(p,c,reserveOf(p,Tm))){ waits.push({q:'Flotte · '+planetRef(p), what:'Expédition', eta:wait(p,c), miss:missOf(p,c)}); break; }
+        if(!smallFuel && !can(p,c,reserveOf(p,Tm))){ waits.push({q:'Flotte · '+planetRef(p), what:'Expédition', eta:wait(p,c), miss:missOf(p,c), kind:'expo', p:p.i}); break; }
         pay(p,c);
         for(const [k,n] of Object.entries(f.ships)){ p.ships[k]-=n; sim.away[k]=(sim.away[k]||0)+n; }
         const ret = Tm + total*1000, out = Object.assign({}, f.ships);
@@ -1624,7 +1636,7 @@ function simulateDay(){
           pay(p,c); const d = n*2000/(2500*(1+p.b.shipyard)*Math.pow(2,p.b.nanite)*S.settings.eco)*3600, pp=p;
           pp.sq=Tm+d; pp.satPending=Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ pp.sats+=n; pp.satPending=0; }});
           acts.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, why:`+${Math.round(n*satE)} énergie, ${Math.round(mse(...solarAlt)/Math.max(1,mse(...c)))}x moins cher que la centrale`, cost:c, dur:d, end:Tm+d, kind:'sats', n, p:p.i});
-        } else { const e=wait(p,c); soft.push({p, cost:c, eta:e}); waits.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, eta:e, miss:missOf(p,c)}); }
+        } else { const e=wait(p,c); soft.push({p, cost:c, eta:e}); waits.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, eta:e, miss:missOf(p,c), kind:'sats', p:p.i}); }
       }
       // Les deux files de forme de vie sont indépendantes de la file des
       // bâtiments : elles tournent en parallèle, mais puisent au même stock.
@@ -1651,7 +1663,7 @@ function simulateDay(){
             acts.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, why:ch.why, src:ch.src, at:ch.at, cost:ch.cost, dur:ch.secs, end:Tm+ch.secs*1000, kind:'lf', id:ch.id, lvl:ch.next, p:p.i});
           } else {
             const eta = wait(p, ch.cost);
-            waits.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}${ch.src==='estimé' ? ' (prix et durée estimés)' : ''}`, src:ch.src, eta, held:res.some(x=>x>0), miss:missOf(p, ch.cost)});
+            waits.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}${ch.src==='estimé' ? ' (prix et durée estimés)' : ''}`, src:ch.src, eta, held:res.some(x=>x>0), miss:missOf(p, ch.cost), kind:'lf', id:ch.id, p:p.i});
             soft.push({p, cost:ch.cost, eta});
           }
         }
@@ -1667,7 +1679,7 @@ function simulateDay(){
         const res = reserveOf(p,Tm);
         const ch = cands.find(x=>can(p, levelCost(B[x.k],x.lvl), res));
         if(ch){ const c=levelCost(B[ch.k],ch.lvl); pay(p,c); const d=buildTime(ch.k,ch.lvl,p), k=ch.k, L=ch.lvl; p.bq=Tm+d; p.bqKey=k; sim.ev.push({at:Tm+d, fn:()=>{ p.b[k]=Math.max(p.b[k],L); }}); acts.push({q:'Bâtiment · '+planetRef(p), what:`${B[k].n} ${L}`, why:ch.why, cost:c, dur:d, end:Tm+d, kind:'b', k, lvl:L, p:p.i}); }
-        else { const w=cands.map(x=>({x, eta:wait(p,levelCost(B[x.k],x.lvl))})).sort((a,b)=>a.eta-b.eta)[0]; waits.push({q:'Bâtiment · '+planetRef(p), what:`${B[w.x.k].n} ${w.x.lvl}`, eta:w.eta, held:res.some(x=>x>0), miss:missOf(p,levelCost(B[w.x.k],w.x.lvl))}); soft.push({p, cost:levelCost(B[w.x.k],w.x.lvl), eta:w.eta}); }
+        else { const w=cands.map(x=>({x, eta:wait(p,levelCost(B[x.k],x.lvl))})).sort((a,b)=>a.eta-b.eta)[0]; waits.push({q:'Bâtiment · '+planetRef(p), what:`${B[w.x.k].n} ${w.x.lvl}`, eta:w.eta, held:res.some(x=>x>0), miss:missOf(p,levelCost(B[w.x.k],w.x.lvl)), kind:'b', k:w.x.k, p:p.i}); soft.push({p, cost:levelCost(B[w.x.k],w.x.lvl), eta:w.eta}); }
       }
       if(lfMode()==='after') lfPass(false);
       // Chaque planète qui a un chantier peut construire : le hub pour la soute
@@ -2777,7 +2789,7 @@ today(){
   /* La page du jeu surligne ce que le plan recommande et pose la bande du bas.
      Elle n'en fait rien d'autre : aucun clic, aucun envoi, ce sont des repères.
      Publié ici, après les missions, parce que la bande les porte. */
-  if(IS_EXT) try{ chrome.storage.local.set({skin: gameSkin(s0.acts, missions)}); }catch(e){}
+  if(IS_EXT) try{ chrome.storage.local.set({skin: gameSkin(s0.acts, missions, s0.waits)}); }catch(e){}
   const timed = missions.filter(m=>m.at && m.at > plan.now), slotMs = new Map();
   for(const m of timed){ let host = null; for(const x of plan.sessions) if(x.T <= m.at) host = x; if(host && host!==s0){ if(!slotMs.has(host)) slotMs.set(host, []); slotMs.get(host).push(m); } else m.at = 0; }
   const nowMs = missions.filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
