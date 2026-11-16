@@ -760,7 +760,7 @@ const pauvre = { ...TOUR, tour: { ...TOUR.tour,
 t('une file occupée se dit, en temps restant', () => {
   const p = pins(runPage({ ...ARRIVEE, skin: occupee }).tour)['Colonie'];
   assert.equal(p.grisee, true);
-  assert.ok(/file 1h 30m/.test(p.txt), p.txt);
+  assert.ok(/file 2h/.test(p.txt), p.txt);
   assert.ok(p.href, 'grisée mais cliquable');
 });
 
@@ -769,7 +769,7 @@ t('une file de plus d\'un jour ne se dit pas en heure du jour', () => {
   // aujourd'hui : un temps restant ne se lit jamais pour un autre.
   const longue = { ...TOUR, tour: { ...TOUR.tour,
     '102': { ...TOUR.tour['102'], bq: Date.now() + 30.5 * 3600000 } } };
-  assert.ok(/file 30h 30m/.test(pins(runPage({ ...ARRIVEE, skin: longue }).tour)['Colonie'].txt),
+  assert.ok(/file 31h/.test(pins(runPage({ ...ARRIVEE, skin: longue }).tour)['Colonie'].txt),
     pins(runPage({ ...ARRIVEE, skin: longue }).tour)['Colonie'].txt);
 });
 
@@ -777,6 +777,20 @@ t('un stock trop court nomme ce qui manque', () => {
   const p = pins(runPage({ ...ARRIVEE, skin: pauvre }).tour)['Colonie'];
   assert.equal(p.grisee, true);
   assert.ok(/manque 600 métal/.test(p.txt), p.txt);
+});
+
+t('un gros manque s\'écrit au millier, comme le jeu écrit ses coûts', () => {
+  const gros = { ...TOUR, tour: { ...TOUR.tour,
+    '102': { ...TOUR.tour['102'], cost: { '21': [0, 176844, 0] }, st: [0, 0, 0] } } };
+  const p = pins(runPage({ ...ARRIVEE, skin: gros }).tour)['Colonie'];
+  assert.ok(/manque 177K cristal/.test(p.txt), p.txt);
+  assert.ok(/hors de portée/.test(p.txt), p.txt);
+});
+
+t('un manque en millions se dit en millions', () => {
+  const million = { ...TOUR, tour: { ...TOUR.tour,
+    '102': { ...TOUR.tour['102'], cost: { '21': [1240000, 0, 0] }, st: [0, 0, 0] } } };
+  assert.ok(/manque 1.2M métal/.test(pins(runPage({ ...ARRIVEE, skin: million }).tour)['Colonie'].txt));
 });
 
 t('un coût inconnu ne fait pas manquer', () => {
@@ -795,7 +809,7 @@ t('une recherche de forme de vie lit sa propre file, pas celle des bâtiments', 
   } };
   const r = runPage({ skin: lfr, tiles: ['11201'],
     search: '?page=ingame&component=lfresearch&openTech=11201' });
-  assert.ok(/file 1h 30m/.test(pins(r.tour)['Colonie'].txt), pins(r.tour)['Colonie'].txt);
+  assert.ok(/file 2h/.test(pins(r.tour)['Colonie'].txt), pins(r.tour)['Colonie'].txt);
 });
 
 t('un bâtiment de forme de vie lit toujours la file des bâtiments', () => {
@@ -806,7 +820,7 @@ t('un bâtiment de forme de vie lit toujours la file des bâtiments', () => {
   } };
   const r = runPage({ skin: lfb, tiles: ['11101'],
     search: '?page=ingame&component=lfbuildings&openTech=11101' });
-  assert.ok(/file 1h 30m/.test(pins(r.tour)['Colonie'].txt), pins(r.tour)['Colonie'].txt);
+  assert.ok(/file 2h/.test(pins(r.tour)['Colonie'].txt), pins(r.tour)['Colonie'].txt);
 });
 
 t('un component fabriqué ne détourne pas les liens', () => {

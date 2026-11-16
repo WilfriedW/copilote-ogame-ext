@@ -268,6 +268,15 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
 
   const RES_NOMS = ['métal', 'cristal', 'deutérium'];
   const qte = n => Math.ceil(n).toLocaleString('fr-FR');
+  /* Sur une pastille, le chiffre exact ne sert à rien : on ne décide pas d'un
+     voyage à mille unités près. Le jeu écrit déjà ses coûts « 1M / 500K », on
+     écrit comme lui. */
+  const court = n => n >= 1e6 ? (n / 1e6).toFixed(1).replace('.0', '') + 'M'
+    : n >= 1000 ? Math.round(n / 1000) + 'K' : String(Math.ceil(n));
+  /* Et l'heure se dit à l'heure près, arrondie vers le haut comme `hms` :
+     mieux vaut revenir un peu tard que devant une planète qui ne paie pas. */
+  const bref = secs => secs >= 3600 ? Math.ceil(secs / 3600) + 'h'
+    : Math.max(1, Math.ceil(secs / 60)) + 'm';
 
   const MUET = { txt: '', href: '', mission: 0 };
   const shipId = k => Object.keys(OG_SHIPS).find(id => OG_SHIPS[id] === k);
@@ -450,7 +459,7 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
       let etat = '';
       // Un temps restant ne se lit jamais pour un autre : « jusqu'à 18:17 » se
       // lit aujourd'hui, même quand la file finit demain.
-      if (fin > maintenant) etat = 'file ' + hms((fin - maintenant) / 1000);
+      if (fin > maintenant) etat = 'file ' + bref((fin - maintenant) / 1000);
       else if (Array.isArray(c)) {
         // La plus grosse ressource manquante suffit à nommer ce qui bloque ;
         // le délai, lui, est celui de la dernière à tomber.
@@ -462,8 +471,8 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
           if (e > eta) eta = e;
         });
         // Un prix que le panneau ne connaît pas ne fait manquer personne.
-        if (j >= 0) etat = 'manque ' + qte(pire) + ' ' + RES_NOMS[j] + ' · '
-          + (isFinite(eta) ? 'payable dans ' + hms(eta) : 'hors de portée');
+        if (j >= 0) etat = 'manque ' + court(pire) + ' ' + RES_NOMS[j] + ' · '
+          + (isFinite(eta) ? 'payable dans ' + bref(eta) : 'hors de portée');
       }
       // Un niveau inconnu se dit : écrire 0 enverrait monter ce qui est déjà là.
       return { ici: g === ici, gris: !!etat,
