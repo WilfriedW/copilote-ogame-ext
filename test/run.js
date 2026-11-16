@@ -21,7 +21,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -787,6 +787,44 @@ t('sans plan\u00e8te connue du jeu, aucun indice', () => {
   // hasard vaudrait mieux ne rien surligner du tout.
   const g = app();
   assert.deepEqual(g.planHints([{ kind: 'b', k: 'metal', lvl: 9, p: 0 }]), {});
+});
+
+/* ---------- la tournée d'une tuile ---------- */
+
+/** Deux planètes nommées par le jeu, chantier 4 et 0. */
+const nommees = s => { s.planets[0].gid = '101'; s.planets[1].gid = '102'; };
+
+t('la tournée donne le nom, le niveau et le coût du niveau suivant', () => {
+  const g = app(nommees);
+  const t1 = g.tourData();
+  assert.equal(t1['101'].n, 'Planète mère');
+  assert.equal(t1['101'].b['21'], 4);            // chantier spatial
+  assert.deepEqual(t1['101'].cost['21'], g.levelCost(g.B.shipyard, 5));
+  assert.equal(t1['102'].b['21'], 0);
+});
+
+t('une planète que le jeu n\'a pas nommée est absente', () => {
+  assert.deepEqual(Object.keys(app(s => { s.planets[0].gid = '101'; }).tourData()), ['101']);
+});
+
+t('la fin de file de bâtiment est publiée, par planète', () => {
+  const g = app(s => { nommees(s); s.timers = [
+    { id: 'a', game: true, queue: 'building', kind: 'b', k: 'metal', lvl: 15, pid: 'mere', end: SOIR + 600000 },
+    { id: 'b', game: true, queue: 'lfbuilding', kind: 'x', k: 'other', label: 'Case de vie', pid: 'colo', end: SOIR + 900000 }
+  ]; });
+  const t1 = g.tourData();
+  assert.equal(t1['101'].bq, SOIR + 600000);
+  assert.equal(t1['101'].lfq, 0);
+  assert.equal(t1['102'].lfq, SOIR + 900000);
+});
+
+t('une clé de planète hostile ne crée pas de pastille', () => {
+  const g = app(s => { nommees(s); s.planets[1].gid = '__proto__'; });
+  assert.deepEqual(Object.keys(g.tourData()), ['101']);
+});
+
+t('la tournée voyage dans le skin', () => {
+  assert.ok(app(nommees).gameSkin([]).tour['101']);
 });
 
 t('une case de forme de vie renvoie sur sa propre file', () => {

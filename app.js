@@ -459,6 +459,43 @@ function planHints(acts){
   return out;
 }
 /**
+ * Ce que la page du jeu doit savoir des autres planètes pour proposer une
+ * tournée : leur nom, le niveau de chaque tuile, le prix du niveau suivant, la
+ * fin de leur file et leur stock. Rangé par planète du jeu, comme les indices :
+ * une planète que le jeu n'a pas encore nommée n'a pas d'identifiant à mettre
+ * dans un lien, donc elle n'est pas d'une tournée.
+ * La fin de file est publiée telle quelle, passée ou non : c'est la page qui la
+ * compare à l'instant où le joueur la regarde.
+ * @returns {object} { [planetId]: { n, b, cost, bq, lfq, st } }
+ */
+function tourData(){
+  const out = {};
+  const fin = (p, q) => (S.timers || []).reduce((a,t)=> t.queue===q && t.pid===p.id && !t.done && t.end>a ? t.end : a, 0);
+  for(const p of S.planets){
+    // même garde que pour les relevés de production : « __proto__ » & co ne
+    // sont jamais une planète du jeu
+    if(!/^\d+$/.test(String(p.gid || ''))) continue;
+    const b = {}, cost = {};
+    for(const k of Object.keys(B)){
+      const id = BUILD_ID[k];
+      if(!id) continue; // les foreuses n'ont pas de tuile à elles
+      b[id] = p.b[k] || 0;
+      cost[id] = levelCost(B[k], b[id] + 1);
+    }
+    for(const [id, v] of Object.entries(p.lf || {})){
+      const lvl = (v && v.lvl) || 0;
+      b[id] = lvl;
+      // un prix de forme de vie ne s'invente pas : il se lit sur le jeu, ou se
+      // tait
+      const c = lfCost(v, lvl + 1);
+      if(c) cost[id] = c.cost;
+    }
+    out[p.gid] = {n: planetRef(p), b, cost, bq: fin(p, 'building'), lfq: fin(p, 'lfbuilding'),
+                  st: stockNow(p).map(x=>Math.round(x))};
+  }
+  return out;
+}
+/**
  * Qui peut livrer cette planète, et en combien de temps. La production locale
  * n'est pas la seule sortie : une autre planète qui a déjà le stock et des
  * transporteurs arrive souvent avant, et une livraison ignore le hangar.
@@ -514,7 +551,7 @@ function gameSkin(acts){
   // stock, mais pas à quelle vitesse une planète produit.
   const rates = {};
   for(const p of S.planets){ if(!p.gid) continue; const pr = production(p); rates[p.gid] = [pr.m, pr.c, pr.d]; }
-  return {hints: planHints(acts), rates, donors: donorsOf(),
+  return {hints: planHints(acts), rates, donors: donorsOf(), tour: tourData(),
           cargo: [shipStats('lc').cargoEff, shipStats('sc').cargoEff],
           lean: !!S.settings.lean};
 }
