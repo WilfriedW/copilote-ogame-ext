@@ -532,6 +532,11 @@ color:#0c1120;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shado
       'donneurs=' + (!cargo ? 'charge ancienne'
         : (donors[meta('planet-id')] || []).map(s => `${s.n}:${s.lc}GT+${s.sc}PT`).join('|') || 'aucun'),
       'livraison=' + livNote,
+      /* Une barre absente a trois causes : la tournée n'est pas publiée (le
+         panneau n'a pas été ouvert sur Aujourd'hui depuis la mise à jour),
+         aucune tuile n'est ouverte, ou moins de deux planètes connaissent son
+         niveau. Le témoin dit les deux premières d'un coup d'œil. */
+      'tournee=' + (tuileEnMain() || '-') + ':' + Object.keys(tour).length,
       'ici=' + meta('planet-id'),
       'epure=' + (lean ? 1 : 0)
     ].join(' ');

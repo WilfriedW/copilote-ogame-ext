@@ -831,6 +831,16 @@ t('le stock publié avance avec la production entre deux envois', () => {
   assert.equal(p.grisee, false);
 });
 
+t('le témoin dit la tuile en main et le nombre de planètes reçues', () => {
+  // Sans barre, le joueur ne sait pas laquelle des trois conditions manque :
+  // la tournée publiée, la tuile ouverte, ou deux planètes qui la connaissent.
+  assert.ok(/tournee=21:3/.test(runPage(ARRIVEE).dataset.copilote), runPage(ARRIVEE).dataset.copilote);
+  const muet = runPage({ ...ARRIVEE, skin: { hints: {}, rates: {}, lean: false } });
+  assert.ok(/tournee=21:0/.test(muet.dataset.copilote), muet.dataset.copilote);
+  const sansTuile = runPage({ ...ARRIVEE, search: '?page=ingame&component=facilities' });
+  assert.ok(/tournee=-:3/.test(sansTuile.dataset.copilote), sansTuile.dataset.copilote);
+});
+
 t('une tournée mal formée ne casse pas la surcouche', () => {
   const casse = { ...TOUR, tour: { ...TOUR.tour, '104': null,
     '105': { n: 'X', b: { '21': 1 }, cost: { '21': 'beaucoup' }, bq: 0, lfq: 0, st: [0, 0, 0] } } };
