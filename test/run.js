@@ -3794,6 +3794,32 @@ t('un id qui ne répond plus : le minuteur sonne, rien ne se crédite', () => {
   assert.equal(p.sats, 0, 'aucun satellite non plus');
 });
 
+/* ---------- mode nuit ---------- */
+
+/** Le soir, flotte au sol et colonie assez loin : le plan a de quoi parler. */
+const dodo = s => { loin(s); s.planets[0].ships = { lc: 30, sc: 6 }; };
+
+t('mode nuit : seules les cartes de protection restent', () => {
+  const g = app(s => { dodo(s); s.day.night = true; });
+  const ms = g.dailyMissions();
+  assert.ok(ms.length, 'il reste des cartes');
+  assert.deepEqual([...new Set(ms.map(m => m.q))], ['Sécurité'], ms.map(m => m.q).join(' · '));
+  assert.ok(ms.some(m => m.id === 'night'), 'la mise à l\'abri est proposée');
+});
+
+t('mode jour : le plan garde ses autres rubriques', () => {
+  const g = app(dodo);
+  assert.ok(g.dailyMissions().some(m => m.q !== 'Sécurité'), 'tout ne se réduit pas à la sécurité');
+});
+
+t('mode nuit en pleine nuit : la mise à l\'abri sort quand même', () => {
+  const troisH = new Date(2026, 10, 9, 3, 0, 0).getTime();
+  const avec = app(s => { dodo(s); s.day.night = true; }, troisH);
+  const sans = app(dodo, troisH);
+  assert.ok(avec.dailyMissions().some(m => m.id === 'night'), 'le mode nuit la réclame');
+  assert.ok(!sans.dailyMissions().some(m => m.id === 'night'), 'le mode jour ne la propose pas à 3 h');
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

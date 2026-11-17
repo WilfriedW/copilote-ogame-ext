@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.38.0';
+const APP_VERSION = '1.39.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -87,7 +87,7 @@ function sample(){
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
     expo:{pf:true},
     ui:{tool:'colony'},
-    day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'ecocol'},
+    day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'ecocol', night:false},
     lf:{found:['humans','rocktal']},
     roles:{}, raid:null, raids:{},
     daily:{done:{}},
@@ -2302,7 +2302,7 @@ function dailyMissions(){
         `${dur(fl.secs)} de vol, ${fmt(fl.fuel)} deutérium${tard ? ` — arrivée vers ${hm(arrive)}, après le début de la nuit. Pour cette nuit-là, dépense le stock sur place.` : `, arrivée vers ${hm(arrive)}, avant la nuit.`}`,
         `Il te restera ${fmt(cargo)} de soute à demeure sur ${esc(planetRef(g.p))} : garde-la là, c'est elle qui part chaque soir.`]});
   }
-  if(!isNight(now) && nightAt - now <= (+S.day.horizon||24)*3600e3){
+  if(S.day.night || (!isNight(now) && nightAt - now <= (+S.day.horizon||24)*3600e3)){
     const fs = fleetsavePlan(now);
     const m = {id:'night', q:'Sécurité', at:nightAt, every:24, sev:'warn',
       what:`Avant la nuit (${ns} h) : mettre tes ressources à l'abri`,
@@ -2359,7 +2359,9 @@ function dailyMissions(){
       how:['Ouvre la planète concernée et lance une construction ou une recherche.',
            'Réimporte la Vue empire pour que le relevé se mette à jour.']});
   }
-  return out;
+  /* Mode nuit : le joueur va dormir. Seule la rubrique Sécurité parle de
+     mettre les ressources à l'abri ; tout le reste attendra le réveil. */
+  return S.day.night ? out.filter(m=>m.q === 'Sécurité') : out;
 }
 function missionDone(m){ const d = S.daily.done[m.id]; return d && (Date.now() - d) < m.every*3600e3 && (m.every<24 || new Date(d).toDateString()===new Date().toDateString()); }
 
@@ -2568,7 +2570,7 @@ const VIEWS = {
 today(){
   const d=S.day;
   return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Maintenant</h2><span class="note" id="tdStamp"></span></div><div id="tdNow"></div></div>
+    <div class="card"><div class="row spread"><h2>Maintenant</h2><div class="row" style="gap:8px"><span class="note" id="tdStamp"></span><button class="btn sm ${d.night?'primary':'ghost'}" id="dayNight">${d.night?'☀️ Passer en mode jour':'🌙 Passer en mode nuit'}</button></div></div><div id="tdNow"></div></div>
     <div id="tdAlerts"></div>
     <div class="card"><div class="row spread"><h2>Ta journée</h2><span class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${d.nightStart}h–${d.nightEnd}h <button class="btn sm ghost" data-goto="settings">Modifier</button></span></div><div id="tdDay"></div></div>
     <div class="card"><div class="row spread"><h2>Minuteurs</h2><button class="btn sm ghost" id="tmSound">Tester le son</button></div>
@@ -2798,7 +2800,11 @@ function crawlerPill(p){
 
 const REFRESH = {
 today(){
-  const plan = simulateDay(), s0 = plan.sessions[0];
+  const plan = simulateDay(), s0 = plan.sessions[0], night = !!S.day.night;
+  /* Mode nuit : ni construction ni recherche à lancer, le panneau ne doit
+     montrer que la mise à l'abri. Le plan est recalculé à chaque passage,
+     le vider ici ne perd rien. */
+  if(night) for(const x of plan.sessions){ x.acts = []; x.waits = []; }
   const nowParts = [];
   const missions = dailyMissions().filter(m=>!missionDone(m));
   /* La page du jeu surligne ce que le plan recommande et pose la bande du bas.
@@ -2845,7 +2851,7 @@ today(){
   const mDone = MILESTONES.filter(m=>milestoneDone(m)).length, mNext = MILESTONES.find(m=>!milestoneDone(m));
   const mMiss = mNext ? milestoneMissing(mNext) : [];
   const debut = mNext ? `<ul class="advice" style="margin-bottom:14px"><li><span class="pill info">Début de partie · ${mDone} / ${MILESTONES.length}</span><span class="what">Prochaine étape : ${esc(milestoneLabel(mNext))}</span><span class="why">${mMiss.length?`Il manque : ${esc(mMiss.join(', '))}. `:''}${esc(mNext.why)}</span></li></ul>` : '';
-  document.getElementById('tdDay').innerHTML = debut + strategy + (later.length
+  document.getElementById('tdDay').innerHTML = night ? `<p class="note">Mode nuit : seule la mise à l'abri compte. Le plan du jour revient dès que tu repasses en mode jour.</p>` : debut + strategy + (later.length
     ? `<div class="tl">${later.slice(0,6).map(slot).join('')}</div>${later.length>6?`<details style="margin-top:12px"><summary class="note">Voir les ${later.length-6} connexions suivantes</summary><div class="tl" style="margin-top:12px">${later.slice(6).map(slot).join('')}</div></details>`:''}`
     : `<p class="note">Aucune action prévue sur la période : tes files sont occupées ou tes ressources trop faibles.</p>`)
     + `<div class="sumline" style="margin-top:14px"><span class="pill good">Production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} %</span><span class="note">en ${S.day.horizon} h, de ${fmt(plan.startV)} à ${fmt(plan.endV)} éq. métal/h</span></div>`
@@ -3001,6 +3007,7 @@ function bind(){
     card.querySelectorAll('input[data-s]').forEach(el=>el.addEventListener('input',()=>{ const st=stockNow(p); p.stock={m:st[0],c:st[1],d:st[2],at:Date.now()}; p.stock[el.dataset.s]=parseFloat(el.value)||0; changed(); }));
   });
   view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ const p=S.planets[+b.dataset.del]; if(p) forgetPlanet(p.id); save(); render(); }));
+  on('dayNight','click',()=>{ S.day.night = !S.day.night; save(); render(); });
   on('addPlanet','click',()=>{ S.planets.push(newPlanet('Colonie '+S.planets.length,'1:1:'+(S.planets.length+4),20,{})); S.sample=false; save(); render(); });
   view.querySelectorAll('input[data-t]').forEach(el=>el.addEventListener('input',()=>{ S.tech[el.dataset.t]=Math.max(0,parseInt(el.value)||0); changed(); }));
   view.querySelectorAll('[data-addt]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.addt; S.plan.push({type:'t',k,lvl:S.tech[k]+1}); save(); toast('Ajouté au plan'); }));
