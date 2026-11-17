@@ -914,6 +914,17 @@ const BANDE = { hints: {}, rates: {}, lean: false, tour: {}, band: { pages: {
     url: '/game/index.php?page=ingame&component=galaxy' }]
 } } };
 
+t('la bande ne se dessine pas sur les pages écrites par les joueurs', () => {
+  // Alliance, messages, discussion : leur contenu vient d'autres joueurs. Le
+  // copilote n'a rien à y dire, et ne leur laisse donc aucune prise.
+  for (const comp of ['alliance', 'messages', 'chat', 'buddies']) {
+    const r = runPage({ skin: TOUR, tiles: ['21'],
+      search: '?page=ingame&component=' + comp + '&openTech=21' });
+    assert.equal(r.bande, null, comp);
+    assert.deepEqual(r.tour, [], comp);
+  }
+});
+
 t('un bloc de cases vide ne devient pas l\'hôte de la bande', () => {
   // Une page d'alliance affiche du balisage écrit par d'autres joueurs, et il
   // vit dans le contenu du jeu : l'identifiant ne prouve donc rien. L'ancre se

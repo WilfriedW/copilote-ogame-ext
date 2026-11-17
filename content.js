@@ -495,8 +495,17 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
      le même nom que le nôtre serait à la fois faux et grossier. */
   let laBande = null, poses = 0, bandeErr = '';
 
+  /* Les pages dont le contenu vient d'autres joueurs. Le copilote n'a rien à y
+     dire — aucune action du plan ne s'y lance — et il ne leur laisse donc aucune
+     prise : pas de bande du tout, quoi que leur balisage imite. */
+  const PAGES_LIBRES = ['alliance', 'messages', 'chat', 'buddies'];
+
   function peintBande() {
     const comp = new URLSearchParams(location.search).get('component') || '';
+    if (PAGES_LIBRES.indexOf(comp) >= 0) {
+      if (laBande) { laBande.remove(); laBande = null; }
+      return;
+    }
     const lignes = ((band || {}).pages || {})[comp] || [];
     const pins = pastilles();
     /* Une seule place, sur toutes les pages : sous l'illustration, au-dessus des
