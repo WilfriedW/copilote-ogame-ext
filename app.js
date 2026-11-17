@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.39.0';
+const APP_VERSION = '1.39.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1551,8 +1551,22 @@ function simulateDay(){
          `hubIndex` classe sur labo + chantier, la recherche se paie sur le
          labo seul. */
       const destOf = q => (goals.find(g => g.p !== q) || {}).p || hubP;
+      /* Un rapatriement occupe un emplacement de flotte, exactement comme une
+         expédition : les deux puisent dans le même compte. Le laisser hors du
+         compte faisait proposer un envoi que le jeu refuse d'un « Nombre
+         maximal de flottes atteint », alors que le copilote connaît les
+         flottes déjà en vol. Les retours connus rendent la place le moment
+         venu ; emplacements inconnus, on en suppose assez, comme avant. */
+      const fsl = fleetSlots();
+      let libres = fsl ? Math.max(0, fsl[1]-fsl[0]) + fleetReturns.filter(e=>e<=Tm).length : 3;
+      const maxExpo = expoCap(sim.tech.astro);
+      /* Une expédition rapporte plus qu'un rapatriement, qui ne fait que
+         déplacer ce qu'on a déjà : tant qu'une expédition est possible, le
+         dernier emplacement lui revient. */
+      const garde = expoBusy.filter(e=>e>Tm).length < maxExpo && P.some(p=>expoFleet(p.ships)) ? 1 : 0;
       if(P.length>1) for(const q of P){
         const dst = destOf(q);
+        if(libres-garde<=0) break;
         if(q===dst || (q.transferAt||0)>Tm) continue;
         const pr = production(q), want = [0,0,0];
         for(const g of goals) if(g.p===dst) g.cost.forEach((x,j)=>want[j]=Math.max(want[j], x-dst.st[j]));
@@ -1592,14 +1606,8 @@ function simulateDay(){
           : {q:'Flotte · '+planetRef(src), what:`Envoie ${shipList(ships)} vers ${planetRef(q)}`,
              why:`À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${hm(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge} vers ${planetRef(dst)}, arrivée vers ${hm(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.`,
              dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i, dest:q.coords, mission:4});
+        libres--;
       }
-      const fsl = fleetSlots();
-      /* Une expédition occupe aussi un emplacement de flotte : en proposer plus
-         qu'il n'y a de place, c'est envoyer le joueur dans « Nombre maximal de
-         flottes atteint ». Les retours déjà connus rendent la place le moment
-         venu. */
-      const libres = fsl ? Math.max(0, fsl[1]-fsl[0]) + fleetReturns.filter(e=>e<=Tm).length : 3;
-      const maxExpo = expoCap(sim.tech.astro);
       for(let lance=0; lance<Math.min(3, libres) && expoBusy.filter(e=>e>Tm).length < maxExpo; lance++){
         const cands = P.map(p=>({p, f:expoFleet(p.ships)})).filter(x=>x.f).sort((a,b)=>b.f.cargo-a.f.cargo);
         if(!cands.length) break;
@@ -2051,8 +2059,20 @@ function bestLifeform(){
   const pref = S.day.focus==='fleet' ? ['mechas','kaelesh','rocktal','humans'] : ['rocktal','humans','mechas','kaelesh'];
   return pref.find(k=>f.includes(k)) || 'humans';
 }
-/** Fleet slots [used, max] from the last sync, or null. */
-function fleetSlots(){ return S.slots && S.slots.fleet && S.syncAt && Date.now()-(S.slots.at||S.syncAt) < 3*3600e3 ? S.slots.fleet : null; }
+/**
+ * Fleet slots [used, max] from the last sync, or null.
+ * Le chiffre lu date de la dernière page de flotte ouverte ; une mission
+ * lancée depuis occupe un emplacement que ce chiffre ignore. Le copilote la
+ * connaît — c'est son minuteur —, alors il la compte. La prochaine lecture la
+ * contient à son tour : le dédoublonnage se fait sur l'heure.
+ */
+function fleetSlots(){
+  if(!(S.slots && S.slots.fleet && S.syncAt && Date.now()-(S.slots.at||S.syncAt) < 3*3600e3)) return null;
+  const [pris, max] = S.slots.fleet, lu = S.slots.at || S.syncAt, now = Date.now();
+  const depuis = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet' || t.k==='expo')
+    && t.manual && !t.done && t.end>now && t.at>lu).length;
+  return [Math.min(max, pris+depuis), max];
+}
 /* How long a reading of the in-flight expedition count stays trustworthy.
    The cap is never expired by expoCap(), because it only moves with
    Astrophysics; the number in flight does move on its own, so it needs its
@@ -2208,7 +2228,13 @@ function dailyMissions(){
         // Un seul emplacement libre : la prochaine découverte bloque les expéditions.
         .concat(fs && fs[1]-fs[0] <= 1 ? [leverFlotte()] : [])});
   }
-  if(S.artefacts!=null && S.artefacts>=200) out.push({id:'artefacts', q:'Formes de vie', every:24, sev:'good', what:`${fmt(S.artefacts)} artefacts : choisis une technologie de forme de vie`, why:'Au palier 1, 200 artefacts permettent de choisir précisément la technologie d\'un slot au lieu du tirage aléatoire.', how:['Forme de vie › Recherche : sur un slot libre, choisis la technologie voulue.', 'Attention : changer un slot déjà pris oblige à réinitialiser tout le palier.']});
+  /* Choisir la technologie d'un slot, c'est lancer la recherche de forme de
+     vie qui va avec : toutes les files occupées, le jeu n'en prend pas une de
+     plus. Le copilote le sait, il vient d'en lancer une. Aucune case de
+     recherche lue nulle part : on ne sait rien, la carte sort comme avant. */
+  const lfrP = S.planets.filter(p=>Object.keys(p.lf||{}).some(id=>lfQueue(id)==='lfresearch'));
+  const lfrLibre = !lfrP.length || lfrP.some(p=>!(S.timers||[]).some(t=>t.queue==='lfresearch' && t.pid===p.id && !t.done && t.end>now));
+  if(lfrLibre && S.artefacts!=null && S.artefacts>=200) out.push({id:'artefacts', q:'Formes de vie', every:24, sev:'good', what:`${fmt(S.artefacts)} artefacts : choisis une technologie de forme de vie`, why:'Au palier 1, 200 artefacts permettent de choisir précisément la technologie d\'un slot au lieu du tirage aléatoire.', how:['Forme de vie › Recherche : sur un slot libre, choisis la technologie voulue.', 'Attention : changer un slot déjà pris oblige à réinitialiser tout le palier.']});
   if(IS_EXT && S.syncAt && now - S.syncAt < 3600e3){
     // Trois situations, trois messages : page jamais ouverte, page lue mais
     // aucun prix affiché, ou tout est su — et alors c'est le plan qui parle.
@@ -3082,7 +3108,7 @@ view.addEventListener('click', e=>{
   const sent = e.target.closest('[data-sent]'); if(sent){ S.colo.sentAt = Date.now(); S.colo.built = false; save(); refresh(); toast('Colonisation en route'); return; }
   const la = e.target.closest('[data-launch]');
   if(la){
-    const a = JSON.parse(la.dataset.launch), tm = {id:Math.random().toString(36).slice(2,8), manual:true, end:Date.now()+a.dur*1000, done:false};
+    const a = JSON.parse(la.dataset.launch), tm = {id:Math.random().toString(36).slice(2,8), manual:true, at:Date.now(), end:Date.now()+a.dur*1000, done:false};
     if(a.kind==='t'){ tm.kind='t'; tm.k=a.k; tm.lvl=a.lvl; }
     else if(a.kind==='b'){ tm.kind='b'; tm.pid=a.pid; tm.k=a.k; tm.lvl=a.lvl; }
     else if(a.kind==='shipbuild' || a.kind==='def'){ tm.kind='x'; tm.k='shipyard'; tm.ships=a.ships; tm.pid=a.pid; tm.label=a.what; }

@@ -3820,6 +3820,61 @@ t('mode nuit en pleine nuit : la mise à l\'abri sort quand même', () => {
   assert.ok(!sans.dailyMissions().some(m => m.id === 'night'), 'le mode jour ne la propose pas à 3 h');
 });
 
+/* ---------- une carte ne sort que si la place existe ---------- */
+
+t('emplacements de flotte pleins : aucun rapatriement proposé', () => {
+  // Le copilote connaît les flottes en vol : proposer un envoi de plus, c'est
+  // envoyer le joueur sur « Nombre maximal de flottes atteint ».
+  const plein = app(s => { flotteAuHub(s); s.syncAt = JOUR; s.slots = { fleet: [9, 9], at: JOUR }; }, JOUR);
+  assert.ok(!transfert(plein), 'sans emplacement libre, rien à lancer');
+  const libre = app(s => { flotteAuHub(s); s.syncAt = JOUR; s.slots = { fleet: [2, 9], at: JOUR }; }, JOUR);
+  assert.ok(transfert(libre), 'avec de la place, le rapatriement revient');
+});
+
+t('le dernier emplacement revient à l\'expédition, pas au rapatriement', () => {
+  const g = app(s => { flotteDExpedition(s); s.planets[1].stock = { m: 60000, c: 40000, d: 5000, at: JOUR };
+    s.slots = { fleet: [8, 9], expo: [0, 3], at: JOUR }; }, JOUR);
+  const s0 = g.simulateDay().sessions[0];
+  assert.equal(s0.acts.filter(a => a.kind === 'expo').length, 1, 'l\'expédition part');
+  assert.ok(!s0.acts.some(a => a.kind === 'transfer'), 'le rapatriement lui laisse la place');
+});
+
+t('une flotte lancée depuis la lecture occupe son emplacement', () => {
+  // Le chiffre « Flottes 7/8 » date de la dernière page de flotte ouverte ;
+  // depuis, le joueur a cliqué Lancé. Le copilote le sait : c'est son minuteur.
+  const g = app(s => {
+    s.me = 'moi';
+    s.syncAt = SOIR;
+    s.slots = { fleet: [7, 8], at: SOIR - 3600e3 };
+    s.timers = [{ id: 'f1', manual: true, kind: 'x', k: 'fleet', at: SOIR - 1800e3, end: SOIR + 3600e3, done: false }];
+  }, SOIR, INACTIFS);
+  assert.ok(!espionnage(g), 'le huitième emplacement est pris');
+  assert.ok(espionnage(avecSlots(7, 8)), 'sans cette flotte, une cible reste proposée');
+});
+
+/** Une case de recherche de forme de vie (centaine paire). */
+const CASE_LFR = 11201;
+
+t('recherche de forme de vie en cours : pas de carte des artefacts', () => {
+  // Choisir la technologie d'un slot, c'est lancer la recherche qui va avec.
+  const enCours = app(s => {
+    s.artefacts = 461;
+    s.planets[0].lf = { [CASE_LFR]: { lvl: 3, state: 'ok' } };
+    s.timers = [{ id: 'l1', game: true, kind: 'x', k: 'other', queue: 'lfresearch', pid: 'mere', end: SOIR + 3600e3, done: false }];
+  });
+  assert.ok(!enCours.dailyMissions().some(m => m.id === 'artefacts'),
+    'la file de recherche de forme de vie est occupée');
+  const libre = app(s => { s.artefacts = 461; s.planets[0].lf = { [CASE_LFR]: { lvl: 3, state: 'ok' } }; });
+  assert.ok(libre.dailyMissions().some(m => m.id === 'artefacts'),
+    'file libre : la carte sort');
+});
+
+t('aucune case de recherche lue : la carte des artefacts sort quand même', () => {
+  const g = app(s => { s.artefacts = 461; });
+  assert.ok(g.dailyMissions().some(m => m.id === 'artefacts'),
+    'rien de lu, rien à déduire : on ne cache pas');
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');
