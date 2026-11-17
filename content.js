@@ -508,10 +508,12 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
        Les pages sans cases — Galaxie, Flotte — la prennent en tête de leur
        contenu. */
     const racine = document.querySelector('#middle .maincontent') || document.getElementById('middle');
-    /* Cherché dans le contenu du jeu, jamais dans toute la page : une page
-       d'alliance affiche du balisage écrit par d'autres joueurs, et un bloc qui
-       porterait le même identifiant deviendrait l'hôte de la bande. */
-    const cases = racine && racine.querySelector('#technologies');
+    /* Le bloc des cases se déduit d'une vraie case, jamais d'un identifiant
+       cherché dans la page : une page d'alliance affiche du balisage écrit par
+       d'autres joueurs, et il vit dans ce même contenu. Un nom ne prouve rien,
+       une tuile du jeu si. */
+    const premiere = document.querySelector('li.technology[data-technology]');
+    const cases = premiere && premiere.closest && premiere.closest('#technologies');
     const hote = (cases && cases.parentNode) || racine;
     const vieille = laBande && laBande.parentNode === hote ? laBande : null;
     if (!hote || (!lignes.length && !pins.length)) {

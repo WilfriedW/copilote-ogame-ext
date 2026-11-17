@@ -43,11 +43,17 @@ function el(tag, attrs = {}) {
     querySelectorAll() { return []; },
     /* Le seul `closest` qu'emploie content.js : la tuile sous le clic. */
     closest(sel) {
-      if (sel !== 'li.technology[data-technology]') throw new Error('closest non prévu par le faux DOM : ' + sel);
-      for (let n = e; n; n = n.parent) {
-        if (n.className.split(' ').includes('technology') && n.dataset.technology != null) return n;
+      if (sel === 'li.technology[data-technology]') {
+        for (let n = e; n; n = n.parent) {
+          if (n.className.split(' ').includes('technology') && n.dataset.technology != null) return n;
+        }
+        return null;
       }
-      return null;
+      if (sel === '#technologies') {
+        for (let n = e; n; n = n.parent) if (n.id === 'technologies') return n;
+        return null;
+      }
+      throw new Error('closest non prévu par le faux DOM : ' + sel);
     },
     getAttribute() { return null; },
     setAttribute() {}
@@ -136,13 +142,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   /* Un bloc de cases écrit par un autre joueur, hors du squelette du jeu :
      c'est ce que peut contenir une page d'alliance. */
   const fausses = el('div', { id: 'technologies' });
-  if (casesIntruses) body.appendChild(fausses);
-
-  // `principal` sait répondre aux sélecteurs que content.js lui pose
-  principal.querySelector = sel => {
-    if (sel !== '#technologies') throw new Error('sélecteur non prévu sur .maincontent : ' + sel);
-    return tuiles.length ? cases : null;
-  };
+  // dans le contenu du jeu, et avant lui : c'est le pire cas
+  if (casesIntruses) principal.children.unshift(fausses);
 
   const byId = { ...res, middle: milieu,
     technologies: casesIntruses ? fausses : (tuiles.length ? cases : null) };
