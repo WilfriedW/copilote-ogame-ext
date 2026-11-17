@@ -272,14 +272,96 @@
   /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On
      n'ajoute qu'une classe et une étiquette inerte : rien n'est cliqué, rien
      n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
-  let hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {};
+  let hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {}, noshop = false;
   /* Chaque règle vise un bloc nommé, repéré sur la page, et ne fait que le
      masquer. Elles ne s'appliquent que si le joueur a coché « Épurer », et
      décocher les retire toutes d'un coup. */
   const LEAN = `html.copilote-lean #mmonetbar,
 html.copilote-lean #siteHeader,
 html.copilote-lean #siteFooter{display:none}
-html.copilote-lean #middle .maincontent > div > header{display:none}`;
+html.copilote-lean #middle .maincontent > div > header{display:none}
+.copilote-menu a, .copilote-menu a .textlabel, a.copilote-menu, a.copilote-menu .textlabel{color:var(--cm) !important}`;
+
+  /* Le menu du jeu. Trois gestes, et rien d'autre : une entrée de plus vers
+     Mouvements de flotte, les entrées payantes masquées quand le joueur le
+     demande, un peu de couleur sur les autres — le gris sur gris du jeu se
+     lit mal, et la couleur dit du même coup de quelle famille est la page.
+
+     On ne nomme aucune page à la main : le lien de chaque entrée porte déjà
+     le nom de sa page, et le jaune des boutiques est celui que le jeu leur
+     donne. Gameforge peut donc renommer sa boutique sans rien casser ici. */
+  const MENU_COULEURS = {
+    overview: '#cfe0ff', supplies: '#f0b37b', facilities: '#f0b37b',
+    lfbuildings: '#9ad6a0', lfresearch: '#9ad6a0', lfbonuses: '#9ad6a0',
+    research: '#c7a6ff', shipyard: '#8aa9ff', defenses: '#8aa9ff',
+    fleetdispatch: '#7fe0d0', movement: '#7fe0d0', galaxy: '#7fe0d0',
+    empire: '#e4edff', alliance: '#e4edff'
+  };
+  /** La page que vise un lien du menu, ou '' quand son URL n'en nomme pas. */
+  const compDuLien = a => ((a.getAttribute('href') || '').match(/component=([a-z]+)/i) || ['', ''])[1].toLowerCase();
+  /* Le menu se trouve par son identifiant, et s'il changeait de nom, par la
+     liste qui porte le lien Flotte : il y en a un sur toutes les pages. */
+  const leMenu = () => document.getElementById('menuTable')
+    || document.querySelector('a[href*="component=fleetdispatch"]')?.closest('ul')
+    || null;
+  /** La case d'une entrée : son <li>, ou le lien lui-même si le menu n'en a pas. */
+  const caseDuLien = a => a.closest('li') || a;
+  /** Vrai dès qu'un morceau de l'entrée est peint en jaune par le jeu. */
+  function entreeJaune(a) {
+    return [a, ...a.querySelectorAll('*')].some(n => {
+      const c = (getComputedStyle(n).color.match(/\d+/g) || []).map(Number);
+      return c.length >= 3 && c[0] > 150 && c[1] > 120 && c[2] < 90;
+    });
+  }
+  /* L'entrée est une copie de celle du jeu : même balisage, même habillage,
+     et elle suivra le jour où Gameforge redessinera son menu. Seuls l'adresse
+     et le texte changent ; les identifiants partent, le jeu retrouve les siens
+     par eux. */
+  function ajouteMouvement(menu) {
+    if (menu.querySelector('.copilote-menu-ajout')) return;
+    const src = menu.querySelector('a[href*="component=fleetdispatch"]');
+    const li = src && caseDuLien(src);
+    if (!li) return;
+    const copie = li.cloneNode(true);
+    copie.classList.add('copilote-menu-ajout');
+    copie.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
+    copie.removeAttribute('id');
+    const a = copie.querySelector('a[href]');
+    if (!a) return;
+    a.setAttribute('href', src.getAttribute('href').replace(/component=fleetdispatch/i, 'component=movement'));
+    const txt = a.querySelector('.textlabel') || a;
+    txt.textContent = 'Mouvement de flotte';
+    a.title = 'Mouvements de flotte';
+    li.after(copie);
+  }
+  /* Le menu du jeu est le seul morceau de page que le copilote retouche sans
+     l'avoir lu ailleurs : si Gameforge renomme son `#menuTable`, tout se tait.
+     Le témoin le dit, plutôt que de laisser chercher. */
+  let menuEtat = 'absent';
+  /** Repose le menu : l'entrée ajoutée, les payantes cachées, les autres colorées. */
+  function peintMenu() {
+    const menu = leMenu();
+    if (!menu) { menuEtat = 'absent'; return; }
+    ajouteMouvement(menu);
+    let payantes = 0;
+    menu.querySelectorAll('a[href]').forEach(a => {
+      const li = caseDuLien(a);
+      /* Le jaune se lit une fois : une entrée cachée n'a plus de couleur à
+         montrer, et la nôtre ne doit pas être reprise pour celle du jeu. */
+      if (!li.classList.contains('copilote-paye') && !li.classList.contains('copilote-menu')
+          && !li.classList.contains('copilote-menu-ajout') && entreeJaune(a)) {
+        li.classList.add('copilote-paye');
+      }
+      if (li.classList.contains('copilote-paye')) {
+        payantes++;
+        li.style.display = noshop ? 'none' : '';
+        return;
+      }
+      const c = MENU_COULEURS[compDuLien(a)];
+      if (c) { li.classList.add('copilote-menu'); li.style.setProperty('--cm', c); }
+    });
+    menuEtat = (menu.querySelector('.copilote-menu-ajout') ? 'ok' : 'sans-flotte') + ':' + payantes + 'payantes';
+  }
 
   /* Stock affiché par le jeu, hors du snapshot : la surcouche en a besoin
      à chaque passage, pas seulement quand on envoie une photo. */
@@ -672,6 +754,9 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
       document.head.appendChild(st);
     }
     document.documentElement.classList.toggle('copilote-lean', lean);
+    /* Le menu vit sur toutes les pages du jeu, celles que le copilote ne
+       connaît pas comprises : c'est un moyen d'en partir, pas un conseil. */
+    try { peintMenu(); } catch (e) {}
     const want = hints[meta('planet-id')] || {};
     document.querySelectorAll('li.technology.copilote-next').forEach(li => {
       if (want[li.dataset.technology] === undefined) {
@@ -723,6 +808,7 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
           // combien de fois la bande a été reposée : si ce compte grimpe seul,
           // c'est le jeu qui l'emporte à chaque rafraîchissement de sa page
           + '@' + poses),
+      'menu=' + menuEtat + (noshop ? ' sans-boutique' : ''),
       'ici=' + meta('planet-id'),
       'epure=' + (lean ? 1 : 0)
     ].join(' ');
@@ -735,6 +821,7 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
       donors = (skin && skin.donors) || {};
       cargo = (skin && skin.cargo) || null;
       lean = !!(skin && skin.lean);
+      noshop = !!(skin && skin.noshop);
       tour = (skin && skin.tour) || {};
       band = (skin && skin.band) || {};
     };

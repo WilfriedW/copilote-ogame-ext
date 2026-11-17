@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.39.1';
+const APP_VERSION = '1.40.2';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -590,6 +590,16 @@ function bandData(acts, missions, waits){
   }
   return {pages};
 }
+/* La surcouche entière se recalcule avec le plan, sur Aujourd'hui. Mais deux
+   réglages ne changent que l'allure de la page du jeu : les attendre là-bas
+   laissait croire qu'ils ne marchaient pas. On republie donc ces deux champs
+   seuls, sans toucher au reste de ce que la page a déjà. */
+function pushLook(){
+  if(!IS_EXT) return;
+  try{ chrome.storage.local.get('skin', v => chrome.storage.local.set({
+    skin: Object.assign({}, (v && v.skin) || {}, {lean: !!S.settings.lean, noshop: !!S.settings.noshop})
+  })); }catch(e){}
+}
 function gameSkin(acts, missions, waits){
   // Les débits suivent les indices : la page du jeu sait lire un coût et un
   // stock, mais pas à quelle vitesse une planète produit.
@@ -598,7 +608,7 @@ function gameSkin(acts, missions, waits){
   return {hints: planHints(acts), rates, donors: donorsOf(), tour: tourData(),
           band: bandData(acts, missions, waits),
           cargo: [shipStats('lc').cargoEff, shipStats('sc').cargoEff],
-          lean: !!S.settings.lean};
+          lean: !!S.settings.lean, noshop: !!S.settings.noshop};
 }
 function labPlanet(){ return S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
 function labLevel(){ return Math.max(0, ...S.planets.map(p=>p.b.lab)); }
@@ -2795,6 +2805,7 @@ settings(){
         <label class="f">Ingénieur (+10 % énergie)<select id="sEng" data-set="eng"><option value="0" ${!s.eng?'selected':''}>Non</option><option value="1" ${s.eng?'selected':''}>Oui</option></select></label>
         <label class="f">Foreuses en surcharge 150 %<select id="sOver" data-set="crawlerOverload"><option value="0" ${!s.crawlerOverload?'selected':''}>Non</option><option value="1" ${s.crawlerOverload?'selected':''}>Oui</option></select><span class="note">Moitié plus de bonus, énergie doublée. À régler comme dans le jeu.</span></label>
         <label class="f">Épurer la page du jeu<select id="sLean" data-set="lean"><option value="1" ${s.lean?'selected':''}>Oui</option><option value="0" ${!s.lean?'selected':''}>Non</option></select></label>
+        <label class="f">Masquer les menus payants<select id="sNoShop" data-set="noshop"><option value="1" ${s.noshop?'selected':''}>Oui</option><option value="0" ${!s.noshop?'selected':''}>Non</option></select><span class="note">Les entrées jaunes du menu du jeu : Marchand, Mess des officiers, les deux boutiques.</span></label>
         <label class="f">Collecteur : +25 % soute transporteurs<select id="sColCargo" data-set="colCargo"><option value="1" ${s.colCargo?'selected':''}>Oui</option><option value="0" ${!s.colCargo?'selected':''}>Non</option></select></label>
         <label class="f">Ratio d'échange M:C:D<input id="sRatio" data-set="ratio" value="${s.ratio.join(':')}"></label>
       </div>
@@ -3041,9 +3052,10 @@ function bind(){
     const k=el.dataset.set, s=S.settings;
     if(k==='ratio'){ const r=el.value.split(':').map(Number); if(r.length===3 && r.every(x=>x>0)) s.ratio=r; }
     else if(k==='cls') s.cls=el.value;
-    else if(['geo','eng','colCargo','lean','crawlerOverload'].includes(k)) s[k]=el.value==='1';
+    else if(['geo','eng','colCargo','lean','noshop','crawlerOverload'].includes(k)) s[k]=el.value==='1';
     else s[k]=Math.max(k==='top1'?0:1, parseFloat(el.value)||0);
     changed();
+    if(k==='lean' || k==='noshop') pushLook();
   }));
   view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.value==='1'; changed(); }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
@@ -3332,6 +3344,10 @@ function applyGame(g){
   typing ? refresh() : render();
 }
 render();
+/* Et à l'ouverture du panneau : le réglage peut avoir été posé avant que la
+   page sache l'écouter, auquel cas aucun changement de sélecteur ne viendra
+   plus jamais le lui dire. */
+pushLook();
 if(window.__game) applyGame(window.__game);
 chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ API = ch.api.newValue; if(tab==='tools' && S.ui.tool==='explore') render(); } });
 
