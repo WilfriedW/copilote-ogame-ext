@@ -507,9 +507,12 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
        page Recherche en range quatre côte à côte, et s'y glisser la cassait.
        Les pages sans cases — Galaxie, Flotte — la prennent en tête de leur
        contenu. */
-    const cases = document.getElementById('technologies');
-    const hote = (cases && cases.parentNode)
-      || document.querySelector('#middle .maincontent') || document.getElementById('middle');
+    const racine = document.querySelector('#middle .maincontent') || document.getElementById('middle');
+    /* Cherché dans le contenu du jeu, jamais dans toute la page : une page
+       d'alliance affiche du balisage écrit par d'autres joueurs, et un bloc qui
+       porterait le même identifiant deviendrait l'hôte de la bande. */
+    const cases = racine && racine.querySelector('#technologies');
+    const hote = (cases && cases.parentNode) || racine;
     const vieille = laBande && laBande.parentNode === hote ? laBande : null;
     if (!hote || (!lignes.length && !pins.length)) {
       if (vieille) vieille.remove();

@@ -65,7 +65,8 @@ function el(tag, attrs = {}) {
  * @returns {object} { html, eta, dataset }
  */
 function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], details = true,
-  search = '?page=ingame&component=research', tiles = [], vieuxStyle = null, intruse = false }) {
+  search = '?page=ingame&component=research', tiles = [], vieuxStyle = null, intruse = false,
+  casesIntruses = false }) {
   const html = el('html');
   const head = el('head');
   const body = el('body');
@@ -132,7 +133,19 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
      d'alliance, le contenu vient d'autres joueurs. */
   if (intruse) principal.appendChild(el('div', { className: 'copilote-bande' }));
 
-  const byId = { ...res, middle: milieu, technologies: tuiles.length ? cases : null };
+  /* Un bloc de cases écrit par un autre joueur, hors du squelette du jeu :
+     c'est ce que peut contenir une page d'alliance. */
+  const fausses = el('div', { id: 'technologies' });
+  if (casesIntruses) body.appendChild(fausses);
+
+  // `principal` sait répondre aux sélecteurs que content.js lui pose
+  principal.querySelector = sel => {
+    if (sel !== '#technologies') throw new Error('sélecteur non prévu sur .maincontent : ' + sel);
+    return tuiles.length ? cases : null;
+  };
+
+  const byId = { ...res, middle: milieu,
+    technologies: casesIntruses ? fausses : (tuiles.length ? cases : null) };
   if (det) byId.technologydetails = det;
 
   // Sélecteurs exacts employés par content.js, et ce que la vraie page y répond.

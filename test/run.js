@@ -914,6 +914,13 @@ const BANDE = { hints: {}, rates: {}, lean: false, tour: {}, band: { pages: {
     url: '/game/index.php?page=ingame&component=galaxy' }]
 } } };
 
+t('un bloc de cases hors du squelette du jeu n\'accueille pas la bande', () => {
+  // Une page d'alliance affiche du balisage écrit par d'autres joueurs : un
+  // bloc qui porterait l'identifiant des cases ne doit pas devenir son hôte.
+  const r = runPage({ skin: BANDE, search: '?page=ingame&component=galaxy', casesIntruses: true });
+  assert.equal(r.bandeEnTete, true, 'la bande reste dans le contenu du jeu');
+});
+
 t('une page sans cases reçoit la bande en tête du contenu', () => {
   // Galaxie, Flotte, Vue d'ensemble : pas de bloc de cases où se glisser.
   assert.equal(runPage({ skin: BANDE, search: '?page=ingame&component=galaxy' }).bandeEnTete, true);
