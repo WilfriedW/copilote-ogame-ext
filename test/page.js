@@ -92,6 +92,14 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   milieu.appendChild(principal);
   body.appendChild(milieu);
 
+  /* Le dedans d'une page à cases, relevé sur le jeu : le titre, l'illustration
+     avec son panneau de détail, puis les cases. La bande se pose entre les deux
+     derniers. */
+  const page = el('div', { id: 'supplies' });
+  const entete = el('header');
+  const illustration = el('div', { id: 'technologydetails_wrapper' });
+  const cases = el('div', { id: 'technologies' });
+
   /* Une liste de tuiles, ou plusieurs : la page Recherche range ses cases en
      quatre encadrés, chacun avec sa propre liste. */
   const groupes = tiles.length && Array.isArray(tiles[0]) ? tiles : (tiles.length ? [tiles] : []);
@@ -103,7 +111,13 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
       ul.appendChild(li);
       tuiles.push(li);
     }
-    principal.appendChild(ul);
+    cases.appendChild(ul);
+  }
+  if (tuiles.length) {
+    page.appendChild(entete);
+    page.appendChild(illustration);
+    page.appendChild(cases);
+    principal.appendChild(page);
   }
 
   /* Une feuille de style laissée par une version précédente du script : c'est
@@ -118,7 +132,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
      d'alliance, le contenu vient d'autres joueurs. */
   if (intruse) principal.appendChild(el('div', { className: 'copilote-bande' }));
 
-  const byId = { ...res, middle: milieu };
+  const byId = { ...res, middle: milieu, technologies: tuiles.length ? cases : null };
   if (det) byId.technologydetails = det;
 
   // Sélecteurs exacts employés par content.js, et ce que la vraie page y répond.
@@ -127,8 +141,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   const estBande = c => c.className.split(' ').includes('copilote-bande');
   // la nôtre se reconnaît à son compteur de poses
   const estNotre = c => estBande(c) && c.dataset.pose;
-  const laBande = () => principal.children.find(estNotre) || milieu.children.find(estNotre) || null;
-  const toutes = () => principal.children.filter(estBande).length + milieu.children.filter(estBande).length;
+  const laBande = () => page.children.find(estNotre) || principal.children.find(estNotre) || null;
+  const toutes = () => page.children.filter(estBande).length + principal.children.filter(estBande).length;
 
   const routes = {
     '#middle .maincontent': () => principal,
@@ -142,7 +156,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     '.build_duration time[datetime]': () => null,
     'li.technology[data-technology]': () => tuiles,
     // comme un vrai navigateur : la première du document, intruse comprise
-    '.copilote-bande': () => principal.children.find(estBande) || milieu.children.find(estBande) || null,
+    '.copilote-bande': () => page.children.find(estBande) || principal.children.find(estBande) || null,
     '[data-end]': () => [],
     '[data-technology]': () => [],
     '[data-mission-type][data-arrival-time]': () => [],
@@ -225,6 +239,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     return {
       poses: bande ? +bande.dataset.pose : 0,
       bandeEnTete: principal.children[0] === laBande(),
+      bandeSousIllustration: page.children.indexOf(laBande()) === page.children.indexOf(cases) - 1
+        && page.children.indexOf(illustration) === page.children.indexOf(laBande()) - 1,
       bandes: toutes(),
       bande: bande ? { ici: zone('ici').map(x => ({ txt: x.textContent, href: x.href || null,
         why: x.title || '', grisee: x.className.split(' ').includes('copilote-gris') })) } : null,

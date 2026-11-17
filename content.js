@@ -499,13 +499,17 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
     const comp = new URLSearchParams(location.search).get('component') || '';
     const lignes = ((band || {}).pages || {})[comp] || [];
     const pins = pastilles();
-    /* Une seule place, sur toutes les pages : en tête du contenu principal.
-       `#middle > .maincontent` est le squelette commun du jeu — seul son
-       identifiant change d'une page à l'autre. S'y poser plutôt que dans un
-       encadré met la bande au-dessus de la page sans se mêler de sa mise en
-       page : la page Recherche range ses cases en quatre listes côte à côte,
-       et s'y glisser la cassait. */
-    const hote = document.querySelector('#middle .maincontent') || document.getElementById('middle');
+    /* Une seule place, sur toutes les pages : sous l'illustration, au-dessus des
+       cases. Le jeu range une page à cases ainsi — le titre, l'illustration et
+       son panneau de détail (`#technologydetails_wrapper`), puis les cases
+       (`#technologies`) — et se poser devant ce dernier bloc met la bande là
+       où le regard descend, sans jamais entrer dans une liste de cases : la
+       page Recherche en range quatre côte à côte, et s'y glisser la cassait.
+       Les pages sans cases — Galaxie, Flotte — la prennent en tête de leur
+       contenu. */
+    const cases = document.getElementById('technologies');
+    const hote = (cases && cases.parentNode)
+      || document.querySelector('#middle .maincontent') || document.getElementById('middle');
     const vieille = laBande && laBande.parentNode === hote ? laBande : null;
     if (!hote || (!lignes.length && !pins.length)) {
       if (vieille) vieille.remove();
@@ -573,7 +577,9 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
         if (x.href) n.href = x.href;
       }
     }
-    if (hote.children[0]) hote.insertBefore(hud, hote.children[0]); else hote.appendChild(hud);
+    if (cases && cases.parentNode === hote) hote.insertBefore(hud, cases);
+    else if (hote.children[0]) hote.insertBefore(hud, hote.children[0]);
+    else hote.appendChild(hud);
     laBande = hud;
   }
 

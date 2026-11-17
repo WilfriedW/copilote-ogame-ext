@@ -914,6 +914,11 @@ const BANDE = { hints: {}, rates: {}, lean: false, tour: {}, band: { pages: {
     url: '/game/index.php?page=ingame&component=galaxy' }]
 } } };
 
+t('une page sans cases reçoit la bande en tête du contenu', () => {
+  // Galaxie, Flotte, Vue d'ensemble : pas de bloc de cases où se glisser.
+  assert.equal(runPage({ skin: BANDE, search: '?page=ingame&component=galaxy' }).bandeEnTete, true);
+});
+
 t('la bande porte ce qui se fait sur la page ouverte', () => {
   const b = runPage({ skin: BANDE, search: '?page=ingame&component=facilities' }).bande;
   assert.deepEqual(b.ici.map(x => x.txt), ['Usine de robots 7 · Caribou Land']);
@@ -981,15 +986,15 @@ t('un élément de la page qui porte notre classe n\'est ni réécrit ni retiré
   assert.deepEqual(r.bande.ici.map(x => x.txt), ['Espionner 1:140:6']);
 });
 
-t('la bande se pose en tête du contenu, quelle que soit la page', () => {
+t('la bande se pose sous l\'illustration, quelle que soit la page', () => {
   // `#middle > .maincontent` est le squelette commun : une seule place, haute,
   // et jamais à l'intérieur d'un encadré du jeu — la page Recherche range ses
   // cases en quatre listes côte à côte, s'y glisser cassait sa mise en page.
   const quatre = runPage({ skin: TOUR, tiles: [['21', '1'], ['124', '113']],
     search: '?page=ingame&component=research&openTech=21' });
-  assert.equal(quatre.bandeEnTete, true, 'en tête, hors des encadrés');
+  assert.equal(quatre.bandeSousIllustration, true, 'sous l\'illustration, au-dessus des cases');
   assert.equal(quatre.tour.length, 3, 'et la tournée reste');
-  assert.equal(runPage(ARRIVEE).bandeEnTete, true, 'même place sur une page à une seule liste');
+  assert.equal(runPage(ARRIVEE).bandeSousIllustration, true, 'même place à une seule liste');
 });
 
 t('une secousse ne duplique pas la bande', () => {
