@@ -5,6 +5,29 @@
   window.__copilote = 1;
 
   const meta = n => document.querySelector(`meta[name="ogame-${n}"]`)?.content;
+
+  /* Les pages du jeu que le copilote connaît : celles où ses propres liens
+     mènent. Tout le reste — alliance, messages, boutique, et ce que le jeu
+     ajoutera — ne reçoit rien. Une liste d'autorisés ne se contourne pas, là
+     où une liste d'interdits se contourne en nommant la page autrement. */
+  const PAGES_COPILOTE = ['overview', 'supplies', 'facilities', 'research', 'shipyard',
+    'defenses', 'fleetdispatch', 'galaxy', 'movement', 'lfbuildings', 'lfresearch'];
+
+  /**
+   * La page ouverte, lue une seule fois pour tout le script.
+   * Le jeu la nomme dans `component`, et dans `page` sur ses pages anciennes.
+   * Une URL qui en nomme plusieurs ne se tranche pas : le serveur pourrait
+   * retenir l'autre, et nous dessinerions sur une page que nous croyons être
+   * une autre. On ne devine pas, on se tait.
+   * @returns {string} le nom de la page, ou '' si l'URL n'en désigne pas une seule
+   */
+  function pageCourante() {
+    const qs = new URLSearchParams(location.search);
+    const vues = qs.getAll('component').concat(qs.getAll('page'))
+      .map(v => String(v).trim().toLowerCase())
+      .filter(v => v && v !== 'ingame');
+    return vues.length === 1 ? vues[0] : '';
+  }
   const clean = s => String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 
   /**
@@ -31,8 +54,7 @@
   function snapshot() {
     const planetId = meta('planet-id');
     if (!planetId) return null;
-    const qs = new URLSearchParams(location.search);
-    const component = qs.get('component') || qs.get('page') || '';
+    const component = pageCourante();
 
     const levels = {};
     document.querySelectorAll('li.technology[data-technology]').forEach(li => {
@@ -433,8 +455,8 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
        et les vaisseaux, dont aucune planète ne porte de niveau, sans avoir à
        tenir la liste des pages interdites. */
     const connus = gids.filter(g => (tour[g].b || {})[tuile] != null);
-    if (!tuile || connus.length < 2) return [];
-    const comp = new URLSearchParams(location.search).get('component') || '';
+    const comp = pageCourante();
+    if (!tuile || connus.length < 2 || PAGES_COPILOTE.indexOf(comp) < 0) return [];
     const ici = meta('planet-id');
     const maintenant = Date.now();
     const pins = gids.map(g => {
@@ -495,14 +517,9 @@ html.copilote-lean #middle .maincontent > div > header{display:none}`;
      le même nom que le nôtre serait à la fois faux et grossier. */
   let laBande = null, poses = 0, bandeErr = '';
 
-  /* Les pages dont le contenu vient d'autres joueurs. Le copilote n'a rien à y
-     dire — aucune action du plan ne s'y lance — et il ne leur laisse donc aucune
-     prise : pas de bande du tout, quoi que leur balisage imite. */
-  const PAGES_LIBRES = ['alliance', 'messages', 'chat', 'buddies'];
-
   function peintBande() {
-    const comp = new URLSearchParams(location.search).get('component') || '';
-    if (PAGES_LIBRES.indexOf(comp) >= 0) {
+    const comp = pageCourante();
+    if (PAGES_COPILOTE.indexOf(comp) < 0) {
       if (laBande) { laBande.remove(); laBande = null; }
       return;
     }
@@ -701,7 +718,7 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
       'bande=' + (bandeErr ? 'erreur ' + bandeErr
         : !document.getElementById('middle') ? 'sans-middle'
         : !document.querySelector('.copilote-bande') ? 'rien'
-        : (((band || {}).pages || {})[new URLSearchParams(location.search).get('component') || ''] || []).length
+        : (((band || {}).pages || {})[pageCourante()] || []).length
           + ':' + pastilles().length
           // combien de fois la bande a été reposée : si ce compte grimpe seul,
           // c'est le jeu qui l'emporte à chaque rafraîchissement de sa page

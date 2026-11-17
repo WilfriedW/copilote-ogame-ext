@@ -823,13 +823,25 @@ t('un bâtiment de forme de vie lit toujours la file des bâtiments', () => {
   assert.ok(/file 2h/.test(pins(r.tour)['Colonie'].txt), pins(r.tour)['Colonie'].txt);
 });
 
-t('un component fabriqué ne détourne pas les liens', () => {
-  // Une URL forgée, ouverte depuis un message ou un forum, ne doit pas faire
-  // mentir la pastille sur la page où elle mène.
-  const r = runPage({ ...ARRIVEE,
-    search: '?page=ingame&component=facilities%26component%3Dfleetdispatch&openTech=21' });
-  const href = pins(r.tour)['Colonie'].href;
-  assert.equal(href.match(/component=/g).length, 1, href);
+t('une page que le copilote ne connaît pas ne reçoit rien', () => {
+  /* Le copilote ne dessine que sur les pages où ses propres liens mènent.
+     Une URL forgée — ouverte depuis un message, ou nommant deux fois la page
+     pour que le serveur et nous ne lisions pas la même — n'en fait pas partie,
+     et il n'y a donc rien à contourner. */
+  for (const q of ['component=facilities%26component%3Dfleetdispatch',
+    'component=alliance&component=facilities',
+    'component=facilities&component=alliance',
+    'component=boutique', 'component=']) {
+    const r = runPage({ ...ARRIVEE, search: '?page=ingame&' + q + '&openTech=21' });
+    assert.deepEqual(r.tour, [], q);
+    assert.equal(r.bande, null, q);
+  }
+});
+
+t('et la page nommée par `page` compte autant que celle nommée par `component`', () => {
+  const r = runPage({ ...ARRIVEE, search: '?page=alliance&openTech=21' });
+  assert.deepEqual(r.tour, []);
+  assert.equal(r.bande, null);
 });
 
 t('le stock publié avance avec la production entre deux envois', () => {
@@ -915,8 +927,8 @@ const BANDE = { hints: {}, rates: {}, lean: false, tour: {}, band: { pages: {
 } } };
 
 t('la bande ne se dessine pas sur les pages écrites par les joueurs', () => {
-  // Alliance, messages, discussion : leur contenu vient d'autres joueurs. Le
-  // copilote n'a rien à y dire, et ne leur laisse donc aucune prise.
+  // Alliance, messages, discussion : leur contenu vient d'autres joueurs. Elles
+  // ne sont pas dans la liste des pages du copilote, donc rien ne s'y dessine.
   for (const comp of ['alliance', 'messages', 'chat', 'buddies']) {
     const r = runPage({ skin: TOUR, tiles: ['21'],
       search: '?page=ingame&component=' + comp + '&openTech=21' });
