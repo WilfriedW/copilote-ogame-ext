@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'prios', 'prioOf', 'prioClean'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -4887,6 +4887,108 @@ t('un empire vide n\'efface pas les recherches que le joueur a posées', () => {
   g.S.planets = [];
   g.prioClean();
   assert.deepEqual(g.S.prio, [{kind:'t', k:'plasma', lvl:4}]);
+});
+
+/** Une priorité de labo 10 sur la mère, qui est au labo 5 et n'a aucune raison
+    de monter son labo aujourd'hui. */
+const prioLabo = s => { s.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}]; };
+
+/* Sur toute la journée, et pas sur la première session : la mère de la fixture
+   tourne au ralenti (facteur 0,82), donc sa centrale de secours lui prend sa
+   première session — c'est exactement la précédence que vérifie plus bas « la
+   centrale passe devant la priorité ». Ce qui compte est qu'aucun labo ne
+   sorte jamais sans priorité, et qu'il sorte avec. */
+t('sans priorité, aucune carte de labo ne sort', () => {
+  const p = app().simulateDay();
+  assert.ok(!p.sessions.flatMap(x => x.acts).some(a => a.kind === 'b' && a.k === 'lab'));
+});
+
+t('avec la priorité, le labo sort et porte sa raison', () => {
+  const p = app(prioLabo).simulateDay();
+  const a = p.sessions.flatMap(x => x.acts).find(x => x.kind === 'b' && x.k === 'lab');
+  assert.ok(a, 'le labo est proposé');
+  assert.equal(a.lvl, 6, 'le niveau suivant, pas le niveau visé');
+  assert.match(a.why, /priorité/i);
+});
+
+t('la priorité ouvre un objectif, et la recherche n\'en ouvre pas un second', () => {
+  const p = app(prioLabo).simulateDay();
+  const g = p.sessions[0].goals.filter(x => x.key.startsWith('prio:'));
+  assert.equal(g.length, 1);
+  assert.equal(p.sessions[0].goals.length, 1, 'un seul objectif sur la planète');
+});
+
+t('un coût au-dessus du hangar fait sortir le hangar, pas le silence', () => {
+  // Nanites : 1 M de métal, très au-dessus du Hangar M 3 de la fixture
+  const p = app(s => { s.prio = [{kind:'b', pid:'mere', k:'nanite', lvl:1}];
+    s.planets[0].b.robot = 10; s.tech.computer = 10; }).simulateDay();
+  const tout = p.sessions.flatMap(x => x.acts).concat(p.sessions.flatMap(x => x.waits));
+  assert.ok(tout.some(a => a.k === 'smetal'), 'le hangar de métal est demandé');
+});
+
+t('un prérequis manquant ne réserve rien et le dit', () => {
+  const p = app(s => { s.prio = [{kind:'b', pid:'mere', k:'nanite', lvl:1}]; }).simulateDay();
+  assert.equal(p.sessions[0].goals.filter(x => x.key.startsWith('prio:')).length, 0);
+  const dit = p.sessions[0].acts.concat(p.sessions[0].waits).map(x => x.why || '').join(' ');
+  assert.match(dit, /Robots 10/);
+});
+
+t('une ressource sans production le dit au lieu de disparaître', () => {
+  /* La colonie n'a ni synthétiseur ni deutérium en stock : il n'y vient jamais,
+     et l'usine de robots en demande. La centrale de fusion ne pouvait pas tenir
+     ce rôle : elle exige le synthétiseur 5, donc une colonie qui la vise produit
+     forcément du deutérium — c'est alors le prérequis qui parle, pas la
+     ressource absente. */
+  const p = app(s => { s.prio = [{kind:'b', pid:'colo', k:'robot', lvl:5}];
+    s.planets[1].b.deut = 0; s.planets[1].stock = {m:9000, c:4000, d:0, at:0}; }).simulateDay();
+  const dit = p.sessions[0].waits.map(x => (x.why || '') + ' ' + (x.what || '')).join(' ');
+  assert.match(dit, /deutérium/i);
+});
+
+t('prioBloque ne lit pas le stock : elle vaut sur une planète réelle', () => {
+  const g = app();
+  assert.match(g.prioBloque(g.S.planets[1], 'nanite'), /Robots 10/);
+  assert.equal(g.prioBloque(g.S.planets[0], 'lab'), '');
+});
+
+t('la centrale passe devant la priorité quand l\'énergie est négative', () => {
+  const p = app(s => { prioLabo(s); s.planets[0].b.solar = 1; }).simulateDay();
+  const a = p.sessions[0].acts.find(x => x.kind === 'b' && x.p === 0);
+  assert.equal(a && a.k, 'solar', 'la centrale d\'abord');
+});
+
+t('la réserve de la priorité ne gèle pas la centrale', () => {
+  // le secours doit être payable même quand la réserve couvre tout le stock
+  const p = app(s => { prioLabo(s); s.planets[0].b.solar = 1;
+    s.planets[0].stock = {m:5000, c:5000, d:1000, at:0}; }).simulateDay();
+  const tout = p.sessions.flatMap(x => x.acts);
+  assert.ok(tout.some(a => a.k === 'solar'), 'la centrale finit par sortir');
+});
+
+t('sur le centre, une priorité de recherche posée avant tient le rang', () => {
+  const g = app(s => { s.prio = [
+    {kind:'t', k:'plasma', lvl:4},
+    {kind:'b', pid:'mere', k:'lab', lvl:10}]; s.tech.energy = 8; });
+  assert.equal(g.prioOf(g.labPlanet().id).kind, 't', 'la file ignore les kind');
+  const p = g.simulateDay();
+  assert.ok(!p.sessions[0].acts.some(a => a.kind === 'b' && a.k === 'lab'));
+});
+
+t('deux planètes, deux priorités : les transports vont à la première posée', () => {
+  const p = app(s => { s.prio = [
+    {kind:'b', pid:'colo', k:'metal', lvl:12},
+    {kind:'b', pid:'mere', k:'lab', lvl:10}]; }).simulateDay();
+  const g = p.sessions[0].goals.filter(x => x.key.startsWith('prio:'));
+  assert.equal(g.length, 2, 'les deux épargnent chez elles');
+  assert.match(g[0].label, /Métal/, 'l\'ordre de pose décide de l\'ordre dans goals');
+});
+
+t('la première priorité d\'une planète bloquée garde son rang', () => {
+  const p = app(s => { s.prio = [
+    {kind:'b', pid:'mere', k:'nanite', lvl:1},
+    {kind:'b', pid:'mere', k:'lab', lvl:10}]; }).simulateDay();
+  assert.ok(!p.sessions[0].acts.some(a => a.kind === 'b' && a.k === 'lab'),
+    'la seconde n\'agit pas tant que la première est posée');
 });
 
 if (failures.length) {
