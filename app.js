@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.48.1';
+const APP_VERSION = '1.49.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1573,16 +1573,31 @@ function techWhy(r, k, l, goal){
 }
 function nextResearch(){
   let labNeed = 0; const list = [];
-  const rm = ROADMAPS[S.day.focus] || ROADMAPS.ecocol;
+  /* La priorité du joueur se glisse en tête d'une copie de la feuille de route,
+     avec le drapeau critique, et tout le reste suit tout seul : `resolveTech`
+     remonte les prérequis et le labo qui manque, `crit` met l'épargne en route
+     par le chemin que `tryResearch` a déjà. Une copie, jamais la table
+     elle-même : `ROADMAPS` est lue à chaque session de chaque prévision.
+     C'est `prioOf` qui arbitre, pas le `kind` : une priorité de bâtiment posée
+     avant sur le centre tient le rang, et la recherche attend son tour. */
+  const mienne = prioOf((labPlanet() || {}).id);
+  const prio = mienne && mienne.kind === 't' ? mienne : null;
+  const rm = prio ? [[prio.k, prio.lvl, 'c']].concat(ROADMAPS[S.day.focus] || ROADMAPS.ecocol)
+    : (ROADMAPS[S.day.focus] || ROADMAPS.ecocol);
   rm.forEach(([k,l,flag], i)=>{
+    const mien = !!prio && i === 0;
     /* Ordre de priorité : un emplacement de planète libre se colonise avant de
        payer le palier suivant. Tant qu'il en reste un, Astrophysique n'ajoute
        rien que la colonie n'apporte déjà — c'est quand ils sont tous pris que
-       le palier passe en tête, plus bas. */
-    if(k==='astro' && S.tech.astro >= 1 && S.day.focus !== 'eco' && S.planets.length < maxPlanets()) return;
+       le palier passe en tête, plus bas. Une Astrophysique que le joueur a
+       posée, elle, ne se saute pas : le copilote obéit sans juger, et une
+       priorité sautée serait muette. */
+    if(!mien && k==='astro' && S.tech.astro >= 1 && S.day.focus !== 'eco' && S.planets.length < maxPlanets()) return;
     const r = resolveTech(k, l, 0); if(!r) return;
     if(r.lab){ labNeed = Math.max(labNeed, r.lab); return; }
-    if(!list.some(x=>x.k===r.k)) list.push({k:r.k, lvl:r.lvl, crit:flag==='c', why:techWhy(r, k, l, roadmapGoal(rm, i))});
+    const pourquoi = techWhy(r, k, l, roadmapGoal(rm, i));
+    if(!list.some(x=>x.k===r.k)) list.push({k:r.k, lvl:r.lvl, crit:flag==='c', prio:mien,
+      why:mien ? `Tu as mis ${T[k].n} ${l} en priorité. ${pourquoi}`.trim() : pourquoi});
   });
   /* Les deux plafonds que le joueur touche tous les jours ont chacun leur
      recherche. La feuille de route cesse de parler d'Astrophysique dès qu'on l'a
@@ -1609,23 +1624,36 @@ function nextResearch(){
      recherches qu'elle doublait ne font que grossir les mines existantes —
      attendre la fin de la chaîne vers Plasma revenait à payer trois fois le
      prix pour dix fois moins. */
+  /* `garde` : la place que le joueur a prise. Un plafond « tête » double la
+     feuille de route, mais pas une priorité — `tryResearch` ne regarde que
+     `list[0]`, donc l'unshift de l'Astrophysique rendait la priorité inerte, et
+     muette. Le copilote obéit, et il chiffre : ce que le plafond écarté coûte se
+     dit sur la carte de la priorité, parce que la recherche repoussée n'a aucune
+     ligne à elle — au-delà de `list[0]`, rien ne s'affiche. */
+  const garde = (list[0] || {}).prio ? 1 : 0;
   for(const [k, why, tete] of plafonds){
     const r = resolveTech(k, S.tech[k]+1, 0); if(!r) continue;
     if(r.lab){ labNeed = Math.max(labNeed, r.lab); continue; }
     const w = r.k === k ? why : `Prérequis pour ${T[k].n}.`;
     const deja = list.find(x=>x.k===r.k);
+    // Aujourd'hui le seul plafond « tête » est celui des planètes : son prix,
+    // c'est la planète de plus qui attend.
+    if(tete && garde && !(deja && deja.prio))
+      list[0].why += ` Une planète de plus attend : tu as mis ${T[prio.k].n} ${prio.lvl} devant.`;
     // Les deux raisons sont vraies : le plafond s'ajoute à celle de la feuille
     // de route au lieu de l'écraser ou d'être perdu.
     if(deja){
       // Un plafond « tête » dit déjà, en plus précis, ce que disait l'effet
       // générique de la feuille de route : il le remplace au lieu de le répéter.
-      deja.why = tete ? w : (deja.why ? deja.why+' '+w : w);
-      if(tete && list.indexOf(deja) > 0){ deja.crit = true; list.splice(list.indexOf(deja), 1); list.unshift(deja); }
+      // Sauf sur la carte de la priorité, qui dit d'abord qu'elle en est une.
+      deja.why = tete && !deja.prio ? w : (deja.why ? deja.why+' '+w : w);
+      const at = list.indexOf(deja);
+      if(tete && at > garde){ deja.crit = true; list.splice(at, 1); list.splice(garde, 0, deja); }
       continue;
     }
     // Derrière ce que la feuille de route juge critique, et devant le reste
     // seulement quand les expéditions sont la stratégie choisie.
-    const i = tete ? 0 : (FOCUS_FLOTTE[S.day.focus] ? list.findIndex(x=>!x.crit) : -1);
+    const i = tete ? garde : (FOCUS_FLOTTE[S.day.focus] ? list.findIndex(x=>!x.crit) : -1);
     list.splice(i<0 ? list.length : i, 0, {k:r.k, lvl:r.lvl, crit:!!tete, why:w});
   }
   if(researchMode()==='first' && list[0]) list[0].crit = true;
@@ -1693,20 +1721,28 @@ function prioBloque(p, k){
  * Le test ne peut pas passer par `waitFor`, qui lit `p.stock` : les copies de
  * `simulateDay` portent `st`. Il se fait donc sur `production(p).cap`, et le
  * `{small:[…]}` qu'attend `storageNote` se reconstruit avec `storageLevelFor`.
+ * Une recherche y passe aussi : Plasma 12 coûte 8,2 M de cristal, soit un
+ * Hangar C 11, et le silence de `setGoal` serait le même. Son pas, lui, n'est
+ * pas « le niveau suivant du bâtiment » mais celui que `resolveTech` a choisi,
+ * donc son coût est donné de l'extérieur.
  * @param {object} p planète simulée
- * @param {string} k bâtiment visé
- * @param {number} lvl niveau visé par le joueur, celui qui se dit sur la carte
- * @returns {{k:string, lvl:number, why:string}}
+ * @param {{kind:string, k:string, lvl:number}} pr la priorité du joueur ; `lvl`
+ *   est le niveau visé, celui qui se dit sur la carte
+ * @param {number[]} [cost] coût du pas à payer, quand ce n'est pas celui du
+ *   niveau suivant du bâtiment visé
+ * @returns {{k:string, lvl:number, why:string}|null} null pour une recherche
+ *   qui tient dans les hangars : elle suit alors son propre chemin, la feuille
+ *   de route, et n'a rien à construire ici.
  */
-function prioStep(p, k, lvl){
-  const cap = production(p).cap, sk = ['smetal','scrystal','sdeut'];
-  const suivant = (p.b[k]||0)+1, cost = levelCost(B[k], suivant);
-  const vise = `Tu as mis ${B_SHORT[k]} ${lvl} en priorité.`;
-  for(let j=0;j<3;j++) if(cost[j] > cap[j]){
-    const L = storageLevelFor(cost[j]);
+function prioStep(p, pr, cost){
+  const cap = production(p).cap, sk = ['smetal','scrystal','sdeut'], bat = pr.kind === 'b';
+  const suivant = (p.b[pr.k]||0)+1, c = bat ? levelCost(B[pr.k], suivant) : cost;
+  const vise = `Tu as mis ${bat ? B_SHORT[pr.k] : T[pr.k].n} ${pr.lvl} en priorité.`;
+  for(let j=0;j<3;j++) if(c[j] > cap[j]){
+    const L = storageLevelFor(c[j]);
     return {k:sk[j], lvl:L, why:`${vise} ${storageNote({small:[{res:j, k:sk[j], lvl:L}]})}`};
   }
-  return {k, lvl:suivant, why:vise};
+  return bat ? {k:pr.k, lvl:suivant, why:vise} : null;
 }
 /**
  * Laquelle des trois ressources n'arrivera jamais ici, et pourquoi. C'est ce
@@ -1746,8 +1782,12 @@ function pickBuildings(p, ctx){
      est tout l'objet de la manœuvre. Le labo, lui, n'a aucun amortissement en
      production et n'entre dans aucun classement : un candidat forcé est le
      seul chemin par lequel « Labo 10 » peut sortir. */
+  /* `ctx.prio` est le pas que la priorité a retenu, déjà calculé par
+     `prioStep` : la boucle des priorités l'a choisi avant toute cette session,
+     et pour une recherche l'appelant est le seul à connaître le coût du niveau
+     à payer. */
   if(ctx.prio){
-    const pas = prioStep(p, ctx.prio.k, ctx.prio.lvl), deja = out.find(o=>o.k===pas.k);
+    const pas = ctx.prio, deja = out.find(o=>o.k===pas.k);
     // Un secours qui vise déjà ce bâtiment y va un niveau à la fois, et c'est
     // le même pas : les deux raisons sont vraies, elles s'ajoutent.
     if(deja){ deja.why = deja.why ? `${deja.why}. ${pas.why}` : pas.why; deja.prio = true; }
@@ -1926,22 +1966,39 @@ function simulateDay(){
          `prios()` lit ici l'empire simulé — S.planets est P : une priorité que
          la journée a déjà atteinte cesse d'elle-même d'épargner, au lieu de
          geler la planète jusqu'au bout de l'horizon. */
-      const prioVus = new Set(), prioClefs = new Set();
+      /* `prioPas` : le pas que la boucle a retenu, par planète, pour que la
+         boucle des bâtiments en fasse un candidat forcé sans le recalculer —
+         elle n'a pas de quoi le faire pour une recherche, dont le coût ne se
+         lit pas dans `B`. Rien ne bouge entre les deux : `prioStep` ne lit que
+         les niveaux de la planète, et aucun chantier n'aboutit d'ici là. */
+      const prioVus = new Set(), prioClefs = new Set(), prioPas = new Map();
       for(const pr of prios()){
         // La première posée sur la planète agit, les suivantes attendent leur
         // tour : deux réserves sur une planète ne s'ajouteraient que pour la
         // geler deux fois plus longtemps. La règle ignore les `kind`.
         if(prioVus.has(pr.pid)) continue;
         prioVus.add(pr.pid);
-        // Une priorité de recherche a son propre chemin, par la feuille de route.
-        if(pr.kind !== 'b') continue;
         const pp = P.find(x=>x.id===pr.pid); if(!pp) continue;
-        const bloque = prioBloque(pp, pr.k);
+        /* Une priorité de recherche part par la feuille de route, et ne vient ici
+           que pour le hangar : son coût peut dépasser ce que le centre loge, et
+           alors `setGoal` rendrait null — l'épargne ne commencerait jamais et
+           rien ne le dirait. Le pas qu'elle paie est celui que `nextResearch` a
+           résolu, prérequis compris, et pas le niveau que le joueur a visé :
+           épargner pour Plasma 12 quand il reste Laser 1 à faire demanderait un
+           hangar des mois trop tôt. */
+        const R = pr.kind === 't' ? nr.list[0] : null;
+        if(pr.kind === 't' && !(R && R.prio)) continue;
+        // Les prérequis d'une recherche ne sont pas une impasse : `resolveTech`
+        // les remonte et le pas lançable est l'un d'eux.
+        const bloque = pr.kind === 'b' ? prioBloque(pp, pr.k) : '';
         if(bloque){
           waits.push({q:'Bâtiment · '+planetRef(pp), what:`${B[pr.k].n} ${(pp.b[pr.k]||0)+1}`, why:bloque, eta:Infinity, miss:[0,0,0], kind:'b', k:pr.k, p:pp.i});
           continue;
         }
-        const pas = prioStep(pp, pr.k, pr.lvl), c = levelCost(B[pas.k], pas.lvl);
+        const pas = prioStep(pp, pr, R ? levelCost(T[R.k], R.lvl) : null);
+        if(!pas) continue;
+        prioPas.set(pp.id, pas);
+        const c = levelCost(B[pas.k], pas.lvl);
         /* La clé porte le pas, comme celle d'une recherche porte son niveau :
            quand la cible du moment avance, l'objectif d'hier est remplacé au
            lieu de tenir une réserve calculée pour un prix qui n'est plus. */
@@ -2139,7 +2196,7 @@ function simulateDay(){
       for(const p of P){
         if(p.bq>Tm) continue;
         const gPrio = goals.find(g=>g.p===p && g.key.startsWith('prio:'));
-        const cands = pickBuildings(p, {T:Tm, iv, wantColony, dep, labNeed:nr.labNeed, labP, researchRunning:sim.rq>Tm, goals, hub:hubP, prio:gPrio ? prioOf(p.id) : null});
+        const cands = pickBuildings(p, {T:Tm, iv, wantColony, dep, labNeed:nr.labNeed, labP, researchRunning:sim.rq>Tm, goals, hub:hubP, prio:gPrio ? prioPas.get(p.id) : null});
         if(!cands.length) continue;
         const res = reserveOf(p,Tm);
         /* La réserve se calcule par candidat, et pas une fois pour la liste :

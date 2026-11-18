@@ -5026,6 +5026,20 @@ t('sur le centre, une priorité de recherche posée avant tient le rang', () => 
   assert.equal(g.prioOf(g.labPlanet().id).kind, 't', 'la file ignore les kind');
   const p = g.simulateDay();
   assert.ok(!p.sessions[0].acts.some(a => a.kind === 'b' && a.k === 'lab'));
+  // Tenir le rang n'est pas se taire : c'est la recherche qui parle, par la
+  // feuille de route, et le labo attend son tour.
+  assert.ok(p.sessions[0].acts.some(a => a.kind === 't' && /priorité/i.test(a.why || '')),
+    'la priorité de recherche, elle, agit');
+});
+
+t('sur le centre, une priorité de bâtiment posée avant fait attendre la recherche', () => {
+  // Le miroir du test ci-dessus : la file ignore les kind dans les deux sens,
+  // et `prioOf` en est le seul arbitre.
+  const g = app(s => { s.prio = [
+    {kind:'b', pid:'mere', k:'lab', lvl:10},
+    {kind:'t', k:'plasma', lvl:4}]; s.tech.energy = 8; });
+  assert.ok(!/priorité/i.test(g.nextResearch().list[0].why),
+    'la feuille de route garde la tête : ' + g.nextResearch().list[0].why);
 });
 
 t('deux planètes, deux priorités : les transports vont à la première posée', () => {
@@ -5043,6 +5057,97 @@ t('la première priorité d\'une planète bloquée garde son rang', () => {
     {kind:'b', pid:'mere', k:'lab', lvl:10}]; }).simulateDay();
   assert.ok(!p.sessions[0].acts.some(a => a.kind === 'b' && a.k === 'lab'),
     'la seconde n\'agit pas tant que la première est posée');
+});
+
+/* ---------- une priorité de recherche ---------- */
+
+/** Les trois prérequis de Plasma, pour que le pas lançable soit Plasma lui-même
+    et non un prérequis : `resolveTech` rend le premier niveau qui manque. */
+const prePlasma = s => { s.tech.energy = 8; s.tech.laser = 10; s.tech.ion = 5; };
+
+t('une priorité de recherche prend la tête de la feuille de route', () => {
+  const g = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:4}]; });
+  const nr = g.nextResearch();
+  assert.equal(nr.list[0].k, 'energy', 'le prérequis d\'abord, par resolveTech');
+  assert.ok(nr.list[0].crit);
+});
+
+t('un plafond « tête » ne double pas une priorité', () => {
+  // toutes les planètes prises : Astrophysique s'unshift aujourd'hui
+  const g = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:4}];
+    prePlasma(s); s.tech.astro = 1; });
+  assert.equal(g.nextResearch().list[0].k, 'plasma');
+});
+
+t('la priorité de recherche dit pourquoi elle est là', () => {
+  const g = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:4}]; s.tech.energy = 8; });
+  assert.match(g.nextResearch().list[0].why, /priorité/i);
+});
+
+t('une Astrophysique que le joueur pose ne se saute pas', () => {
+  /* La feuille de route saute ses paliers d'Astrophysique tant qu'un emplacement
+     de planète est libre — une colonie vaut mieux. Celui que le joueur pose, lui,
+     passe quand même : le copilote obéit sans juger, et une priorité sautée
+     serait muette. */
+  const g = app(s => { s.prio = [{kind:'t', k:'astro', lvl:5}]; });
+  const nr = g.nextResearch();
+  assert.equal(nr.list[0].k, 'astro');
+  assert.match(nr.list[0].why, /priorité/i);
+});
+
+t('la priorité de recherche dit la planète qu\'elle fait attendre', () => {
+  /* Le palier d'Astrophysique chassé de la tête n'a aucune ligne à lui : au-delà
+     de `list[0]`, rien de `nextResearch` ne s'affiche. C'est donc la carte de la
+     priorité qui chiffre ce qu'elle coûte. */
+  const g = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:4}];
+    prePlasma(s); s.tech.astro = 1; });
+  const nr = g.nextResearch();
+  assert.match(nr.list[0].why, /planète de plus/, nr.list[0].why);
+  assert.match(nr.list[0].why, /Plasma 4/, 'et elle nomme la cible que le joueur a posée');
+});
+
+t('sans centre, la priorité de recherche épargne sur le plus haut labo', () => {
+  /* Plasma 5 coûte 64 k de cristal pour 60 k en caisse : l'objectif se pose au
+     lieu de partir tout de suite, et il tient dans les hangars de la mère —
+     c'est le cas d'à côté qui en sort. Sans priorité, la tête de la feuille de
+     route est Ordinateur 3, payable et non critique : aucun objectif de
+     recherche ne s'ouvrait. */
+  const p = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:5}];
+    prePlasma(s); s.tech.plasma = 4; }).simulateDay();
+  const g = p.sessions[0].goals[0];
+  assert.ok(g, 'un objectif est ouvert');
+  assert.match(g.label, /Plasma/);
+  // L'instantané d'un objectif ne garde pas sa planète : la ligne d'attente,
+  // elle, la nomme — la mère, qui porte le plus haut labo faute de centre.
+  assert.ok(p.sessions[0].waits.some(w => w.kind === 't' && w.p === 0),
+    'et c\'est le plus haut labo qui attend');
+});
+
+t('la priorité de recherche épargne pour le pas lançable, pas pour la cible lointaine', () => {
+  /* Plasma 12 demande 8,2 M de cristal, mais il reste Laser 1 à faire, à 200 de
+     métal : prendre le prix de la cible ferait épargner pour un Hangar C 11 des
+     mois avant qu'il serve, et gèlerait le centre pour rien. Le pas que
+     `resolveTech` a choisi est le seul prix du moment. */
+  const p = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:12}];
+    s.tech.energy = 8; }).simulateDay();
+  assert.ok(p.sessions[0].acts.some(a => a.kind === 't' && a.k === 'laser'),
+    'Laser 1 part tout de suite');
+  const s0 = p.sessions[0].acts.concat(p.sessions[0].waits);
+  assert.ok(!s0.some(a => ['smetal', 'scrystal', 'sdeut'].includes(a.k)),
+    'et aucun hangar n\'est réclamé pour un prix qui n\'est pas encore au programme');
+});
+
+t('une priorité de recherche trop chère pour le hangar fait sortir le hangar', () => {
+  /* Plasma 6 demande 128 k de cristal, le Hangar C 3 de la mère en loge 75 k :
+     `wait` rendrait Infinity, `setGoal` null, et la priorité disparaîtrait sans
+     un mot. Elle fait un pas de côté et commence par le hangar. Le métal, lui,
+     tient (64 k) : c'est bien le cristal qui parle. */
+  const p = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:6}];
+    prePlasma(s); s.tech.plasma = 5; }).simulateDay();
+  const s0 = p.sessions[0];
+  const h = s0.acts.concat(s0.waits).find(a => a.k === 'scrystal');
+  assert.ok(h, 'le hangar de cristal est demandé dès la première session');
+  assert.match(h.why || '', /priorité/i, 'et il dit pour quelle priorité');
 });
 
 if (failures.length) {
