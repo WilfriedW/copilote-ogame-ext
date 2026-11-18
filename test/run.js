@@ -2668,29 +2668,29 @@ t('un collage sans ressources ne rend aucune ressource', () => {
 const cible = (extra) => s => { s.raid = Object.assign({ coords: '1:142:9', m: 0, c: 0, d: 0, safe: false }, extra); };
 
 t('un rapport nu coche la case', () => {
-  const g = app(cible());
+  const g = app(cible({ coords: '2:88:4' }));
   g.applyReport(lire('nue.txt'));
   assert.strictEqual(g.S.raid.safe, true, 'ni flotte ni défense : la cible est nue');
 });
 
 t('un rapport avec défense décoche la case', () => {
-  const g = app(cible({ safe: true }));
+  const g = app(cible({ coords: '3:120:7', safe: true }));
   g.applyReport(lire('complet.txt'));
   assert.strictEqual(g.S.raid.safe, false, 'la défense lue reprend la parole du joueur');
 });
 
 t('un rapport trop faible décoche aussi, et dit que la défense est inconnue', () => {
-  const g = app(cible({ safe: true }));
+  const g = app(cible({ coords: '1:65:12', safe: true }));
   g.applyReport(lire('faible.txt'));
   assert.strictEqual(g.S.raid.safe, false);
   assert.strictEqual(g.S.raid.def, null, 'inconnue, pas vide');
 });
 
 t('un second collage efface la défense du premier', () => {
-  const g = app(cible());
+  const g = app(cible({ coords: '3:120:7' }));
   g.applyReport(lire('complet.txt'));
   assert.equal(g.S.raid.def.rl, 45, 'le premier rapport est bien lu');
-  g.applyReport(lire('faible.txt'));
+  g.applyReport('Flottes\nAucune donnée fiable n\u0060a pu être détectée pour ce type en scannant.\nDéfense\nAucune donnée fiable n\u0060a pu être détectée pour ce type en scannant.\nCommentaires');
   assert.strictEqual(g.S.raid.def, null,
     'la défense d\'hier ne se lit pas sur la cible d\'aujourd\'hui');
 });
@@ -2703,19 +2703,68 @@ t('un collage sans ressources laisse celles qui ont été tapées', () => {
 });
 
 t('une flotte de satellites et de sondes ne bloque pas le pillage', () => {
-  const g = app(cible());
+  const g = app(cible({ coords: '2:88:4' }));
   g.applyReport(lire('nue.txt').replace('Flottes', 'Flottes\nSatellite solaire\n12\nSonde d`espionnage\n3'));
   assert.strictEqual(g.S.raid.safe, true, 'ni l\'un ni l\'autre ne tire');
 });
 
 t('un petit transporteur au sol, lui, bloque le pillage', () => {
-  const g = app(cible());
+  const g = app(cible({ coords: '2:88:4' }));
   g.applyReport(lire('nue.txt').replace('Flottes', 'Flottes\nPetit transporteur\n2'));
   assert.strictEqual(g.S.raid.safe, false, 'c\'est un combat, et le copilote n\'en simule aucun');
 });
 
-t('le butin lu dans le rapport est retenu', () => {
+/* Un libellé reconnu dont le compte ne suit pas laissait la section « lue et
+   vide », donc la cible « nue », alors que le mot était sous les yeux du
+   joueur. Le balayage vaut mieux que six cas ponctuels : c'est l'invariant
+   qu'on protège, pas une mise en page. */
+t('aucun rapport mal formé ne fait passer une cible pour nue', () => {
+  const mauvais = [
+    'Ressources\nMétal\n200.000\nFlottes\nDéfense\nLanceur de missiles',
+    'Défense\nLanceur de missiles\nLaser léger\n12\nCommentaires',
+    'Défense\nLanceur de missiles\nBâtiment\nUsine de robots\n4',
+    'Flottes\nCroiseur\nDéfense\nCommentaires',
+    'Défense\n45 Lanceur de missiles\nCommentaires'
+  ];
+  for(const txt of mauvais){
+    const g = app(cible());
+    g.applyReport(txt);
+    assert.strictEqual(g.S.raid.safe, false,
+      'un compte non apparié rend la section inconnue : ' + JSON.stringify(txt));
+  }
+});
+
+t('un libellé sans son compte rend la section inconnue, pas vide', () => {
   const g = app(cible());
+  g.applyReport('Flottes\nDéfense\nLanceur de missiles');
+  assert.strictEqual(g.S.raid.def, null, 'lu à moitié n\'est pas lu');
+});
+
+t('un collage sans ressources ne rajeunit pas le rapport', () => {
+  const g = app(cible({ m: 50000, at: SOIR - 5 * 3600e3 }));
+  assert.equal(g.raidPlan().stale, true, 'le rapport est bien périmé au départ');
+  g.applyReport('x');
+  assert.equal(g.raidPlan().stale, true,
+    'taper dans la zone ne remplace pas un espionnage');
+});
+
+t('un rapport qui parle d\'une autre planète n\'est pas appliqué', () => {
+  const g = app(cible({ m: 50000 }));
+  g.applyReport(lire('nue.txt'));
+  assert.strictEqual(g.S.raid.safe, false, 'le rapport porte [2:88:4], la cible est 1:142:9');
+  assert.equal(g.S.raid.m, 50000, 'et rien n\'est écrasé');
+  assert.equal(g.S.raid.mismatch, '2:88:4', 'la carte pourra le dire');
+});
+
+t('le même rapport sur la bonne cible, lui, s\'applique', () => {
+  const g = app(cible({ coords: '2:88:4' }));
+  g.applyReport(lire('nue.txt'));
+  assert.strictEqual(g.S.raid.safe, true);
+  assert.ok(!g.S.raid.mismatch);
+});
+
+t('le butin lu dans le rapport est retenu', () => {
+  const g = app(cible({ coords: '3:120:7' }));
   g.applyReport(lire('complet.txt'));
   assert.equal(g.S.raid.lootSeen, 0.75);
 });
@@ -2762,13 +2811,40 @@ t('la carte pose la comparaison et ne compose aucun pillage', () => {
   const h = carteRaidHtml({ m: 100000, at: SOIR, def: { rl: 45 }, fleet: {} });
   assert.ok(/45 lanceurs de missiles/.test(h), 'ce qui a été lu : ' + h.slice(0, 400));
   assert.ok(/70 %/.test(h), 'et ce que percer coûte vraiment');
-  assert.ok(!/data-act/.test(h), 'aucune action d\'attaque');
+  assert.ok(!/data-launch/.test(h), 'aucune action d\'attaque');
 });
 
 t('la carte nomme la flotte adverse sans la chiffrer', () => {
   const h = carteRaidHtml({ m: 100000, at: SOIR, def: {}, fleet: { cr: 40 } });
   assert.ok(/40 croiseurs/.test(h), 'la flotte est nommée : ' + h.slice(0, 400));
-  assert.ok(!/data-act/.test(h), 'et rien n\'est composé');
+  assert.ok(!/data-launch/.test(h), 'et rien n\'est composé');
+});
+
+/* Le verdict comparait un équivalent métal à une somme brute. Sur une cible
+   riche en cristal et en deutérium, il disait « trop cher » d'une défense que
+   le butin payait largement. */
+t('le verdict compare deux équivalents métal, pas une pomme et une poire', () => {
+  const h = carteRaidHtml({ m: 80000, c: 80000, d: 40000, at: SOIR, def: { gc: 3 }, fleet: {} });
+  assert.ok(/3 canons de Gauss/.test(h), 'la défense est bien lue : ' + h.slice(0, 200));
+  assert.ok(!/Percer coûte plus cher/.test(h),
+    '145 500 de défense contre 160 000 de butin en équivalent métal');
+});
+
+t('une cible vide dit quand même que sa défense est inconnue', () => {
+  const h = carteRaidHtml({ m: 0, c: 0, d: 0, at: SOIR, def: null, fleet: null });
+  assert.ok(/ne montre pas/.test(h),
+    'le collage ne doit pas avoir l\'air d\'avoir échoué : ' + h.slice(0, 300));
+});
+
+t('un rapport collé sur la mauvaise cible se voit', () => {
+  const h = carteRaidHtml({ m: 50000, at: SOIR, mismatch: '2:88:4' });
+  assert.ok(/2:88:4/.test(h), 'la carte nomme la planète du rapport : ' + h.slice(0, 300));
+  assert.ok(!/data-launch/.test(h), 'et ne compose rien');
+});
+
+t('une cible nue, elle, compose bien l\'attaque', () => {
+  const h = carteRaidHtml({ m: 100000, at: SOIR, def: {}, fleet: {}, safe: true });
+  assert.ok(/data-launch/.test(h), 'le bouton est là quand tout est lu et vide');
 });
 
 t('la carte dit laquelle des deux sections manque', () => {

@@ -166,6 +166,13 @@ les deux envoie la flotte.
 s'ouvre sur son titre — `Flotte`, `Défense` — et se referme au titre
 suivant. Entre les deux, chaque libellé porte le nombre qui le suit.
 
+**Un libellé reconnu dont le compte n'arrive pas rend aussi la section
+inconnue.** C'est le cas que la revue de branche a trouvé, et que le
+raisonnement de sûreté ne couvrait pas : il ne parlait que du libellé *non*
+reconnu. Un libellé reconnu posait une attente, et une attente perdue laissait
+la section « lue et vide », donc la cible nue, alors que le mot était sous les
+yeux du joueur. Perdre une attente rend donc la section inconnue.
+
 **Un libellé qu'on ne reconnaît pas rend la section inconnue, jamais
 vide.** C'est la correction la plus importante que la relecture a apportée,
 et elle vient d'un cas banal : une planète qui ne porte que des satellites
@@ -192,6 +199,18 @@ dit en outre si la pièce **se bat** — c'est ce qui décide plus bas.
 donne 100 % sur un bandit, 75 % sur une cible honorable, 50 % sinon. Lu, il
 est juste ; déduit, il l'est par hasard. Faute de l'avoir lu, la déduction
 d'aujourd'hui reste, et la carte dit laquelle des deux elle montre.
+
+**Un rapport qui parle d'une autre planète n'est pas appliqué.** L'en-tête
+porte les coordonnées de la planète espionnée. Coller le rapport de la cible
+d'à côté pré-cocherait « sans défense » pour celle qui est ouverte — une
+erreur de manipulation banale dès qu'on espionne plusieurs cibles, et qui
+coûte exactement le prix du mensonge qu'on cherche à éviter. Le copilote ne
+prend alors rien et le dit.
+
+**La date du rapport suit les ressources, et elles seules.** C'est le stock
+qui vieillit. Posée à chaque frappe dans la zone de collage, elle rajeunissait
+un rapport de cinq heures sans que personne ait réespionné, et l'avertissement
+« rapport périmé » disparaissait avec elle.
 
 **Un collage ne laisse jamais la flotte ou la défense à leur valeur
 d'avant.** Ce que le nouveau rapport n'en dit pas redevient inconnu. Sinon
@@ -256,10 +275,16 @@ Quand le rapport montre de la défense, la carte de pillage ajoute une
 ligne, et deux nombres seulement, tous deux lus :
 
 > Défense : 45 lanceurs de missiles, 12 lasers légers — 114 k en équivalent
-> métal, contre 60 k de butin. Percer coûte plus cher que ce que ça
-> rapporte, et sa défense repousse à 70 % gratuitement sans laisser de
-> débris. Le copilote ne compose pas d'écran : dimensionner un combat
+> métal, contre 60 k de butin dans la même unité. Percer coûte plus cher que
+> ce que ça rapporte, et sa défense repousse à 70 % gratuitement sans laisser
+> de débris. Le copilote ne compose pas d'écran : dimensionner un combat
 > demande un simulateur, et le résultat serait une fourchette.
+
+**Les deux nombres sont dans la même unité, et ce n'est pas un détail.** La
+première rédaction comparait l'équivalent métal de la défense à la somme brute
+des trois ressources du butin. Sur une cible riche en cristal et en deutérium
+le verdict s'inversait : le copilote disait « trop cher » d'une défense que le
+butin payait largement. Le butin passe donc par `mse` lui aussi.
 
 La valeur de la défense est la somme des coûts de `DEF` passée à `mse`
 (`app.js:840`) — les mêmes chiffres que le copilote emploie pour décider de

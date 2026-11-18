@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.14';
+const APP_VERSION = '1.46.15';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3055,23 +3055,30 @@ function parseReport(txt){
   const compte = (s, k, v)=>{ s.n[k] = (s.n[k]||0) + v; };
   const chiffre = s=>{ const v = +String(s).replace(/[.,\s]/g,''); return isFinite(v) ? v : null; };
   let sec = null, attend = null;
+  /* Un libellé reconnu dont le compte n'arrive jamais est le cas qui mord : il
+     laissait la section « lue et vide », donc la cible « nue », alors que le
+     mot était sous les yeux du joueur. Perdre une attente rend donc la section
+     inconnue — c'est le seul sens de repli qui ne mente pas. */
+  const perdu = ()=>{ if(attend && sec) sec.floue = true; attend = null; };
   for(const ligne of brut.split(/\r?\n/)){
     const l = ligne.trim(); if(!l) continue;
     const cle = repKey(l), tete = REPORT_HEADS[cle];
-    if(tete){ sec = (tete==='fleet'||tete==='def') ? st[tete] : null; if(sec) sec.vue = true; attend = null; continue; }
+    if(tete){ perdu(); sec = (tete==='fleet'||tete==='def') ? st[tete] : null; if(sec) sec.vue = true; continue; }
     if(!sec) continue;
     // Le jeu avoue lui-même ce qu'il n'a pas pu lire : c'est le signal le plus sûr.
     if(cle.startsWith(REPORT_RIEN)){ sec.floue = true; attend = null; continue; }
-    if(REPORT_WORDS[cle]){ attend = REPORT_WORDS[cle]; continue; }
+    if(REPORT_WORDS[cle]){ perdu(); attend = REPORT_WORDS[cle]; continue; }
     /* Le libellé et son nombre peuvent tenir sur une ligne ou sur deux, selon
        la façon dont le joueur copie : les deux se lisent, parce que deviner
        laquelle coûterait un rapport mal lu sur une mise en page légitime. */
     const m = l.match(/^(.*?)[\s.:]*(\d[\d.,\s]*)$/);
     const k2 = m && REPORT_WORDS[repKey(m[1])];
-    if(k2){ compte(sec, k2, chiffre(m[2])); attend = null; continue; }
-    if(attend && m && !m[1].trim()){ compte(sec, attend, chiffre(m[2])); attend = null; continue; }
+    const v = m ? chiffre(m[2]) : null;
+    if(k2 && v != null){ perdu(); compte(sec, k2, v); continue; }
+    if(attend && v != null && m && !m[1].trim()){ compte(sec, attend, v); attend = null; continue; }
     sec.floue = true; attend = null;
   }
+  perdu();
   const rendu = s => (!s.vue || s.floue) ? null : s.n;
   return {
     res: res.some(x=>x!=null) ? res.map(x=>x||0) : null,
@@ -3094,6 +3101,13 @@ function seNue(n){ return !!n && !Object.keys(n).some(k=>SE_BAT[k] && n[k]>0); }
  */
 function applyReport(txt){
   if(!S.raid) return;
+  /* Le rapport porte les coordonnées de la planète espionnée. Coller celui
+     d'une autre cible pré-cocherait « sans défense » pour celle-ci, et c'est
+     une erreur de manipulation banale dès qu'on espionne plusieurs cibles :
+     elle coûte le même prix que le mensonge qu'on cherche à éviter. */
+  const c = String(txt).match(/\[(\d+:\d+:\d+)\]/);
+  if(c && S.raid.coords && c[1] !== S.raid.coords){ S.raid.mismatch = c[1]; return; }
+  S.raid.mismatch = null;
   const r = parseReport(txt);
   /* La flotte et la défense repartent à chaque collage, y compris vers
      l'inconnu : gardées, celles d'hier décriraient la cible d'hier. Les trois
@@ -3103,8 +3117,10 @@ function applyReport(txt){
   S.raid.fleet = r.fleet;
   S.raid.def = r.def;
   S.raid.lootSeen = r.loot;
-  if(r.res){ S.raid.m = r.res[0]; S.raid.c = r.res[1]; S.raid.d = r.res[2]; }
-  S.raid.at = Date.now();
+  /* La date suit les ressources, et elles seules : c'est le stock qui vieillit.
+     Posée à chaque frappe dans la zone de collage, elle rajeunissait un rapport
+     de cinq heures sans que personne ait réespionné. */
+  if(r.res){ S.raid.m = r.res[0]; S.raid.c = r.res[1]; S.raid.d = r.res[2]; S.raid.at = Date.now(); }
   S.raid.safe = seNue(r.fleet) && seNue(r.def);
 }
 /** Fleet and outcome for a raid on the selected target. */
@@ -3146,7 +3162,11 @@ function raidPlan(){
   const fl = (lc||sc) ? flight(home.coords, r.coords, ships, 100) : null;
   const fuel = fl ? fl.fuel*2 : 0, cargo = souteUtile(lc*lcC + sc*scC, fuel), got = Math.min(need, cargo);
   return {home, loot, need, ships, fl, cargo, got, fuel, stale, short: Math.max(0,left), net: got - fuel*S.settings.ratio[0]/S.settings.ratio[2],
-    rate, rateSeen, defValue, defList, fleetList, defKnown: r.def != null, fleetKnown: r.fleet != null};
+    rate, rateSeen, defValue, defList, fleetList, defKnown: r.def != null, fleetKnown: r.fleet != null,
+    /* Le butin dans la même unité que la défense : `need` est une somme brute,
+       et la comparer à un équivalent métal inversait le verdict sur une cible
+       riche en cristal ou en deutérium. */
+    lootValue: mse(...loot)};
 }
 
 /* Un outil retiré laisse son nom dans les réglages du joueur : on ne demande à
@@ -3497,8 +3517,14 @@ explore(){
   const rp = raidPlan(), rpEl = document.getElementById('rdPlan');
   if(rp && rpEl){
     const okShips = Object.keys(rp.ships).length>0;
-    rpEl.innerHTML = rp.need<=0 ? '<p class="note">Saisis les ressources du rapport pour calculer la flotte.</p>' : `<div class="res">${gauge('m','m','Butin possible',fmt(rp.need),`${Math.round(rp.rate*100)} % du stock, ${rp.rateSeen ? 'lu dans le rapport' : 'd\'après ta classe'}`)}${gauge('c','c','Ramené',fmt(rp.got),okShips?shipList(rp.ships):'aucun transporteur')}${gauge('d','d','Carburant',fmt(rp.fuel),'aller-retour')}${gauge('e','e','Vol',rp.fl?dur(rp.fl.secs):'–','aller')}</div>
-      ${rp.defList ? `<p class="pill warn" style="margin-top:8px">Défense lue : ${esc(rp.defList)} — ${fmt(rp.defValue)} en équivalent métal, contre ${fmt(rp.need)} de butin. ${rp.defValue >= rp.need ? 'Percer coûte plus cher que ce que ça rapporte.' : 'À toi de juger si ça vaut la flotte que tu y perdras.'} Sa défense repousse à 70 % gratuitement et ne laisse aucun débris : tu paies ton écran, lui récupère la sienne. Le copilote ne le compose pas — dimensionner un combat demande un simulateur, et sa sortie serait une fourchette, pas un chiffre.</p>` : ''}
+    /* Les jauges ne valent que s'il y a un butin, mais les avertissements, eux,
+       valent toujours : sur une cible à zéro ressource le joueur ne voyait que
+       « Saisis les ressources » après avoir collé un rapport entier, et croyait
+       que le collage avait échoué. */
+    const jauges = rp.need<=0 ? '<p class="note">Saisis les ressources du rapport, ou colle-le, pour calculer la flotte.</p>' : `<div class="res">${gauge('m','m','Butin possible',fmt(rp.need),`${Math.round(rp.rate*100)} % du stock, ${rp.rateSeen ? 'lu dans le rapport' : 'd\'après ta classe'}`)}${gauge('c','c','Ramené',fmt(rp.got),okShips?shipList(rp.ships):'aucun transporteur')}${gauge('d','d','Carburant',fmt(rp.fuel),'aller-retour')}${gauge('e','e','Vol',rp.fl?dur(rp.fl.secs):'–','aller')}</div>`;
+    rpEl.innerHTML = `${jauges}
+      ${S.raid.mismatch ? `<p class="pill bad" style="margin-top:8px">Ce rapport parle de ${esc(S.raid.mismatch)}, pas de ${esc(S.raid.coords)}. Rien n'a été pris : colle celui de la bonne cible, ou ouvre celle-là.</p>` : ''}
+      ${rp.defList ? `<p class="pill warn" style="margin-top:8px">Défense lue : ${esc(rp.defList)} — ${fmt(rp.defValue)} en équivalent métal, contre ${fmt(rp.lootValue)} de butin dans la même unité. ${rp.defValue >= rp.lootValue ? 'Percer coûte plus cher que ce que ça rapporte.' : 'À toi de juger si ça vaut la flotte que tu y perdras.'} Sa défense repousse à 70 % gratuitement et ne laisse aucun débris : tu paies ton écran, lui récupère la sienne. Le copilote ne le compose pas — dimensionner un combat demande un simulateur, et sa sortie serait une fourchette, pas un chiffre.</p>` : ''}
       ${rp.fleetList ? `<p class="pill warn" style="margin-top:8px">Flotte au sol : ${esc(rp.fleetList)}. Ça tire, donc c'est un combat, et le copilote n'en simule aucun.</p>` : ''}
       ${!rp.defKnown || !rp.fleetKnown ? `<p class="pill bad" style="margin-top:8px">Ton rapport ne montre pas ${!rp.defKnown && !rp.fleetKnown ? 'sa défense ni sa flotte' : (!rp.defKnown ? 'sa défense' : 'sa flotte')}. Envoie plus de sondes, ou monte ton Espionnage : le rapport s'étoffe avec les deux. Tant qu'on ne l'a pas lu, « il n'a rien » et « on n'a rien vu » se ressemblent trop pour y envoyer une flotte.</p>` : ''}
       ${!S.raid.safe ? '<p class="pill warn" style="margin-top:8px">Coche la case seulement si le rapport ne montre ni flotte ni défense. Sinon, ne l\'attaque pas.</p>' : ''}
