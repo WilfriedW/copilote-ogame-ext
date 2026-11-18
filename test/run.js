@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'prios', 'prioOf', 'prioClean'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -4822,6 +4822,62 @@ t('un texte qui n\'est pas l\'heure de cet instant n\'est pas touché', () => {
 t('sans horloge lisible, aucune heure ne bouge', () => {
   const r = runPage({ skin: null, heures: { ...HEURES, horloge: 'temps du serveur' } });
   assert.equal(r.heures[0].txt, '08:57:27');
+});
+
+/* ---------- les priorités du joueur ---------- */
+
+t('une priorité vivante sort avec son pid résolu', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}]; });
+  assert.deepEqual(g.prios(), [{kind:'b', pid:'mere', k:'lab', lvl:10}]);
+});
+
+t('une priorité atteinte ne sort plus', () => {
+  // la mère est au labo 5 dans la fixture
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'lab', lvl:5}]; });
+  assert.deepEqual(g.prios(), []);
+});
+
+t('une recherche atteinte ne sort plus, une recherche à faire porte le centre', () => {
+  const g = app(s => { s.prio = [{kind:'t', k:'astro', lvl:3}, {kind:'t', k:'plasma', lvl:4}]; });
+  const l = g.prios();
+  assert.equal(l.length, 1, 'astro 3 est déjà acquis dans la fixture');
+  assert.equal(l[0].k, 'plasma');
+  assert.equal(l[0].pid, g.labPlanet().id);
+});
+
+t('une priorité sur une planète oubliée est muette', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'disparue', k:'lab', lvl:10}]; });
+  assert.deepEqual(g.prios(), []);
+});
+
+t('une entrée abîmée est ignorée sans exception', () => {
+  const g = app(s => { s.prio = [
+    {kind:'z', pid:'mere', k:'lab', lvl:10},
+    {kind:'b', pid:'mere', k:'__proto__', lvl:10},
+    {kind:'b', pid:'mere', k:'lab', lvl:'dix'},
+    {kind:'t', k:'plasma', lvl:4}]; });
+  assert.deepEqual(g.prios().map(x=>x.k), ['plasma']);
+});
+
+t('l\'ordre de pose est gardé, et prioOf rend la première de la planète', () => {
+  const g = app(s => { s.prio = [
+    {kind:'b', pid:'mere', k:'nanite', lvl:1},
+    {kind:'b', pid:'colo', k:'metal', lvl:8},
+    {kind:'b', pid:'mere', k:'lab', lvl:10}]; });
+  assert.deepEqual(g.prios().map(x=>x.k), ['nanite', 'metal', 'lab']);
+  assert.equal(g.prioOf('mere').k, 'nanite');
+  assert.equal(g.prioOf('colo').k, 'metal');
+  assert.equal(g.prioOf('absente'), null);
+});
+
+t('prioClean retire les mortes du stockage, prios n\'y touche pas', () => {
+  // posé après le chargement : render() nettoie déjà ce qui arrive mort du stockage
+  const g = app();
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:5}, {kind:'t', k:'plasma', lvl:4}];
+  g.prios();
+  assert.equal(g.S.prio.length, 2, 'prios() n\'écrit rien');
+  g.prioClean();
+  assert.deepEqual(g.S.prio, [{kind:'t', k:'plasma', lvl:4}]);
 });
 
 if (failures.length) {

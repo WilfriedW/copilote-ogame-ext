@@ -15,6 +15,17 @@ elle.
 _Éviter_ : colonie (une colonie est une planète qui n'est pas la mère, pas un
 synonyme), corps, base, emplacement.
 
+**priorité** :
+Ce que le joueur pose : une cible chiffrée, bâtiment ou recherche, avec le
+niveau qu'il vise. Elle s'accomplit quand le niveau est atteint.
+_Éviter_ : objectif, cible — « Cibles » est l'onglet des inactifs à piller, et
+objectif est ce que le moteur en fait.
+
+**objectif** :
+L'épargne que le plan ouvre sur une planète, qu'elle vienne du moteur ou d'une
+priorité.
+_Éviter_ : réserve, qui est le montant, pas la raison.
+
 **nom**, **coordonnées**, **identifiant de jeu** :
 Trois choses que le jeu dit d'une planète. Chacune se lit, s'affiche et sert
 à parler au jeu ; aucune ne désigne la planète de façon sûre. Un rang dans

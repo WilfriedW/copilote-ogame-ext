@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.9';
+const APP_VERSION = '1.47.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -88,7 +88,7 @@ function sample(){
     ui:{tool:'colony', fold:{}},
     day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false},
     lf:{found:['humans','rocktal']},
-    centre:null, raid:null, raids:{},
+    centre:null, raid:null, raids:{}, prio:[],
     daily:{done:{}, no:{}},
     colo:{fromId:null, objective:'balanced', bonus:0, target:'', kit:'std', tr:'sc', built:false, fields:'', fpos:''},
   };
@@ -120,6 +120,7 @@ S.day = Object.assign(sample().day, S.day);
 S.ui = Object.assign(sample().ui, S.ui);
 S.lf = Object.assign(sample().lf, S.lf);
 S.raids = S.raids || {};
+S.prio = Array.isArray(S.prio) ? S.prio : [];
 migratePlanetIds();
 S.daily = Object.assign(sample().daily, S.daily);
 /* Une sauvegarde perdue en silence est pire qu'une erreur : l'écran montre la
@@ -144,6 +145,41 @@ function forgetPlanet(id){
   S.timers = (S.timers || []).filter(t => t.pid !== id);
   if(S.colo.fromId === id) S.colo.fromId = null;
   if(S.centre === id) S.centre = null;
+}
+
+/* Une priorité est ce que le joueur pose : un bâtiment ou une recherche, avec
+   le niveau qu'il vise. Elle ne se périme pas, elle s'accomplit — dès que le
+   niveau est atteint, ou que la planète n'existe plus, elle cesse de compter.
+   Aucune écriture ici : prios() se rappelle à chaque rendu, et c'est prioClean()
+   qui décide du stockage.
+   Une recherche ne se range pas sur une planète, elle part du centre : on lui
+   donne le pid de labPlanet() à la lecture et jamais au stockage, sinon un
+   centre que le joueur déplace laisserait la priorité visée sur l'ancien. */
+function prios(){
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  const out = [];
+  for(const e of (Array.isArray(S.prio) ? S.prio : [])){
+    if(!e || !Number.isInteger(e.lvl) || e.lvl <= 0) continue;
+    if(e.kind === 'b'){
+      const p = own(B, e.k) ? planetById(e.pid) : null;
+      if(p && e.lvl > (p.b[e.k] || 0)) out.push({kind:'b', pid:p.id, k:e.k, lvl:e.lvl});
+    }else if(e.kind === 't'){
+      const p = own(T, e.k) ? labPlanet() : null;
+      if(p && e.lvl > (S.tech[e.k] || 0)) out.push({kind:'t', pid:p.id, k:e.k, lvl:e.lvl});
+    }
+  }
+  return out;
+}
+/* La première posée sur la planète est celle qui agit ; les suivantes
+   attendent leur tour, dans l'ordre où le joueur les a posées. */
+function prioOf(pid){ return prios().find(x => x.pid === pid) || null; }
+/* Ne réécrit que si une entrée tombe : render() passe ici à chaque rendu, et
+   une écriture de stockage par rendu serait payée pour rien. */
+function prioClean(){
+  const vivantes = prios();
+  if(vivantes.length === S.prio.length) return;
+  S.prio = vivantes.map(x => x.kind === 't' ? {kind:'t', k:x.k, lvl:x.lvl} : x);
+  save();
 }
 
 /* Les rangs enregistrés deviennent des identités. Un rang écrit hier ne
@@ -1063,7 +1099,7 @@ function header(){
   document.getElementById('uniBadge').textContent = `${S.syncAt ? 'synchro ' + new Date(S.syncAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) + ' · ' : 'en attente du jeu · '}éco x${s.eco} · flotte x${s.fleet} · ${({collector:'Collecteur',general:'Général',explorer:'Explorateur',none:'Sans classe'})[s.cls]}`;
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.tab===tab)));
 }
-function render(){ header(); view.innerHTML = VIEWS[tab](); bind(); refresh(); }
+function render(){ prioClean(); header(); view.innerHTML = VIEWS[tab](); bind(); refresh(); }
 function refresh(){ (REFRESH[tab]||(()=>{}))(); header(); }
 
 /* ---------- advice ---------- */
