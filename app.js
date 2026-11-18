@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.13';
+const APP_VERSION = '1.46.14';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3118,13 +3118,35 @@ function raidPlan(){
      Un centre désigné à la main sur une colonie neuve donnerait sinon un plan
      de raid sans vaisseaux, et il le dirait en silence. */
   const home = S.planets[cargoHomeIndex()], res = [+r.m||0, +r.c||0, +r.d||0];
-  const rate = S.settings.cls==='explorer' ? .75 : .5, loot = res.map(x=>Math.floor(x*rate)), need = loot[0]+loot[1]+loot[2];
+  /* Le rapport affiche lui-même le taux de butin, et il est juste : la
+     déduction par la classe ignore le statut d'honneur de la cible, que le
+     jeu, lui, a déjà appliqué. Lu, on le prend ; sinon on déduit, et la carte
+     dit laquelle des deux elle montre. */
+  const rateSeen = typeof r.lootSeen === 'number';
+  const rate = rateSeen ? r.lootSeen : (S.settings.cls==='explorer' ? .75 : .5);
+  const loot = res.map(x=>Math.floor(x*rate)), need = loot[0]+loot[1]+loot[2];
+  /* Ce que la défense lue vaut, au prix que le copilote emploie pour décider
+     de celle du joueur. Deux nombres lus posés côte à côte : aucune simulation,
+     aucun seuil inventé, et c'est le joueur qui tranche.
+     Les missiles n'y entrent pas, comme les satellites n'entrent pas dans la
+     flotte : ils ne tirent pas sur une flotte, donc ils ne pèsent sur aucune
+     décision. Ils restent reconnus, pour que leur présence ne rende pas la
+     section illisible. */
+  const defVue = r.def ? Object.entries(r.def).filter(([k,n])=>DEF[k] && n>0) : null;
+  const defValue = defVue ? mse(...[0,1,2].map(j=>defVue.reduce((a,[k,n])=>a+DEF[k].c[j]*n, 0))) : null;
+  const defList = defVue && defVue.length ? shipList(Object.fromEntries(defVue)) : null;
+  const flotteVue = r.fleet ? Object.entries(r.fleet).filter(([k,n])=>SE_BAT[k] && n>0) : null;
+  /* Nommée, jamais chiffrée : une flotte qui tire suffit à dire non, et la
+     chiffrer demanderait les coûts des coques de combat — une table entière
+     pour une phrase qui ne changerait aucune décision. */
+  const fleetList = flotteVue && flotteVue.length ? shipList(Object.fromEntries(flotteVue)) : null;
   const av = home.ships||{}, lcC = shipStats('lc').cargoEff, scC = shipStats('sc').cargoEff;
   let left = need; const lc = Math.min(av.lc||0, Math.ceil(left/lcC)); left -= lc*lcC; const sc = left>0 ? Math.min(av.sc||0, Math.ceil(left/scC)) : 0; left -= sc*scC;
   const ships = {}; if(lc) ships.lc = lc; if(sc) ships.sc = sc;
   const fl = (lc||sc) ? flight(home.coords, r.coords, ships, 100) : null;
   const fuel = fl ? fl.fuel*2 : 0, cargo = souteUtile(lc*lcC + sc*scC, fuel), got = Math.min(need, cargo);
-  return {home, loot, need, ships, fl, cargo, got, fuel, stale, short: Math.max(0,left), net: got - fuel*S.settings.ratio[0]/S.settings.ratio[2]};
+  return {home, loot, need, ships, fl, cargo, got, fuel, stale, short: Math.max(0,left), net: got - fuel*S.settings.ratio[0]/S.settings.ratio[2],
+    rate, rateSeen, defValue, defList, fleetList, defKnown: r.def != null, fleetKnown: r.fleet != null};
 }
 
 /* Un outil retiré laisse son nom dans les réglages du joueur : on ne demande à
@@ -3475,7 +3497,10 @@ explore(){
   const rp = raidPlan(), rpEl = document.getElementById('rdPlan');
   if(rp && rpEl){
     const okShips = Object.keys(rp.ships).length>0;
-    rpEl.innerHTML = rp.need<=0 ? '<p class="note">Saisis les ressources du rapport pour calculer la flotte.</p>' : `<div class="res">${gauge('m','m','Butin possible',fmt(rp.need),`${S.settings.cls==='explorer'?'75':'50'} % du stock`)}${gauge('c','c','Ramené',fmt(rp.got),okShips?shipList(rp.ships):'aucun transporteur')}${gauge('d','d','Carburant',fmt(rp.fuel),'aller-retour')}${gauge('e','e','Vol',rp.fl?dur(rp.fl.secs):'–','aller')}</div>
+    rpEl.innerHTML = rp.need<=0 ? '<p class="note">Saisis les ressources du rapport pour calculer la flotte.</p>' : `<div class="res">${gauge('m','m','Butin possible',fmt(rp.need),`${Math.round(rp.rate*100)} % du stock, ${rp.rateSeen ? 'lu dans le rapport' : 'd\'après ta classe'}`)}${gauge('c','c','Ramené',fmt(rp.got),okShips?shipList(rp.ships):'aucun transporteur')}${gauge('d','d','Carburant',fmt(rp.fuel),'aller-retour')}${gauge('e','e','Vol',rp.fl?dur(rp.fl.secs):'–','aller')}</div>
+      ${rp.defList ? `<p class="pill warn" style="margin-top:8px">Défense lue : ${esc(rp.defList)} — ${fmt(rp.defValue)} en équivalent métal, contre ${fmt(rp.need)} de butin. ${rp.defValue >= rp.need ? 'Percer coûte plus cher que ce que ça rapporte.' : 'À toi de juger si ça vaut la flotte que tu y perdras.'} Sa défense repousse à 70 % gratuitement et ne laisse aucun débris : tu paies ton écran, lui récupère la sienne. Le copilote ne le compose pas — dimensionner un combat demande un simulateur, et sa sortie serait une fourchette, pas un chiffre.</p>` : ''}
+      ${rp.fleetList ? `<p class="pill warn" style="margin-top:8px">Flotte au sol : ${esc(rp.fleetList)}. Ça tire, donc c'est un combat, et le copilote n'en simule aucun.</p>` : ''}
+      ${!rp.defKnown || !rp.fleetKnown ? `<p class="pill bad" style="margin-top:8px">Ton rapport ne montre pas ${!rp.defKnown && !rp.fleetKnown ? 'sa défense ni sa flotte' : (!rp.defKnown ? 'sa défense' : 'sa flotte')}. Envoie plus de sondes, ou monte ton Espionnage : le rapport s'étoffe avec les deux. Tant qu'on ne l'a pas lu, « il n'a rien » et « on n'a rien vu » se ressemblent trop pour y envoyer une flotte.</p>` : ''}
       ${!S.raid.safe ? '<p class="pill warn" style="margin-top:8px">Coche la case seulement si le rapport ne montre ni flotte ni défense. Sinon, ne l\'attaque pas.</p>' : ''}
       ${rp.stale && rp.need>0 ? '<p class="pill bad" style="margin-top:8px">Rapport périmé (plus de 2 h) : réespionne avant d\'attaquer, le stock a changé.</p>' : ''}
       ${rp.short>0 ? `<p class="note">Il te manque ${fmt(rp.short)} de soute à ${esc(rp.home.name)} : le reste attendra un second passage.</p>` : ''}

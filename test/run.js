@@ -2720,6 +2720,63 @@ t('le butin lu dans le rapport est retenu', () => {
   assert.equal(g.S.raid.lootSeen, 0.75);
 });
 
+/* ---------- ce que la défense vaut, face au butin ---------- */
+
+t('la défense lue est chiffrée au prix que le copilote paie pour la sienne', () => {
+  const g = app(cible({ m: 100000, at: SOIR, def: { rl: 45 } }));
+  const r = g.raidPlan();
+  assert.equal(r.defValue, g.mse(45 * 2000, 0, 0));
+  assert.ok(/45 lanceurs de missiles/.test(r.defList), r.defList);
+});
+
+t('une défense inconnue ne se chiffre pas', () => {
+  const g = app(cible({ m: 100000, at: SOIR, def: null }));
+  assert.strictEqual(g.raidPlan().defValue, null);
+});
+
+t('le taux de butin lu dans le rapport remplace celui déduit de la classe', () => {
+  const g = app(cible({ m: 100000, at: SOIR, lootSeen: 0.75 }));
+  const r = g.raidPlan();
+  assert.equal(r.rateSeen, true);
+  assert.equal(r.loot[0], 75000, 'le butin suit le rapport, pas la classe');
+});
+
+t('sans butin lu, la déduction par la classe tient', () => {
+  const g = app(cible({ m: 100000, at: SOIR }));
+  const r = g.raidPlan();
+  assert.equal(r.rateSeen, false);
+  assert.equal(r.loot[0], 50000);
+});
+
+/** Le HTML que la carte de pillage écrit dans #rdPlan. */
+function carteRaidHtml(extra) {
+  const g = app(s => {
+    s.planets[0].ships = { lc: 10 };
+    cible(extra)(s);
+  }, SOIR, { planets: [['1:140:8', 'p1']], players: { p1: ['Alpha', 'i'] }, scores: { p1: [1000] } });
+  g.REFRESH.explore();
+  return g.html().rdPlan || '';
+}
+
+t('la carte pose la comparaison et ne compose aucun pillage', () => {
+  const h = carteRaidHtml({ m: 100000, at: SOIR, def: { rl: 45 }, fleet: {} });
+  assert.ok(/45 lanceurs de missiles/.test(h), 'ce qui a été lu : ' + h.slice(0, 400));
+  assert.ok(/70 %/.test(h), 'et ce que percer coûte vraiment');
+  assert.ok(!/data-act/.test(h), 'aucune action d\'attaque');
+});
+
+t('la carte nomme la flotte adverse sans la chiffrer', () => {
+  const h = carteRaidHtml({ m: 100000, at: SOIR, def: {}, fleet: { cr: 40 } });
+  assert.ok(/40 croiseurs/.test(h), 'la flotte est nommée : ' + h.slice(0, 400));
+  assert.ok(!/data-act/.test(h), 'et rien n\'est composé');
+});
+
+t('la carte dit laquelle des deux sections manque', () => {
+  const h = carteRaidHtml({ m: 100000, at: SOIR, def: null, fleet: {} });
+  assert.ok(/défense/i.test(h) && /sonde/i.test(h),
+    'elle nomme la défense inconnue et ce qui la montrerait : ' + h.slice(0, 400));
+});
+
 /* ---------- le statut hors-la-loi s'éteint à 500 000 points ---------- */
 
 /** Un seul inactif voisin, plus fort que le joueur, et les scores qu'on veut. */
