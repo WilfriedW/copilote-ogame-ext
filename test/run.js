@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -4098,7 +4098,8 @@ t('la recherche part du centre, pas du plus haut labo', () => {
 t('la carte du labo dit pourquoi c\'est là', () => {
   const g = app(s => { s.centre = 'colo'; });
   const a = g.simulateDay().sessions.flatMap(x => x.acts).find(x => x.kind === 'b' && x.k === 'lab');
-  if (a) assert.ok(/centre/i.test(a.why), 'la raison nomme le centre : ' + a.why);
+  assert.ok(a, 'un labo est proposé');
+  assert.ok(/centre/i.test(a.why), 'la raison nomme le centre : ' + a.why);
 });
 
 t('le niveau de labo est celui du centre, pas le maximum de l\'empire', () => {
@@ -4182,6 +4183,64 @@ t('un centre sans labo dit ce que le choix coûte', () => {
 
 t('le menu de rôle a disparu', () => {
   assert.ok(!/data-role=/.test(app().VIEWS.planets()), 'plus de menu Rôle');
+});
+
+/* ---------- ce que la relecture de branche a trouvé ---------- */
+
+t('un chantier plus haut ailleurs ne déplace pas la recherche hors du labo', () => {
+  // Le pire conseil possible : repayer un labo déjà posé. Le chantier ne doit
+  // donc pas décider du centre tant qu'un labo existe quelque part.
+  const g = app(s => {
+    s.planets[0].b.lab = 10; s.planets[0].b.shipyard = 4;
+    s.planets[1].b.shipyard = 12;
+  });
+  assert.equal(g.centrePlanet().id, 'mere', 'le labo 10 garde le centre');
+  assert.equal(g.labLevel(), 10);
+});
+
+t('un chantier posé sur une colonie ne fait pas bouger le centre tout seul', () => {
+  const neuf = s => { s.planets.forEach(p => { p.b.lab = 0; p.b.shipyard = 0; }); };
+  const avant = app(neuf);
+  const apres = app(s => { neuf(s); s.planets[1].b.shipyard = 1; });
+  assert.equal(avant.centrePlanet().id, apres.centrePlanet().id,
+    'le centre ne doit pas suivre le premier chantier de transporteur d\'une colonie');
+});
+
+t('la colonie part de la même planète que celle qui construit le vaisseau', () => {
+  // `from` est un rang d'avant la migration : le laisser écraserait `fromId`.
+  const g = app(s => { s.centre = 'mere'; delete s.colo.from; s.colo.fromId = 'colo'; });
+  assert.equal(g.coloFrom().id, 'mere', 'sinon la durée de vol annoncée est celle d\'une autre planète');
+});
+
+t('le lien du raid ouvre la planète qui a les transporteurs', () => {
+  const g = app(s => {
+    s.ui.tool = 'explore'; s.host = 's199-fr.ogame.gameforge.com';
+    s.planets[0].gid = '111'; s.planets[1].gid = '222';
+    s.planets[0].ships = {}; s.planets[1].ships = { lc: 12 };
+    s.raid = { coords: '1:142:9', m: 500000, c: 200000, d: 0, at: SOIR, safe: true };
+  }, SOIR, API_INACTIFS);
+  g.REFRESH.tools();
+  const h = g.html().rdPlan || '';
+  assert.ok(/cp=222/.test(h), 'le lien part de la colonie, qui a la soute : ' + h.slice(-400));
+});
+
+t('en stratégie flotte, la carte dit pourquoi il n\'y a pas de centre', () => {
+  const h = app(s => { s.day.focus = 'fleet'; }).VIEWS.planets();
+  assert.ok(!/data-centre=/.test(h), 'pas de case à cocher inerte');
+  assert.ok(/dispers/i.test(h), 'la raison est dite : ' + h.slice(0, 300));
+});
+
+t('la carte du chantier du centre dit pourquoi là', () => {
+  // De grands hangars loin d'être pleins : sinon la règle du hangar plein
+  // gagne tous les créneaux de la colonie et le prérequis n'est jamais choisi.
+  const g = app(s => {
+    s.centre = 'colo';
+    Object.assign(s.planets[1].b, { robot: 0, smetal: 8, scrystal: 8, sdeut: 8 });
+  });
+  const a = g.simulateDay().sessions.flatMap(x => x.acts)
+    .find(x => x.kind === 'b' && (x.k === 'shipyard' || x.k === 'robot') && x.p === 1);
+  assert.ok(a, 'un prérequis de chantier est proposé sur le centre');
+  assert.ok(/centre/i.test(a.why), 'la raison nomme le centre : ' + a.why);
 });
 
 /* ---------- défense ---------- */

@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.7';
+const APP_VERSION = '1.46.8';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1239,7 +1239,11 @@ function colShipAt(){ return S.planets.findIndex(p=>((p.ships||{}).col||0)>0); }
 function colSentNow(){ return (S.moves||[]).some(m=>m.mission===7 && !m.ret && m.arrival*1000>Date.now()) || !!(S.colo.sentAt && Date.now()-S.colo.sentAt<48*3600e3 && !S.planets.some(p=>((p.ships||{}).col||0)>0 && (p.shipsAt||0)>S.colo.sentAt)); }
 function colBuilt(){ return !!S.colo.built || colShipAt()>=0; }
 function maxPlanets(){ return 1 + Math.floor((S.tech.astro+1)/2); }
-function coloFrom(){ const i = colShipAt(); return (i>=0 ? S.planets[i] : planetById(S.colo.fromId)) || S.planets[0]; }
+/* Un vaisseau déjà à quai est un fait et passe devant tout ; sinon la colonie
+   part du centre, puisque c'est lui que le plan fait construire. Deux leviers
+   se contredisaient : le plan sortait le vaisseau du centre et annonçait la
+   durée de vol de la planète du select, cent systèmes plus loin. */
+function coloFrom(){ const i = colShipAt(); return (i>=0 ? S.planets[i] : centrePlanet() || planetById(S.colo.fromId)) || S.planets[0]; }
 function coloSystem(){ const c = parseC(coloFrom().coords) || [1,1,8]; return c; }
 /** Simulated hourly output of a colony at each position, using the departure planet's mine levels. */
 function rankPositions(){
@@ -1622,8 +1626,8 @@ function pickBuildings(p, ctx){
   if(best){ const bc = best.extraSolar ? levelCost(B.solar,p.b.solar+1) : levelCost(B[best.key],best.lvl); for(let j=0;j<3;j++) if(bc[j]>pr.cap[j]) add(sk[j], 'Hangar trop petit pour la suite'); }
   for(const g of ctx.goals||[]) if(g.p===p) for(let j=0;j<3;j++) if(g.cost[j]>pr.cap[j]) add(sk[j], `Hangar trop petit pour ${g.label}`);
   if(ctx.wantColony && p===ctx.dep && p.b.shipyard<4){
-    if(p.b.robot<2) add('robot', 'Prérequis du chantier spatial');
-    else add('shipyard', 'Prérequis du vaisseau de colonisation');
+    if(p.b.robot<2) add('robot', 'Prérequis du chantier spatial.' + centreNote());
+    else add('shipyard', 'Prérequis du vaisseau de colonisation.' + centreNote());
   }
   if(ctx.labNeed && p===ctx.labP && p.b.lab<ctx.labNeed && !ctx.researchRunning) add('lab', 'Débloque la recherche suivante.' + centreNote());
   if(needsOwnCargo(p, ctx.hub) && p.b.shipyard < 2){
@@ -2901,10 +2905,17 @@ function centreIndex(auto){
   /* Les cases décident tant que rien n'est bâti, le bâti décide ensuite : un
      bâtiment payé est payé, et en déplacer un coûterait tout ce qu'il a déjà
      coûté. Le centre ne bouge donc jamais de lui-même. */
-  const bati = p => Math.max(p.b.lab||0, p.b.shipyard||0);
+  /* Seul le labo décide. Le chantier n'a aucune prétention sur le centre : le
+     laisser derrière ne coûte rien, puisqu'une colonie monte le sien dès
+     qu'elle en a besoin. Le labo, lui, est suivi par `labP` et `labLevel()` :
+     un centre posé ailleurs ferait repayer un labo déjà payé, et c'est le pire
+     conseil que le copilote puisse donner. Le faire décider par le chantier
+     faisait exactement ça — une colonie au chantier plus haut que le labo de
+     la mère emportait la recherche — et faisait bouger le centre tout seul au
+     premier chantier de transporteur. */
   const cases = p => ((POS[(parseC(p.coords)||[])[2]] || {}).avg) || 0;
-  const pose = P.some(p => bati(p) > 0);
-  const note = p => pose ? bati(p) : cases(p);
+  const pose = P.some(p => (p.b.lab||0) > 0);
+  const note = p => pose ? (p.b.lab||0) : cases(p);
   const valeur = p => { const r = production(p); return mse(r.m, r.c, r.d); };
   let best = 0;
   for(let i = 1; i < P.length; i++){
@@ -2937,10 +2948,7 @@ function centreWhy(){
   const i = centreIndex();
   if(i < 0 || (S.centre && planetIndexById(S.centre) === i)) return '';
   const p = S.planets[i];
-  if(Math.max(p.b.lab||0, p.b.shipyard||0) > 0)
-    return p.b.lab >= p.b.shipyard
-      ? `elle porte déjà le labo ${p.b.lab} : le déplacer coûterait tout ce qu'il a coûté`
-      : `elle porte déjà le chantier ${p.b.shipyard} : le déplacer coûterait tout ce qu'il a coûté`;
+  if((p.b.lab||0) > 0) return `elle porte déjà le labo ${p.b.lab} : le déplacer coûterait tout ce qu'il a coûté`;
   const pos = (parseC(p.coords) || [])[2], avg = ((POS[pos] || {}).avg) || 0;
   return avg ? `position ${pos}, ${avg} cases en moyenne : un centre est d'abord de la place` : '';
 }
@@ -3065,7 +3073,11 @@ planets(){
       </div>
       <div class="res" id="pres-${i}"></div>
       <div class="row" style="gap:8px">${vocHtml(voc[p.id])}</div>
-      <div class="row" style="gap:8px"><label class="f" style="width:auto"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>${i===ci&&centreWhy()?`<span class="note">${esc(centreWhy())}</span>`:''}</div>
+      <div class="row" style="gap:8px">${ci<0
+        ? `<span class="note">${S.day.focus==='fleet'
+            ? 'Stratégie flotte : pas de centre, tes planètes doivent rester dispersées.'
+            : 'Un centre se choisit entre plusieurs planètes.'}</span>`
+        : `<label class="f" style="width:auto"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>${i===ci&&centreWhy()?`<span class="note">${esc(centreWhy())}</span>`:''}`}</div>
       ${i===ci?`<p class="note" style="margin:0">Un espionnage montre où tu bases ta flotte : mets-la à l'abri comme ailleurs.${labLaisse(p)}</p>`:''}
       <p class="note" id="pfleet-${i}" style="margin:0"></p>
       <details><summary class="note">Niveaux des bâtiments et stock</summary>
@@ -3120,7 +3132,7 @@ colony(){
   return `<section class="panel">
     <div class="card"><div class="row spread"><h2>Prêt à coloniser ?</h2><span id="coSlots"></span></div>
       <div class="grid">
-        <label class="f">Planète de départ<select id="coFrom" data-colo="fromId">${S.planets.map(p=>`<option value="${p.id}" ${c.fromId===p.id?'selected':''}>${esc(p.name)} [${esc(p.coords)}]</option>`).join('')}</select></label>
+        <label class="f">Planète de départ${centreIndex()>=0?`<span class="note">Ton centre, ${esc(planetRef(centrePlanet()))}, sort le vaisseau tant qu'il en est le centre.</span>`:''}<select id="coFrom" data-colo="fromId">${S.planets.map(p=>`<option value="${p.id}" ${c.fromId===p.id?'selected':''}>${esc(p.name)} [${esc(p.coords)}]</option>`).join('')}</select></label>
         <label class="f">Vaisseau de colonisation<select id="coBuilt" data-colo="built"><option value="0" ${!colBuilt()?'selected':''}>À construire</option><option value="1" ${colBuilt()?'selected':''}>Déjà construit${colShipAt()>=0?' (vu dans ta flotte)':''}</option></select></label>
       </div>
       <ul class="advice" id="coReq"></ul>
@@ -3310,7 +3322,7 @@ explore(){
       ${!S.raid.safe ? '<p class="pill warn" style="margin-top:8px">Coche la case seulement si le rapport ne montre ni flotte ni défense. Sinon, ne l\'attaque pas.</p>' : ''}
       ${rp.stale && rp.need>0 ? '<p class="pill bad" style="margin-top:8px">Rapport périmé (plus de 2 h) : réespionne avant d\'attaquer, le stock a changé.</p>' : ''}
       ${rp.short>0 ? `<p class="note">Il te manque ${fmt(rp.short)} de soute à ${esc(rp.home.name)} : le reste attendra un second passage.</p>` : ''}
-      ${S.raid.safe && !rp.stale && okShips && rp.net>0 ? `<ul class="acts" style="margin-top:8px">${actHtml({q:'Flotte · '+rp.home.name, what:`Attaquer ${S.raid.coords} avec ${shipList(rp.ships)}`, why:`Galaxie ou Flotte → ${S.raid.coords} → mission Attaquer · retour vers ${hm(Date.now()+2*rp.fl.secs*1000)}`, cost:[0,0,rp.fuel], dur:2*rp.fl.secs, end:Date.now()+2*rp.fl.secs*1000, kind:'raid', ships:rp.ships, p:hubIndex(), coords:S.raid.coords, dest:S.raid.coords, mission:1}, true)}</ul>` : ''}`;
+      ${S.raid.safe && !rp.stale && okShips && rp.net>0 ? `<ul class="acts" style="margin-top:8px">${actHtml({q:'Flotte · '+rp.home.name, what:`Attaquer ${S.raid.coords} avec ${shipList(rp.ships)}`, why:`Galaxie ou Flotte → ${S.raid.coords} → mission Attaquer · retour vers ${hm(Date.now()+2*rp.fl.secs*1000)}`, cost:[0,0,rp.fuel], dur:2*rp.fl.secs, end:Date.now()+2*rp.fl.secs*1000, kind:'raid', ships:rp.ships, p:cargoHomeIndex(), coords:S.raid.coords, dest:S.raid.coords, mission:1}, true)}</ul>` : ''}`;
   }
   const ex = exploreSystems();
   document.getElementById('exExplore').innerHTML = `<ul class="advice">${ex.map(x=>`<li><span class="pill info">${x.left} pos.</span><span class="what">Système ${x.sys}</span><span class="why">${x.dist===0?'Ton système':`À ${x.dist} système${x.dist>1?'s':''}`} : ${x.left} position${x.left>1?'s':''} pas explorée${x.left>1?'s':''} depuis 7 jours.</span></li>`).join('')}</ul><p class="note">Missions de découverte : bouton Découverte dans Galaxie. Copilote retient les positions explorées quand il voit tes missions dans Mouvements de flotte. Pour les expéditions, alterne la position 16 de systèmes voisins si les résultats baissent.</p>`;
