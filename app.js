@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.52.2';
+const APP_VERSION = '1.52.3';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 

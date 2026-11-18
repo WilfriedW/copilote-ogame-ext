@@ -2479,6 +2479,34 @@ t('app.js et manifest.json annoncent la même version', () => {
     'le panneau afficherait ' + dansApp + ' alors que Chrome a chargé ' + dansManifest);
 });
 
+t('pack.sh emporte tout ce que Chrome charge', () => {
+  /* `dist/` est ce que le navigateur voit : un fichier oublié dans la liste de
+     pack.sh et l'extension se charge sans lui — le panneau reste blanc, et rien
+     ne le dit avant le clic. La liste se garde donc depuis les deux endroits
+     qui nomment des fichiers : le manifeste et sidepanel.html. */
+  const fs = require('fs'), path = require('path');
+  const root = path.join(__dirname, '..');
+  const lu = f => fs.readFileSync(path.join(root, f), 'utf8');
+  const liste = lu('pack.sh').match(/FICHIERS="([^"]+)"/)[1].split(/\s+/);
+  const m = JSON.parse(lu('manifest.json'));
+  /* Le manifeste ne dit pas tout : `app.js` n'est nommé que par boot.js, et
+     `ids.js` par un `importScripts`. On relit donc chaque fichier emporté et on
+     prend tout nom de fichier local qu'il cite — un nom qu'on lit dans du code
+     qui part est un fichier qui doit partir avec lui. */
+  const cites = liste.filter(f => /\.(js|html)$/.test(f))
+    .flatMap(f => [...lu(f).matchAll(/['"]([\w-]+\.(?:js|css|html|png))['"]/g)].map(x => x[1]));
+  const voulus = new Set(['manifest.json', m.background.service_worker,
+    ...m.content_scripts.flatMap(c => c.js),
+    ...Object.values(m.icons),
+    ...m.web_accessible_resources.flatMap(r => r.resources),
+    ...[...lu('sidepanel.html').matchAll(/(?:src|href)="([^":]+)"/g)].map(x => x[1]),
+    ...cites]);
+  for (const f of voulus)
+    assert.ok(liste.includes(f), f + ' est chargé par l\'extension et pack.sh ne l\'emporte pas');
+  for (const f of liste)
+    assert.ok(fs.existsSync(path.join(root, f)), 'pack.sh emporte ' + f + ', qui n\'existe pas');
+});
+
 /* ---------- résultat ---------- */
 
 /* ---------- spécification v2 : formules isolées ---------- */
