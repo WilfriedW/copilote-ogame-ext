@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.5';
+const APP_VERSION = '1.46.6';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1641,9 +1641,13 @@ function pickBuildings(p, ctx){
 }
 /** Simulates the day: production, queues, and what to launch at each connection. */
 function simulateDay(){
+  /* La copie porte l'id de sa planète : plus bas, `S.planets` est remplacé par
+     cette liste, et sans id le centre choisi par le joueur devenait
+     introuvable — `centreIndex()` retombait en silence sur le choix
+     automatique pour tout le reste de la journée simulée. */
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
-  const P = S.planets.map((p,i)=>({i, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
+  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
   const expoBusy = [];
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
@@ -1734,7 +1738,13 @@ function simulateDay(){
       const softAll = p=>{ const pr=production(p), r=[pr.m,pr.c,pr.d], out=[0,0,0]; for(const x of soft){ if(x.p!==p) continue; x.cost.forEach((c,j)=>out[j]+=Math.max(0, c - r[j]*(x.eta/3600+iv))); } return out; };
       const softRes = p=>{ const pr=production(p), r=[pr.m,pr.c,pr.d], out=[0,0,0]; for(const x of soft){ if(x.p!==p || !(x.eta<=3*3600)) continue; x.cost.forEach((c,j)=>out[j]+=Math.max(0, c - r[j]*(x.eta/3600+iv))); } return out; };
       const labP = P[centreIndex()] || P.reduce((a,p)=>p.b.lab>a.b.lab?p:a, P[0]);
-      const dep = P[colShipAt()>=0 ? colShipAt() : planetIndexById(S.colo.fromId)] || P[0];
+      /* D'où part la colonie : un vaisseau déjà à quai est un fait et passe
+         devant tout ; sinon c'est le centre, parce que c'est lui qui porte le
+         chantier de l'empire. `S.colo.fromId` garde ses autres usages — le
+         classement des positions part toujours de là — mais il ne décide plus
+         où le vaisseau se construit : le centre est désormais le seul levier,
+         au lieu de deux qui pouvaient se contredire. */
+      const dep = P[colShipAt()>=0 ? colShipAt() : centreIndex()] || P[planetIndexById(S.colo.fromId)] || P[0];
       const wantColony = S.day.focus!=='eco' && P.length < maxPlanets() && !sim.colSent;
       const nr = nextResearch();
       if(nr.labNeed && labP.b.lab<nr.labNeed && labP.bq<=Tm && sim.rq<=Tm){

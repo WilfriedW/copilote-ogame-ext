@@ -4134,6 +4134,36 @@ t('la planète du fret est celle qui porte la plus grosse soute', () => {
   assert.equal(g.cargoHomeIndex(), 1, '40 grands transporteurs battent 6 petits et 2 grands');
 });
 
+/* ---------- le chantier de l'empire ---------- */
+
+t('le vaisseau de colonisation sort du centre', () => {
+  const g = app(s => {
+    s.centre = 'colo';
+    s.planets[1].b.robot = 2; s.planets[1].b.shipyard = 4;
+    s.planets[1].stock = { m: 80000, c: 80000, d: 20000, at: SOIR };
+  });
+  const a = g.simulateDay().sessions.flatMap(x => x.acts)
+    .find(x => x.kind === 'ship' && /colonisation/i.test(x.what));
+  assert.ok(a, 'un vaisseau de colonisation est proposé');
+  assert.equal(a.p, 1, 'le chantier du centre sort le vaisseau');
+});
+
+t('une colonie monte son chantier pour ses propres transporteurs, centre ou pas', () => {
+  const g = app(s => {
+    s.centre = 'mere';
+    // Sans transporteur nulle part, rien ne rapatrie : le hangar de la colonie
+    // reste plein, et c'est ce qui lui fait mériter son propre chantier.
+    s.planets[0].ships = {};
+    Object.assign(s.planets[1].b, { robot: 2, smetal: 8, scrystal: 8, sdeut: 8 });
+  });
+  // Un stock aux trois quarts de la soute : au-dessus du seuil qui mérite un
+  // transporteur, en dessous de celui qui réclamerait un hangar de plus.
+  const cap = g.storageCap(8);
+  g.S.planets[1].stock = { m: cap * 0.75, c: cap * 0.75, d: cap * 0.75, at: SOIR };
+  const b = g.simulateDay().sessions.flatMap(x => x.acts).filter(x => x.kind === 'b' && x.p === 1);
+  assert.ok(b.some(x => x.k === 'shipyard'), 'la règle locale survit au centre : ' + b.map(x => x.k).join(','));
+});
+
 /* ---------- défense ---------- */
 /* Ce qui manquait : le plan ne proposait jamais de défense, et une planète
    pleine restait une ferme gratuite. On vérifie les trois états de p.def :
