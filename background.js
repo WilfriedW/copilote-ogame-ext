@@ -118,7 +118,9 @@ async function merge(s) {
       for (const [id, n] of Object.entries(s.ships)) { if (OG_SHIPS[id]) cur.ships[OG_SHIPS[id]] = n; if (id === '212') cur.sats = n; if (id === '217') cur.crawlers = n; }
       cur.shipsAt = s.at;
     }
-    if (s.def != null) cur.def = s.def;
+    // L'heure de lecture, pas seulement le compte : après un lot sorti du
+    // chantier, c'est elle qui dit si la défense affichée est encore la vraie.
+    if (s.def != null) { cur.def = s.def; cur.defsAt = s.at; }
     if (s.defs) cur.defs = s.defs;
   }
   for (const [id, lvl] of Object.entries(s.levels)) if (OG_TECH[id]) game.tech[OG_TECH[id]] = lvl;

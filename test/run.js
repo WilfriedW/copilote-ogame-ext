@@ -1,6 +1,9 @@
 /* node test/run.js — vérifie la mise à l'abri.
    Pas de framework : app.js reste un script classique chargé par la page, et on
    l'évalue ici comme le ferait le navigateur, avec un DOM factice. */
+/* Les heures se vérifient dans un fuseau choisi : Tahiti, onze heures
+   derrière un serveur européen, l'écart du joueur de cette extension. */
+process.env.TZ = 'Pacific/Tahiti';
 const assert = require('assert');
 const { loadApp, fixtureState } = require('./harness');
 const { runPage } = require('./page');
@@ -229,6 +232,32 @@ function flotteSurPlace(s) {
 
 const transfert = g => g.simulateDay().sessions[0].acts.find(a => a.kind === 'transfer');
 
+t('un rapatriement refusé ne revient pas dans le plan', () => {
+  const g = app(flotteSurPlace, JOUR);
+  const a = transfert(g);
+  assert.ok(a, 'un rapatriement est proposé');
+  const key = `transfer:${g.S.planets[a.p].id}:${a.dest}`;
+  g.S.daily.no[key] = JOUR;
+  assert.ok(!transfert(g), 'après un Non, le plan ne le repropose plus');
+  // Un refus ne s'évapore pas : seul le joueur le défait, d'un bouton.
+  g.S.daily.no[key] = JOUR - 400 * 24 * 3600e3;
+  assert.ok(!transfert(g), 'le temps ne ramène pas une carte refusée');
+  g.S.daily.no = {};
+  assert.ok(transfert(g), 'remise, elle revient');
+});
+
+/* Le joueur fait ses rapatriements dans le jeu, pas en cliquant « Lancé » ici.
+   Sans lire les mouvements de flotte, le plan reproposait la même carte comme
+   si rien n'était parti. */
+t('un rapatriement déjà parti dans le jeu ne se repropose pas', () => {
+  const g = app(flotteSurPlace, JOUR);
+  const a = transfert(g);
+  assert.ok(a, 'un rapatriement est proposé');
+  const depart = g.S.planets[a.p].coords;
+  g.S.moves = [{ mission: 3, ret: false, arrival: (JOUR + 2 * 3600e3) / 1000, origin: depart, dest: '1:1:8' }];
+  assert.ok(!transfert(g), 'les mouvements de flotte suffisent, sans « Lancé »');
+});
+
 t('sans vaisseau sur la colonie, l\'action se passe là où est la flotte', () => {
   const g = app(flotteAuHub, JOUR);
   const a = transfert(g);
@@ -301,6 +330,29 @@ t('sans objectif ailleurs, le rapatriement vise toujours le hub', () => {
   const a = transfert(g);
   assert.ok(a, 'un rapatriement est proposé');
   assert.equal(a.dest, '1:142:8', 'destination : la planète mère');
+});
+
+/* ---------- livrer une planète qui ne produit plus ---------- */
+
+/* La colonie vient de perdre ses centrales : ses mines tournent au ralenti et
+   elle n'a pas le cristal pour reconstruire. Le manque est chez elle, et
+   aucun objectif n'y est attaché. */
+function colonieSansEnergie(s) {
+  s.planets[1].b = Object.assign({}, s.planets[1].b,
+    { metal: 14, crystal: 12, deut: 10, solar: 12 });
+  s.planets[1].stock = { m: 0, c: 0, d: 0, at: JOUR };
+  s.planets[1].ships = {};
+  s.planets[0].ships = { lc: 10, sc: 5 };
+}
+
+t('une planète bridée faute d\'énergie se fait livrer sa centrale', () => {
+  const g = app(colonieSansEnergie, JOUR);
+  const a = g.simulateDay().sessions[0].acts
+    .find(x => x.kind === 'transfer' && /Planète mère/.test(x.q));
+  assert.ok(a, 'la mère livre la colonie bridée');
+  assert.equal(a.dest, '1:142:6', 'destination : la colonie qui manque d\'énergie');
+  assert.ok(a.res && a.res[1] > 0, 'du cristal part : ' + JSON.stringify(a && a.res));
+  assert.ok(/ralenti/.test(a.why), 'le texte dit pourquoi : ' + a.why);
 });
 
 t('« Avant les bâtiments » rend la tête de liste critique', () => {
@@ -1049,6 +1101,406 @@ t('une feuille de style laissée par l\'ancienne version est remplacée', () => 
   assert.equal(r.styles, 1, 'une seule feuille, pas deux');
 });
 
+/* ---------- la largeur ---------- */
+
+const LARGE = { ...BANDE, large: true };
+const marques = r => [r.large.cadre, r.large.menu, r.large.jeu, r.large.planetes].join(' ');
+
+t('réglage éteint : la page du jeu n\'est pas touchée', () => {
+  const r = runPage({ skin: BANDE });
+  assert.ok(!/copilote-large/.test(r.large.racine), 'pas de classe sur la racine');
+  assert.ok(!/copilote-c/.test(marques(r)), 'ni cadre ni colonne marqués');
+  assert.ok(/large=éteint/.test(r.dataset.copilote), r.dataset.copilote);
+});
+
+t('réglage allumé : le cadre et ses trois colonnes sont marqués', () => {
+  const r = runPage({ skin: LARGE });
+  assert.ok(/copilote-large/.test(r.large.racine));
+  assert.ok(/copilote-cadre/.test(r.large.cadre), 'le cadre se déduit des deux bords');
+  assert.ok(/copilote-col-menu/.test(r.large.menu));
+  assert.ok(/copilote-col-jeu/.test(r.large.jeu));
+  assert.ok(/copilote-col-planetes/.test(r.large.planetes));
+  assert.ok(/large=posé/.test(r.dataset.copilote), r.dataset.copilote);
+});
+
+t('une secousse ne remarque pas deux fois le cadre', () => {
+  const r = runPage({ skin: LARGE });
+  r.secousse();
+  assert.equal((r.read().large.cadre.match(/copilote-cadre/g) || []).length, 1);
+});
+
+t('page que le copilote ne connaît pas : la largeur ne s\'y pose pas', () => {
+  const r = runPage({ skin: LARGE, search: '?page=ingame&component=alliance' });
+  assert.ok(!/copilote-large/.test(r.large.racine), 'du contenu écrit par d\'autres joueurs reste intact');
+  assert.ok(!/copilote-c/.test(marques(r)));
+  assert.ok(/large=hors page/.test(r.dataset.copilote), r.dataset.copilote);
+});
+
+t('sans liste de planètes, le cadre ne se déduit pas et rien ne bouge', () => {
+  const r = runPage({ skin: LARGE, planetList: false });
+  assert.ok(!/copilote-c/.test(marques(r)), 'tout ou rien : pas de mise en page à moitié posée');
+  assert.ok(/large=sans planètes/.test(r.dataset.copilote), r.dataset.copilote);
+});
+
+t('ce qui n\'est pas une colonne prend sa propre ligne', () => {
+  // le jeu range sa barre de ressources dans le cadre : dans un flanc, elle
+  // se retrouvait collée au menu
+  const r = runPage({ skin: LARGE });
+  assert.ok(/copilote-rang/.test(r.large.haut), 'la barre du jeu barre la rangée');
+  assert.ok(!/copilote-rang/.test(marques(r)), 'aucune colonne ne la prend');
+});
+
+t('la feuille porte les règles de la largeur', () => {
+  assert.ok(/copilote-col-jeu/.test(runPage({ skin: LARGE }).styleTxt));
+});
+
+/* ---------- notre dessin de la page ---------- */
+
+const AVEC_PEAU = { ...BANDE, peau: true };
+const SUR_RESSOURCES = { search: '?page=ingame&component=supplies', tiles: [1, 2, 4] };
+
+t('réglage éteint : le jeu garde sa page', () => {
+  const r = runPage({ ...SUR_RESSOURCES, skin: BANDE });
+  assert.ok(!r.peau.posee, 'aucun panneau');
+  assert.ok(!/copilote-peau/.test(r.peau.racine), 'rien de poussé hors de l\'écran');
+  assert.ok(/peau=éteinte/.test(r.dataset.copilote), r.dataset.copilote);
+});
+
+t('réglage allumé : une case dessinée par case du jeu', () => {
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.ok(r.peau.posee, 'le panneau est posé');
+  assert.equal(r.peau.cases, 3, 'trois cases lues, trois cases dessinées');
+  assert.ok(/copilote-peau/.test(r.peau.racine), 'la page du jeu part hors de l\'écran');
+  assert.ok(/peau=posée/.test(r.dataset.copilote), r.dataset.copilote);
+});
+
+t('une case en chantier dit son temps sur la carte', () => {
+  /* Le jeu l'écrit en tout petit, en blanc, sur l'image : illisible d'un
+     coup d'œil. La carte le dit en bas, en clair. */
+  /* L'heure est figée le temps de la mesure : sinon la milliseconde écoulée
+     entre la pose et la lecture fait basculer la minute affichée. */
+  const vraie = Date.now;
+  Date.now = () => 1700000000000;
+  let r;
+  try { r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU,
+    enChantier: { tech: 2, fin: 1700000000 + 5400, vise: 13 } }); }
+  finally { Date.now = vraie; }
+  assert.deepEqual(r.peau.chantiers, ['→ 13 · 1 h 30']);
+});
+
+t('sans chantier, aucune carte ne porte de minuteur', () => {
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.deepEqual(r.peau.chantiers, []);
+});
+
+t('les groupes du jeu restent des groupes', () => {
+  /* Recherche range ses cases en quatre encadrés, le Chantier en deux :
+     tout aplatir en une grille perdrait ce que le jeu dit de ses cases. */
+  const r = runPage({ ...SUR_RESSOURCES, tiles: [[1, 2], [3, 4, 12]], skin: AVEC_PEAU });
+  assert.equal(r.peau.grilles, 2, 'deux listes, deux grilles');
+  assert.equal(r.peau.cases, 5, 'et les cinq cases');
+});
+
+t('le nom d\'une case vient du jeu, pas de notre table', () => {
+  /* Notre table ne connaît que trente-quatre cases ; le jeu en nomme des
+     dizaines d'autres, formes de vie comprises, et dans la langue du joueur. */
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.deepEqual(r.peau.noms, ['Case 1', 'Case 2', 'Case 4'],
+    'l\'étiquette du jeu gagne, et son niveau entre parenthèses ne la suit pas');
+});
+
+t('le titre de la page vient du jeu', () => {
+  // faute d'en-tête dans cette page de test, c'est l'entrée du menu qui mène
+  // ici — dans les mots du jeu, jamais dans les nôtres
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.equal(r.peau.titre, 'Ressources');
+});
+
+t('une secousse ne repose pas le panneau', () => {
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  r.secousse();
+  assert.equal(r.read().peau.cases, 3, 'toujours trois cases, pas six');
+});
+
+t('page à cases sans case : le contenu du jeu reste entier', () => {
+  /* La peau ne sait dessiner que ce qu'elle a lu. Sans case, elle s'en tient
+     au cadre — rien ne part hors de l'écran derrière un panneau absent. */
+  const r = runPage({ search: '?page=ingame&component=supplies', skin: AVEC_PEAU });
+  assert.ok(!r.peau.posee, 'aucun panneau');
+  assert.ok(!/copilote-peau-grille/.test(r.peau.racine), 'le contenu du jeu reste en place');
+  assert.ok(/peau=cadre/.test(r.dataset.copilote), r.dataset.copilote);
+});
+
+t('Galaxie prend le cadre, pas la grille', () => {
+  /* Son contenu est un tableau du jeu : il reste entier, et la page reçoit
+     le rail, les planètes et la colonne. */
+  const r = runPage({ skin: AVEC_PEAU, tiles: [1, 2], search: '?page=ingame&component=galaxy' });
+  assert.ok(!r.peau.posee, 'aucune grille');
+  assert.ok(!/copilote-peau-grille/.test(r.peau.racine), 'son tableau reste en place');
+  assert.ok(r.peau.rail.length > 0, 'mais le rail est là');
+  assert.ok(r.peau.planetesEnHaut, 'et les planètes aussi, en haut');
+  assert.ok(/peau=cadre/.test(r.dataset.copilote), r.dataset.copilote);
+});
+
+t('la page Flotte est habillée, pas redessinée', () => {
+  /* Ses cases portent le champ qui dit combien de vaisseaux partent : refaire
+     ce champ, ce serait refaire l'envoi. On les reconnaît à ça, et on ne fait
+     que les habiller — le formulaire du jeu reste le sien. */
+  const r = runPage({ skin: AVEC_PEAU, tiles: [1, 2], champsFlotte: true,
+    search: '?page=ingame&component=fleetdispatch' });
+  assert.ok(/cp-flotte/.test(r.peau.flotte), 'la liste est habillée');
+  assert.ok(/copilote-peau-flotte/.test(r.peau.racine));
+  assert.ok(!r.peau.posee, 'et le contenu du jeu reste le sien');
+});
+
+t('sans champ dans les cases, rien ne se prend pour la Flotte', () => {
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.ok(!/cp-flotte/.test(r.peau.flotte));
+  assert.ok(!/copilote-peau-flotte/.test(r.peau.racine));
+});
+
+t('Empire prend le cadre, que le copilote n\'y conseille rien', () => {
+  /* Empire n'est pas une page où le copilote parle — elle n'est pas dans sa
+     liste — mais le cadre, lui, n'a rien à dire : il range. */
+  const r = runPage({ skin: AVEC_PEAU, search: '?page=ingame&component=empire' });
+  assert.ok(/copilote-large/.test(r.peau.racine), 'la largeur vient avec le cadre');
+  assert.ok(r.peau.rail.length > 0, 'et le rail aussi');
+  assert.ok(!r.peau.posee, 'son tableau reste au jeu');
+  assert.ok(/peau=cadre/.test(r.dataset.copilote), r.dataset.copilote);
+});
+
+t('une page hors de la peau ne reçoit rien', () => {
+  // Recherche des formes de vie : des cases sans niveau ni panneau de détail
+  const r = runPage({ skin: AVEC_PEAU, tiles: [1, 2], search: '?page=ingame&component=lfresearch' });
+  assert.ok(!r.peau.posee);
+  assert.ok(!/copilote-peau/.test(r.peau.racine));
+  assert.ok(!r.peau.planetesEnHaut, 'ses planètes restent au jeu');
+  assert.ok(/peau=hors page/.test(r.dataset.copilote), r.dataset.copilote);
+});
+
+t('la peau amène la largeur sur la page qu\'elle redessine', () => {
+  // réglage de largeur éteint : la grille tiendrait sur trois colonnes
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.ok(/copilote-large/.test(r.large.racine), 'la largeur vient avec');
+  assert.ok(/copilote-cadre/.test(r.large.cadre));
+  assert.ok(/large=posé/.test(r.dataset.copilote), r.dataset.copilote);
+});
+
+t('ailleurs, la peau n\'impose aucune largeur', () => {
+  const r = runPage({ skin: AVEC_PEAU, tiles: [1, 2], search: '?page=ingame&component=lfresearch' });
+  assert.ok(!/copilote-large/.test(r.large.racine), 'le réglage seul décide');
+  assert.ok(/large=éteint/.test(r.dataset.copilote), r.dataset.copilote);
+});
+
+t('le panneau de détail du jeu survit à une repeinture', () => {
+  /* Il est emprunté au jeu, pas recopié : le jeter avec l'ancien dessin le
+     faisait disparaître de la page pour de bon, et plus aucune case ne
+     s'ouvrait. */
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.ok(r.peau.detailDansPanneau, 'emprunté');
+  // le plan change : la peau se repeint entièrement
+  r.majSkin({ ...AVEC_PEAU, hints: { 33657643: { 1: 15 } } });
+  assert.ok(r.read().detailDansPanneau !== false, 'toujours dans la page');
+  assert.ok(r.read().peau.detailDansPanneau, 'et toujours dans le panneau');
+});
+
+t('la ligne des mouvements de flotte reste chez le jeu', () => {
+  // elle ne déménage plus : la peau la fait taire, et la colonne le dit mieux
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.ok(r.peau.notifRendue, 'elle est restée à sa place');
+});
+
+t('la peau retirée, le panneau de détail rentre chez le jeu', () => {
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  r.scriptNeuf();
+  assert.ok(r.read().peau.detailRendu, 'remis là où on l\'a pris');
+});
+
+t('une ligne dit quoi, où et quand — le pourquoi va à l\'infobulle', () => {
+  /* Dans trois cents pixels, deux phrases d'explication par action noyaient
+     les actions. Elles restent lisibles au survol. */
+  const avec = { ...AVEC_PEAU, colonne: [{ what: 'Mine de métal 24', ou: 'Mère',
+    quand: 'vers 14 h', why: 'Meilleur rendement : amorti en 6h 42m', url: 'x' }] };
+  const r = runPage({ ...SUR_RESSOURCES, skin: avec });
+  assert.deepEqual(r.peau.actes, ['Mine de métal 24 | Mère · vers 14 h'],
+    'le pourquoi n\'est pas dans la ligne');
+});
+
+t('les planètes nommées dans la phrase prennent leur couleur', () => {
+  /* « Ramène 34 grands transporteurs de Tarpin land vers Caribou Land » ne
+     met aucune planète dans son champ « où » : elles sont dans le texte, et
+     c'est là qu'il faut aller les chercher. */
+  const avec = { ...AVEC_PEAU, teintes: { 'Tarpin land': 3, 'Caribou Land': 0 },
+    colonne: [{ what: 'Ramène 34 grands transporteurs de Tarpin land vers Caribou Land',
+      ou: '', quand: '', why: '', url: '' }] };
+  const r = runPage({ ...SUR_RESSOURCES, skin: avec });
+  assert.deepEqual(r.peau.actes,
+    ['Ramène 34 grands transporteurs de Tarpin land vers Caribou Land | '],
+    'le texte reste entier, seulement découpé');
+  assert.deepEqual(r.peau.teintes, ['var(--p3)', 'var(--p0)']);
+});
+
+t('une planète garde sa couleur en passant dans la page', () => {
+  /* Le panneau donne à chaque planète une teinte selon son rang ; la page
+     reprend ce rang, pour qu'une planète se reconnaisse sans se lire. */
+  const avec = { ...AVEC_PEAU, colonne: [
+    { what: 'Mine de métal 24', ou: 'Mère', quand: '', why: '', url: '', pc: 0 },
+    { what: 'Hangar 9', ou: 'P4', quand: '', why: '', url: '', pc: 3 },
+    { what: 'Recherche', ou: '', quand: 'vers 14 h', why: '', url: '' }] };
+  const r = runPage({ ...SUR_RESSOURCES, skin: avec });
+  assert.deepEqual(r.peau.teintes, ['var(--p0)', 'var(--p3)'],
+    'une ligne sans planète n\'a pas de teinte');
+});
+
+t('tout le haut tient dans une seule bande', () => {
+  /* Chaque morceau avait son cadre : six boîtes sur deux lignes au lieu
+     d'une barre. La ligne du portail, elle, reste au jeu. */
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.deepEqual(r.peau.barre,
+    ['resourcesbarcomponent', 'planetList', 'cp-bouton'],
+    'ce qui monte dans la bande, et rien d\'autre');
+});
+
+t('la bande rend ses pièces quand la peau se retire', () => {
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  r.scriptNeuf();
+  const apres = r.read();
+  assert.deepEqual(apres.peau.barre, [], 'la bande est partie');
+  assert.ok(apres.peau.planetesRendues, 'et les planètes sont rentrées chez le jeu');
+  assert.ok(apres.peau.notifRendue, 'comme la ligne des mouvements');
+});
+
+t('le thème clair se pose et se retire avec la peau', () => {
+  const clair = runPage({ ...SUR_RESSOURCES, skin: { ...AVEC_PEAU, clair: true } });
+  assert.ok(/copilote-clair/.test(clair.peau.racine), 'le jour');
+  const sombre = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.ok(!/copilote-clair/.test(sombre.peau.racine), 'la nuit par défaut');
+  clair.scriptNeuf();
+  assert.ok(!/copilote-clair/.test(clair.read().peau.racine), 'et rien ne reste');
+});
+
+t('la feuille ne connaît plus aucune couleur en dur', () => {
+  /* Deux thèmes ne tiennent que si les règles parlent de jetons. Une couleur
+     écrite au milieu d'une règle serait juste dans l'un et fausse dans
+     l'autre, et personne ne le verrait avant de basculer. */
+  const feuille = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU }).styleTxt;
+  const peau = feuille.slice(feuille.indexOf('html{--cp-fond'));
+  const regles = peau.replace(/--[a-z0-9-]+:[^;}]+/g, '');
+  const dures = regles.match(/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g) || [];
+  assert.deepEqual(dures, [], 'couleurs hors des jetons : ' + dures.join(' '));
+});
+
+t('le bouton du panneau se pose dans la rangée du haut', () => {
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.ok(r.peau.bouton, 'posé');
+  r.scriptNeuf();
+  assert.ok(!r.read().peau.bouton, 'et retiré quand la peau se retire');
+});
+
+t('la colonne de droite porte ce que le panneau sait', () => {
+  // le joueur n'a plus d'onglet à ouvrir pour savoir quoi faire
+  const avec = { ...AVEC_PEAU, colonne: [
+    { what: 'Mine de métal 24', ou: 'Mère', quand: 'vers 14 h 10', why: '', url: 'x?component=supplies' },
+    { what: 'Hangar 9', ou: 'P2', quand: '', why: 'Il manque 48K cristal', url: '', gris: true }] };
+  const r = runPage({ ...SUR_RESSOURCES, skin: avec });
+  assert.equal(r.peau.colonne, 2, 'une ligne par action');
+  assert.deepEqual(r.peau.cartes, ["aujourd'hui"], 'une seule carte : rien à faire sur cette page');
+});
+
+t('ce qui se fait ici a sa propre carte', () => {
+  /* La page d'abord, la journée ensuite : le joueur lit la première carte
+     et agit, sans trier ce qui le concerne ici de ce qui l'attend ailleurs. */
+  const avec = { ...AVEC_PEAU,
+    band: { pages: { supplies: [{ what: 'Mine de métal 24', ou: 'Mère', quand: 'vers 14 h', why: '', url: 'x' }] } },
+    colonne: [{ what: 'Hangar 9', ou: 'P2', quand: '', why: '', url: '' }] };
+  const r = runPage({ ...SUR_RESSOURCES, skin: avec });
+  assert.deepEqual(r.peau.cartes, ['à faire ici', "aujourd'hui"]);
+  assert.equal(r.peau.colonne, 2);
+});
+
+t('rien à faire : pas de colonne vide', () => {
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.equal(r.peau.colonne, 0, 'une colonne sans ligne ne se pose pas');
+});
+
+t('les planètes montent sur la ligne du haut', () => {
+  /* Dans un flanc étroit, six lignes obligeaient à défiler pour en atteindre
+     une ; en haut, elles tiennent sur une ligne, chacune à un clic. */
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.ok(r.peau.planetesEnHaut, 'la liste du jeu est sur la rangée du haut');
+  assert.ok(/copilote-planetes-haut/.test(r.peau.racine), 'son flanc peut se fermer');
+});
+
+t('la peau retirée, les planètes retournent chez le jeu', () => {
+  // la liste appartient au jeu : la garder laisserait sa page sans planètes
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  r.scriptNeuf();
+  const apres = r.read();
+  assert.ok(apres.peau.planetesRendues, 'remise là où on l\'a prise');
+  assert.ok(!/copilote-planetes-haut/.test(apres.peau.racine));
+});
+
+t('sans peau, le flanc des planètes reste au jeu', () => {
+  const r = runPage({ ...SUR_RESSOURCES, skin: BANDE });
+  assert.ok(!r.peau.planetesEnHaut);
+  assert.ok(r.peau.planetesRendues, 'elles n\'ont pas bougé');
+});
+
+t('le rail range les pages par familles', () => {
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU }).peau.rail;
+  // par préfixe : le lien porte aussi sa touche
+  const i = n => r.findIndex(x => x.startsWith(n));
+  assert.ok(i('cp-fam:construire') >= 0 && i('cp-lien:Ressources') > i('cp-fam:construire'),
+    'Ressources est sous « construire »');
+  assert.ok(i('cp-fam:voler') < i('cp-lien:Galaxie'), 'Galaxie est sous « voler »');
+  // une page qu'aucune famille ne connaît tombe à la fin, elle ne disparaît pas
+  assert.ok(i('cp-fam:autres') >= 0 && i('cp-lien:Nouveauté') > i('cp-fam:autres'),
+    'la page inconnue est sous « autres »');
+});
+
+t('chaque page du rail dit sa touche', () => {
+  // la lettre est à nous, l'adresse vient du menu du jeu
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU }).peau.rail;
+  assert.ok(r.includes('cp-lien:Ressources[R]'), r.join(' | '));
+  assert.ok(r.includes('cp-lien:Galaxie[G]'));
+  // une page qu'on ne connaît pas garde son lien, sans touche
+  assert.ok(r.includes('cp-lien:Nouveauté'));
+});
+
+t('un menu sans libellé ne devient pas un rail vide', () => {
+  // sans rail, le joueur n'aurait plus de quoi quitter la page : on laisse
+  // alors le menu du jeu en place, même sous la peau
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU, menuMuet: true });
+  assert.equal(r.peau.rail.length, 0, 'aucun rail');
+  assert.ok(!/copilote-rail-hote/.test(r.large.menu), 'le menu du jeu reste');
+  assert.ok(!r.peau.planetesEnHaut, 'et les planètes ne déménagent pas');
+});
+
+t('un script plus neuf arrive : l\'ancien se retire', () => {
+  /* Recharger l'extension sans recharger la page laisse l'ancien script en
+     vie dans son monde : son observateur bat encore. Sans retrait, le joueur
+     voyait deux panneaux et deux bandes se répondre. */
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  assert.ok(r.peau.posee, 'posé avant');
+  r.scriptNeuf();
+  const apres = r.read();
+  assert.ok(!apres.peau.posee, 'le panneau est retiré');
+  assert.ok(!/copilote-peau|copilote-large/.test(apres.peau.racine), 'les classes partent');
+  assert.equal(apres.bandes, 0, 'la bande aussi');
+});
+
+t('retiré, l\'ancien script ne redessine plus', () => {
+  // son observateur continue de battre : une secousse ne doit rien reposer
+  const r = runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU });
+  r.scriptNeuf();
+  r.secousse();
+  assert.ok(!r.read().peau.posee, 'rien ne revient');
+});
+
+t('la feuille porte les règles de la peau', () => {
+  assert.ok(/copilote-peau-panneau/.test(runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU }).styleTxt));
+});
+
 /* ---------- ouvrir la bonne page du jeu ---------- */
 
 /** Un empire synchronisé : on connaît le serveur et l'identifiant des planètes. */
@@ -1437,6 +1889,27 @@ t('assez d\'emplacements : les trois cibles sont proposées', () => {
   const m = espionnage(avecSlots(2, 8));
   assert.ok(m, 'un espionnage est proposé');
   assert.equal((m.what.match(/\d+:\d+:\d+/g) || []).length, 3, m.what);
+});
+
+t('chaque cible d\'espionnage porte le lien de sa galaxie', () => {
+  // Le clic sur la carte n'ouvrait que le premier système : les autres
+  // coordonnées n'étaient que du texte à retaper dans le jeu.
+  const g = app(s => { relie(s); s.me = 'moi'; s.syncAt = SOIR; s.slots = { fleet: [2, 8], at: SOIR }; }, SOIR, INACTIFS);
+  const m = espionnage(g);
+  const liens = [...m.whatHtml.matchAll(/data-go="([^"]+)"/g)].map(x => x[1].replace(/&amp;/g, '&'));
+  assert.equal(liens.length, 3, 'une cible sans lien : ' + m.whatHtml);
+  for (const c of m.what.match(/\d+:\d+:\d+/g)) {
+    const [ga, sy] = c.split(':');
+    assert.ok(liens.some(u => u.includes('component=galaxy') && u.includes(`galaxy=${ga}&system=${sy}`)),
+      `${c} ne mène pas à sa galaxie : ` + JSON.stringify(liens));
+  }
+  assert.ok(m.whatHtml.includes(m.what.split(' : ')[0]), 'le texte de la carte est conservé : ' + m.whatHtml);
+});
+
+t('serveur inconnu : la coordonnée reste du texte échappé', () => {
+  const m = espionnage(avecSlots(2, 8));
+  assert.ok(!/data-go/.test(m.whatHtml), 'un lien est fabriqué sans serveur : ' + m.whatHtml);
+  assert.ok(!/</.test(m.whatHtml), 'du balisage sort quand même : ' + m.whatHtml);
 });
 
 t('une sonde en vol retire sa cible, sans cliquer sur Fait', () => {
@@ -1941,6 +2414,39 @@ t('en économie pure le palier ne double pas la file', () => {
   assert.notEqual(l[0].k, 'astro', 'ce focus ne colonise pas : la file garde son ordre');
 });
 
+/* ---------- le plan équilibré ---------- */
+
+t('le plan équilibré colonise comme le plan colonie', () => {
+  const g = app(s => { pleinDePlanetes(s); s.day.focus = 'equi'; });
+  const l = g.nextResearch().list;
+  assert.equal(l[0].k, 'astro', 'la file commence par ' + l.map(x => x.k + ' ' + x.lvl).join(', '));
+  assert.ok(l[0].crit, 'et le plan met des ressources de côté pour elle');
+});
+
+t('le plan équilibré fait passer le plafond d\'expéditions devant la feuille de route', () => {
+  // Un emplacement de colonie reste libre : Astrophysique ne double donc rien
+  // pour la colonie, et la soute au sol dépasse déjà le plafond d'expéditions.
+  const cadre = s => {
+    flotteDExpedition(s); s.tech.astro = 4;
+    s.planets[0].b = Object.assign({}, s.planets[0].b, { lab: 10 });
+    Object.assign(s.tech, { espionage: 4, impulse: 3, computer: 4, combustion: 6 });
+    s.slots = { fleet: [0, 9], expo: [0, 1], at: JOUR };
+  };
+  const file = f => app(s => { cadre(s); s.day.focus = f; }, JOUR);
+  const g = file('equi'), eq = g.nextResearch().list;
+  assert.ok(g.S.planets.length < g.maxPlanets(), 'le cadre laisse un emplacement de colonie libre');
+  assert.equal(eq[0].k, 'astro',
+    'en équilibré elle passe devant : ' + eq.map(x => x.k + ' ' + x.lvl).join(', '));
+  const co = file('ecocol').nextResearch().list;
+  assert.notEqual(co[0].k, 'astro',
+    'en colonie elle attend son tour : ' + co.map(x => x.k + ' ' + x.lvl).join(', '));
+});
+
+t('« Équilibré » est un réglage que la journée accepte', () => {
+  const g = app();
+  assert.equal(g.dayValue('focus', 'equi', 'ecocol'), 'equi');
+});
+
 t('Astrophysique ne promet pas une expédition à chaque niveau', () => {
   const g = app(pleinDePlanetes);
   const w = g.nextResearch().list[0].why;
@@ -2208,11 +2714,14 @@ t('la pastille de foreuses occupe toute la largeur des jauges', () => {
     'la pastille doit être dans un bandeau pleine largeur');
 });
 
-t('le plan ne renvoie plus a un ecran supprime', () => {
-  const g = app(s => { s.plan = []; });
-  g.REFRESH.plan();
-  assert.ok(!/Construire/.test(g.html().plList || ''),
-    'l\'écran Construire n\'existe plus : ' + (g.html().plList || ''));
+/* L'écran Objectifs tenait une liste que rien ne lisait : le plan du jour ne
+   la regardait pas. Supprimé, son nom peut rester dans les réglages du joueur
+   — Outils ne doit pas s'ouvrir sur le vide. */
+t('l\'onglet Objectifs n\'existe plus, et un réglage périmé retombe sur Colonie', () => {
+  const g = app(s => { s.ui.tool = 'plan'; });
+  assert.ok(!g.REFRESH.plan, 'plus d\'écran Objectifs');
+  g.REFRESH.tools();
+  assert.ok(/plan\u00e8tes/.test(g.html().coSlots || ''), 'Outils ouvre Colonie : ' + (g.html().coSlots || ''));
 });
 
 t('pas de pastille quand aucune foreuse n\'est possible', () => {
@@ -3732,6 +4241,27 @@ t('un nom de planète ne peut pas injecter de balise dans les étapes', () => {
   assert.match(how, /&lt;img/, 'le nom est échappé : ' + how);
 });
 
+t('la même soute n\'est promise qu\'une fois, et la colonie sans donneur est nommée', () => {
+  // Avant, chaque colonie voyait tout le surplus du donneur : cinq cartes
+  // « Ramène 1 grand transporteur » pour un seul transporteur libre, et dès le
+  // premier rapatriement lancé les autres cartes s'évanouissaient.
+  const g = app(s => {
+    relie(s);
+    s.planets[0].name = 'Wesh';
+    s.planets[0].ships = { lc: 4, pr: 4 };
+    s.planets[0].stock = { m: 5e4, c: 2e4, d: 1e4, at: SOIR };
+    s.planets[1].stock = { m: 3e5, c: 1e5, d: 5e4, at: SOIR };
+    const deux = JSON.parse(JSON.stringify(s.planets[1]));
+    Object.assign(deux, { id: 'colo2', name: 'Lala', coords: '1:142:4', gid: '33603' });
+    s.planets.push(deux);
+  });
+  const cartes = g.dailyMissions().filter(x => /^cargo-split/.test(x.id));
+  assert.equal(cartes.length, 1, 'la même soute est promise plusieurs fois : ' + JSON.stringify(cartes.map(x => x.what)));
+  const nuit = g.dailyMissions().find(x => x.id === 'night');
+  assert.ok(nuit.how.some(h => /plus rien à emprunter/.test(h) && /Lala/.test(h)),
+    'la colonie sans donneur n\'est pas nommée : ' + JSON.stringify(nuit.how));
+});
+
 t('soute suffisante partout : aucune carte de répartition', () => {
   const g = app(s => { relie(s); s.planets[0].ships = { lc: 40 }; s.planets[1].ships = { lc: 10 }; });
   assert.deepEqual(g.cargoGaps(), []);
@@ -3743,14 +4273,15 @@ t('soute suffisante partout : aucune carte de répartition', () => {
 t('un état en rangs se convertit au chargement, et la conversion rejouée ne change rien', () => {
   const g = app(s => {
     s.timers = [{ id: 'm1', manual: true, kind: 'b', k: 'metal', lvl: 15, p: 1, end: SOIR + 36e5 }];
-    s.plan = [{ type: 'b', p: 1, k: 'crystal', lvl: 13 }, { type: 't', k: 'astro', lvl: 4 }];
+    s.plan = [{ type: 'b', p: 1, k: 'crystal', lvl: 13 }];
     s.colo.from = 1;
   });
   const colonie = g.S.planets[1];
   assert.equal(g.S.timers[0].pid, colonie.id);
-  assert.equal(g.S.plan[0].pid, colonie.id);
   assert.equal(g.S.colo.fromId, colonie.id);
-  assert.ok(!('p' in g.S.timers[0]) && !('p' in g.S.plan[0]), 'le rang ne traîne pas à côté de l\'identité');
+  assert.ok(!('p' in g.S.timers[0]), 'le rang ne traîne pas à côté de l\'identité');
+  // La liste d'objectifs a disparu : ce qu'elle a laissé derrière elle aussi.
+  assert.ok(!('plan' in g.S), 'rien ne reste de l\'ancienne liste');
   assert.equal(g.S.v, 2);
   const avant = JSON.stringify(g.S);
   g.migratePlanetIds();
@@ -3773,14 +4304,12 @@ t('une planète retirée emporte ce qui la visait, et rien d\'autre', () => {
   const g = app(s => {
     s.timers = [{ id: 'm1', manual: true, kind: 'b', k: 'metal', lvl: 15, p: 1, end: SOIR + 36e5 },
                 { id: 'm2', manual: true, kind: 't', k: 'astro', lvl: 4, end: SOIR + 36e5 }];
-    s.plan = [{ type: 'b', p: 1, k: 'crystal', lvl: 13 }, { type: 't', k: 'astro', lvl: 4 }];
     s.colo.from = 1;
   });
   g.forgetPlanet(g.S.planets[1].id);
   assert.deepEqual(g.S.planets.map(p => p.name), ['Planète mère']);
   // une recherche ne vise pas de planète : elle reste
   assert.deepEqual(g.S.timers.map(t => t.id), ['m2']);
-  assert.deepEqual(g.S.plan.map(x => x.type), ['t']);
   assert.equal(g.S.colo.fromId, null);
 });
 
@@ -3873,6 +4402,133 @@ t('aucune case de recherche lue : la carte des artefacts sort quand même', () =
   const g = app(s => { s.artefacts = 461; });
   assert.ok(g.dailyMissions().some(m => m.id === 'artefacts'),
     'rien de lu, rien à déduire : on ne cache pas');
+});
+
+/* ---------- un lot sorti du chantier fait taire le chantier ---------- */
+/* Le jeu nomme ce que son chantier construit, jamais combien, et sa file
+   n'annonce que le lot en cours. Le copilote reproposait donc ce qui était
+   déjà en construction — et la carte disparaissait au clic, quand la page
+   relue lui apprenait la vérité. */
+
+/** La planète mère, défense lue, reliée au jeu sous le gid 101. */
+const chantierPret = s => {
+  s.planets[0].gid = '101'; s.planets[1].gid = '102';
+  s.planets[0].def = 500; s.planets[0].defs = { rl: 500 };
+};
+/** Le jeu publie un lot en chantier sur la planète mère. */
+const publieLot = (g, techId, finSecs, planetes) => g.applyGame({
+  meta: { host: 's1.ogame.gameforge.com' },
+  planets: planetes || { '101': {}, '102': {} },
+  timers: [{ end: Math.round(JOUR / 1000) + finSecs, techId, type: 'shipyard',
+    label: 'Lot', planetId: '101' }],
+  moves: [], at: JOUR
+});
+/** Les cartes de chantier de la planète mère, sur toute la journée. */
+const cartesChantier = plan => plan.sessions.flatMap(x => x.acts)
+  .filter(a => a.p === 0 && ['sats', 'shipbuild', 'def'].includes(a.kind));
+
+t('un lot en chantier fait taire vaisseaux, défense et satellites', () => {
+  const avant = app(chantierPret, JOUR);
+  assert.ok(cartesChantier(avant.simulateDay()).length > 0,
+    'sans lot, le chantier a bien quelque chose à proposer');
+  const g = app(chantierPret, JOUR);
+  publieLot(g, '203', 1200);                      // grands transporteurs
+  assert.deepEqual(cartesChantier(g.simulateDay()).map(a => a.what), [],
+    'le nombre construit est inconnu : on ne propose rien plutôt que de doubler');
+});
+
+t('le lot en cours reste affiché comme en cours', () => {
+  const g = app(chantierPret, JOUR);
+  publieLot(g, '203', 1200);
+  assert.ok(g.simulateDay().busy.some(b => /Chantier spatial/.test(b.q)),
+    'se taire n\'est pas cacher : la file occupée se voit');
+});
+
+t('la page du chantier relue rend la parole', () => {
+  const g = app(chantierPret, JOUR);
+  publieLot(g, '203', 1200);
+  // la page Chantier rouverte après la fin du lot : le compte au sol est le vrai
+  g.applyGame({ planets: { '101': { ships: { lc: 12 }, shipsAt: JOUR + 1300e3 }, '102': {} },
+    timers: [], moves: [], at: JOUR + 1300e3 });
+  assert.ok(cartesChantier(g.simulateDay()).length > 0, 'le chantier reparle');
+  assert.ok(!g.dailyMissions().some(m => m.id === 'chantierlu'), 'et la carte de lecture s\'efface');
+});
+
+t('un lot de défense ne se juge pas sur la lecture de la flotte', () => {
+  const g = app(chantierPret, JOUR);
+  publieLot(g, '401', 1200);                      // lanceurs de missiles
+  // La flotte relue ne dit rien de la défense : deux pages, deux comptes.
+  g.applyGame({ planets: { '101': { ships: { lc: 12 }, shipsAt: JOUR + 1300e3 }, '102': {} },
+    timers: [], moves: [], at: JOUR + 1300e3 });
+  assert.deepEqual(cartesChantier(g.simulateDay()).map(a => a.what), [],
+    'la page Défense n\'a pas été relue depuis le lot');
+});
+
+t('un lot que le jeu ne nomme pas rend les deux comptes douteux', () => {
+  const g = app(chantierPret, JOUR);
+  publieLot(g, null, 1200);
+  assert.deepEqual(cartesChantier(g.simulateDay()).map(a => a.what), [],
+    'sans identifiant, le lot peut être vaisseau comme défense');
+});
+
+t('une planète dont aucun lot n\'a été vu reste bavarde', () => {
+  const g = app(chantierPret, JOUR);
+  g.applyGame({ planets: { '101': {}, '102': {} }, timers: [], moves: [], at: JOUR });
+  assert.ok(cartesChantier(g.simulateDay()).length > 0,
+    'un compte vieux n\'est pas un compte faux : on ne se tait pas sans raison');
+});
+
+t('la carte de lecture dit quelle page ouvrir, et laquelle', () => {
+  const g = app(chantierPret, JOUR);
+  publieLot(g, '203', 1200);
+  const m = g.dailyMissions().find(x => x.id === 'chantierlu');
+  assert.ok(m, 'une carte réclame la lecture');
+  assert.ok(/Planète mère/.test(m.what), 'elle nomme la planète : ' + m.what);
+  assert.ok(/shipyard/.test(g.missionGo(m)), 'et mène au chantier spatial');
+});
+
+t('des satellites annoncés par le jeu évitent une centrale de plus', () => {
+  const g = app(chantierPret, JOUR);
+  publieLot(g, '212', 1800);                      // satellites solaires
+  const s0 = g.simulateDay().sessions[0].acts;
+  assert.ok(!s0.some(a => a.kind === 'b' && a.k === 'solar'),
+    'l\'énergie arrive par le chantier : pas de centrale en double');
+});
+
+/* ---------- les heures du jeu ---------- */
+
+/* 1794988642 = mercredi 18 novembre 2026, 07 h 57 min 22 s UTC.
+   Le serveur l'écrit 08:57:22 : il est à UTC+1. Le joueur est à UTC-10. */
+const HEURES = {
+  epoch: 1794988642, horloge: '18.11.2026 08:57:22',
+  arrivees: [{ epoch: 1794988647, txt: '08:57:27' }]
+};
+
+t('une heure du jeu se relit à la montre du joueur', () => {
+  const r = runPage({ skin: null, heures: HEURES });
+  assert.equal(r.heures[0].txt, '21:57:27', 'onze heures de moins, la veille');
+  assert.equal(r.heures[0].titre, 'heure du serveur : 08:57:27', 'et le serveur à portée de souris');
+  assert.ok(/copilote-heure/.test(r.heures[0].cls), 'marquée comme traduite');
+});
+
+t('un joueur à l\'heure du serveur ne voit rien changer', () => {
+  // Même instant, mais une horloge qui affiche déjà l'heure de Tahiti.
+  const r = runPage({ skin: null, heures: { ...HEURES, horloge: '17.11.2026 21:57:22' } });
+  assert.equal(r.heures[0].txt, '08:57:27', 'le texte du jeu reste le sien');
+  assert.equal(r.heures[0].cls, 'arrivalTime', 'et rien ne le marque');
+});
+
+t('un texte qui n\'est pas l\'heure de cet instant n\'est pas touché', () => {
+  /* Le garde-fou : la cellule dit autre chose que ce que le serveur dirait
+     de cet instant — une durée, un reste de compte à rebours. On passe. */
+  const r = runPage({ skin: null, heures: { ...HEURES, arrivees: [{ epoch: 1794988647, txt: '12:34:56' }] } });
+  assert.equal(r.heures[0].txt, '12:34:56');
+  assert.equal(r.heures[0].titre, '', 'aucune infobulle posée');
+});
+
+t('sans horloge lisible, aucune heure ne bouge', () => {
+  const r = runPage({ skin: null, heures: { ...HEURES, horloge: 'temps du serveur' } });
+  assert.equal(r.heures[0].txt, '08:57:27');
 });
 
 if (failures.length) {

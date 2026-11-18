@@ -22,7 +22,9 @@ function el(tag, attrs = {}) {
     id: attrs.id || '',
     textContent: attrs.textContent || '',
     children: [],
-    style: {},
+    /* Le script peint par variables CSS — les entrées du menu, la couleur
+       d'une planète : on garde ce qu'il écrit, pour pouvoir le vérifier. */
+    style: { props: {}, setProperty(k, v) { this.props[k] = v; }, removeProperty(k) { delete this.props[k]; } },
     title: '',
     content: attrs.content,
     classList: {
@@ -56,7 +58,9 @@ function el(tag, attrs = {}) {
       throw new Error('closest non prévu par le faux DOM : ' + sel);
     },
     getAttribute() { return null; },
-    setAttribute() {}
+    setAttribute() {},
+    /* La peau pose des boutons : un élément de page en écoute les clics. */
+    addEventListener() {}
   };
   return e;
 }
@@ -72,12 +76,27 @@ function el(tag, attrs = {}) {
  */
 function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], details = true,
   search = '?page=ingame&component=research', tiles = [], vieuxStyle = null, intruse = false,
-  casesIntruses = false }) {
+  casesIntruses = false, planetList = true, menuMuet = false, champsFlotte = false,
+  enChantier = null, heures = null }) {
   const html = el('html');
   const head = el('head');
   const body = el('body');
 
   const metaEl = el('meta', { content: planetId });
+  /* Ce qui date une page : la balise que le jeu remplit à sa naissance, son
+     horloge — toutes deux en heure du serveur — et les lignes d'arrivée de
+     flotte, relevées sur la page Mouvements : un `tr` qui porte l'instant,
+     une cellule qui l'écrit. */
+  const metaHeure = heures ? el('meta', { content: String(heures.epoch) }) : null;
+  const horloge = heures ? el('div', { className: 'OGameClock', textContent: heures.horloge }) : null;
+  const arrivees = ((heures && heures.arrivees) || []).map(a => {
+    const cellule = el('td', { className: 'arrivalTime', textContent: a.txt });
+    const ligne = el('tr', { className: 'eventFleet' });
+    ligne.appendChild(cellule);
+    ligne.getAttribute = n => (n === 'data-arrival-time' ? String(a.epoch) : null);
+    ligne.querySelectorAll = sel => (sel === '*' ? [cellule] : []);
+    return cellule;
+  });
   const det = details ? el('div', { id: 'technologydetails' }) : null;
   const costsBox = det ? el('div', { className: 'costs' }) : null;
   if (det) det.appendChild(costsBox);
@@ -97,7 +116,52 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   const milieu = el('div', { id: 'middle' });
   const principal = el('div', { id: 'pagecomponent', className: 'maincontent' });
   milieu.appendChild(principal);
-  body.appendChild(milieu);
+  /* Le cadre du jeu et ses trois colonnes — le menu, le contenu, les planètes.
+     La mise en page large le déduit de ses deux bords, sans jamais le nommer :
+     le faux DOM lui donne donc la forme, pas l'identifiant. */
+  const cadre = el('div', { id: 'pageContent' });
+  /* Le cadre porte un quatrième enfant, relevé sur la vraie page : la barre de
+     ressources du jeu, qui n'est pas une colonne et n'en est pas une. */
+  const rangHaut = el('div', { id: 'top' });
+  // la ligne des missions et des mouvements de flotte, que la peau emprunte
+  const barreNotif = el('div', { id: 'notificationbarcomponent' });
+  rangHaut.appendChild(barreNotif);
+  /* La barre de ressources du jeu, dans son porteur : c'est ce porteur que
+     la bande du haut emmène, pas la liste elle-même. */
+  const porteRes = el('div', { id: 'resourcesbarcomponent' });
+  const listeRes = el('div', { id: 'resources' });
+  porteRes.appendChild(listeRes);
+  rangHaut.appendChild(porteRes);
+  const colMenu = el('div', { id: 'links' });
+  const menuTable = el('ul', { id: 'menuTable' });
+  colMenu.appendChild(menuTable);
+  /* Les entrées du menu, telles que le jeu les écrit : chacune nomme sa page
+     dans son adresse, et porte son libellé dans un `.textlabel`. La dernière
+     est une page qu'aucune famille du rail ne connaît. */
+  const MENU = [['overview', "Vue d'ensemble"], ['supplies', 'Ressources'],
+    ['facilities', 'Installations'], ['research', 'Recherche'],
+    ['fleetdispatch', 'Flotte'], ['galaxy', 'Galaxie'], ['zorglub', 'Nouveauté']];
+  const liensMenu = MENU.map(([comp, nom]) => {
+    const a = el('a');
+    // un menu dont aucune entrée ne porte de nom : le jeu n'en fait pas, mais
+    // il suffirait qu'il renomme sa balise de libellé
+    const lab = el('span', { className: 'textlabel', textContent: menuMuet ? '' : nom });
+    a.appendChild(lab);
+    a.getAttribute = s => s === 'href' ? '/game/index.php?page=ingame&component=' + comp : null;
+    a.querySelector = s => s === '.textlabel' ? lab : null;
+    a.closest = () => a;
+    menuTable.appendChild(a);
+    return a;
+  });
+  menuTable.querySelectorAll = s => s === 'a[href]' ? liensMenu : [];
+  const colPlanetes = el('div', { id: 'rechts' });
+  const listePlanetes = planetList ? el('div', { id: 'planetList' }) : null;
+  if (listePlanetes) colPlanetes.appendChild(listePlanetes);
+  cadre.appendChild(rangHaut);
+  cadre.appendChild(colMenu);
+  cadre.appendChild(milieu);
+  cadre.appendChild(colPlanetes);
+  body.appendChild(cadre);
 
   /* Le dedans d'une page à cases, relevé sur le jeu : le titre, l'illustration
      avec son panneau de détail, puis les cases. La bande se pose entre les deux
@@ -111,10 +175,27 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
      quatre encadrés, chacun avec sa propre liste. */
   const groupes = tiles.length && Array.isArray(tiles[0]) ? tiles : (tiles.length ? [tiles] : []);
   const tuiles = [];
+  /* Page Flotte : chaque case porte le champ qui dit combien partent. C'est
+     à ça qu'on la reconnaît, pas à son nom. */
+  const champs = [];
   for (const g of groupes) {
     const ul = el('ul');
     for (const id of g) {
       const li = el('li', { className: 'technology', dataset: { technology: String(id) } });
+      if (champsFlotte) champs.push(li.appendChild(el('input')));
+      /* Une case en chantier : le jeu la marque et y met la fin et le niveau
+         visé. C'est tout ce que la carte lit pour afficher son minuteur. */
+      if (enChantier && String(enChantier.tech) === String(id)) {
+        li.dataset.status = 'active';
+        const fin = el('time', { dataset: { end: String(enChantier.fin) } });
+        const vise = el('span', { className: 'targetlevel', textContent: String(enChantier.vise) });
+        li.appendChild(fin);
+        li.appendChild(vise);
+        li.querySelector = sel => sel === '[data-end]' ? fin
+          : sel === '.targetlevel' ? vise : null;
+      }
+      // le jeu étiquette ses cases, et c'est de là que vient leur nom
+      li.getAttribute = s => s === 'aria-label' ? 'Case ' + id + ' (niveau 3)' : null;
       ul.appendChild(li);
       tuiles.push(li);
     }
@@ -145,7 +226,10 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   // dans le contenu du jeu, et avant lui : c'est le pire cas
   if (casesIntruses) principal.children.unshift(fausses);
 
-  const byId = { ...res, middle: milieu,
+  const byId = { ...res, middle: milieu, menuTable, planetList: listePlanetes,
+    resources: listeRes,
+    // le panneau de détail du jeu : la peau l'emprunte et doit le rendre
+    technologydetails_wrapper: illustration, notificationbarcomponent: barreNotif,
     technologies: casesIntruses ? fausses : (tuiles.length ? cases : null) };
   if (det) byId.technologydetails = det;
 
@@ -169,11 +253,16 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     '.information .level[data-value]': () => null,
     '.build_duration time[datetime]': () => null,
     'li.technology[data-technology]': () => tuiles,
+    // les cases qui portent un champ : celles de la page Flotte
+    'li.technology[data-technology] > input': () => champs,
     // comme un vrai navigateur : la première du document, intruse comprise
     '.copilote-bande': () => page.children.find(estBande) || principal.children.find(estBande) || null,
     '[data-end]': () => [],
     '[data-technology]': () => [],
     '[data-mission-type][data-arrival-time]': () => [],
+    'meta[name="ogame-timestamp"]': () => metaHeure,
+    '.OGameClock': () => horloge,
+    '[data-arrival-time]': () => arrivees.map(c => c.parent),
     '#slots, .fleetStatus': () => null,
     '#planetList .smallplanet': () => []
   };
@@ -197,7 +286,9 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     e.querySelectorAll = sel => pick(sel, true);
   }
 
-  const clics = [];
+  /* Les écoutes posées sur le document, par type : le script en pose une sur
+     les clics, et une sur l'arrivée d'un script plus neuf. */
+  const ecoutes = {};
   const document = {
     documentElement: html,
     head, body,
@@ -206,7 +297,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     createElement: tag => el(tag),
     querySelector: sel => pick(sel, false),
     querySelectorAll: sel => pick(sel, true),
-    addEventListener(type, fn) { if (type === 'click') clics.push(fn); }
+    addEventListener(type, fn) { (ecoutes[type] = ecoutes[type] || []).push(fn); },
+    dispatchEvent(ev) { (ecoutes[ev.type] || []).forEach(fn => fn(ev)); return true; }
   };
   byId['copilote-style'] = null;
   const realGet = document.getElementById;
@@ -234,8 +326,11 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     window: {},
     location: { search, pathname: '/game/index.php', href: 'https://x/game/index.php' + search },
     MutationObserver: class { constructor(cb) { secousse = cb; } observe() {} },
+    Event: class { constructor(type) { this.type = type; } },
     setTimeout: fn => { fn(); return 0; },
     setInterval: () => 0,
+    // le jeu peint ses entrées payantes en jaune ; ici rien n'est peint
+    getComputedStyle: () => ({ color: '' }),
     URLSearchParams: global.URLSearchParams,
     URL: global.URL
   };
@@ -250,7 +345,83 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
       const z = bande && bande.children.find(c => c.dataset.zone === n);
       return z ? z.children : [];
     };
+    const rail = colMenu.children.find(c => String(c.className).includes('cp-rail'));
+    const panneau = principal.children.find(c => String(c.className).includes('copilote-peau-panneau'));
+    const grilles = panneau ? panneau.children.filter(c => c.className === 'cp-grille') : [];
+    const tetePeau = panneau && panneau.children.find(c => c.className === 'cp-tete');
     return {
+      /** Les heures d'arrivée, telles qu'elles se lisent après passage. */
+      heures: arrivees.map(c => ({ txt: c.textContent, titre: c.title, cls: c.className })),
+      /** Ce que notre dessin de la page a posé. */
+      peau: { posee: !!panneau, racine: html.className,
+        cases: grilles.reduce((t, g) => t + g.children.length, 0),
+        grilles: grilles.length,
+        groupes: panneau ? panneau.children.filter(c => c.className === 'cp-groupe').map(c => c.textContent) : [],
+        titre: (tetePeau && tetePeau.children.find(c => c.tagName === 'H2') || {}).textContent || '',
+        noms: grilles.flatMap(g => g.children.map(carte => {
+          const b = carte.children[0] || { children: [] };
+          const txt = b.children.find(x => x.className === 'cp-txt') || { children: [] };
+          return (txt.children.find(x => x.className === 'cp-nom') || {}).textContent || '';
+        })),
+        planetes: listePlanetes ? listePlanetes.className : null,
+        colonne: (() => {
+          const col = cadre.children.find(c => String(c.className).includes('cp-colonne'));
+          if (!col) return 0;
+          return col.children.reduce((t, carte) =>
+            t + carte.children.filter(x => String(x.className).includes('cp-act')).length, 0);
+        })(),
+        cartes: (cadre.children.find(c => String(c.className).includes('cp-colonne')) || { children: [] }).children
+          .map(c => (c.children[0] || {}).textContent || ''),
+        rail: rail ? rail.children.map(c => String(c.className).split(' ')[0] + ':' + (c.textContent || c.id)
+          + (c.dataset && c.dataset.touche ? '[' + c.dataset.touche + ']' : '')) : [],
+        planetesEnHaut: (() => {
+          if (!listePlanetes) return false;
+          const b = rangHaut.children.find(c => String(c.className).includes('cp-barre'));
+          return rangHaut.children.indexOf(listePlanetes) >= 0
+            || !!(b && b.children.indexOf(listePlanetes) >= 0);
+        })(),
+        planetesRendues: !!listePlanetes && listePlanetes.parentNode === colPlanetes,
+        detailDansPanneau: !!(panneau && panneau.children.some(c => c.children.indexOf(illustration) >= 0)),
+        detailRendu: illustration.parentNode === page,
+        chantiers: grilles.flatMap(g => g.children
+          .filter(c => c.dataset.actif)
+          .map(c => (c.children.find(x => x.className === 'cp-encours') || {}).textContent || '')),
+        flotte: (tuiles[0] && tuiles[0].parentNode ? String(tuiles[0].parentNode.className) : ''),
+        notifRendue: barreNotif.parentNode === rangHaut,
+        bouton: !!rangHaut.children.find(c => String(c.className).includes('cp-barre'))
+          && rangHaut.children.find(c => String(c.className).includes('cp-barre'))
+            .children.some(c => String(c.className).includes('cp-bouton')),
+        barre: (() => {
+          const b = rangHaut.children.find(c => String(c.className).includes('cp-barre'));
+          return b ? b.children.map(c => c.id || String(c.className).split(' ')[0]) : [];
+        })(),
+        actes: (() => {
+          const col = cadre.children.find(c => String(c.className).includes('cp-colonne'));
+          if (!col) return [];
+          return col.children.flatMap(carte => carte.children
+            .filter(x => String(x.className).includes('cp-act'))
+            // ce qu'une ligne dit, puis où et quand — ce dernier en morceaux
+            .map(a => a.children.map(c =>
+              c.textContent || c.children.map(x => x.textContent).join('')).join(' | ')));
+        })(),
+        teintes: (() => {
+          const col = cadre.children.find(c => String(c.className).includes('cp-colonne'));
+          if (!col) return [];
+          return col.children.flatMap(carte => carte.children
+            .filter(x => String(x.className).includes('cp-act'))
+            .flatMap(a => a.children.flatMap(c => c.children
+              .filter(x => x.className === 'cp-ou')
+              .map(x => x.style.props['--pc'] || ''))));
+        })() },
+      /** Ce que la mise en page large a marqué, cadre et colonnes. */
+      large: {
+        racine: html.className,
+        cadre: cadre.className,
+        haut: rangHaut.className,
+        menu: colMenu.className,
+        jeu: milieu.className,
+        planetes: colPlanetes.className
+      },
       poses: bande ? +bande.dataset.pose : 0,
       bandeEnTete: principal.children[0] === laBande(),
       bandeSousIllustration: page.children.indexOf(laBande()) === page.children.indexOf(cases) - 1
@@ -279,11 +450,14 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     majSkin: neuf => republie && republie({ skin: { newValue: neuf } }, 'local'),
     /** Une secousse de la page, comme en produit le jeu. */
     secousse: () => secousse && secousse(),
+    /** Un script plus neuf arrive : recharger l'extension sans recharger la
+        page laisse l'ancien en vie, et les deux dessinaient côte à côte. */
+    scriptNeuf: () => document.dispatchEvent({ type: 'copilote:arrivee' }),
     /** Le joueur ouvre une tuile : le jeu ne recharge rien, il déplie son panneau. */
     clic: id => {
       const li = tuiles.find(t => t.dataset.technology === String(id));
       if (!li) throw new Error('aucune tuile ' + id + ' dans cette page');
-      clics.forEach(fn => fn({ target: li }));
+      (ecoutes.click || []).forEach(fn => fn({ target: li }));
     },
     dataset: html.dataset,
     styleInjected: !!document.getElementById('copilote-style'),

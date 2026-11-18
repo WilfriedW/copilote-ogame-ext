@@ -3,6 +3,12 @@
   // déjà son script avant d'en réinjecter un, et ne jamais en empiler deux.
   if (window.__copilote) return;
   window.__copilote = 1;
+  /* Ce marqueur ne tient que dans un monde : recharger l'extension sans
+     recharger la page donne au script neuf un monde neuf, où il est seul, et
+     l'ancien continue pourtant de battre dans le sien. Les deux partagent le
+     document : c'est par là qu'ils s'annoncent, tout en bas de ce fichier.
+     Jusque-là, on est vivant. */
+  let vivant = true;
 
   const meta = n => document.querySelector(`meta[name="ogame-${n}"]`)?.content;
 
@@ -272,15 +278,129 @@
   /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On
      n'ajoute qu'une classe et une étiquette inerte : rien n'est cliqué, rien
      n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
-  let hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {}, noshop = false;
+  let hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {}, noshop = false, large = false, peau = false, clair = false, colonne = [], teintes = {};
   /* Chaque règle vise un bloc nommé, repéré sur la page, et ne fait que le
      masquer. Elles ne s'appliquent que si le joueur a coché « Épurer », et
      décocher les retire toutes d'un coup. */
+  /* Épurer, c'est quatre gestes, et aucun ne redessine quoi que ce soit : on
+     enlève ce qui parasite la lecture et on laisse la page du jeu telle
+     qu'elle est. C'est ce qui se répare tout seul quand Gameforge bouge
+     quelque chose — on ne lit ici que quatre identifiants. */
   const LEAN = `html.copilote-lean #mmonetbar,
 html.copilote-lean #siteHeader,
 html.copilote-lean #siteFooter{display:none}
 html.copilote-lean #middle .maincontent > div > header{display:none}
+/* Le fond du jeu est une photo posée sur le corps de la page : elle se voit
+   entre les panneaux et derrière le texte des listes. On garde l'aplat.
+   La peau repose le sien par-dessus — même règle, plus bas dans la feuille. */
+html.copilote-lean body{background-image:none !important;background-color:var(--cp-fond) !important}
+/* La bannière du jeu : 160 px sur 600 au flanc de la page. */
+html.copilote-lean #bannerskyscrapercomponent{display:none}
+/* Le menu grossit d'un septième. Un zoom, et non une taille de police : le
+   jeu dessine ses entrées sur des images de fond à hauteur fixe, et le texte
+   seul, grossi, débordait de son bouton. Sous la peau, c'est le rail qui
+   prend le relais — inutile d'agrandir ce qui est hors de l'écran. */
+html.copilote-lean:not(.copilote-peau) #links{zoom:1.15}
 .copilote-menu a, .copilote-menu a .textlabel, a.copilote-menu, a.copilote-menu .textlabel{color:var(--cm) !important}`;
+
+  /* La largeur. Le jeu range sa page dans un cadre étroit et centré : sur un
+     écran large, deux bandes mortes à gauche et à droite, et des cases à six
+     par ligne alors que la place existe. Rien n'est déplacé ici — le cadre
+     s'étale, et chaque colonne prend ce qu'il lui faut.
+     La colonne du jeu ne s'étire pas : elle épouse son contenu, plafonnée à
+     `--copilote-jeu`. Une page à cases y gagne — ses listes, libérées de
+     leur largeur fixe, étalent leurs cases sur une ligne — tandis qu'une page
+     à tableau, Galaxie, garde sa taille et laisse la liste des planètes se
+     ranger juste à côté plutôt qu'au bout de l'écran.
+     `!important` est partout obligatoire : le jeu fixe ces largeurs par
+     identifiant, et aucune classe ne bat un identifiant. */
+  const LARGE = `html.copilote-large{--copilote-jeu:1400px}
+html.copilote-large .copilote-cadre{display:flex !important;flex-wrap:wrap;align-items:flex-start;
+width:auto !important;max-width:none !important;margin-left:0 !important;margin-right:0 !important}
+html.copilote-large .copilote-rang{flex:0 0 100%;min-width:0;position:relative}
+html.copilote-large .copilote-col-menu,
+html.copilote-large .copilote-col-planetes{flex:0 0 auto}
+html.copilote-large .copilote-col-jeu{flex:0 1 auto;min-width:0;
+width:auto !important;max-width:var(--copilote-jeu);
+margin-left:0 !important;margin-right:0 !important}
+html.copilote-large #middle .maincontent,
+html.copilote-large #technologies,
+html.copilote-large #technologies > ul,
+html.copilote-large ul.icons{width:auto !important;max-width:none !important}`;
+
+  /* ---------- les heures du jeu, dans la zone du joueur ----------
+
+     Le jeu écrit ses heures dans celle de son serveur. À onze heures d'écart,
+     chaque arrivée de flotte demande un calcul de tête, et c'est la nuit
+     qu'on se trompe. On réécrit donc les heures que le jeu marque d'un
+     instant : le chiffre vient de l'attribut, jamais du texte lu.
+
+     Deux garde-fous. On ne remplace un texte que s'il dit exactement l'heure
+     que le serveur donnerait à cet instant-là : sinon on passe, et rien ne
+     bouge. Et l'heure du serveur reste à portée de souris, dans l'infobulle,
+     parce qu'une alliance se donne rendez-vous dans celle-là.
+
+     L'horloge du jeu n'est pas touchée : elle se réécrit chaque seconde et
+     efface ce qu'on y pose — essayé, elle avale tout en trois secondes.
+     C'est donc elle qui reste le repère en heure serveur. */
+
+  const d2 = n => String(n).padStart(2, '0');
+
+  /** Le décalage du serveur sur UTC, en secondes, ou null s'il ne se lit pas. */
+  function decalageServeur() {
+    /* L'instant de naissance de la page, que le jeu écrit en clair, et la
+       même seconde telle que son horloge l'affiche : entre les deux, le
+       décalage. On ne devine rien du pays du serveur. */
+    const meta = document.querySelector('meta[name="ogame-timestamp"]');
+    const epoch = meta && Number(meta.content);
+    if (!epoch) return null;
+    const horloge = document.querySelector('.OGameClock');
+    const t = horloge && (horloge.textContent || '').match(/(\d{1,2}):(\d{2}):(\d{2})/);
+    if (!t) return null;
+    let d = (+t[1]) * 3600 + (+t[2]) * 60 + (+t[3]) - (epoch % 86400);
+    if (d > 43200) d -= 86400; else if (d < -43200) d += 86400;
+    /* L'horloge a pu avancer d'une seconde ou deux depuis que la page est
+       née. Les fuseaux allant par quart d'heure, on arrondit au quart. */
+    return Math.round(d / 900) * 900;
+  }
+
+  /** L'heure d'un instant telle que le serveur l'écrit. */
+  function heureServeur(epoch, dec, avecSec) {
+    const j = (epoch + dec) % 86400;
+    return d2(Math.floor(j / 3600)) + ':' + d2(Math.floor(j % 3600 / 60))
+      + (avecSec ? ':' + d2(j % 60) : '');
+  }
+
+  /** La même, à la montre du joueur. */
+  function heureIci(epoch, avecSec) {
+    const d = new Date(epoch * 1000);
+    return d2(d.getHours()) + ':' + d2(d.getMinutes())
+      + (avecSec ? ':' + d2(d.getSeconds()) : '');
+  }
+
+  /** Réécrit à l'heure du joueur ce que le jeu date d'un instant précis. */
+  function heuresIci() {
+    const dec = decalageServeur();
+    if (dec == null) return;
+    // Le joueur vit à l'heure du serveur : il n'y a rien à traduire.
+    if (dec === -new Date().getTimezoneOffset() * 60) return;
+    document.querySelectorAll('[data-arrival-time]').forEach(cadre => {
+      const epoch = Number(cadre.getAttribute('data-arrival-time'));
+      if (!epoch) return;
+      for (const n of [cadre, ...cadre.querySelectorAll('*')]) {
+        if (n.children.length) continue;
+        const txt = (n.textContent || '').trim();
+        /* Le texte doit dire l'heure du serveur pour cet instant-là, à la
+           seconde ou à la minute. Tout le reste — une durée, un compte à
+           rebours, un nombre de vaisseaux — ne ressemble pas et ne bouge pas. */
+        const avecSec = txt.length > 5;
+        if (txt !== heureServeur(epoch, dec, avecSec)) continue;
+        n.textContent = heureIci(epoch, avecSec);
+        n.title = 'heure du serveur : ' + txt;
+        n.classList.add('copilote-heure');
+      }
+    });
+  }
 
   /* Le menu du jeu. Trois gestes, et rien d'autre : une entrée de plus vers
      Mouvements de flotte, les entrées payantes masquées quand le joueur le
@@ -299,11 +419,12 @@ html.copilote-lean #middle .maincontent > div > header{display:none}
   };
   /** La page que vise un lien du menu, ou '' quand son URL n'en nomme pas. */
   const compDuLien = a => ((a.getAttribute('href') || '').match(/component=([a-z]+)/i) || ['', ''])[1].toLowerCase();
-  /* Le menu se trouve par son identifiant, et s'il changeait de nom, par la
-     liste qui porte le lien Flotte : il y en a un sur toutes les pages. */
-  const leMenu = () => document.getElementById('menuTable')
-    || document.querySelector('a[href*="component=fleetdispatch"]')?.closest('ul')
-    || null;
+  /* Le menu se trouve par son identifiant, et par rien d'autre. Chercher
+     ailleurs « une liste qui porte un lien Flotte » ramasserait, sur une page
+     écrite par les joueurs, un lien écrit par eux — et c'est celui-là qu'on
+     recopierait en entrée de menu. Si Gameforge renomme son `#menuTable`, le
+     témoin le dit et on se tait : c'est le bon silence. */
+  const leMenu = () => document.getElementById('menuTable');
   /** La case d'une entrée : son <li>, ou le lien lui-même si le menu n'en a pas. */
   const caseDuLien = a => a.closest('li') || a;
   /** Vrai dès qu'un morceau de l'entrée est peint en jaune par le jeu. */
@@ -322,17 +443,41 @@ html.copilote-lean #middle .maincontent > div > header{display:none}
     const src = menu.querySelector('a[href*="component=fleetdispatch"]');
     const li = src && caseDuLien(src);
     if (!li) return;
+    /* L'adresse se relit avant d'être reposée : on ne recopie une entrée de
+       menu que si elle mène à une page de ce serveur. Un `href` d'une autre
+       forme — un autre domaine, un `javascript:` — n'en est pas une. Et elle
+       se rebâtit par ses paramètres, pas par un remplacement de texte. */
+    let u;
+    try { u = new URL(src.getAttribute('href'), location.href); } catch (e) { return; }
+    if (u.origin !== location.origin) return;
+    u.searchParams.set('component', 'movement');
+    const href = u.pathname + u.search;
     const copie = li.cloneNode(true);
     copie.classList.add('copilote-menu-ajout');
-    copie.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
     copie.removeAttribute('id');
-    const a = copie.querySelector('a[href]');
-    if (!a) return;
-    a.setAttribute('href', src.getAttribute('href').replace(/component=fleetdispatch/i, 'component=movement'));
-    const txt = a.querySelector('.textlabel') || a;
-    txt.textContent = 'Mouvement de flotte';
-    a.title = 'Mouvements de flotte';
+    copie.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
+    /* Tous les liens de la copie, et la copie elle-même si c'est un lien : le
+       jeu en pose parfois deux sur une entrée, l'icône et le texte. N'en
+       changer qu'un enverrait un clic sur deux à la page de flotte. */
+    const liens = [copie, ...copie.querySelectorAll('a[href]')]
+      .filter(n => n.tagName === 'A' && n.getAttribute('href'));
+    if (!liens.length) return;
+    liens.forEach(a => { a.setAttribute('href', href); a.title = 'Mouvements de flotte'; });
+    renomme(copie, clean(src.textContent));
     li.after(copie);
+  }
+  /** Les nœuds de texte d'un élément, dans l'ordre où ils se lisent. */
+  const textes = n => [...n.childNodes].flatMap(c => c.nodeType === 3 ? [c] : textes(c));
+  /* Le libellé n'est pas toujours dans le lien : le jeu le pose parfois à côté,
+     et l'écrire dans le lien laissait « Flotte » à l'écran. On cherche donc le
+     texte que portait l'entrée d'origine, où qu'il soit, et on ne touche qu'à
+     lui — le reste de la copie tient l'icône et l'habillage. */
+  function renomme(copie, ancien) {
+    const txts = textes(copie).filter(t => clean(t.nodeValue));
+    const cible = txts.find(t => clean(t.nodeValue) === ancien) || txts[0];
+    if (cible) { cible.nodeValue = 'Mouvement de flotte'; return; }
+    const el = copie.querySelector('.textlabel');
+    if (el) el.textContent = 'Mouvement de flotte';
   }
   /* Le menu du jeu est le seul morceau de page que le copilote retouche sans
      l'avoir lu ailleurs : si Gameforge renomme son `#menuTable`, tout se tait.
@@ -361,6 +506,1213 @@ html.copilote-lean #middle .maincontent > div > header{display:none}
       if (c) { li.classList.add('copilote-menu'); li.style.setProperty('--cm', c); }
     });
     menuEtat = (menu.querySelector('.copilote-menu-ajout') ? 'ok' : 'sans-flotte') + ':' + payantes + 'payantes';
+  }
+
+  /* Le cadre du jeu ne se nomme pas : un identifiant peut changer, et une page
+     d'alliance porte du balisage écrit par d'autres joueurs. Il se déduit de
+     deux morceaux que le jeu pose lui-même de part et d'autre de son contenu —
+     le menu et la liste des planètes : leur plus proche ancêtre commun est le
+     cadre, et les enfants directs qui les portent sont les colonnes. Faute de
+     l'un des deux, ou d'une colonne sur trois, rien ne bouge : une mise en
+     page à moitié posée serait pire que celle du jeu. */
+  let largeEtat = 'éteint', leCadre = null;
+  /** Marque le cadre du jeu et ses trois colonnes, ou laisse la page intacte. */
+  function poseLargeur() {
+    const comp = pageCourante();
+    /* La peau amène la largeur avec elle : sa grille, dans la colonne étroite
+       du jeu, retomberait à trois cases par ligne, et ses deux flancs n'ont
+       de place nulle part ailleurs. Elle ne l'amène que sur les pages qu'elle
+       habille — ailleurs, le réglage seul décide. */
+    /* Deux listes d'autorisés, pas une interdiction : le réglage de largeur
+       garde la sienne — les pages où le copilote conseille — et la peau
+       apporte la sienne, plus large, qui va jusqu'à Empire et Alliance.
+       Une page absente des deux ne reçoit rien. */
+    const ici = (large && PAGES_COPILOTE.indexOf(comp) >= 0)
+      || (peau && PAGES_CADRE.indexOf(comp) >= 0);
+    /* Un seul interrupteur, sur la racine : l'ôter rend au jeu sa page, sans
+       rien à défaire. */
+    document.documentElement.classList.toggle('copilote-large', ici);
+    if (!ici) { largeEtat = large ? 'hors page' : 'éteint'; leCadre = null; return; }
+    const menu = leMenu(), milieu = document.getElementById('middle');
+    if (!menu || !milieu) { largeEtat = menu ? 'sans contenu' : 'sans menu'; return; }
+    /* Le cadre se déduit de deux morceaux qui ne bougent jamais : le menu et
+       la colonne du contenu. La liste des planètes ferait un troisième repère
+       naturel, mais la peau la déménage sous le menu — s'en servir ici, c'est
+       perdre le cadre à la seconde où elle part. */
+    const hauts = new Set();
+    for (let x = menu; x && x !== document.body; x = x.parentNode) hauts.add(x);
+    let cadre = null;
+    for (let x = milieu; x && x !== document.body; x = x.parentNode) {
+      if (hauts.has(x)) { cadre = x; break; }
+    }
+    if (!cadre) { largeEtat = 'sans cadre'; return; }
+    const colonne = n => { let x = n; while (x && x.parentNode !== cadre) x = x.parentNode; return x; };
+    /* Une colonne déjà marquée se retrouve à sa marque : celle des planètes
+       n'a plus de planètes dedans une fois la liste déménagée. */
+    const marquee = c => [...cadre.children].find(n => n.classList.contains(c));
+    const planetes = document.getElementById('planetList');
+    const gauche = colonne(menu), jeu = colonne(milieu);
+    const droite = marquee('copilote-col-planetes') || (planetes && colonne(planetes));
+    if (!droite) { largeEtat = 'sans planètes'; return; }
+    if (!gauche || !droite || !jeu || gauche === droite || jeu === gauche || jeu === droite) {
+      largeEtat = 'sans colonnes'; return;
+    }
+    cadre.classList.add('copilote-cadre');
+    gauche.classList.add('copilote-col-menu');
+    droite.classList.add('copilote-col-planetes');
+    jeu.classList.add('copilote-col-jeu');
+    /* Le cadre porte plus que ses trois colonnes : le jeu y range aussi sa
+       barre de ressources et son en-tête, qui n'ont rien à faire dans un
+       flanc. Tout ce qui n'est pas une colonne prend donc sa propre ligne —
+       sans qu'on ait à savoir ce que c'est, ni combien il y en a. */
+    for (const n of cadre.children) {
+      if (n === gauche || n === droite || n === jeu) continue;
+      // notre propre colonne est une colonne, pas une rangée
+      if (n.classList.contains('cp-colonne')) continue;
+      n.classList.add('copilote-rang');
+    }
+    leCadre = cadre;
+    largeEtat = 'posé';
+  }
+
+  /* La peau : notre dessin de la page, à la place de celui du jeu. Un essai,
+     sur une seule page — celle où le joueur passe ses journées.
+     Rien n'est supprimé. Le contenu du jeu reste dans la page, poussé hors de
+     l'écran, et chaque case que nous dessinons clique la sienne : le jeu
+     accroche ses actions en jQuery et les envoie avec un jeton, que nous
+     n'avons pas à connaître. Son panneau de détail n'est pas redessiné non
+     plus, il est déplacé chez nous — il porte le bouton qui construit. Le
+     refaire, ce serait réécrire le protocole du jeu, et le premier changement
+     de jeton nous laisserait avec un bouton mort. Le jeu le pose en absolu,
+     pour le faire flotter sur son illustration ; sous notre grille il revient
+     dans le flux, et c'est tout ce qu'on lui change.
+     Faute de cases, la peau se retire : la page du jeu reparaît entière. */
+  /* Les pages à cases. Elles partagent le même balisage — des listes de cases
+     coiffées d'un titre, chacune avec son niveau et son panneau de détail —
+     donc un seul dessin les couvre toutes, Bâtiments des formes de vie
+     compris.
+     Deux pages du jeu ressemblent à celles-là sans en être : Recherche des
+     formes de vie a des cases sans niveau et sans panneau de détail — nos
+     cartes n'y diraient qu'un nom et un tiret, et le clic ne mènerait nulle
+     part ; Bonus des formes de vie n'a pas de cases du tout. Flotte et
+     Galaxie, elles, sont des formulaires : les refaire serait refaire le
+     jeu. */
+  const PAGES_PEAU = ['supplies', 'facilities', 'research', 'shipyard', 'defenses', 'lfbuildings'];
+  /* Le cadre va plus loin que la grille : il ne sait rien du contenu, donc il
+     vaut pour toute page que le copilote connaît. Flotte, Mouvement, Galaxie,
+     Empire et Alliance gardent leur contenu — ce sont des formulaires et des
+     tableaux, qui appartiennent au jeu — et prennent le rail, les planètes et
+     la colonne. Rien n'est écrit dans leur contenu, pas même sur Alliance,
+     où il vient d'autres joueurs. */
+  const PAGES_CADRE = PAGES_PEAU.concat(
+    ['overview', 'fleetdispatch', 'movement', 'galaxy', 'empire', 'alliance', 'combatsim']);
+  const PEAU = `/* Les couleurs de la peau, en un seul endroit. Le sombre est celui du jeu ;
+   le clair est celui du panneau, pour que les deux se ressemblent. Seules
+   ces valeurs changent : pas une règle plus bas ne connaît une couleur. */
+html{--cp-fond:#070b16;--cp-surface:#101a2b;--cp-surface2:#131c30;
+--cp-creux:#0c1120;--cp-survol:#16203a;--cp-ligne:#28335a;
+--cp-texte:#e4edff;--cp-doux:#9fb2d4;--cp-faible:#8e98b8;
+--cp-accent:#8aa9ff;--cp-accent-vif:#c3d4ff;
+--cp-bon:#4fdeb0;--cp-bon-fond:rgba(79,222,176,.14);
+--cp-attention:#ffc95c;--cp-mauvais:#ff7a8a;
+--cp-voile:rgba(12,17,32,.85);--cp-ombre:rgba(6,9,18,.72);
+--cp-ombre-portee:rgba(0,0,0,.6)}
+html.copilote-peau.copilote-clair{--cp-fond:#eef1f8;--cp-surface:#ffffff;--cp-surface2:#f3f5fb;
+--cp-creux:#e9edf7;--cp-survol:#e3e9f8;--cp-ligne:#d6dcec;
+--cp-texte:#141a2c;--cp-doux:#4a5570;--cp-faible:#6b7389;
+--cp-accent:#3d5fd6;--cp-accent-vif:#2746b5;
+--cp-bon:#0f9a70;--cp-bon-fond:rgba(15,154,112,.12);
+--cp-attention:#b07800;--cp-mauvais:#c8354a;
+--cp-voile:rgba(255,255,255,.85);--cp-ombre:rgba(20,26,44,.45);
+--cp-ombre-portee:rgba(20,26,44,.22)}
+html.copilote-peau body{background-image:none !important;background-color:var(--cp-fond) !important}
+html.copilote-peau .copilote-rail-hote > *:not(.cp-rail),
+html.copilote-peau .copilote-col-menu > *:not(.copilote-chemin),
+html.copilote-peau .copilote-col-planetes > *:not(.copilote-chemin){
+position:absolute !important;left:-99999px !important;top:0 !important;width:160px !important}
+/* Le flanc est un panneau, comme les cases de la barre du haut : un aplat,
+   un liseré, et les modules dedans. Sa largeur a un plancher — la liste des
+   planètes du jeu mesure 147 px et ne se rétrécit pas : vidée de sa largeur,
+   elle se replie à zéro. On s'arrête donc juste au-dessus. */
+/* La largeur du rail, c'est celle de son entrée la plus longue : aucune ne
+   revient à la ligne, et pas un pixel n'est pris pour rien. Elle suit donc
+   la langue du joueur — « Mouvement de flotte » ici, autre chose ailleurs.
+   Deux bornes : la liste des planètes du jeu mesure 147 px et ne se rétrécit
+   pas, et au-delà de 320 px un menu n'apprend plus rien de plus. */
+html.copilote-peau .copilote-col-menu{width:max-content !important;
+min-width:190px;max-width:320px}
+/* Le jeu fait flotter ses blocs de menu : un flottant se rétracte sur son
+   contenu, et le rail restait étroit dans une colonne large. */
+html.copilote-peau .copilote-col-menu .copilote-chemin,
+html.copilote-peau .copilote-col-menu #links{float:none !important;
+width:100% !important;max-width:100% !important}
+.cp-rail{display:flex;flex-direction:column;gap:0;box-sizing:border-box;
+margin:0 6px;padding:8px 0 10px;background:var(--cp-surface);border:1px solid var(--cp-ligne);border-radius:8px}
+.cp-rail .cp-lien{display:flex;align-items:center;gap:8px;padding:7px 12px;color:var(--cm,var(--cp-texte));
+text-decoration:none;text-shadow:none;font:600 12px/1.35 Arial,sans-serif;letter-spacing:.03em;
+white-space:nowrap;border-left:3px solid transparent;border-radius:0 4px 4px 0}
+.cp-rail .cp-lien:hover{background:var(--cp-survol);color:var(--cp-texte)}
+.cp-rail .cp-lien.cp-ici{background:var(--cp-survol);border-left-color:var(--cp-accent)}
+/* la touche qui mène ici, dite sur le lien lui-même */
+.cp-rail .cp-touche{margin-left:auto;text-decoration:none;
+font:600 10px/1 ui-monospace,Menlo,monospace;color:var(--cp-faible);
+border:1px solid var(--cp-ligne);border-radius:3px;padding:3px 5px}
+.cp-rail .cp-lien:hover .cp-touche{color:var(--cp-texte);border-color:var(--cp-accent)}
+.cp-rail .cp-fam{margin:13px 12px 4px;font:700 9px/1 Arial,sans-serif;letter-spacing:.12em;
+text-transform:uppercase;color:var(--cp-faible)}
+.cp-rail > .cp-fam:first-child{margin-top:2px}
+/* le compte des planètes doublait le titre d'à côté et chevauchait le rail */
+.cp-rail .cp-planetes #countColonies{display:none}
+/* La barre du haut. Le jeu la pose en absolu, à des coordonnées calculées pour
+   un cadre de mille pixels, et il écrit ses ressources en vignettes. Sous la
+   peau elle redevient une ligne de texte : une étiquette, un chiffre.
+   On ne touche pas à la boîte qui porte l'infobulle du jeu — c'est elle qu'on
+   survole pour lire le détail d'une ressource, et elle reste la sienne. */
+html.copilote-peau #top{display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+height:auto !important;top:0 !important;padding:0;box-sizing:border-box;
+background-image:none !important}
+/* Le jeu décale sa barre de 32 px pour laisser passer le bandeau du portail,
+   et remonte la colonne du menu d'autant. Notre barre est plus haute que la
+   sienne : les deux décalages se mordaient. On les remet à plat, et on ne
+   garde la place du bandeau que s'il est encore là. */
+html.copilote-peau:not(.copilote-lean) #top{padding-top:32px}
+html.copilote-peau .copilote-col-menu{top:0 !important}
+/* Remettre dans le flux ce que le jeu pose en absolu — et le suivre dans la
+   bande : une pièce déménagée n'est plus enfant direct de la rangée, et la
+   règle cessait de l'atteindre. Elle repartait alors à sa place d'origine,
+   par-dessus le contenu de la page. */
+html.copilote-peau #top > *,
+html.copilote-peau .cp-barre > *{position:relative !important;left:auto !important;
+top:auto !important;right:auto !important;flex:0 0 auto;background-image:none}
+html.copilote-peau #top > #headerbarcomponent{order:-1;flex:0 0 100%;
+width:auto !important;max-width:100% !important}
+/* le logo et les officiers ne sont que des images : la barre n'en vit plus */
+html.copilote-peau #top > #pageReloader,
+html.copilote-peau #top > #commandercomponent{display:none !important}
+/* Les deux porte-cases gardaient une hauteur et des marges taillées pour la
+   barre d'origine : les ressources pendaient dix pixels plus bas que les
+   messages. Remis à plat, tout se pose sur la même ligne. */
+/* La bande disait ce que la colonne dit déjà, en mieux : une seule voix.
+   La ligne des mouvements de flotte se tait pour la même raison — ce qu'elle
+   annonce, la colonne le dit, et elle prenait une rangée pour « pas de
+   mouvements ». */
+html.copilote-peau .copilote-bande,
+html.copilote-peau #notificationbarcomponent{display:none}
+html.copilote-peau #resourcesbarcomponent,
+html.copilote-peau #newmessagesindicatorcomponent{display:flex !important;align-items:center;
+width:auto !important;height:auto !important;min-height:0 !important;
+padding:0 !important;margin:0 !important}
+html.copilote-peau #resources{width:auto !important;height:auto !important;
+display:flex !important;gap:4px;align-items:stretch;padding:0 !important;margin:0 !important}
+html.copilote-peau #resources .resource_tile{background-image:none !important;display:flex;
+width:auto !important;height:auto !important;margin:0 !important;padding:0 !important}
+/* l'image, et le lien de boutique qui la portait : la case de matière noire
+   restait deux fois plus haute que ses voisines */
+html.copilote-peau #resources .resourceIcon,
+html.copilote-peau #resources a.overlay,
+html.copilote-peau #resources img{display:none !important}
+html.copilote-peau #resources .resource_tile > div{position:relative !important;
+left:auto !important;top:auto !important;width:auto !important;height:auto !important;
+display:flex !important;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+min-width:86px;min-height:44px;padding:3px 9px;text-align:center;
+border:1px solid var(--cp-ligne);border-radius:5px;background:var(--cp-surface);cursor:help}
+html.copilote-peau #resources .value{position:relative !important;display:block !important;
+width:auto !important;height:auto !important;text-align:center !important}
+html.copilote-peau #resources .value > span{position:relative !important;left:auto !important;
+top:auto !important;width:auto !important;height:auto !important;display:block !important;
+font:700 14px/1.25 Arial,sans-serif !important;color:var(--cp-texte) !important;
+text-shadow:none !important;text-align:center !important}
+/* Le jeu marque lui-même ce qui manque et ce qui déborde — énergie dans le
+   rouge, soute presque pleine. En uniformisant la couleur des chiffres, on
+   effaçait le seul signal qui se lit sans lire. On le lui rend. */
+html.copilote-peau #resources .value > span.overmark{color:var(--cp-mauvais) !important}
+html.copilote-peau #resources .value > span.middlemark{color:var(--cp-attention) !important}
+html.copilote-peau #resources .resource_tile > div::before{display:block;
+font:700 9px/1.3 Arial,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--cp-faible)}
+html.copilote-peau #resources .resource_tile > div.metal::before{content:"métal"}
+html.copilote-peau #resources .resource_tile > div.crystal::before{content:"cristal"}
+html.copilote-peau #resources .resource_tile > div.deuterium::before{content:"deutérium"}
+html.copilote-peau #resources .resource_tile > div.energy::before{content:"énergie"}
+html.copilote-peau #resources .resource_tile > div.population::before{content:"population"}
+html.copilote-peau #resources .resource_tile > div.food::before{content:"nourriture"}
+html.copilote-peau #resources .resource_tile > div.darkmatter::before{content:"matière noire"}
+html.copilote-peau #notificationbarcomponent{width:auto !important;min-width:0;
+color:var(--cp-doux);font:400 12px/1.4 Arial,sans-serif;text-shadow:none}
+html.copilote-peau #notificationbarcomponent *{background-image:none !important}
+html.copilote-peau #newmessagesindicatorcomponent{gap:8px}
+html.copilote-peau #newmessagesindicatorcomponent .messagesIndicator,
+html.copilote-peau #newmessagesindicatorcomponent .chatIndicator{background-image:none !important;
+width:auto !important;height:auto !important;padding:3px 9px;border:1px solid var(--cp-ligne);
+border-radius:5px;background:var(--cp-surface);color:var(--cp-texte);font:700 13px/1.2 Arial,sans-serif;
+text-indent:0 !important;overflow:visible !important;white-space:nowrap;min-width:0;min-height:44px;
+display:inline-flex !important;align-items:center;justify-content:center;gap:5px;
+position:relative !important}
+/* le compte des messages était posé en absolu, au coin de la vignette qui
+   n'existe plus : il revient à sa place, juste après le mot */
+html.copilote-peau #newmessagesindicatorcomponent .newCount{position:relative !important;
+left:auto !important;right:auto !important;top:auto !important;margin:0 !important;
+display:inline-block !important}
+/* Une enveloppe et une bulle : le compte dit le reste, et deux mots en
+   capitales prenaient trois fois la place pour la même chose. */
+html.copilote-peau #newmessagesindicatorcomponent .messagesIndicator::before{content:"✉";
+font:400 15px/1 Arial,sans-serif;letter-spacing:0;text-transform:none;color:var(--cp-texte)}
+html.copilote-peau #newmessagesindicatorcomponent .chatIndicator::before{content:"💬";
+font:400 13px/1 Arial,sans-serif;letter-spacing:0;text-transform:none;color:var(--cp-texte)}
+/* Les planètes, sur la ligne du haut : des pastilles de texte comme les
+   ressources. L'image de chaque planète s'en va — dans une pastille d'une
+   ligne, elle écrase le nom — et le lien du jeu reste le lien du jeu. */
+/* Une seule barre, et les planètes dedans. Six encadrés côte à côte — chacun
+   sa bordure, ses marges, son image — ne tenaient pas sur la ligne des
+   ressources : ils passaient dessous. Un seul cadre, un filet entre les noms,
+   pas d'image : la même information dans la moitié de la place.
+   Le jeu nomme son conteneur d'image planetBarSpaceObjectContainer et non
+   planetBarSpaceObject : on vise donc le début du nom, pas le nom entier. */
+.cp-planetes-haut{display:flex !important;flex-wrap:nowrap;gap:0;overflow:hidden;
+width:auto !important;height:auto !important;margin:0 0 0 auto !important;padding:0 !important;
+border:1px solid var(--cp-ligne);border-radius:5px;background:var(--cp-surface)}
+.cp-planetes-haut .smallplanet{flex:0 0 auto;display:flex;align-items:center;
+width:auto !important;height:auto !important;margin:0 !important;padding:0 !important}
+.cp-planetes-haut .smallplanet + .smallplanet{border-left:1px solid var(--cp-ligne)}
+.cp-planetes-haut [class^="planetBarSpaceObject"],
+.cp-planetes-haut img{display:none !important}
+.cp-planetes-haut .planetlink{display:flex !important;align-items:baseline;gap:5px;
+width:auto !important;height:auto !important;min-height:0 !important;
+padding:5px 10px !important;line-height:1.3 !important;
+border:0;border-radius:0;background:none;text-decoration:none;text-shadow:none}
+.cp-planetes-haut .planetlink:hover{background:var(--cp-survol)}
+.cp-planetes-haut .planetlink.active{background:var(--cp-survol);box-shadow:inset 0 -2px 0 var(--cp-accent)}
+.cp-planetes-haut .planet-name{color:var(--cp-texte);font:700 12px/1.3 Arial,sans-serif}
+/* Les coordonnées s'en vont : à six planètes, elles coûtent 370 px sur la
+   ligne — de quoi faire passer toute la barre en dessous — pour une donnée que
+   l'infobulle du jeu donne au survol. Le nom suffit à choisir. */
+.cp-planetes-haut .planet-koords{display:none !important}
+html.copilote-planetes-haut.copilote-peau .copilote-col-planetes{display:none !important}
+/* Les pages qu'on n'habille pas — Galaxie, Alliance, Empire — gardent la
+   largeur que le jeu leur donne. Sans rien d'autre, elles se collaient au
+   rail et laissaient tout le vide à droite. Des marges automatiques posent
+   leur cadre au milieu de la place qui reste, entre le rail et la colonne. */
+html.copilote-peau:not(.copilote-peau-grille):not(.copilote-peau-flotte) .copilote-col-jeu{
+margin-left:auto !important;margin-right:auto !important}
+/* sous la peau, la colonne du jeu ne se plafonne plus : notre grille sait
+   s'étaler, et la colonne de droite prend sa part du reste */
+/* base zéro, et non auto : avec une base auto, la colonne du jeu réclame la
+   largeur de sa grille et pousse celle du copilote à la ligne du dessous.
+   À zéro, les quatre colonnes tiennent sur une ligne et le jeu prend ce qui
+   reste. */
+html.copilote-peau-grille .copilote-col-jeu{flex:1 1 0 !important;max-width:none !important}
+/* La colonne n'est plus un bloc : une carte par sujet, posées l'une sous
+   l'autre, chacune avec son titre. On lit la première et on agit. */
+/* Elle garde ses 320 px tant qu'il y a la place, et passe sous le jeu quand
+   l'écran est trop étroit — plutôt que de pousser le rail hors de l'écran. */
+.cp-colonne{flex:1 1 320px;max-width:360px;min-width:0;margin:0 6px;padding:0;box-sizing:border-box;
+display:flex;flex-direction:column;gap:10px;
+font:400 13px/1.5 Arial,sans-serif;color:var(--cp-texte);text-shadow:none}
+.cp-colonne .cp-carte{background:var(--cp-surface);border:1px solid var(--cp-ligne);border-radius:8px;
+padding:10px 12px}
+.cp-colonne h3{margin:0 0 8px;font:700 12px/1 Arial,sans-serif;letter-spacing:.1em;
+text-transform:uppercase;color:var(--cp-doux)}
+.cp-colonne .cp-act{display:block;padding:7px 0;border-top:1px solid var(--cp-ligne);
+color:var(--cp-accent);text-decoration:none;font:700 12px/1.35 Arial,sans-serif}
+/* Deux lignes au plus pour dire quoi : au-delà, c'est une explication, et
+   l'explication est dans l'infobulle. */
+.cp-colonne .cp-quoi{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+overflow:hidden}
+.cp-colonne .cp-act:hover{color:var(--cp-accent-vif)}
+.cp-colonne .cp-act.copilote-gris{color:var(--cp-doux);font-weight:400}
+.cp-colonne .cp-act small{display:block;color:var(--cp-doux);font-weight:400;font-size:11px}
+/* Les six teintes du panneau, recopiées ici : les deux documents n'ont pas
+   de feuille commune, et une planète doit garder sa couleur en passant de
+   l'un à l'autre. Elles tournent au-delà de six planètes — deux teintes
+   proches valent mieux que deux indistinguables. */
+html.copilote-peau{--p0:#74b9ff;--p1:#ffa94d;--p2:#63e6a8;--p3:#ff8fb1;--p4:#ffe066;--p5:#c4a0ff}
+/* Sur fond clair, les mêmes teintes seraient illisibles : on prend celles du
+   panneau en thème clair, qui disent les mêmes planètes en plus sombre. */
+html.copilote-peau.copilote-clair{--p0:#1b6cc9;--p1:#b35c00;--p2:#0b8a5a;
+--p3:#c0336a;--p4:#8a6a00;--p5:#6b3fc9}
+.cp-colonne .cp-act .cp-ou{color:var(--pc,var(--cp-doux));font-weight:700}
+html.copilote-peau-grille #middle .maincontent > *:not(.copilote-peau-panneau){
+position:absolute !important;left:-99999px !important;top:0 !important;width:900px !important}
+.copilote-peau-panneau{font:400 13px/1.5 Arial,sans-serif;color:var(--cp-texte);text-shadow:none;
+display:flex;flex-direction:column;gap:14px;padding:4px 0 24px 10px}
+/* Une seule ligne : le titre, ce que dit le jeu, ce que dit le plan, et le
+   retour à la page du jeu. Ce qui ne tient pas se coupe plutôt que de
+   prendre une rangée de plus — c'est un résumé, pas une lecture. */
+.copilote-peau-panneau .cp-tete{display:flex;align-items:baseline;gap:12px;flex-wrap:nowrap;
+overflow:hidden;padding-bottom:10px;border-bottom:1px solid var(--cp-ligne)}
+.copilote-peau-panneau .cp-tete h2,
+.copilote-peau-panneau .cp-tete .cp-rendre{flex:0 0 auto}
+.copilote-peau-panneau h2{margin:0;font:700 17px/1.2 Arial,sans-serif;letter-spacing:.06em;
+text-transform:uppercase;color:var(--cp-texte)}
+.copilote-peau-panneau .cp-rendre{background:none;border:1px solid var(--cp-ligne);
+color:var(--cp-doux);border-radius:4px;padding:3px 9px;font:400 11px/1.4 Arial,sans-serif;cursor:pointer}
+.copilote-peau-panneau .cp-rendre:hover{color:var(--cp-texte);border-color:var(--cp-accent)}
+/* La page Flotte, habillée et non redessinée : ses cases deviennent des
+   cartes, son champ de saisie reste le sien, à sa place dans le formulaire. */
+html.copilote-peau .cp-chemin-large{width:auto !important;max-width:none !important}
+html.copilote-peau #technologies.cp-chemin-large{display:flex;gap:14px;align-items:flex-start}
+html.copilote-peau #technologies.cp-chemin-large > .cp-chemin-large{flex:1 1 0;min-width:0}
+html.copilote-peau-flotte .copilote-col-jeu{flex:1 1 0 !important}
+/* L'illustration du jeu fait 250 px de haut pour un titre : on garde le
+   titre, on laisse l'image. Les trois lignes d'état — flottes, retrait,
+   mission — se rangent côte à côte au lieu de prendre trois rangées. */
+html.copilote-peau-flotte .planet-header{background-image:none !important;
+height:auto !important;min-height:0 !important;width:auto !important;
+padding:0 !important;margin:0 0 8px !important}
+/* Le jeu décale son titre de 144 px pour le poser sur l'illustration ; sans
+   elle, il flottait à droite de tout le reste. */
+html.copilote-peau-flotte .planet-header h2{margin:0 !important;padding:0 !important;
+text-indent:0 !important;width:auto !important;text-align:left;
+font:700 15px/1.3 Arial,sans-serif;color:var(--cp-texte);text-shadow:none}
+html.copilote-peau-flotte .planet-header .toggleHeader{display:none}
+html.copilote-peau-flotte .fleetStatus{display:inline-block;vertical-align:top;
+width:auto !important;height:auto !important;background-image:none !important;
+margin:0 6px 6px 0;padding:5px 10px;border:1px solid var(--cp-ligne);border-radius:6px;
+background:var(--cp-surface);font:400 12px/1.5 Arial,sans-serif;color:var(--cp-doux);text-shadow:none}
+html.copilote-peau .cp-flotte{display:grid !important;gap:8px;
+grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
+width:auto !important;height:auto !important;padding:0 !important;margin:0 !important}
+html.copilote-peau .cp-flotte > li.technology{display:grid !important;
+grid-template-columns:80px minmax(0,1fr);grid-template-rows:auto auto auto;gap:2px 10px;
+width:auto !important;height:auto !important;margin:0 !important;padding:8px 10px !important;
+border:1px solid var(--cp-ligne);border-radius:6px;background:var(--cp-surface);text-align:left}
+/* le nom, que le jeu ne montrait que dans son infobulle */
+html.copilote-peau .cp-flotte > li.technology::before{content:attr(aria-label);
+grid-column:2;grid-row:1;align-self:end;font:400 10px/1.25 Arial,sans-serif;
+letter-spacing:.05em;text-transform:uppercase;color:var(--cp-doux)}
+html.copilote-peau .cp-flotte .icon{grid-column:1;grid-row:1/4;align-self:center;position:relative}
+/* le nombre disponible, en pastille sur l'image */
+html.copilote-peau .cp-flotte .amount{position:absolute !important;left:3px !important;
+top:3px !important;right:auto !important;bottom:auto !important;
+width:auto !important;height:auto !important;padding:1px 6px;border-radius:4px;
+background:var(--cp-voile);text-align:left !important}
+html.copilote-peau .cp-flotte .amount .stockAmount{display:inline !important;
+color:var(--cp-texte) !important;font:700 12px/1.4 Arial,sans-serif !important}
+html.copilote-peau .cp-flotte > li.technology > input{grid-column:2;grid-row:3;
+position:static !important;width:100% !important;height:auto !important;
+left:auto !important;top:auto !important;box-sizing:border-box;padding:4px 7px;
+border:1px solid var(--cp-ligne);border-radius:4px;background:var(--cp-creux);color:var(--cp-texte);
+font:700 13px/1.2 Arial,sans-serif;text-align:left}
+/* Le bouton qui ouvre le panneau, et la fenêtre qui le porte. */
+.cp-bouton{margin-left:12px;padding:5px 12px;border:1px solid var(--cp-ligne);border-radius:5px;
+background:var(--cp-surface);color:var(--cp-texte);font:700 11px/1.4 Arial,sans-serif;letter-spacing:.08em;
+text-transform:uppercase;text-shadow:none;cursor:pointer}
+.cp-bouton:hover{border-color:var(--cp-accent);color:var(--cp-texte)}
+.cp-fenetre{position:fixed;inset:0;z-index:9000;background:var(--cp-ombre);
+display:flex;align-items:center;justify-content:center;padding:24px}
+.cp-fenetre-boite{position:relative;width:min(900px,100%);height:min(900px,100%);
+background:var(--cp-creux);border:1px solid var(--cp-ligne);border-radius:10px;overflow:hidden;
+box-shadow:0 30px 80px var(--cp-ombre-portee)}
+.cp-fenetre iframe{width:100%;height:100%;border:0;display:block}
+.cp-fermer{position:absolute;top:8px;right:10px;z-index:2;padding:4px 10px;
+border:1px solid var(--cp-ligne);border-radius:5px;background:var(--cp-surface);color:var(--cp-doux);
+font:700 11px/1.4 Arial,sans-serif;cursor:pointer}
+.cp-fermer:hover{color:var(--cp-texte);border-color:var(--cp-accent)}
+/* La bande du haut : un seul cadre, un seul fond, et les pièces dedans.
+   Les cadres intérieurs s'effacent — c'est ce qui faisait des carreaux. */
+.cp-barre{flex:0 0 100%;display:flex;flex-wrap:wrap;align-items:center;gap:0;
+box-sizing:border-box;padding:0 6px;
+border:0;border-bottom:1px solid var(--cp-ligne);border-radius:0;background:var(--cp-surface)}
+/* La bande traverse l'écran d'un bord à l'autre : un seul trait, le sien, au
+   bas duquel pendent les deux flancs — leur liseré du haut remonte d'un pixel
+   pour ne faire qu'une ligne avec lui.
+   La largeur est écrite avec l'identifiant du haut parce que la règle qui
+   remet dans le flux ce que le jeu pose en absolu l'est aussi : sans lui son
+   flex:0 0 auto l'emportait, la bande se repliait sur son contenu, et il
+   restait un vide à droite entre elle et le bord de l'écran. */
+html.copilote-peau #top > .cp-barre{flex:0 0 100%;margin:0}
+/* Le mou de la ligne tombe là : entre les messages et la première planète.
+   Les planètes et le bouton du copilote restent ainsi collés au bord droit,
+   quelle que soit la largeur de l'écran. */
+html.copilote-peau .cp-barre .cp-planetes-haut{margin-left:auto}
+html.copilote-peau .cp-rail{margin-top:-1px;border-top-left-radius:0;border-top-right-radius:0}
+html.copilote-peau .cp-colonne > .cp-carte:first-child{margin-top:-1px;
+border-top-left-radius:0;border-top-right-radius:0}
+html.copilote-peau .cp-barre #resources .resource_tile > div,
+html.copilote-peau .cp-barre .messagesIndicator,
+html.copilote-peau .cp-barre .chatIndicator,
+html.copilote-peau .cp-barre .cp-bouton,
+html.copilote-peau .cp-barre .cp-planetes-haut,
+html.copilote-peau .cp-barre .cp-planetes-haut .smallplanet + .smallplanet{
+border:0 !important;background:none !important;border-radius:0}
+html.copilote-peau .cp-barre .cp-planetes-haut{overflow:visible}
+/* le titre que le jeu donne à chaque groupe de cases */
+.copilote-peau-panneau .cp-groupe{margin:0 0 -6px;font:700 11px/1 Arial,sans-serif;
+letter-spacing:.1em;text-transform:uppercase;color:var(--cp-faible)}
+.copilote-peau-panneau .cp-grille{display:grid;gap:8px;
+grid-template-columns:repeat(auto-fill,minmax(176px,1fr))}
+.copilote-peau-panneau .cp-case{position:relative;border:1px solid var(--cp-ligne);border-radius:6px;
+background:var(--cp-surface);overflow:hidden}
+.copilote-peau-panneau .cp-ouvrir{display:flex;align-items:center;gap:10px;width:100%;
+text-align:left;padding:8px 10px;border:0;background:none;color:var(--cp-texte);
+font:400 13px/1.4 Arial,sans-serif;cursor:pointer}
+.copilote-peau-panneau .cp-case:hover{border-color:var(--cp-accent);background:var(--cp-survol)}
+/* Une case en chantier : le temps qui reste, en bas de la carte, lisible
+   sans chercher. */
+.copilote-peau-panneau .cp-case[data-actif]{border-color:var(--cp-bon)}
+.copilote-peau-panneau .cp-case[data-actif] .cp-ouvrir{padding-bottom:24px}
+.copilote-peau-panneau .cp-encours{position:absolute;left:0;right:0;bottom:0;
+padding:3px 10px;background:var(--cp-bon-fond);color:var(--cp-bon);
+font:700 11px/1.4 Arial,sans-serif;text-align:center}
+.copilote-peau-panneau .cp-ouvrir[aria-pressed="true"]{background:var(--cp-survol);
+box-shadow:inset 3px 0 0 var(--cp-accent)}
+/* l'image du jeu fait 100 px : on la réduit, on ne la redimensionne pas —
+   sa place sur la planche de sprites ne se met pas à l'échelle */
+.copilote-peau-panneau .cp-img{flex:0 0 46px;width:46px;height:46px;overflow:hidden;
+border-radius:4px;display:block}
+.copilote-peau-panneau .cp-img .icon{transform:scale(.46);transform-origin:top left;display:block}
+.copilote-peau-panneau .cp-txt{display:flex;flex-direction:column;gap:1px;min-width:0}
+.copilote-peau-panneau .cp-nom{color:var(--cp-doux);font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+.copilote-peau-panneau .cp-niv{font:700 20px/1.1 Arial,sans-serif}
+.copilote-peau-panneau .cp-cible{position:absolute;top:6px;right:6px;border:0;border-radius:3px;
+background:var(--cp-accent);color:var(--cp-creux);font:700 11px/1.5 Arial,sans-serif;padding:1px 7px;cursor:pointer}
+.copilote-peau-panneau .cp-cible:hover{background:var(--cp-accent-vif)}
+/* ce qui se compte ne se lance pas d'un clic : la pastille informe, sans
+   faire croire qu'elle agit */
+.copilote-peau-panneau .cp-cible-muette,
+.copilote-peau-panneau .cp-cible-muette:hover{background:transparent;color:var(--cp-doux);
+box-shadow:inset 0 0 0 1px var(--cp-ligne);cursor:default}
+/* la pastille est posée sur la carte : le nom lui laisse la place, et
+   seulement sur les cartes qui en portent une */
+.copilote-peau-panneau .cp-case:has(.cp-cible) .cp-txt{padding-right:38px}
+.copilote-peau-panneau .cp-cible[disabled]{background:var(--cp-ligne);color:var(--cp-doux)}
+/* ce que le clic a donné, dit sur la pastille elle-même */
+.copilote-peau-panneau .cp-cible[data-etat]::after{content:" · " attr(data-etat)}
+.copilote-peau-panneau .cp-cible[data-etat="lancé"]{background:var(--cp-bon)}
+.copilote-peau-panneau .cp-cible[data-etat="pas payable"]{background:var(--cp-attention)}
+.copilote-peau-panneau .cp-vide{color:var(--cp-doux);font-size:12px}
+/* Le jeu donne 654 px à son panneau et l'empile en trois étages posés en
+   absolu : l'enveloppe, le contenu, le panneau. Les trois reviennent dans le
+   flux. Mais tout ce qu'il y range est ancré à droite — le titre, le niveau,
+   le bouton de montée — et son cadre est une image taillée pour 654 px.
+   Étirée sur deux mille pixels, elle se répète en bandes et le titre part à
+   un mètre de l'illustration. On sépare donc les deux rôles : la bande prend
+   toute la largeur et sépare ce qu'on clique de ce qu'on lit, la carte garde
+   ses proportions au milieu. --copilote-detail règle sa largeur, et 100% la
+   rend à l'écran entier. */
+.copilote-peau-panneau{--copilote-detail:1000px}
+.copilote-peau-panneau .cp-detail{position:relative;min-height:1px;margin-top:6px;
+padding:8px 0;border:1px solid var(--cp-ligne);border-radius:8px;background:var(--cp-surface2)}
+.copilote-peau-panneau .cp-detail > #technologydetails_wrapper{position:relative !important;
+left:auto !important;top:auto !important;width:auto !important;
+max-width:var(--copilote-detail) !important;margin-left:auto;margin-right:auto}
+.copilote-peau-panneau .cp-detail #technologydetails_content{position:relative !important;
+width:auto !important;max-width:var(--copilote-detail) !important;
+margin-left:auto;margin-right:auto;background-image:none !important;
+background-color:transparent !important}
+.copilote-peau-panneau .cp-detail #technologydetails{position:relative !important;
+width:auto !important;max-width:none !important;background-image:none !important}`;
+
+  /* Le menu du jeu, redessiné : ses liens, ses couleurs, notre trait. Les
+     adresses sortent du menu lui-même — aucun nom de page n'est écrit ici, et
+     le jour où Gameforge en ajoute une, elle est dans le rail sans qu'on y
+     touche. Le jeu double chaque entrée : une icône muette, puis le libellé.
+     On ne garde que ce qui porte un nom. */
+  let leRail = null, leRailHote = null, leChemin = [];
+  // la liste des planètes, et la place du jeu où la remettre
+  let laListe = null, listeParent = null, listeSuivant = null;
+  // le panneau de détail du jeu, et la place d'où on l'a pris
+  let leDetail = null, detailParent = null, detailSuivant = null;
+
+  /* Un flanc ne montre que ce pour quoi il est là : le rail à gauche, les
+     planètes à droite. On marque, dans la colonne, l'enfant qui mène à ce
+     qu'on garde ; ses voisins partent hors de l'écran — l'encart de mission,
+     la bannière. Rien n'est nommé : on part de ce qu'on garde et on remonte,
+     donc ce que le jeu ajoutera à côté s'en ira tout seul.
+     Un seul étage, celui de la colonne : plus bas, on cacherait des morceaux
+     du jeu qu'on ne connaît pas. */
+  function enfantDeColonne(noeud, colonne) {
+    for (let x = noeud; x && x !== document.body; x = x.parentNode) {
+      const p = x.parentNode;
+      if (p && p.classList && p.classList.contains(colonne)) return x;
+    }
+    return null;
+  }
+
+  function gardeDansColonne(garde, colonne) {
+    const x = enfantDeColonne(garde, colonne);
+    if (x) {
+      x.classList.add('copilote-chemin');
+      leChemin.push(x);
+    }
+    /* Colonne introuvable : on ne cache rien. Mieux vaut un encart de trop
+       qu'un flanc vidé par erreur. */
+  }
+
+  function oteChemin() {
+    for (const x of leChemin) x.classList.remove('copilote-chemin');
+    leChemin = [];
+  }
+
+  function oteRail() {
+    oteChemin();
+    /* La liste des planètes appartient au jeu : on la remet où on l'a prise,
+       sinon la page du jeu rendue se retrouve sans ses planètes. */
+    if (laListe && listeParent) {
+      laListe.classList.remove('cp-planetes-haut');
+      listeParent.insertBefore(laListe, listeSuivant);
+    }
+    laListe = listeParent = listeSuivant = null;
+    document.documentElement.classList.remove('copilote-planetes-haut');
+    if (leRail) leRail.remove();
+    if (leRailHote) leRailHote.classList.remove('copilote-rail-hote');
+    leRail = leRailHote = null;
+  }
+
+  /* Le rail, rangé par familles. Le jeu liste ses pages à plat ; le joueur,
+     lui, pense par gestes — construire, chercher, armer, voler. Une famille
+     n'est qu'une liste de pages : celle que Gameforge ajoutera demain n'est
+     dans aucune, et tombe à la fin sous « autres ». Rien ne se perd. */
+  const RAIL_FAMILLES = [
+    ['', ['overview']],
+    ['construire', ['supplies', 'facilities', 'lfbuildings']],
+    ['chercher', ['research', 'lfresearch', 'lfbonuses']],
+    ['armer', ['shipyard', 'defenses']],
+    ['voler', ['fleetdispatch', 'movement', 'galaxy']],
+    ['empire', ['empire', 'alliance']]
+  ];
+
+  /* Une touche par page. Les lettres sont à nous — le jeu ne nomme pas ses
+     pages en une lettre — mais les adresses viennent du menu : on n'invente
+     aucune URL, et une page absente du menu n'a pas de touche. */
+  const RAIL_TOUCHES = {
+    overview: 'O', supplies: 'R', facilities: 'I', lfbuildings: 'V',
+    research: 'C', lfresearch: 'B', shipyard: 'S', defenses: 'D',
+    fleetdispatch: 'F', movement: 'M', galaxy: 'G', empire: 'E', alliance: 'A'
+  };
+  let touchesPosees = false;
+
+  /* L'écouteur se pose une fois pour la vie du script : le rail, lui, se
+     repose à chaque dessin, et un écouteur par rail s'empilerait. Rien ne
+     part pendant qu'on écrit, ni avec une touche de commande — le jeu a ses
+     propres raccourcis, et le chat des champs de saisie. */
+  function poseTouches() {
+    if (touchesPosees) return;
+    touchesPosees = true;
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && laFenetre) { fermeFenetre(); return; }
+      if (!leRail || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      // une touche de page n'emmène nulle part tant que la fenêtre est ouverte
+      if (laFenetre) return;
+      const t = e.target;
+      if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || '') || t.isContentEditable)) return;
+      const k = String(e.key || '').toUpperCase();
+      const lien = [...leRail.querySelectorAll('a[data-touche]')].find(a => a.dataset.touche === k);
+      if (!lien) return;
+      e.preventDefault();
+      location.href = lien.href;
+    });
+  }
+
+  /** La rangée du haut : le seul enfant du cadre qui n'est pas une colonne. */
+  function laRangee() {
+    return leCadre && [...leCadre.children].find(x => x.classList.contains('copilote-rang'));
+  }
+
+  function poseRail(menu) {
+    const hote = menu && menu.parentNode;
+    if (!hote) return;
+    const ici = pageCourante();
+    const entrees = [];
+    for (const a of menu.querySelectorAll('a[href]')) {
+      // les entrées payantes suivent le réglage du menu : cachées là, cachées ici
+      if (noshop && caseDuLien(a).classList.contains('copilote-paye')) continue;
+      const lab = a.querySelector('.textlabel');
+      const txt = clean(lab ? lab.textContent : '');
+      // une entrée sans nom est une icône : le jeu double chaque ligne
+      if (!txt) continue;
+      entrees.push({ txt, href: a.getAttribute('href'), comp: compDuLien(a) });
+    }
+    /* Tout ou rien : un rail vide à la place du menu du jeu, et le joueur n'a
+       plus de quoi quitter la page. */
+    if (!entrees.length) return;
+    const rail = document.createElement('nav');
+    rail.className = 'cp-rail';
+    const reste = entrees.slice();
+    const famille = (titre, liste) => {
+      if (!liste.length) return;
+      if (titre) {
+        const t = rail.appendChild(document.createElement('div'));
+        t.className = 'cp-fam';
+        t.textContent = titre;
+      }
+      for (const e of liste) {
+        const n = rail.appendChild(document.createElement('a'));
+        n.href = e.href;
+        n.textContent = e.txt;
+        n.className = 'cp-lien' + (e.comp && e.comp === ici ? ' cp-ici' : '');
+        const c = MENU_COULEURS[e.comp];
+        if (c) n.style.setProperty('--cm', c);
+        const touche = RAIL_TOUCHES[e.comp];
+        if (touche) {
+          n.dataset.touche = touche;
+          const u = n.appendChild(document.createElement('u'));
+          u.className = 'cp-touche';
+          u.textContent = touche;
+        }
+      }
+    };
+    for (const [titre, pages] of RAIL_FAMILLES) {
+      const prises = [];
+      for (const p of pages) {
+        const i = reste.findIndex(e => e.comp === p);
+        if (i >= 0) prises.push(reste.splice(i, 1)[0]);
+      }
+      famille(titre, prises);
+    }
+    famille('autres', reste);
+    /* Les planètes passent sous le menu. Elles étaient à l'autre bout de
+       l'écran, alors que le joueur fait sans cesse l'aller-retour entre une
+       page et une planète : les deux moitiés du même geste se touchent enfin.
+       On déplace la liste du jeu, on ne la recopie pas — elle garde ses
+       infobulles et son code — et on retient d'où elle vient, pour l'y
+       remettre quand la peau se retire. */
+    /* Les planètes montent sur la ligne du haut. Dans un flanc, six lignes
+       dans une colonne étroite obligeaient à défiler pour en atteindre une ;
+       en haut, elles tiennent sur une ligne et chacune est à un clic.
+       On déménage la liste du jeu : ses liens, ses infobulles et ses lunes
+       viennent avec elle. */
+    const haut = laRangee();
+    const pl = document.getElementById('planetList');
+    if (haut && pl && pl.parentNode) {
+      laListe = pl;
+      listeParent = pl.parentNode;
+      listeSuivant = pl.nextSibling;
+      pl.classList.add('cp-planetes-haut');
+      haut.appendChild(pl);
+      document.documentElement.classList.add('copilote-planetes-haut');
+    }
+    poseTouches();
+    hote.classList.add('copilote-rail-hote');
+    hote.insertBefore(rail, hote.children[0] || null);
+    leRail = rail;
+    leRailHote = hote;
+  }
+
+  /* Monter une case. On n'écrit pas la requête du jeu : on ouvre sa case, on
+     attend son panneau, et on clique son bouton. Deux précautions, et elles
+     comptent toutes les deux : le panneau doit être celui de la bonne case —
+     le jeu le refait à chaque ouverture, et cliquer dans celui d'avant
+     monterait autre chose — et le bouton doit être `upgrade`, celui qui paie
+     en ressources. À côté de lui vivent celui qui paie en matière noire et
+     celui qui démolit.
+     Pas de bouton `upgrade` : le jeu dit non, il manque de quoi payer. On le
+     dit sur la pastille et on s'arrête là. */
+  function souris(el) {
+    for (const t of ['mousedown', 'mouseup', 'click']) {
+      el.dispatchEvent(new MouseEvent(t, { bubbles: true, cancelable: true, view: window }));
+    }
+  }
+
+  function construire(id, cible, pastille) {
+    /* On relit la case au moment du clic. Le jeu refait sa liste de cases sans
+       arrêt, et celle qu'on tenait à la peinture peut ne plus être dans la
+       page : on cliquait alors dans le vide. */
+    const li = document.querySelector('li.technology[data-technology="' + id + '"]');
+    if (!li) { pastille.dataset.etat = 'case introuvable'; return; }
+    const e = li.querySelector('.level[data-value]') || li.querySelector('.amount[data-value]');
+    const niv = e ? +e.dataset.value || 0 : null;
+    /* Le bouton du jeu monte d'un niveau, quel qu'il soit — il ne sait pas où
+       le plan veut aller. Si la case a déjà atteint ce qu'on demande, cliquer
+       la ferait monter plus haut que prévu. On s'arrête. */
+    if (niv != null && cible != null && niv >= cible) { pastille.dataset.etat = 'déjà fait'; return; }
+    pastille.disabled = true;
+    pastille.dataset.etat = 'ouvre';
+    souris(li.querySelector('.icon') || li);
+    let reste = 12;
+    const tente = () => {
+      const det = document.getElementById('technologydetails');
+      if (det && String(det.dataset.technologyId) === String(id)) {
+        const b = det.querySelector('button.upgrade');
+        if (b) { souris(b); pastille.dataset.etat = 'lancé'; return; }
+        pastille.dataset.etat = 'pas payable';
+        pastille.disabled = false;
+        return;
+      }
+      if (--reste > 0) setTimeout(tente, 150);
+      else { pastille.dataset.etat = 'sans panneau'; pastille.disabled = false; }
+    };
+    setTimeout(tente, 150);
+  }
+
+  /* Ce que le panneau latéral sait, posé à droite de la page : le joueur n'a
+     plus d'onglet à ouvrir pour savoir quoi faire. La colonne vit dans le
+     cadre, à côté de celle des planètes, et prend sa part de la largeur. */
+  let laColonne = null;
+
+  /* Une carte par sujet, plutôt qu'une liste d'affilée : ce qui se fait sur
+     cette page d'abord, le reste de la journée ensuite. Le joueur lit la
+     première carte et agit sans avoir à trier. Une carte sans ligne ne se pose
+     pas — une section vide n'apprend rien. */
+  /** Un caractère qui a un sens dans une expression, rendu inoffensif. */
+  const echappe = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  /* Une action nomme souvent ses planètes dans sa phrase. On y peint les noms
+     qu'on connaît, de leur teinte, et rien d'autre : le texte reste celui du
+     panneau, découpé, jamais réécrit.
+     Les noms les plus longs passent devant, sinon « Caribou » mangerait
+     « Caribou Land ». */
+  function ecrisEnCouleur(hote, texte) {
+    const noms = Object.keys(teintes).filter(Boolean).sort((a, b) => b.length - a.length);
+    const morceau = (t, cls, pc) => {
+      if (!t) return;
+      const s = hote.appendChild(document.createElement('span'));
+      if (cls) s.className = cls;
+      s.textContent = t;
+      if (pc != null) s.style.setProperty('--pc', 'var(--p' + pc + ')');
+    };
+    if (!noms.length) { morceau(texte, '', null); return; }
+    const re = new RegExp('(' + noms.map(echappe).join('|') + ')', 'g');
+    let i = 0;
+    for (const m of String(texte).matchAll(re)) {
+      morceau(texte.slice(i, m.index), '', null);
+      morceau(m[0], 'cp-ou', teintes[m[0]]);
+      i = m.index + m[0].length;
+    }
+    morceau(texte.slice(i), '', null);
+  }
+
+  function carteColonne(c, titre, lignes) {
+    if (!lignes.length) return;
+    const carte = c.appendChild(document.createElement('section'));
+    carte.className = 'cp-carte';
+    const h = carte.appendChild(document.createElement('h3'));
+    h.textContent = titre;
+    for (const l of lignes) {
+      const a = carte.appendChild(document.createElement(l.url ? 'a' : 'div'));
+      a.className = 'cp-act' + (l.gris ? ' copilote-gris' : '');
+      if (l.url) a.href = l.url;
+      /* Trois choses se lisent d'un coup d'œil : quoi, où, quand. Le
+         pourquoi — deux phrases, parfois trois — passe à l'infobulle : il se
+         lit quand on hésite, pas à chaque passage. Dans une colonne de trois
+         cents pixels, l'afficher noyait les actions sous les explications. */
+      const q = a.appendChild(document.createElement('span'));
+      q.className = 'cp-quoi';
+      ecrisEnCouleur(q, l.what);
+      const s = a.appendChild(document.createElement('small'));
+      /* La planète porte sa couleur, la même que sa pastille dans le panneau :
+         d'un flanc à l'autre, une planète se reconnaît sans se lire. */
+      if (l.ou) {
+        const o = s.appendChild(document.createElement('span'));
+        o.className = 'cp-ou';
+        o.textContent = l.ou;
+        const pc = l.pc != null ? l.pc : teintes[l.ou];
+        if (pc != null) o.style.setProperty('--pc', 'var(--p' + pc + ')');
+      }
+      if (l.quand) {
+        const q2 = s.appendChild(document.createElement('span'));
+        q2.textContent = (l.ou ? ' · ' : '') + l.quand;
+      }
+      a.title = [l.what, l.ou, l.quand, l.why].filter(Boolean).join(' · ');
+    }
+  }
+
+  function poseColonne(cadre, ici) {
+    if (laColonne) { laColonne.remove(); laColonne = null; }
+    const dIci = (ici || []).map(l => ({ what: l.what, ou: l.ou, quand: l.quand, why: l.why, url: l.url, gris: l.gris }));
+    if (!cadre || (!colonne.length && !dIci.length)) return;
+    const c = document.createElement('aside');
+    c.className = 'cp-colonne';
+    carteColonne(c, 'à faire ici', dIci);
+    carteColonne(c, "aujourd'hui", colonne);
+    if (!c.children.length) return;
+    cadre.appendChild(c);
+    laColonne = c;
+  }
+
+  let peauEtat = 'éteinte', laPeau = null, peauRevelee = false, laCle = '';
+  /* Les comptes à rebours des cases en chantier. La peau ne se redessine que
+     lorsque le plan change ; un compte à rebours, lui, change à chaque
+     seconde. On garde donc la main sur ces étiquettes-là pour les réécrire
+     en place, sans rien reposer. */
+  let lesMinuteurs = [];
+
+  /** Un temps restant, dit court : « 18 s », « 9 min », « 2 h 05 ». */
+  const compte = sec => sec >= 3600
+    ? Math.floor(sec / 3600) + ' h ' + String(Math.floor(sec % 3600 / 60)).padStart(2, '0')
+    : sec >= 60 ? Math.ceil(sec / 60) + ' min' : Math.max(0, Math.ceil(sec)) + ' s';
+
+  function majMinuteurs() {
+    const maintenant = Date.now();
+    for (const m of lesMinuteurs) {
+      if (!m.el.parentNode) continue;
+      /* La fin vient du jeu, en secondes : on ne compte pas le temps nous-
+         mêmes, on lit la sienne. */
+      const t = m.li.querySelector('[data-end]');
+      const fin = t ? +t.dataset.end * 1000 : 0;
+      m.el.textContent = (m.vise ? '→ ' + m.vise + ' · ' : '')
+        + (fin ? compte((fin - maintenant) / 1000) : 'en cours');
+    }
+  }
+
+
+  /** Dessine la page à notre façon, ou rend celle du jeu. */
+  function peintPeau() {
+    const comp = pageCourante();
+    /* Deux portées : le cadre, qui ne touche pas au contenu, et la grille,
+       qui le remplace. Une page sans case prend le cadre seul. */
+    const cadre = peau && !peauRevelee && PAGES_CADRE.indexOf(comp) >= 0;
+    const veutGrille = cadre && PAGES_PEAU.indexOf(comp) >= 0;
+    const rendre = (etat) => {
+      document.documentElement.classList.remove('copilote-peau');
+      /* Le panneau de détail appartient au jeu : on le remet avant de jeter
+         le nôtre, qui l'héberge. */
+      if (leDetail && detailParent) detailParent.insertBefore(leDetail, detailSuivant);
+      leDetail = detailParent = detailSuivant = null;
+      if (laPeau) { laPeau.remove(); laPeau = null; }
+      if (laColonne) { laColonne.remove(); laColonne = null; }
+      /* La bande rend ses pièces d'abord : elle les a prises à la rangée du
+         haut, et le rail rendra ensuite les planètes au flanc du jeu. Dans
+         l'autre sens, la liste finissait là où la bande l'avait trouvée. */
+      oteBarre();
+      oteRail();
+      oteFlotte();
+      oteBouton();
+      document.documentElement.classList.remove('copilote-peau-grille');
+      document.documentElement.classList.remove('copilote-clair');
+      laCle = '';
+      peauEtat = etat;
+    };
+    if (!cadre) { rendre(peauRevelee ? 'rendue' : peau ? 'hors page' : 'éteinte'); return; }
+    const hote = document.querySelector('#middle .maincontent');
+    const tuiles = veutGrille ? [...document.querySelectorAll('li.technology[data-technology]')] : [];
+    /* Une page à cases sans case n'est pas la page qu'on croit : elle garde
+       son contenu et s'en tient au cadre, plutôt que de recevoir un panneau
+       vide par-dessus. */
+    const grille = veutGrille && !!hote && tuiles.length > 0;
+    document.documentElement.classList.add('copilote-peau');
+    /* Le jour ou la nuit : une classe, et toutes les couleurs suivent. */
+    document.documentElement.classList.toggle('copilote-clair', clair);
+    /* Le contenu du jeu ne part hors de l'écran que là où on le remplace. */
+    document.documentElement.classList.toggle('copilote-peau-grille', grille);
+    const want = hints[meta('planet-id')] || {};
+    const cases = tuiles.map(li => {
+      const id = +li.dataset.technology;
+      /* Une case se compte ou se monte : un satellite et une foreuse ont un
+         nombre, une mine a un niveau. Le jeu les écrit dans deux balises. */
+      const niveau = li.querySelector('.level[data-value]');
+      const compte = niveau ? null : li.querySelector('.amount[data-value]');
+      const niv = niveau || compte;
+      /* Le nom vient du jeu d'abord : il le met dans l'étiquette de sa case,
+         dans la langue du joueur, et il nomme ce que notre table ignore —
+         les formes de vie en ont des dizaines. Notre table ne sert que de
+         secours. Le jeu écrit « Mine de métal (niveau 14) » : le niveau est
+         déjà dans la carte, on ne le redit pas. */
+      const dit = clean(String(li.getAttribute('aria-label') || '').split('(')[0]);
+      /* Le jeu marque la case en chantier, et y met le niveau visé : c'est
+         là que se lit ce qui monte, et jusqu'où. */
+      const actif = li.dataset.status === 'active';
+      const vise = clean((li.querySelector('.targetlevel') || {}).textContent);
+      return { id, nom: dit || OG_NAMES[id] || ('Tech ' + id), compte: !!compte, actif, vise,
+        niv: niv ? +niv.dataset.value || 0 : null, cible: want[id], li };
+    });
+    const lignes = ((band || {}).pages || {})[comp] || [];
+    // Tant que rien ne change, on ne repose rien : la page clignoterait.
+    const cle = JSON.stringify([comp, grille, cases.map(c => [c.id, c.niv, c.cible, c.actif]),
+      lignes.map(l => [l.what, l.quand, l.gris]), colonne.map(l => [l.what, l.quand])]);
+    if (laCle === cle && (!grille || (laPeau && laPeau.parentNode === hote))) {
+      peauEtat = grille ? 'posée' : 'cadre';
+      return;
+    }
+    majMinuteurs();
+    laCle = cle;
+    /* Sans grille, le cadre se pose seul et le contenu du jeu reste entier. */
+    if (!grille) {
+      if (laPeau) { laPeau.remove(); laPeau = null; }
+      poseCadre(lignes);
+      peauEtat = 'cadre';
+      return;
+    }
+    const p = document.createElement('div');
+    p.className = 'copilote-peau-panneau';
+    p.dataset.cle = cle;
+    const tete = p.appendChild(document.createElement('div'));
+    tete.className = 'cp-tete';
+    const h = tete.appendChild(document.createElement('h2'));
+    /* Le titre vient du jeu : il nomme sa page dans la langue du joueur, et y
+       met la planète. Faute de titre, l'entrée du menu qui mène ici fait
+       l'affaire — elle non plus n'est pas écrite par nous. Une page dont on
+       ne sait pas le nom n'en reçoit aucun : on n'en invente pas. */
+    /* L'en-tête du jeu porte son titre dans un h2, et parfois un lien à côté
+       (« Paramétrage de la production ») : on prend le titre, pas la ligne. */
+    const tete0 = hote.querySelector('header');
+    const entete = tete0 && (tete0.querySelector('h2, h3') || tete0);
+    const barre = leMenu();
+    const entree = barre && [...barre.querySelectorAll('a[href]')]
+      .find(a => compDuLien(a) === comp && clean((a.querySelector('.textlabel') || {}).textContent));
+    const lab = entree && entree.querySelector('.textlabel');
+    h.textContent = clean(entete ? entete.textContent : '')
+      || clean(lab ? lab.textContent : '');
+    /* Ce qu'il y a à faire ici a quitté cette ligne pour la colonne de
+       droite, où chaque action a la place de dire son pourquoi. */
+    const rendreBtn = tete.appendChild(document.createElement('button'));
+    rendreBtn.className = 'cp-rendre';
+    rendreBtn.type = 'button';
+    rendreBtn.textContent = 'page du jeu';
+    rendreBtn.addEventListener('click', () => { peauRevelee = true; peintPeau(); });
+    /* Le jeu range ses cases en groupes et les coiffe d'un titre : quatre sur
+       Recherche, deux au Chantier, un sur Ressources. Les aplatir en une seule
+       grille ferait perdre ce que le jeu dit de ses propres cases. On suit donc
+       ses listes, et on reprend leur titre quand elles en ont un. */
+    const groupes = [];
+    for (const c of cases) {
+      const liste = c.li.parentNode;
+      let g = groupes.find(x => x.liste === liste);
+      if (!g) {
+        const h = liste && liste.parentNode && liste.parentNode.querySelector('h2, h3');
+        groupes.push(g = { liste, titre: clean(h ? h.textContent : ''), cases: [] });
+      }
+      g.cases.push(c);
+    }
+    lesMinuteurs = [];
+    for (const g of groupes) {
+      // un seul groupe sans titre : le titre de la page suffit, on n'en remet pas
+      if (g.titre && groupes.length > 1) {
+        const t = p.appendChild(document.createElement('h3'));
+        t.className = 'cp-groupe';
+        t.textContent = g.titre;
+      }
+      const grille = p.appendChild(document.createElement('div'));
+      grille.className = 'cp-grille';
+      for (const c of g.cases) {
+      const carte = grille.appendChild(document.createElement('div'));
+      carte.className = 'cp-case';
+      const b = carte.appendChild(document.createElement('button'));
+      b.className = 'cp-ouvrir';
+      b.type = 'button';
+      b.setAttribute('aria-pressed', 'false');
+      /* L'image est celle du jeu, reprise telle quelle : la redessiner
+         demanderait un dessin par case, et le jeu en a déjà un. Elle vient
+         avec ses classes, donc avec sa place sur la planche de sprites ; on
+         ne la redimensionne pas, on la réduit. */
+      const img = c.li.querySelector('.icon');
+      if (img) {
+        const cadre = b.appendChild(document.createElement('span'));
+        cadre.className = 'cp-img';
+        cadre.appendChild(img.cloneNode(true));
+      }
+      const txt = b.appendChild(document.createElement('span'));
+      txt.className = 'cp-txt';
+      const n = txt.appendChild(document.createElement('span'));
+      n.className = 'cp-nom';
+      n.textContent = c.nom;
+      const v = txt.appendChild(document.createElement('span'));
+      v.className = c.niv == null ? 'cp-vide' : 'cp-niv';
+      v.textContent = c.niv == null ? '—' : String(c.niv);
+      // atteint ou dépassé, le plan n'a plus rien à demander ici
+      if (c.cible != null && (c.niv == null || c.niv < c.cible)) {
+        /* Ce qui se compte ne se monte pas d'un clic : un vaisseau se commande
+           par quantité, dans le formulaire du jeu, et son bouton de montée
+           n'existe pas. La pastille dit alors ce que le plan veut, sans
+           prétendre le lancer. */
+        const t = carte.appendChild(document.createElement(c.compte ? 'span' : 'button'));
+        t.className = 'cp-cible' + (c.compte ? ' cp-cible-muette' : '');
+        t.textContent = '→ ' + c.cible;
+        if (!c.compte) {
+          t.type = 'button';
+          t.title = 'Monter au niveau ' + c.cible;
+          t.addEventListener('click', () => construire(c.id, c.cible, t));
+        } else {
+          t.title = 'Le plan en veut ' + c.cible + ' : ouvre la case pour en commander';
+        }
+      }
+      /* Une case en chantier le dit sur elle-même : le jeu n'écrit son
+         compte à rebours qu'en tout petit, sur l'image. */
+      if (c.actif) {
+        carte.dataset.actif = '1';
+        const e = carte.appendChild(document.createElement('span'));
+        e.className = 'cp-encours';
+        lesMinuteurs.push({ el: e, li: c.li, vise: c.vise });
+      }
+      /* Le clic du jeu part sur l'icône, pas sur la case : c'est là qu'il
+         écoute. Et il lui faut les trois temps d'une vraie souris. */
+      b.addEventListener('click', () => {
+        for (const x of grille.children) {
+          const o = x.children[0];
+          if (o && o.setAttribute) o.setAttribute('aria-pressed', 'false');
+        }
+        b.setAttribute('aria-pressed', 'true');
+        souris(c.li.querySelector('.icon') || c.li);
+      });
+      }
+    }
+    const detail = p.appendChild(document.createElement('div'));
+    detail.className = 'cp-detail';
+    /* Le panneau de détail du jeu vient vivre ici, tel quel : déplacé, il
+       garde son code et ses écouteurs, et le jeu continue d'écrire dedans.
+       On retient d'où il vient : il appartient au jeu, et la page rendue
+       doit le retrouver. */
+    const vrai = document.getElementById('technologydetails_wrapper');
+    if (vrai) {
+      if (!detailParent && vrai.parentNode) {
+        detailParent = vrai.parentNode;
+        detailSuivant = vrai.nextSibling;
+      }
+      leDetail = vrai;
+      detail.appendChild(vrai);
+    }
+    /* L'ancien panneau ne s'en va qu'une fois celui du jeu mis à l'abri dans
+       le neuf. Le retirer d'abord l'emportait avec lui : la page perdait pour
+       de bon de quoi ouvrir une case, et plus rien ne s'affichait. */
+    if (laPeau) laPeau.remove();
+    hote.insertBefore(p, hote.children[0] || null);
+    laPeau = p;
+    majMinuteurs();
+    poseCadre(lignes);
+    peauEtat = 'posée';
+  }
+
+  /* La page Flotte n'est pas une grille à nous. Son formulaire appartient au
+     jeu : chaque case y porte le champ qui dit combien de vaisseaux partent, et
+     refaire ce champ, ce serait refaire l'envoi. On ne la redessine donc pas,
+     on l'habille — les cases deviennent des cartes, comme ailleurs, et pas un
+     champ ne change de place dans le formulaire.
+     Les listes se reconnaissent à ce qu'elles portent, non à leur nom : des
+     cases du jeu qui tiennent chacune un champ de saisie. */
+  let lesFlottes = [];
+
+  function oteFlotte() {
+    for (const n of lesFlottes) {
+      n.classList.remove('cp-flotte');
+      n.classList.remove('cp-chemin-large');
+    }
+    lesFlottes = [];
+    document.documentElement.classList.remove('copilote-peau-flotte');
+  }
+
+  function poseFlotte() {
+    oteFlotte();
+    const champs = [...document.querySelectorAll('li.technology[data-technology] > input')];
+    if (!champs.length) return;
+    const mc = document.querySelector('#middle .maincontent');
+    const listes = new Set();
+    for (const i of champs) {
+      const ul = i.parentNode && i.parentNode.parentNode;
+      if (ul) listes.add(ul);
+    }
+    for (const ul of listes) {
+      ul.classList.add('cp-flotte');
+      lesFlottes.push(ul);
+      /* Le jeu enferme ses listes dans des boîtes de quatre cents pixels :
+         on élargit le chemin qui y mène, et rien d'autre. */
+      for (let x = ul; x && x !== mc && x !== document.body; x = x.parentNode) {
+        x.classList.add('cp-chemin-large');
+        lesFlottes.push(x);
+      }
+    }
+    document.documentElement.classList.add('copilote-peau-flotte');
+  }
+
+  /* Le panneau latéral porte déjà tout : Empire, Outils, Réglages, et le plan
+     complet. Le refaire dans la page serait l'écrire deux fois et le laisser
+     diverger. On l'ouvre donc tel quel, dans une fenêtre posée sur le jeu —
+     c'est la même page d'extension, le même code, les mêmes réglages, et ce
+     qu'on y change arrive dans la page par le chemin habituel.
+     Le bouton vit dans la rangée du haut, repérée par sa marque et non par son
+     nom : c'est la seule bande qui traverse la page. */
+  let leBouton = null, laFenetre = null;
+
+  function fermeFenetre() {
+    if (laFenetre) laFenetre.remove();
+    laFenetre = null;
+  }
+
+  function ouvreFenetre() {
+    if (laFenetre) { fermeFenetre(); return; }
+    let url = '';
+    try { url = chrome.runtime.getURL('sidepanel.html'); } catch (e) {}
+    if (!url) return;
+    const f = document.createElement('div');
+    f.className = 'cp-fenetre';
+    const boite = f.appendChild(document.createElement('div'));
+    boite.className = 'cp-fenetre-boite';
+    const fermer = boite.appendChild(document.createElement('button'));
+    fermer.className = 'cp-fermer';
+    fermer.type = 'button';
+    fermer.textContent = 'fermer';
+    fermer.addEventListener('click', fermeFenetre);
+    const cadre = boite.appendChild(document.createElement('iframe'));
+    cadre.src = url;
+    // un clic à côté referme : la fenêtre ne retient pas le joueur
+    f.addEventListener('click', e => { if (e.target === f) fermeFenetre(); });
+    document.body.appendChild(f);
+    laFenetre = f;
+  }
+
+  function oteBouton() {
+    if (leBouton) leBouton.remove();
+    leBouton = null;
+    fermeFenetre();
+  }
+
+  function poseBouton() {
+    if (leBouton && leBouton.parentNode) return;
+    /* La rangée du haut, celle que la mise en page large a marquée. Sans elle,
+       pas de bouton : on ne va pas le poser au hasard dans la page du jeu. */
+    const haut = laRangee();
+    if (!haut) return;
+    const b = document.createElement('button');
+    b.className = 'cp-bouton';
+    b.type = 'button';
+    b.textContent = 'copilote';
+    b.title = 'Le panneau du copilote : plan, empire, outils, réglages';
+    b.addEventListener('click', ouvreFenetre);
+    haut.appendChild(b);
+    leBouton = b;
+  }
+
+  /* Une seule bande en haut, et tout dedans : les ressources, les messages, le
+     bouton, les planètes. Chaque morceau avait son cadre et ses marges, ce qui
+     faisait six boîtes sur deux lignes au lieu d'une barre. On les range donc
+     dans une enveloppe à nous, et les cadres intérieurs disparaissent.
+     La ligne du portail garde la sienne, au-dessus : elle est à Gameforge. */
+  let laBarre = null, piecesBarre = [];
+
+  function oteBarre() {
+    for (const p of piecesBarre) if (p.parent) p.parent.insertBefore(p.noeud, p.suivant);
+    piecesBarre = [];
+    if (laBarre) laBarre.remove();
+    laBarre = null;
+  }
+
+  function poseBarre() {
+    const haut = laRangee();
+    if (!haut) return;
+    if (laBarre && laBarre.parentNode === haut) return;
+    oteBarre();
+    const b = document.createElement('div');
+    b.className = 'cp-barre';
+    /* Ce qui monte dans la bande : ce qui porte les ressources, ce qui porte
+       les messages, les planètes, et notre bouton. Rien d'autre — et surtout
+       pas ce que le jeu ajouterait plus tard sans qu'on sache quoi. */
+    const pieces = [
+      enfantDeColonne(document.getElementById('resources'), 'copilote-rang'),
+      document.getElementById('newmessagesindicatorcomponent'),
+      laListe,
+      leBouton
+    ];
+    for (const n of pieces) {
+      if (!n || !n.parentNode) continue;
+      piecesBarre.push({ noeud: n, parent: n.parentNode, suivant: n.nextSibling });
+      b.appendChild(n);
+    }
+    if (!b.children.length) { piecesBarre = []; return; }
+    haut.appendChild(b);
+    laBarre = b;
+  }
+
+  /* Le rail, les planètes et la colonne : ce qui ne dépend pas du contenu de
+     la page, et qu'on pose donc partout de la même façon. */
+  function poseCadre(lignes) {
+    oteRail();
+    poseRail(leMenu());
+    if (leRail) gardeDansColonne(leRail, 'copilote-col-menu');
+    /* La liste partie dans le rail, son flanc n'a plus rien à montrer. Tant
+       qu'elle n'est pas partie, il garde ses planètes et perd le reste. */
+    gardeDansColonne(document.getElementById('planetList'), 'copilote-col-planetes');
+    poseColonne(leCadre, lignes);
+    poseFlotte();
+    poseBouton();
+    poseBarre();
   }
 
   /* Stock affiché par le jeu, hors du snapshot : la surcouche en a besoin
@@ -696,7 +2048,8 @@ html.copilote-lean #middle .maincontent > div > header{display:none}
     laBande = hud;
   }
 
-  const STYLE = `li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-offset:2px;border-radius:4px}
+  const STYLE = `.copilote-heure{text-decoration:underline dotted;text-underline-offset:3px}
+li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-offset:2px;border-radius:4px}
 .copilote-tag{position:absolute;top:3px;right:3px;z-index:5;pointer-events:none;max-width:calc(100% - 6px);
 overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
 border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}
@@ -744,19 +2097,25 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
   let styleFait = false;
 
   function paint() {
+    // un script plus neuf a pris la page : le nôtre ne dessine plus
+    if (!vivant) return;
     if (!styleFait) {
       styleFait = true;
       const vieille = document.getElementById('copilote-style');
       if (vieille) vieille.remove();
       const st = document.createElement('style');
       st.id = 'copilote-style';
-      st.textContent = STYLE + '\n' + LEAN;
+      st.textContent = STYLE + '\n' + LEAN + '\n' + LARGE + '\n' + PEAU;
       document.head.appendChild(st);
     }
     document.documentElement.classList.toggle('copilote-lean', lean);
     /* Le menu vit sur toutes les pages du jeu, celles que le copilote ne
        connaît pas comprises : c'est un moyen d'en partir, pas un conseil. */
     try { peintMenu(); } catch (e) {}
+    try { heuresIci(); } catch (e) {}
+    /* La largeur se pose avant le reste : la bande et les pastilles se placent
+       dans une page dont le cadre a déjà sa forme. */
+    try { poseLargeur(); } catch (e) { largeEtat = 'erreur ' + String((e && e.message) || e).slice(0, 40); }
     const want = hints[meta('planet-id')] || {};
     document.querySelectorAll('li.technology.copilote-next').forEach(li => {
       if (want[li.dataset.technology] === undefined) {
@@ -781,6 +2140,7 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
     /* Le témoin se lit après : une anomalie de la page ne doit pas emporter le
        seul moyen de savoir ce qui s'est passé. */
     try { peintBande(); bandeErr = ''; } catch (e) { bandeErr = String((e && e.message) || e).slice(0, 60); }
+    try { peintPeau(); } catch (e) { peauEtat = 'erreur ' + String((e && e.message) || e).slice(0, 40); }
     // Témoin lisible depuis la console de la page : le script vit dans un
     // monde isolé, donc ses variables y sont invisibles. L'heure dit s'il
     // tourne encore, le reste dit ce qu'il a reçu du panneau.
@@ -809,6 +2169,8 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
           // c'est le jeu qui l'emporte à chaque rafraîchissement de sa page
           + '@' + poses),
       'menu=' + menuEtat + (noshop ? ' sans-boutique' : ''),
+      'large=' + largeEtat,
+      'peau=' + peauEtat,
       'ici=' + meta('planet-id'),
       'epure=' + (lean ? 1 : 0)
     ].join(' ');
@@ -822,6 +2184,11 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
       cargo = (skin && skin.cargo) || null;
       lean = !!(skin && skin.lean);
       noshop = !!(skin && skin.noshop);
+      large = !!(skin && skin.large);
+      peau = !!(skin && skin.peau);
+      clair = !!(skin && skin.clair);
+      colonne = (skin && skin.colonne) || [];
+      teintes = (skin && skin.teintes) || {};
       tour = (skin && skin.tour) || {};
       band = (skin && skin.band) || {};
     };
@@ -859,6 +2226,28 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
     if (!li) return;
     tuileVue = li.dataset.technology || '';
     paint();
+  });
+
+  /* L'arrivée d'un script neuf. Il s'annonce avant de peindre, et celui qui
+     l'entend se retire : il enlève ce qu'il a posé et cesse de dessiner.
+     Sans cela, deux bandes et deux panneaux se répondaient dans la page à
+     chaque rechargement de l'extension.
+     On s'annonce avant d'écouter, sinon on se retire soi-même. Et on ne
+     touche pas à la feuille de style : celle qui est dans la page est déjà
+     celle du neuf, qui la repose en arrivant. */
+  const ARRIVEE = 'copilote:arrivee';
+  document.dispatchEvent(new Event(ARRIVEE));
+  document.addEventListener(ARRIVEE, () => {
+    if (!vivant) return;
+    vivant = false;
+    try {
+      // la peau se retire par le même chemin que le bouton « page du jeu »
+      peauRevelee = true;
+      peintPeau();
+    } catch (e) {}
+    if (laBande) { laBande.remove(); laBande = null; }
+    document.documentElement.classList.remove('copilote-large');
+    document.documentElement.classList.remove('copilote-lean');
   });
 
   let bientot = null;

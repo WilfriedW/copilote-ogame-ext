@@ -122,6 +122,7 @@ details.card>summary .note{text-transform:none;letter-spacing:0;font-family:var(
 .acts li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;align-items:center;background:var(--surface-2);border-radius:var(--r-sm);padding:9px 12px}
 .acts .q{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .acts .w{font-weight:600;overflow-wrap:anywhere}
+.acts .btns{display:flex;gap:6px;align-items:center}
 .acts .m{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)}
 .acts li.wait{background:transparent;border:1px dashed var(--line)}
 .acts li.busy{background:transparent;border:1px solid var(--line)}
@@ -133,6 +134,8 @@ details.card>summary .note{text-transform:none;letter-spacing:0;font-family:var(
 .acts li.task{border-left:3px solid var(--accent)}
 /* Carte cliquable : elle ouvre la page du jeu correspondante. */
 .acts li[data-go]{cursor:pointer}
+.acts .w .go{text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+.acts .w .go:hover{color:var(--accent);text-decoration-style:solid}
 .acts li[data-go]:hover{outline:1px solid var(--accent)}
 .acts li[data-go] button{cursor:pointer}
 /* Pastille de planète : couleur stable par rang, pour repérer d'un coup d'œil

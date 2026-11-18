@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maquette interface</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#0c1120;--surface:#131a2d;--surface-2:#1a2340;--line:#28335a;--fg:#e5e9f6;
+--muted:#8e98b8;--accent:#8aa9ff;--accent-ink:#0c1120;--metal:#b9c3d9;--crystal:#6fd2ff;
+--deut:#4fdeb0;--energy:#ffc95c;--good:#4fdeb0;--warn:#ffc95c;--bad:#ff7a8a;
+--f-display:"Oxanium",system-ui,sans-serif;--f-body:"IBM Plex Sans",system-ui,sans-serif;
+--f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 var(--f-body)}
+.page{padding:20px 16px 60px;max-width:1500px;margin:0 auto}
+h1{font-family:var(--f-display);font-size:20px;letter-spacing:.04em;text-transform:uppercase;margin:0 0 4px}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);font-size:13px;margin:0 0 16px}
+.seg{display:flex;gap:6px;margin:0 0 14px;flex-wrap:wrap}
+.seg button{font:600 12px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;
+padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);
+color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+/* cadre : une toile de 1920 ramenée à la largeur disponible */
+.cadre{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#070a14;position:relative}
+.toile{width:1920px;height:1020px;transform-origin:top left;position:relative;font-size:13px}
+.vue{position:absolute;inset:0;display:none}
+.vue.on{display:block}
+.perdu{background:repeating-linear-gradient(45deg,#141c32 0 12px,#0a0f1d 12px 24px);
+display:flex;align-items:center;justify-content:center}
+.perdu b{font:700 15px/1.4 var(--f-display);letter-spacing:.1em;text-transform:uppercase;
+color:#6b76a0;text-align:center;transform:rotate(-90deg);white-space:nowrap}
+.perdu.bas b{transform:none}
+/* pièces du jeu */
+.res{display:flex;gap:26px;align-items:center;padding:12px 18px;background:var(--surface);
+border-bottom:1px solid var(--line);font-family:var(--f-mono);font-size:15px}
+.res i{font-style:normal;color:var(--muted);font-size:11px;letter-spacing:.08em;
+text-transform:uppercase;display:block}
+.menu{background:var(--surface);border-right:1px solid var(--line);padding:10px 0}
+.menu a{display:block;padding:9px 16px;color:var(--fg);text-decoration:none;font-weight:500;
+border-left:3px solid transparent}
+.menu a.sel{background:var(--surface-2);border-left-color:var(--accent);color:var(--accent)}
+.menu a.g{color:#9ad6a0}.menu a.o{color:#f0b37b}.menu a.v{color:#c7a6ff}.menu a.t{color:#7fe0d0}
+.contenu{padding:16px 18px;min-width:0}
+.titre{font:600 17px/1.3 var(--f-display);margin:0 0 12px;letter-spacing:.03em}
+.illu{height:150px;border:1px solid var(--line);border-radius:8px;background:
+radial-gradient(120px 90px at 30% 40%,#1d2a4d,#0d1424),linear-gradient(160deg,#16203a,#0c1120);
+display:flex;align-items:center;justify-content:center;color:var(--muted);margin:0 0 14px}
+.grille{display:grid;gap:10px}
+.tuile{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:8px;
+height:104px;display:flex;flex-direction:column;justify-content:space-between}
+.tuile em{font-style:normal;font-size:11px;color:var(--muted);line-height:1.3}
+.tuile b{font-family:var(--f-mono);font-size:13px;color:var(--fg)}
+.tuile.next{outline:2px solid var(--accent);outline-offset:2px}
+.planetes{background:var(--surface);border-left:1px solid var(--line);padding:10px}
+.pl{display:flex;gap:8px;align-items:center;padding:7px 8px;border-radius:6px;color:var(--fg)}
+.pl.sel{background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--accent)}
+.pl span{width:22px;height:22px;border-radius:50%;background:linear-gradient(140deg,#4a6ea8,#1b2744);flex:0 0 auto}
+.pl em{font-style:normal;font-family:var(--f-mono);font-size:11px;color:var(--muted);display:block}
+/* la bande actuelle du copilote */
+.bande{border:1px solid rgba(138,169,255,.45);border-left:3px solid var(--accent);
+background:#101a2b;padding:10px 12px;margin:0 0 14px;display:flex;gap:14px}
+.bande .z{flex:1 1 0;min-width:0}
+.bande .z::before{content:attr(data-t);display:block;font-size:11px;letter-spacing:.08em;
+color:var(--accent);margin-bottom:4px}
+.bande a{display:block;color:var(--accent);font-weight:700;text-decoration:none;font-size:12px}
+/* colonne copilote (après) */
+.copi{background:var(--surface);border-left:1px solid var(--line);padding:12px;display:flex;
+flex-direction:column;gap:12px;overflow:hidden}
+.carte{border:1px solid var(--line);border-radius:10px;background:var(--surface-2);padding:10px}
+.carte h3{font:600 12px/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;
+color:var(--muted);margin:0 0 8px}
+.act{display:block;color:var(--accent);font-weight:600;text-decoration:none;font-size:13px;
+padding:5px 0;border-top:1px solid var(--line)}
+.act:first-of-type{border-top:0}
+.act small{display:block;color:var(--muted);font-weight:400;font-family:var(--f-mono);font-size:11px}
+.chip{display:inline-block;padding:3px 9px;border-radius:999px;background:var(--accent);
+color:var(--accent-ink);font:700 11px/1.5 var(--f-body);margin:0 4px 4px 0;text-decoration:none}
+.chip.off{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.tmr{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:12px;padding:3px 0}
+.tmr b{color:var(--good)}
+/* barre haute (après) */
+.top{display:flex;align-items:center;gap:20px;padding:10px 16px;background:var(--surface);
+border-bottom:1px solid var(--line)}
+.top .next{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px}
+.kbd{font:600 11px/1 var(--f-mono);border:1px solid var(--line);border-bottom-width:2px;
+border-radius:5px;padding:4px 6px;color:var(--muted);background:var(--bg)}
+.rail{background:var(--surface);border-right:1px solid var(--line);padding:10px 0;
+position:relative}
+.rail a{display:flex;gap:10px;align-items:center;padding:8px 14px;color:var(--fg);
+text-decoration:none;font-weight:500;border-left:3px solid transparent}
+.rail a.sel{background:var(--surface-2);border-left-color:var(--accent);color:var(--accent)}
+.rail a u{text-decoration:none;font:600 10px/1 var(--f-mono);color:var(--muted);
+border:1px solid var(--line);border-radius:4px;padding:3px 4px;margin-left:auto}
+.rail h4{font:600 11px/1 var(--f-display);letter-spacing:.1em;text-transform:uppercase;
+color:var(--muted);margin:14px 0 6px;padding:0 14px}
+/* palette */
+.palette{position:absolute;inset:0;background:rgba(6,9,18,.72);display:flex;
+justify-content:center;padding-top:140px}
+.pbox{width:620px;height:max-content;background:var(--surface);border:1px solid var(--accent);
+border-radius:14px;box-shadow:0 30px 70px rgba(0,0,0,.6);overflow:hidden}
+.pbox input{width:100%;border:0;background:transparent;color:var(--fg);font:16px var(--f-body);
+padding:16px 18px;border-bottom:1px solid var(--line);outline:0}
+.pr{display:flex;gap:12px;align-items:center;padding:10px 18px;border-top:1px solid rgba(40,51,90,.5)}
+.pr.sel{background:var(--surface-2)}
+.pr i{font-style:normal;font:600 10px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;
+color:var(--accent-ink);background:var(--accent);border-radius:4px;padding:4px 6px}
+.pr i.b{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.pr em{font-style:normal;color:var(--muted);margin-left:auto;font-family:var(--f-mono);font-size:11px}
+/* repères */
+.rep{position:absolute;z-index:6;background:var(--accent);color:var(--accent-ink);
+font:700 13px/22px var(--f-mono);width:24px;height:24px;border-radius:50%;text-align:center}
+.legende{margin:16px 0 0;display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.legende div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface)}
+.legende b{color:var(--accent);font-family:var(--f-mono)}
+</style></head><body>
+<div class="page">
+<h1>Copilote <span>OGame</span> — maquette d'interface</h1>
+<p class="sub">Toile de 1920 × 1020, ramenée à ta fenêtre. Trois vues : ce que le jeu fait aujourd'hui, ce que le copilote pourrait en faire, et la palette de navigation.</p>
+<div class="seg" id="seg">
+  <button data-v="avant" aria-pressed="true">Avant</button>
+  <button data-v="apres" aria-pressed="false">Après</button>
+  <button data-v="palette" aria-pressed="false">Après + palette</button>
+</div>
+<div class="cadre" id="cadre"><div class="toile" id="toile">
+
+<!-- ============ AVANT ============ -->
+<div class="vue on" data-v="avant">
+  <div style="display:grid;grid-template-columns:430px 1060px 430px;height:860px">
+    <div class="perdu"><b>espace perdu · 430 px</b></div>
+    <div style="display:flex;flex-direction:column;border-left:1px solid var(--line);border-right:1px solid var(--line)">
+      <div class="res">
+        <div><i>métal</i>1 284 300</div><div><i>cristal</i>512 900</div>
+        <div><i>deutérium</i>204 110</div><div><i>énergie</i>+1 240</div>
+      </div>
+      <div style="display:grid;grid-template-columns:170px 1fr 160px;flex:1;min-height:0">
+        <nav class="menu">
+          <a class="sel">Vue d'ensemble</a><a class="o">Ressources</a><a class="o">Installations</a>
+          <a class="g">Formes de vie</a><a class="v">Recherche</a><a>Chantier spatial</a>
+          <a>Défense</a><a class="t">Flotte</a><a class="t">Mouvement</a><a class="t">Galaxie</a>
+          <a>Alliance</a><a>Messages</a>
+        </nav>
+        <div class="contenu">
+          <div class="titre">Ressources</div>
+          <div class="illu">illustration du jeu</div>
+          <div class="bande">
+            <div class="z" data-t="à faire sur cette page">
+              <a>Mine de métal 24 · vers 14 h 10</a><a>Centrale solaire 19 · vers 16 h 40</a>
+            </div>
+            <div class="z" data-t="la même tuile ailleurs">
+              <a>P2 · 18</a><a>P3 · 15</a>
+            </div>
+          </div>
+          <div class="grille" style="grid-template-columns:repeat(4,1fr)">
+            <div class="tuile next"><em>Mine de métal</em><b>23</b></div>
+            <div class="tuile"><em>Mine de cristal</em><b>19</b></div>
+            <div class="tuile"><em>Synthétiseur</em><b>16</b></div>
+            <div class="tuile"><em>Centrale solaire</em><b>18</b></div>
+            <div class="tuile"><em>Centrale de fusion</em><b>6</b></div>
+            <div class="tuile"><em>Satellite solaire</em><b>40</b></div>
+            <div class="tuile"><em>Hangar de métal</em><b>8</b></div>
+            <div class="tuile"><em>Hangar de cristal</em><b>7</b></div>
+          </div>
+        </div>
+        <aside class="planetes">
+          <div class="pl sel"><span></span><div>Mère<em>1:204:8</em></div></div>
+          <div class="pl"><span></span><div>P2<em>1:204:9</em></div></div>
+          <div class="pl"><span></span><div>P3<em>2:118:4</em></div></div>
+          <div class="pl"><span></span><div>P4<em>3:77:12</em></div></div>
+        </aside>
+      </div>
+    </div>
+    <div class="perdu"><b>espace perdu · 430 px</b></div>
+  </div>
+  <div class="perdu bas" style="height:160px"><b>espace perdu · la page s'arrête ici, l'écran non</b></div>
+  <div class="rep" style="left:196px;top:400px">1</div>
+  <div class="rep" style="left:900px;top:286px">4</div>
+  <div class="rep" style="left:1420px;top:150px">3</div>
+  <div class="rep" style="left:940px;top:900px">1</div>
+</div>
+
+<!-- ============ APRÈS ============ -->
+<div class="vue" data-v="apres" id="vApres">
+  <div class="top">
+    <div class="res" style="border:0;background:none;padding:0">
+      <div><i>métal</i>1 284 300</div><div><i>cristal</i>512 900</div>
+      <div><i>deutérium</i>204 110</div><div><i>énergie</i>+1 240</div>
+    </div>
+    <div class="next">
+      <span style="color:var(--muted)">prochaine action</span>
+      <b style="color:var(--accent)">Mine de métal 24 · Mère</b>
+      <span class="kbd">espace</span><span style="color:var(--muted)">chercher une page, une planète, une action</span>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:230px 1fr 360px;height:956px">
+    <nav class="rail">
+      <h4>pages</h4>
+      <a class="sel">Vue d'ensemble<u>O</u></a><a>Ressources<u>R</u></a><a>Installations<u>I</u></a>
+      <a>Recherche<u>C</u></a><a>Chantier spatial<u>S</u></a><a>Défense<u>D</u></a>
+      <a>Flotte<u>F</u></a><a>Mouvement<u>M</u></a><a>Galaxie<u>G</u></a>
+      <h4>planètes</h4>
+      <a class="sel">Mère<u>1</u></a><a>P2<u>2</u></a><a>P3<u>3</u></a><a>P4<u>4</u></a>
+    </nav>
+    <div class="contenu" style="max-width:1100px;margin:0 auto;width:100%">
+      <div class="titre">Ressources</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0 0 14px">
+        <div class="illu" style="margin:0">illustration du jeu</div>
+        <div class="illu" style="margin:0;align-items:flex-start;justify-content:flex-start;padding:12px;color:var(--fg)">
+          <div><b style="font-family:var(--f-display)">Mine de métal → 24</b>
+          <div style="color:var(--muted);font-size:12px;margin-top:6px;font-family:var(--f-mono)">
+          96 400 · 24 100 · 0<br>manque 0 · 2 h 14 min<br>+1 420 métal/h</div></div>
+        </div>
+      </div>
+      <div class="grille" style="grid-template-columns:repeat(8,1fr)">
+        <div class="tuile next"><em>Mine de métal</em><b>23</b></div>
+        <div class="tuile"><em>Mine de cristal</em><b>19</b></div>
+        <div class="tuile"><em>Synthétiseur</em><b>16</b></div>
+        <div class="tuile"><em>Centrale solaire</em><b>18</b></div>
+        <div class="tuile"><em>Centrale de fusion</em><b>6</b></div>
+        <div class="tuile"><em>Satellite solaire</em><b>40</b></div>
+        <div class="tuile"><em>Hangar de métal</em><b>8</b></div>
+        <div class="tuile"><em>Hangar de cristal</em><b>7</b></div>
+      </div>
+    </div>
+    <aside class="copi">
+      <div class="carte">
+        <h3>à faire ici</h3>
+        <a class="act">Mine de métal 24<small>vers 14 h 10 · +1 420/h</small></a>
+        <a class="act">Centrale solaire 19<small>vers 16 h 40 · énergie à +120</small></a>
+        <a class="act" style="color:var(--muted)">Hangar de métal 9<small>manque 48 000 cristal</small></a>
+      </div>
+      <div class="carte">
+        <h3>la même tuile ailleurs</h3>
+        <a class="chip off">ici · 23</a><a class="chip">P2 · 18</a><a class="chip">P3 · 15</a><a class="chip">P4 · 9</a>
+      </div>
+      <div class="carte">
+        <h3>en cours</h3>
+        <div class="tmr"><span>Mine de cristal 20</span><b>1 h 42</b></div>
+        <div class="tmr"><span>Recherche · Laser</span><b>4 h 08</b></div>
+        <div class="tmr"><span>Retour d'expédition</span><b>22 min</b></div>
+      </div>
+      <div class="carte">
+        <h3>planètes</h3>
+        <div class="pl sel"><span></span><div>Mère<em>1:204:8 · 3 files</em></div></div>
+        <div class="pl"><span></span><div>P2<em>1:204:9 · libre</em></div></div>
+        <div class="pl"><span></span><div>P3<em>2:118:4 · libre</em></div></div>
+      </div>
+    </aside>
+  </div>
+  <div class="rep" style="left:96px;top:120px">1</div>
+  <div class="rep" style="left:96px;top:620px">2</div>
+  <div class="rep" style="left:1640px;top:120px">3</div>
+  <div class="rep" style="left:1640px;top:470px">4</div>
+  <div class="rep" style="left:1180px;top:22px">5</div>
+  <div class="rep" style="left:900px;top:420px">6</div>
+</div>
+</div></div>
+
+<div class="legende">
+  <div><b>1</b> — les flancs deviennent des colonnes : le rail des pages à gauche, le copilote à droite. Rien n'est étiré, le contenu du jeu reste plafonné à 1100 px.</div>
+  <div><b>2</b> — les planètes passent dans le rail, avec une touche chacune : planète × page en deux frappes au lieu de deux clics aux deux bouts de l'écran.</div>
+  <div><b>3</b> — la liste des planètes du jeu est déplacée, pas recopiée : elle garde ses infobulles et son code.</div>
+  <div><b>4</b> — la bande ne pousse plus la page vers le bas : elle devient la colonne de droite, toujours visible, avec les minuteurs.</div>
+  <div><b>5</b> — la prochaine action tient dans la barre haute, et <span class="kbd">espace</span> ouvre la palette.</div>
+  <div><b>6</b> — la largeur gagnée sert aux tuiles : huit par ligne au lieu de quatre, donc une page sans défilement.</div>
+</div>
+</div>
+
+<script>
+const toile = document.getElementById('toile'), cadre = document.getElementById('cadre');
+function cale(){
+  const k = Math.min(1, cadre.clientWidth / 1920);
+  toile.style.transform = 'scale(' + k + ')';
+  cadre.style.height = (1020 * k) + 'px';
+}
+addEventListener('resize', cale); cale();
+const pal = document.createElement('div');
+pal.className = 'palette';
+pal.innerHTML = `<div class="pbox">
+  <input value="met" readonly>
+  <div class="pr sel"><i>page</i><span>Ressources</span><em>mine de métal · ici</em></div>
+  <div class="pr"><i class="b">action</i><span>Mine de métal 24 · Mère</span><em>vers 14 h 10</em></div>
+  <div class="pr"><i class="b">action</i><span>Mine de métal 19 · P2</span><em>manque 12 000 cristal</em></div>
+  <div class="pr"><i class="b">tuile</i><span>Hangar de métal · Mère</span><em>niveau 8</em></div>
+  <div class="pr"><i class="b">planète</i><span>P3 — Métallurgie</span><em>2:118:4</em></div>
+</div>`;
+document.getElementById('seg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-v]'); if (!b) return;
+  for (const x of document.querySelectorAll('#seg button')) x.setAttribute('aria-pressed', String(x === b));
+  const v = b.dataset.v, apres = v !== 'avant';
+  for (const x of document.querySelectorAll('.vue')) x.classList.toggle('on', x.dataset.v === (apres ? 'apres' : 'avant'));
+  if (v === 'palette') document.getElementById('vApres').appendChild(pal); else pal.remove();
+});
+</script>
+</body></html>

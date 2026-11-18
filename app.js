@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.40.2';
+const APP_VERSION = '1.46.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -83,14 +83,13 @@ function sample(){
     settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false},
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
-    plan:[],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
     expo:{pf:true},
-    ui:{tool:'colony'},
-    day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'ecocol', night:false},
+    ui:{tool:'colony', fold:{}},
+    day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false},
     lf:{found:['humans','rocktal']},
     roles:{}, raid:null, raids:{},
-    daily:{done:{}},
+    daily:{done:{}, no:{}},
     colo:{fromId:null, objective:'balanced', bonus:0, target:'', kit:'std', tr:'sc', built:false, fields:'', fpos:''},
   };
 }
@@ -142,7 +141,6 @@ function planetIndexById(id){ return S.planets.findIndex(p => p.id === id); }
    s'en va avec elle. Ailleurs, un id muet laisse les choses en place. */
 function forgetPlanet(id){
   S.planets = S.planets.filter(p => p.id !== id);
-  S.plan = (S.plan || []).filter(it => it.type !== 'b' || it.pid !== id);
   S.timers = (S.timers || []).filter(t => t.pid !== id);
   if(S.colo.fromId === id) S.colo.fromId = null;
 }
@@ -157,8 +155,10 @@ function migratePlanetIds(){
   for(const p of S.planets) if(!p.id) p.id = Math.random().toString(36).slice(2,9);
   const idAt = i => (S.planets[i] || {}).id || null;
   const mue = x => { if(typeof x.p !== 'number') return x; const y = Object.assign({}, x, {pid: idAt(x.p)}); delete y.p; return y; };
-  S.plan = (S.plan || []).map(it => it.type === 'b' ? mue(it) : it).filter(it => it.type !== 'b' || it.pid);
   S.timers = (S.timers || []).map(mue);
+  // La liste d'objectifs a disparu : rien ne la lisait. Ce qu'elle a laissé
+  // dans les sauvegardes s'en va au premier chargement.
+  delete S.plan;
   if(typeof S.colo.from === 'number'){ S.colo.fromId = idAt(S.colo.from); delete S.colo.from; }
   S.v = 2;
 }
@@ -209,6 +209,13 @@ function planetTag(name){
   const i = S.planets.findIndex(p => p.name === name || planetRef(p) === name);
   return `<span class="ptag" style="--pc:var(--p${(i < 0 ? 0 : i) % PLANET_COLORS})">${esc(name)}</span>`;
 }
+/** Le rang de couleur d'une planète : le même que celui de sa pastille, pour
+    que la page du jeu et le panneau parlent de la même planète en une seule
+    teinte. Une planète inconnue n'en a pas. */
+function planetHue(name){
+  const i = S.planets.findIndex(p => p.name === name || planetRef(p) === name);
+  return i < 0 ? null : i % PLANET_COLORS;
+}
 /** Étiquette « Catégorie · Planète » : la planète devient une pastille. */
 function qHtml(q){
   const i = String(q || '').indexOf(' · ');
@@ -220,7 +227,7 @@ const GO_KIND = {t:'research', ship:'shipyard', shipbuild:'shipyard', sats:'ship
   transfer:'fleetdispatch', fleet:'fleetdispatch', expo:'fleetdispatch', raid:'galaxy'};
 const GO_MISSION = {lfb:'lfbuildings', lfr:'lfresearch', artefacts:'lfresearch',
   discovery:'galaxy', raid:'galaxy', inactive:'galaxy', 'raid-go':'galaxy', 'colo-taken':'galaxy',
-  expomax:'research', expocargo:'shipyard', fleetslots:'movement', 'colo-fly':'movement', 'colo-eval':'overview', night:'fleetdispatch', defseen:'defenses'};
+  expomax:'research', expocargo:'shipyard', fleetslots:'movement', 'colo-fly':'movement', 'colo-eval':'overview', night:'fleetdispatch', defseen:'defenses', chantierlu:'shipyard'};
 /* Les bâtiments se répartissent sur deux pages ; les hangars sont côté Ressources. */
 const GO_FACILITIES = new Set(['robot','shipyard','lab','nanite']);
 
@@ -268,6 +275,19 @@ function missionGo(m){
      coordonnées, rien n'est ajouté : on n'invente pas une destination. */
   const c = m.coords ? parseC(m.coords) : null;
   return url && c && GO_MISSION[m.id] === 'galaxy' ? `${url}&galaxy=${c[0]}&system=${c[1]}` : url;
+}
+/** URL de la page Galaxie ouverte sur un système, ou null. */
+function galaxyUrl(coords){
+  const c = parseC(coords), url = goUrl('galaxy', hubIndex());
+  return url && c ? `${url}&galaxy=${c[0]}&system=${c[1]}` : null;
+}
+/* Une carte qui nomme plusieurs systèmes n'en ouvrait qu'un : le clic sur le
+   corps mène au premier, et les autres coordonnées n'étaient que du texte à
+   retaper. Chacune porte donc son propre lien. Serveur inconnu : la
+   coordonnée reste du texte, échappé comme avant. */
+function coordLink(coords){
+  const url = galaxyUrl(coords);
+  return url ? `<span class="go" data-go="${esc(url)}" title="Ouvrir la galaxie ${esc(coords)}">${esc(coords)}</span>` : esc(coords);
 }
 /** Le niveau d'Ordinateur qui ajouterait un emplacement de flotte. */
 function leverFlotte(){ return `Technologie Ordinateur ${S.tech.computer+1} ajoute un emplacement de flotte.`; }
@@ -576,7 +596,8 @@ function bandData(acts, missions, waits){
     if(!c || !what) return;
     const l = pages[c[1]] = pages[c[1]] || [];
     // quatre lignes au plus : au-delà, la bande redevient une liste à lire
-    if(l.length < 4) l.push({what, ou: ou || '', quand: quand || '', why: why || '', url, gris: !!gris});
+    if(l.length < 4) l.push({what, ou: ou || '', quand: quand || '', why: why || '', url,
+      gris: !!gris, pc: ou ? planetHue(ou) : null});
   };
   const RES_B = ['métal', 'cristal', 'deutérium'];
   const manque = w => (w.miss || []).map((x,j)=>x>0 ? `${fmt(Math.ceil(x))} ${RES_B[j]}` : '').filter(Boolean).join(' · ');
@@ -597,18 +618,52 @@ function bandData(acts, missions, waits){
 function pushLook(){
   if(!IS_EXT) return;
   try{ chrome.storage.local.get('skin', v => chrome.storage.local.set({
-    skin: Object.assign({}, (v && v.skin) || {}, {lean: !!S.settings.lean, noshop: !!S.settings.noshop})
+    skin: Object.assign({}, (v && v.skin) || {}, {lean: !!S.settings.lean, noshop: !!S.settings.noshop, large: !!S.settings.large,
+      peau: !!S.settings.peau, clair: !!S.settings.clair})
   })); }catch(e){}
+}
+/* Ce que le panneau sait, mis à plat pour la colonne de droite de la page :
+   les mêmes lignes qu'Aujourd'hui, sans leur mise en page. La bande, elle,
+   range par page ; ici on garde l'ordre du plan — le lançable d'abord. */
+function colonneData(acts, missions, waits){
+  const l = [];
+  const RES_B = ['métal', 'cristal', 'deutérium'];
+  const manque = w => (w.miss || []).map((x,j)=>x>0 ? `${fmt(Math.ceil(x))} ${RES_B[j]}` : '').filter(Boolean).join(' · ');
+  const pose = (url, what, ou, why, quand, gris) => {
+    // douze lignes au plus : au-delà, la colonne redevient une liste à lire
+    if(!what || l.length >= 12) return;
+    l.push({what, ou: ou || '', quand: quand || '', why: why || '', url: url || '',
+      gris: !!gris, pc: ou ? planetHue(ou) : null});
+  };
+  for(const a of acts || []) pose(actGo(a), a.what, (a.q || '').split(' · ')[1], a.why);
+  for(const m of (missions || []).filter(x=>!x.info)) pose(missionGo(m), m.what, (m.tags || [])[0], m.why);
+  for(const w of waits || []){
+    const m = manque(w);
+    pose(actGo(w), w.what, (w.q || '').split(' · ')[1], m ? 'Il manque ' + m : '',
+      isFinite(w.eta) ? 'vers ' + hm(Date.now() + w.eta*1000) : 'à faire livrer', true);
+  }
+  return l;
 }
 function gameSkin(acts, missions, waits){
   // Les débits suivent les indices : la page du jeu sait lire un coût et un
   // stock, mais pas à quelle vitesse une planète produit.
   const rates = {};
   for(const p of S.planets){ if(!p.gid) continue; const pr = production(p); rates[p.gid] = [pr.m, pr.c, pr.d]; }
-  return {hints: planHints(acts), rates, donors: donorsOf(), tour: tourData(),
+  /* Le nom de chaque planète et sa teinte : une action nomme souvent ses
+     planètes dans sa phrase — « Ramène 34 grands transporteurs de Tarpin land
+     vers Caribou Land » — et la page doit pouvoir les y reconnaître. */
+  const teintes = {};
+  for(const [i, p] of S.planets.entries()){
+    const c = i % PLANET_COLORS;
+    if(p.name) teintes[p.name] = c;
+    teintes[planetRef(p)] = c;
+  }
+  return {hints: planHints(acts), rates, donors: donorsOf(), tour: tourData(), teintes,
           band: bandData(acts, missions, waits),
+          colonne: colonneData(acts, missions, waits),
           cargo: [shipStats('lc').cargoEff, shipStats('sc').cargoEff],
-          lean: !!S.settings.lean, noshop: !!S.settings.noshop};
+          lean: !!S.settings.lean, noshop: !!S.settings.noshop, large: !!S.settings.large,
+          peau: !!S.settings.peau, clair: !!S.settings.clair};
 }
 function labPlanet(){ return S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
 function labLevel(){ return Math.max(0, ...S.planets.map(p=>p.b.lab)); }
@@ -886,6 +941,15 @@ function flight(from, to, ships, pct){
 /* ---------- views ---------- */
 const view = document.getElementById('view');
 let tab = 'today';
+/* Un panneau latéral est étroit : tout déplié, Aujourd'hui se lit en trois
+   écrans de défilement. Les sections qui ne servent pas à chaque passage se
+   replient donc, et se souviennent : le panneau se redessine à chaque plan, et
+   une section rouverte à chaque dessin ne resterait jamais fermée. L'état vit
+   dans S.ui.fold, par nom, pas par rang — l'ordre des sections change. */
+function fold(name, def){
+  const v = (S.ui.fold||{})[name];
+  return (v==null ? def : v) ? ' open' : '';
+}
 try{ tab = LS.getItem(KEY+'-tab') || 'today'; }catch(e){}
 if(!['today','empire','tools','settings'].includes(tab)) tab='today';
 
@@ -1026,6 +1090,15 @@ function renderTimers(){
   const list = document.getElementById('tmList'); if(!list) return;
   const sorted = visibleTimers().sort((a,b)=>(a.done-b.done)||(a.end-b.end));
   list.dataset.count = String(sorted.length);
+  /* Replié, le titre tient tout ce qu'on venait vérifier : combien tournent et
+     lequel finit le premier. */
+  const sum = document.getElementById('tmSum');
+  if(sum){
+    const fini = sorted.filter(t=>t.done).length, cours = sorted.filter(t=>!t.done);
+    sum.textContent = fini ? `${fini} terminé${fini>1?'s':''}`
+      : cours.length ? `${cours.length} en cours · le premier dans ${dur((cours[0].end-Date.now())/1000)}`
+      : 'aucun';
+  }
   list.innerHTML = sorted.length ? sorted.map(tm=>`<li class="${tm.done?'done':''}"><div><div>${esc(timerLabel(tm))}</div><div class="note">fin à ${new Date(tm.end).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}${new Date(tm.end).toDateString()!==new Date().toDateString()?' le '+new Date(tm.end).toLocaleDateString('fr-FR'):''}</div></div>
     <div class="row" style="gap:8px"><span class="cd" id="cd-${tm.id}">${tm.done?'Terminé':clock((tm.end-Date.now())/1000)}</span><button class="btn sm ghost" data-tmrm="${tm.id}">${tm.done?'OK':'Annuler'}</button></div></li>`).join('')
     : `<li><div class="note">Aucun minuteur. Copie le compte à rebours affiché dans le jeu, colle-le ici et lance.</div></li>`;
@@ -1248,6 +1321,18 @@ function techPayback(k, lvl){
 function astroForPlanet(){ return S.tech.astro + (S.tech.astro % 2 ? 2 : 1); }
 
 const ROADMAPS = {
+  /* Ne pas prioriser ne veut pas dire tout mener de front : le joueur n'a
+     qu'un labo, qu'une file par planète et qu'une poignée d'emplacements de
+     flotte. L'équilibre se fait donc sur les paliers qui servent deux piliers
+     à la fois, et nulle part ailleurs. Espionnage ouvre le pillage et
+     Astrophysique ; Ordinateur donne les emplacements que se partagent
+     pillages et expéditions ; Astrophysique ajoute une planète, et une
+     expédition simultanée aux carrés parfaits ; Combustion ramène les
+     transporteurs plus vite, donc fait tourner les deux ; Plasma porte sur
+     toutes les planètes à la fois. Peu de paliers critiques : ce sont eux qui
+     mettent les ressources de côté, et un plan qui épargne tout le temps ne
+     construit plus de mines ni de formes de vie. */
+  equi:[['espionage',4,'c'],['impulse',3,'c'],['astro',3,'c'],['computer',4],['combustion',6],['astro',5,'c'],['energy',8],['laser',10],['ion',5],['plasma',4],['computer',6],['astro',7,'c'],['plasma',8],['astro',9]],
   /* Une planète de plus bat n'importe quelle recherche à ce stade : Astrophysique
      5 coûte 262 500 éq. et ouvre une production entière, quand la chaîne vers
      Plasma 4 coûte 785 800 pour 4 020/h. Plasma reste l'objectif de long terme,
@@ -1263,13 +1348,17 @@ const ROADMAPS = {
 const LF_MODE = {after:'Après les bâtiments', first:'Avant tout le reste', off:'Ne pas s\'en occuper'};
 function lfMode(){ return LF_MODE[S.day.lf] ? S.day.lf : 'after'; }
 
-const FOCUS = {ecocol:'Économie + colonie', eco:'Économie pure', fleet:'Flotte et expéditions'};
+const FOCUS = {equi:'Équilibré', ecocol:'Économie + colonie', eco:'Économie pure', fleet:'Flotte et expéditions'};
 /* Place de la recherche dans la journée. Par défaut elle prend son tour : elle
    ne met de côté que ce que la feuille de route juge critique, ou ce qu'elle
    attend depuis trop longtemps. « Avant les bâtiments » rend critique la tête
    de liste — elle passe devant les chantiers et pose aussitôt sa réserve, donc
    les bâtiments de la planète du labo s'effacent et les colonies rapatrient
    vers elle. */
+/* Les deux plans où une expédition ou un pillage de plus compte autant qu'un
+   niveau de mine : leurs plafonds — expéditions simultanées, emplacements de
+   flotte — doublent la feuille de route au lieu d'attendre leur tour. */
+const FOCUS_FLOTTE = {fleet:1, equi:1};
 const RESEARCH_MODE = {normal:'À son tour', first:'Avant les bâtiments'};
 function researchMode(){ return RESEARCH_MODE[S.day.research] ? S.day.research : 'normal'; }
 /**
@@ -1387,7 +1476,7 @@ function nextResearch(){
     }
     // Derrière ce que la feuille de route juge critique, et devant le reste
     // seulement quand les expéditions sont la stratégie choisie.
-    const i = tete ? 0 : (S.day.focus==='fleet' ? list.findIndex(x=>!x.crit) : -1);
+    const i = tete ? 0 : (FOCUS_FLOTTE[S.day.focus] ? list.findIndex(x=>!x.crit) : -1);
     list.splice(i<0 ? list.length : i, 0, {k:r.k, lvl:r.lvl, crit:!!tete, why:w});
   }
   if(researchMode()==='first' && list[0]) list[0].crit = true;
@@ -1410,6 +1499,21 @@ function needsOwnCargo(p, hub){
   if(p.transferAt) return true;
   const cap = production(p).cap;
   return [0,1,2].some(j => p.st[j] > cap[j]*0.7);
+}
+/**
+ * Un chantier qui a sorti un lot que le copilote n'a pas relu : il ne connaît
+ * plus ni la flotte au sol, ni la défense, ni les satellites de cette planète,
+ * et la file peut encore tourner derrière le lot qu'il a vu — le jeu n'annonce
+ * que le premier. Tant que la page ne l'a pas redit, on ne propose rien à ce
+ * chantier plutôt que de doubler ce qui existe déjà.
+ * Une planète dont aucun lot n'a jamais été vu reste claire : le compte peut
+ * être vieux, rien ne dit qu'il est faux.
+ * @param {object} p planète
+ * @returns {boolean}
+ */
+function chantierFlou(p){
+  if(!p || (p.b||{}).shipyard < 1) return false;
+  return (p.flotteFloue||0) > (p.shipsAt||0) || (p.defFloue||0) > (p.defsAt||0);
 }
 /** Building candidates for a simulated planet, most urgent first. */
 function pickBuildings(p, ctx){
@@ -1444,7 +1548,7 @@ function pickBuildings(p, ctx){
 function simulateDay(){
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
-  const P = S.planets.map((p,i)=>({i, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
+  const P = S.planets.map((p,i)=>({i, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
   const expoBusy = [];
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
@@ -1456,7 +1560,7 @@ function simulateDay(){
     else if(t.kind==='b' && P[pi]){ const p=P[pi]; p.bq=Math.max(p.bq,t.end); p.bqKey=t.k; busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.b[t.k]=Math.max(p.b[t.k],t.lvl); }}); }
     else if(t.kind==='x' && t.k==='expo'){ expoBusy.push(t.end); busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[pi]){ const p=P[pi]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
     else if(t.kind==='x' && t.k==='fleet'){ busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[pi]){ const p=P[pi]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
-    else if(t.kind==='x' && (t.k==='shipyard' || t.queue==='shipyard') && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); if(t.manual && t.ships) sim.ev.push({at:t.end, fn:()=>addBuilt(p, t.ships)}); }
+    else if(t.kind==='x' && t.k!=='sats' && (t.k==='shipyard' || t.queue==='shipyard') && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); if(t.manual && t.ships) sim.ev.push({at:t.end, fn:()=>addBuilt(p, t.ships)}); }
     else if(t.kind==='x' && (t.queue==='lfbuilding' || t.queue==='lfresearch') && P[pi]){ const p=P[pi]; p.lfq[t.queue]=Math.max(p.lfq[t.queue],t.end); busy.push({q:'Forme de vie · '+planetRef(p), what:timerLabel(t), end:t.end}); }
     else if(t.kind==='x' && t.k==='sats' && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
     else if(t.kind==='x' && t.k==='colship'){ const p=P[planetIndexById(S.colo.fromId)]||P[0]; p.sq=t.end; sim.colShip=true; sim.colReady=t.end; busy.push({q:'Chantier spatial', what:'Vaisseau de colonisation', end:t.end}); }
@@ -1472,6 +1576,21 @@ function simulateDay(){
     if(m.mission !== 15 || !m.ret) continue;
     const fin = m.arrival*1000;
     if(fin > now && !expoBusy.includes(fin)) expoBusy.push(fin);
+  }
+  /* Un rapatriement parti dans le jeu sans passer par « Lancé » : le plan n'en
+     savait rien et reproposait la même carte à chaque passage, comme si le
+     joueur n'avait rien fait. Les mouvements de flotte le disent — Transporter
+     et Stationner, trajet aller ou retour — et la planète d'où partent les
+     vaisseaux n'a plus de rapatriement à faire tant qu'ils volent.
+     Les mouvements ne disent pas combien de vaisseaux partent : la flotte à
+     quai reste donc comptée comme présente. C'est la carte qui cesse de
+     revenir, pas la soute qui se déduit. */
+  for(const m of S.moves||[]){
+    if(m.mission !== 3 && m.mission !== 4) continue;
+    const fin = m.arrival*1000; if(fin <= now) continue;
+    const depart = m.ret ? m.dest : m.origin;
+    const i = S.planets.findIndex(p => p.coords === depart);
+    if(i >= 0 && P[i]) P[i].transferAt = Math.max(P[i].transferAt||0, fin);
   }
   /* Le chiffre que le jeu affiche lui-même — « Expéditions 2/2 » — complète ce
      que les minuteurs et les mouvements ont donné. Eux connaissent l'heure de
@@ -1552,15 +1671,31 @@ function simulateDay(){
         if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*S.settings.eco)*3600; dep.sq=Tm+d; sim.colShip=true; sim.colReady=Tm+d; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'', cost:c, dur:d, end:Tm+d, kind:'ship', p:dep.i}); }
         else { setGoal(key, 'le vaisseau de colonisation', c, dep, Tm); waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), miss:missOf(dep,c), kind:'ship', p:dep.i}); }
       }
-      if(wantColony && sim.colShip && sim.colReady<=Tm){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight, kind:'fleet', p:dep.i, dest:target, mission:7, ships:{col:1}}); }
+      if(wantColony && sim.colShip && sim.colReady<=Tm && !refused(moveKey('fleet', (real.planets[dep.i]||{}).id, target))){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight, kind:'fleet', p:dep.i, dest:target, mission:7, ships:{col:1}}); }
       const hubP = P[Math.min(hubIndex(), P.length-1)];
-      /* Un rapatriement va vers la planète qui attend : celle qui porte un
+      /* Ce qu'il manque à chaque planète pour son prochain chantier, relevé une
+         fois avant le premier envoi : c'est ce manque qui fait d'elle une
+         destination. */
+      const manqueDe = new Map(P.map(d=>{ const c = pickBuildings(d, {T:Tm, iv, goals:[]})[0]; return [d, c ? levelCost(B[c.k],c.lvl).map((x,j)=>Math.max(0, x-d.st[j])) : [0,0,0]]; }));
+      /* Une planète bridée faute d'énergie et sans de quoi payer sa centrale
+         perd de la production à chaque heure, et rien ne l'en sortait : les
+         objectifs ne naissent que de la recherche et du vaisseau de
+         colonisation, tous deux sur la principale, donc tout transport
+         remontait vers elle. Une colonie qui vient de perdre ses centrales
+         n'attirait rien et le joueur devait y penser seul. Elle passe devant
+         un objectif d'épargne : une recherche repoussée ne coûte que du temps,
+         une mine au ralenti coûte de la production à chaque heure. Pas de
+         manque, pas de livraison — une planète bridée qui a le cristal
+         reconstruit toute seule. */
+      const bridees = P.filter(d=>production(d).factor<1 && mse(...manqueDe.get(d))>0)
+        .sort((a,b)=>mse(...manqueDe.get(b))-mse(...manqueDe.get(a)));
+      /* Un transport va sinon vers la planète qui attend : celle qui porte un
          objectif, le hub seulement à défaut. Viser le hub en dur laissait la
          planète du meilleur labo épargner pour une recherche sans jamais rien
          recevoir dès qu'elle n'était pas aussi celle du meilleur chantier :
          `hubIndex` classe sur labo + chantier, la recherche se paie sur le
          labo seul. */
-      const destOf = q => (goals.find(g => g.p !== q) || {}).p || hubP;
+      const destOf = q => bridees.find(d=>d!==q) || (goals.find(g => g.p !== q) || {}).p || hubP;
       /* Un rapatriement occupe un emplacement de flotte, exactement comme une
          expédition : les deux puisent dans le même compte. Le laisser hors du
          compte faisait proposer un envoi que le jeu refuse d'un « Nombre
@@ -1580,11 +1715,16 @@ function simulateDay(){
         if(q===dst || (q.transferAt||0)>Tm) continue;
         const pr = production(q), want = [0,0,0];
         for(const g of goals) if(g.p===dst) g.cost.forEach((x,j)=>want[j]=Math.max(want[j], x-dst.st[j]));
+        /* Le manque d'une planète bridée est un besoin comme un objectif : sans
+           lui ici, la destination changeait et rien ne partait. */
+        const secours = bridees.includes(dst);
+        if(secours) manqueDe.get(dst).forEach((x,j)=>want[j]=Math.max(want[j], x));
         pr.cap.forEach((cap,j)=>{ if(q.st[j] > cap*.7) want[j] = Math.max(want[j], q.st[j]-cap*.3); });
         const keep = (()=>{ const c = pickBuildings(q, {T:Tm, iv, goals:[]})[0]; return c ? levelCost(B[c.k],c.lvl) : [0,0,0]; })();
         const amt = want.map((w,j)=>Math.max(0, Math.min(w, q.st[j]-keep[j])));
         const sum = amt[0]+amt[1]+amt[2]; if(sum < 5000) continue;
         const own = (q.ships.lc||0)+(q.ships.sc||0) > 0, src = own ? q : hubP, lcC = shipStats('lc').cargoEff, scC = shipStats('sc').cargoEff;
+        if(refused(moveKey('transfer', (real.planets[src.i]||{}).id, (own?dst:q).coords))) continue;
         let left = sum; const lc = Math.min(src.ships.lc||0, Math.ceil(left/lcC)); left -= lc*lcC; const sc = left>0 ? Math.min(src.ships.sc||0, Math.ceil(left/scC)) : 0;
         if(!lc && !sc) continue;
         const ships = {}; if(lc) ships.lc=lc; if(sc) ships.sc=sc;
@@ -1609,19 +1749,21 @@ function simulateDay(){
         // et les vaisseaux ne seraient plus là pour charger. C'est ce premier
         // trajet qu'on annonce, et le minuteur prévient quand ils se posent.
         const charge = `${fmt(sent[0])} M, ${fmt(sent[1])} C, ${fmt(sent[2])} D`;
+        const motif = secours ? `${planetRef(dst)} tourne au ralenti faute d'énergie et n'a pas de quoi payer sa centrale · ` : '';
         acts.push(own
           ? {q:'Flotte · '+planetRef(q), what:`Rapatrier vers ${planetRef(dst)} : ${charge}`,
-             why:`${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${hm(arrive)}`,
+             why:`${motif}${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${hm(arrive)}`,
              dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i, dest:dst.coords, res:sent, mission:3}
           : {q:'Flotte · '+planetRef(src), what:`Envoie ${shipList(ships)} vers ${planetRef(q)}`,
-             why:`À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${hm(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge} vers ${planetRef(dst)}, arrivée vers ${hm(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.`,
+             why:`${motif}À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${hm(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge} vers ${planetRef(dst)}, arrivée vers ${hm(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.`,
              dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i, dest:q.coords, mission:4});
         libres--;
       }
       for(let lance=0; lance<Math.min(3, libres) && expoBusy.filter(e=>e>Tm).length < maxExpo; lance++){
-        const cands = P.map(p=>({p, f:expoFleet(p.ships)})).filter(x=>x.f).sort((a,b)=>b.f.cargo-a.f.cargo);
+        const expoTgt = p => { const [g,sy] = parseC(p.coords)||[1,1,1]; return `${g}:${sy}:16`; };
+        const cands = P.map(p=>({p, f:expoFleet(p.ships)})).filter(x=>x.f && !refused(moveKey('expo', (real.planets[x.p.i]||{}).id, expoTgt(x.p)))).sort((a,b)=>b.f.cargo-a.f.cargo);
         if(!cands.length) break;
-        const {p, f} = cands[0], [g,sy] = parseC(p.coords)||[1,1,1], tgt = `${g}:${sy}:16`;
+        const {p, f} = cands[0], tgt = expoTgt(p);
         const fl = flight(p.coords, tgt, f.ships, 100); if(!fl) break;
         const total = 2*fl.secs + 3600, fuel = fl.fuel*2, c=[0,0,fuel];
         const dRate = Math.max(1, production(p).d), smallFuel = p.st[2] >= fuel && fuel/dRate*3600 <= 15*60;
@@ -1635,6 +1777,9 @@ function simulateDay(){
       }
       for(const p of P){
         if(p.b.shipyard<1 || p.sq>Tm) continue;
+        /* Un lot sorti du chantier sans être relu : on ne sait plus combien de
+           satellites tournent, donc on n'en propose pas d'autres. */
+        if(p.flou) continue;
         /* Le prix n'est pas le seul critère : un satellite ne se répare pas,
            il part en débris au premier raid et l'énergie retombe le jour où on
            en a le plus besoin. Sans défense vue sur la planète, la centrale —
@@ -1704,7 +1849,11 @@ function simulateDay(){
       // de l'empire, une colonie pour ses propres transporteurs.
       for(const p of P){
         const estHub = p === hubP;
-        if(p.b.shipyard>=1 && p.sq<=Tm){
+        /* `flou` : le chantier a sorti un lot dont le jeu n'a pas dit le
+           nombre. Proposer ici reviendrait à compter sur une flotte et une
+           défense d'avant le lot — c'est ce qui faisait revenir « 10 grands
+           transporteurs » à chaque plan. */
+        if(p.b.shipyard>=1 && p.sq<=Tm && !p.flou){
           const total = k=>P.reduce((a,q)=>a+(q.ships[k]||0),0) + (sim.away[k]||0);
           const pr = P.reduce((a,q)=>{ const r=production(q); return a+mse(r.m,r.c,r.d); },0);
           const cap = expoFind(total('pf')>0);
@@ -1837,6 +1986,7 @@ function actHtml(a, withBtn){
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,pid:(S.planets[a.p]||{}).id,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
+  if(withBtn && NO_KINDS[a.kind]) btn = `<span class="btns">${btn}${noBtn(moveKey(a.kind, (S.planets[a.p]||{}).id, a.dest))}</span>`;
   return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div></div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
 }
 
@@ -1999,12 +2149,21 @@ function cargoGaps(){
   /* Un donneur ne prête que son surplus : ce qu'il a en soute moins ce qu'il
      devra lever lui-même le soir. Sinon le conseil déplace le trou. */
   const dispo = S.planets.map(p=>({p, cargo:cargoCap(p), dispo:Math.max(0, cargoCap(p) - pickCargo(p, fsLoad(p)).cargo)}));
-  return dispo.map(({p, cargo})=>{
+  const out = [];
+  for(const {p, cargo} of dispo){
     const load = fsLoad(p);
-    if(load < FS_MIN || cargo >= load) return null;
-    return {p, load, cargo, manque: load - cargo,
-            ailleurs: dispo.filter(x=>x.p!==p && x.dispo>0).sort((a,b)=>b.dispo-a.dispo)};
-  }).filter(Boolean);
+    if(load < FS_MIN || cargo >= load) continue;
+    const manque = load - cargo;
+    const libres = dispo.filter(x=>x.p!==p && x.dispo>0).sort((a,b)=>b.dispo-a.dispo);
+    /* Le surplus d'un donneur ne se prête qu'une fois. Compté en entier pour
+       chaque colonie, il promettait la même soute à toutes : cinq cartes
+       « Ramène 1 grand transporteur de la même planète », et dès le premier
+       rapatriement lancé les autres s'évanouissaient, sans que rien ne dise
+       que le besoin, lui, restait. Ce qui est promis ici est donc retenu là. */
+    out.push({p, load, cargo, manque, ailleurs: libres.map(x=>({p:x.p, dispo:x.dispo}))});
+    if(libres[0]) libres[0].dispo = Math.max(0, libres[0].dispo - manque);
+  }
+  return out;
 }
 
 /* ---------- daily missions ---------- */
@@ -2287,6 +2446,15 @@ function dailyMissions(){
     what:aveugles.length>1 ? `Ouvrir la page Défense (${aveugles.length} planètes)` : `Ouvrir la page Défense sur ${planetRef(aveugles[0])}`,
     why:`Sans elle, le copilote ne sait pas ce qui te protège : il ne propose ni défense ni satellites. Une planète sans défense rend la moitié de son stock au premier pilleur, et lui ne perd rien.`,
     how:['Ouvre Défense sur chaque planète : le copilote lit chaque type au passage.', `Il ajoute ensuite les pièces manquantes au plan, avec leur prix et leur durée.`]});
+  /* Le jeu nomme ce que son chantier construit, jamais combien, et sa file
+     n'annonce que le lot en cours. Après un lot, le copilote ne sait donc plus
+     ce qui est au sol : il se tait sur ce chantier au lieu de reproposer ce qui
+     vient d'en sortir. Une page relue le rend bavard aussitôt. */
+  const flous = S.planets.filter(p=>chantierFlou(p));
+  if(flous.length) out.push({id:'chantierlu', q:'Chantier', every:6, sev:'warn', tags:flous.map(planetRef),
+    what:flous.length>1 ? `Ouvrir la page Chantier spatial (${flous.length} planètes)` : `Ouvrir la page Chantier spatial sur ${planetRef(flous[0])}`,
+    why:`Ton chantier a sorti un lot que le copilote n'a pas relu : le jeu dit ce qu'il construit, jamais combien. Tant que la page n'est pas rouverte, il ne propose ni vaisseau, ni défense, ni satellite ${flous.length>1?'sur ces planètes':'sur cette planète'} — il doublerait ce que tu viens de construire.`,
+    how:['Ouvre Chantier spatial sur la planète : le copilote recompte tout au passage.', 'La page Flotte fait aussi l\'affaire pour les vaisseaux ; la page Défense pour la défense.', 'Les cartes de chantier reviennent aussitôt, avec les bons nombres.']});
   const occ = API && API.planets ? occupied() : null;
   if(occ && parseC(S.colo.target) && occ.has(S.colo.target) && occ.get(S.colo.target)!==S.me && !colSentNow()){ const alt = colonyCandidates()[0]; out.unshift({id:'colo-taken', q:'Colonie', every:6, sev:'bad', coords:S.colo.target, what:`${S.colo.target} est déjà occupée`, why:alt?`Meilleure position libre proche : ${alt.coords} (${alt.bonus||'pas de bonus'}, ~${alt.fields} cases).`:'Choisis une autre position dans Outils › Cibles.', how:['Outils › Cibles › Où coloniser : clique sur Choisir pour changer la destination.']}); }
   // Chaque sonde occupe un emplacement de flotte jusqu'à son retour : en
@@ -2309,7 +2477,7 @@ function dailyMissions(){
   const vuesChantier = S.planets.filter(p=>p.shipsAt);
   const sansSonde = vuesChantier.length > 0 && !vuesChantier.some(p=>((p.ships||{}).pr||0) > 0);
   const bride = rtAll.length > rt.length;
-  if(rt.length) out.push({id:'raid', q:'Pillage', every:12, sev:'good', coords:rt[0].coords, mark:rt.map(r=>r.coords), what:`Espionner ${rt.length>1?'ces inactifs':'cet inactif'} : ${rt.map(r=>r.coords).join(', ')}`, why:`Inactifs proches et moins forts que toi : pas d'avertissement hors-la-loi.${bride?` ${rtAll.length} repérés, mais ${libres} emplacement${libres>1?'s':''} de flotte libre${libres>1?'s':''}.`:''} Détail dans Outils › Cibles.`, how:[sansSonde ? 'Aucune sonde au sol : construis-en au chantier spatial avant d\'espionner. L\'œil de la Galaxie envoie les sondes déjà là, sinon le jeu répond « Vous n\'avez pas sélectionné de vaisseaux ».' : 'Galaxie : clique sur l\'œil de la ligne pour envoyer une sonde.', 'Un chiffre ou une étoile dans sa ligne : les minutes depuis la dernière activité sur la planète. Sur un inactif, c\'est le plus souvent la sonde d\'un autre pilleur — le stock sera maigre.', 'Chaque sonde occupe un emplacement de flotte jusqu\'à son retour.', 'Rapport sans flotte ni défense et avec des ressources : mission Attaquer, assez de soute pour la moitié de son stock.'].concat(bride ? [leverFlotte()] : [])});
+  if(rt.length) out.push({id:'raid', q:'Pillage', every:12, sev:'good', coords:rt[0].coords, mark:rt.map(r=>r.coords), what:`Espionner ${rt.length>1?'ces inactifs':'cet inactif'} : ${rt.map(r=>r.coords).join(', ')}`, whatHtml:`Espionner ${rt.length>1?'ces inactifs':'cet inactif'} : ${rt.map(r=>coordLink(r.coords)).join(', ')}`, why:`Inactifs proches et moins forts que toi : pas d'avertissement hors-la-loi.${bride?` ${rtAll.length} repérés, mais ${libres} emplacement${libres>1?'s':''} de flotte libre${libres>1?'s':''}.`:''} Détail dans Outils › Cibles.`, how:[sansSonde ? 'Aucune sonde au sol : construis-en au chantier spatial avant d\'espionner. L\'œil de la Galaxie envoie les sondes déjà là, sinon le jeu répond « Vous n\'avez pas sélectionné de vaisseaux ».' : 'Galaxie : clique sur l\'œil de la ligne pour envoyer une sonde.', 'Un chiffre ou une étoile dans sa ligne : les minutes depuis la dernière activité sur la planète. Sur un inactif, c\'est le plus souvent la sonde d\'un autre pilleur — le stock sera maigre.', 'Chaque sonde occupe un emplacement de flotte jusqu\'à son retour.', 'Rapport sans flotte ni défense et avec des ressources : mission Attaquer, assez de soute pour la moitié de son stock.'].concat(bride ? [leverFlotte()] : [])});
   else if(!rtAll.length) out.push({id:'inactive', q:'Pillage', every:24, sev:'info', what:'Repérer des inactifs à piller', why:'Les joueurs marqués (i) ou (I) ne se défendent plus. À piller dès qu\'ils sont dans ta tranche de points.',
     how:['Galaxie : parcours ton système et les voisins, note les noms gris (i)/(I).', 'Espionne-les. Si le jeu affiche « joueur plus puissant », réponds <b>Non</b> : tu perdrais ta protection pendant 7 jours.', 'Sans flotte ni défense et avec des ressources : mission Attaquer avec assez de soute.']});
   const ns = +S.day.nightStart, nd = new Date(now); nd.setHours(ns,0,0,0); if(nd.getTime() <= now) nd.setDate(nd.getDate()+1);
@@ -2379,8 +2547,13 @@ function dailyMissions(){
       const fin = [0,1,2].map(j=>Math.min(pr.cap[j], reste[j] + [pr.m,pr.c,pr.d][j]*nuit));
       return {p, eq: mse(fin[0], fin[1], fin[2])};
     }).filter(x=>x.eq > 50000).sort((a,b)=>b.eq-a.eq);
-    const trous = cargoGaps();
-    if(trous.length) m.how.push(`Sans soute pour les lever : ${trous.map(x=>`${esc(planetRef(x.p))} (${fmt(x.load)}, il manque ${fmt(x.manque)} de soute)`).join(', ')}. Les cartes « Ramène… » disent d'où la faire venir.`);
+    /* Une planète sans donneur n'a pas de carte « Ramène… » : l'envoyer la
+       chercher serait l'envoyer vers rien. Elle est nommée à part, avec le
+       seul geste qui lui reste. */
+    const trous = cargoGaps(), ligne = x=>`${esc(planetRef(x.p))} (${fmt(x.load)}, il manque ${fmt(x.manque)} de soute)`;
+    const aides = trous.filter(x=>x.ailleurs[0]), seules = trous.filter(x=>!x.ailleurs[0]);
+    if(aides.length) m.how.push(`Sans soute pour les lever : ${aides.map(ligne).join(', ')}. Les cartes « Ramène… » disent d'où la faire venir.`);
+    if(seules.length) m.how.push(`Sans soute pour les lever, et plus rien à emprunter : ${seules.map(ligne).join(', ')}. Toute la soute libre de l'empire est déjà promise ailleurs — il faut en construire sur place.`);
     if(exposees.length) m.how.push(`Resteront exposés au matin : ${exposees.map(x=>`${esc(planetRef(x.p))} (~${fmt(x.eq)} éq.)`).join(', ')}. ${exposees[0].p.def == null ? 'Ouvre la page Défense pour que le plan monte ce qu\'il faut.' : `Le plan monte ${esc(planetRef(exposees[0].p))} à ${esc(defMixList(exposees[0].p))} : à ce prix-là, percer coûte plus cher qu'emporter.`}`);
     out.push(m);
   }
@@ -2399,6 +2572,29 @@ function dailyMissions(){
      mettre les ressources à l'abri ; tout le reste attendra le réveil. */
   return S.day.night ? out.filter(m=>m.q === 'Sécurité') : out;
 }
+/* Le copilote ne voit pas ce que le joueur décide dans le jeu : une carte qu'il
+   a choisi de ne pas suivre revient au plan suivant, et au suivant — cinq fois
+   la même, et le panneau ne sert plus à rien. « Non » la met donc de côté, et
+   elle y reste : rien ne la ramène dans le dos du joueur. C'est lui qui la
+   remet, d'un bouton, sous les cartes d'Aujourd'hui comme dans Réglages. */
+/* Seuls les mouvements : une construction disparaît dès « Lancé », elle n'a
+   rien à refuser. */
+const NO_KINDS = {transfer:1, expo:1, fleet:1};
+/* Ce qui identifie un mouvement d'un plan au suivant : d'où, vers où, de quel
+   genre. L'identifiant de la planète, pas son rang : le rang change dès qu'on
+   oublie une planète, et la simulation échange S.planets contre ses copies, qui
+   n'en portent aucun — d'où l'identifiant passé par l'appelant. */
+function moveKey(kind, pid, dest){ return `${kind}:${pid||''}:${dest||''}`; }
+function refused(key){ return !!S.daily.no[key]; }
+/** Combien de cartes sont mises de côté en ce moment. */
+function noCount(){ return Object.keys(S.daily.no).length; }
+function noBtn(key){ return `<button class="btn sm ghost" data-no="${esc(key)}" title="Ne plus proposer ça">Non</button>`; }
+/** Le bouton qui remet toutes les cartes refusées — vide s'il n'y en a aucune. */
+function noRestore(){
+  const n = noCount();
+  return n ? `<button class="btn sm ghost" data-noclear="1">Remettre ${n} carte${n>1?'s':''} refusée${n>1?'s':''}</button>` : '';
+}
+
 function missionDone(m){ const d = S.daily.done[m.id]; return d && (Date.now() - d) < m.every*3600e3 && (m.every<24 || new Date(d).toDateString()===new Date().toDateString()); }
 
 /* ---------- targets from the official OGame API ---------- */
@@ -2602,14 +2798,26 @@ function raidPlan(){
   return {home, loot, need, ships, fl, cargo, got, fuel, stale, short: Math.max(0,left), net: got - fuel*S.settings.ratio[0]/S.settings.ratio[2]};
 }
 
+/* Un outil retiré laisse son nom dans les réglages du joueur : on ne demande à
+   VIEWS que ce qu'il sait encore dessiner. */
+const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte']];
+function toolTab(){ return TOOLS.some(([k])=>k===S.ui.tool) ? S.ui.tool : 'colony'; }
+
 const VIEWS = {
+/* Ce que le joueur vient chercher, c'est la carte à suivre maintenant : elle
+   seule reste dépliée. Le reste — la journée qui vient, les minuteurs — se
+   replie, en disant dans son titre ce qu'il contient, pour qu'on sache s'il
+   vaut la peine d'être ouvert. */
 today(){
   const d=S.day;
   return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Maintenant</h2><div class="row" style="gap:8px"><span class="note" id="tdStamp"></span><button class="btn sm ${d.night?'primary':'ghost'}" id="dayNight">${d.night?'☀️ Passer en mode jour':'🌙 Passer en mode nuit'}</button></div></div><div id="tdNow"></div></div>
+    <div class="card"><div class="row spread"><h2>Maintenant</h2><div class="row" style="gap:8px"><span class="note" id="tdStamp"></span><button class="btn sm ${d.night?'primary':'ghost'}" id="dayNight">${d.night?'☀️ Mode jour':'🌙 Mode nuit'}</button></div></div><div id="tdNow"></div></div>
     <div id="tdAlerts"></div>
-    <div class="card"><div class="row spread"><h2>Ta journée</h2><span class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${d.nightStart}h–${d.nightEnd}h <button class="btn sm ghost" data-goto="settings">Modifier</button></span></div><div id="tdDay"></div></div>
-    <div class="card"><div class="row spread"><h2>Minuteurs</h2><button class="btn sm ghost" id="tmSound">Tester le son</button></div>
+    <details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
+      <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${d.nightStart}h–${d.nightEnd}h <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
+      <div id="tdDay"></div>
+    </details>
+    <details class="card"${fold('minuteurs', true)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
       <ul class="timers" id="tmList"></ul>
       <details><summary class="note">Ajouter un minuteur à la main</summary>
         <div class="timer-form" style="margin-top:8px">
@@ -2618,7 +2826,8 @@ today(){
           <button class="btn primary" id="tmAdd">Lancer</button>
         </div>
       </details>
-    </div>
+      <div class="row"><button class="btn sm ghost" id="tmSound">Tester le son</button></div>
+    </details>
   </section>`;
 },
 empire(){ return `<div class="panel">${VIEWS.planets()}${VIEWS.research()}</div>`; },
@@ -2647,8 +2856,8 @@ explore(){
   </section>`;
 },
 tools(){
-  const sub = S.ui.tool || 'colony';
-  return `<section class="panel"><div class="seg" role="tablist">${[['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['plan','Objectifs']].map(([k,l])=>`<button role="tab" data-tool="${k}" aria-selected="${sub===k}">${l}</button>`).join('')}</div>${VIEWS[sub]()}</section>`;
+  const sub = toolTab();
+  return `<section class="panel"><div class="seg" role="tablist">${TOOLS.map(([k,l])=>`<button role="tab" data-tool="${k}" aria-selected="${sub===k}">${l}</button>`).join('')}</div>${VIEWS[sub]()}</section>`;
 },
 planets(){
   return `<section class="panel">
@@ -2690,8 +2899,8 @@ planets(){
 },
 research(){
   return `<details class="card"><summary>Recherches <span class="note">labo niveau <b id="labLv"></b></span></summary>
-    <div class="tbl-wrap"><table><thead><tr><th>Technologie</th><th class="n">Niv.</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th><th></th></tr></thead><tbody>
-    ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${S.tech[k]}"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td><td><button class="btn sm" data-addt="${k}">+ Objectif</button></td></tr>`).join('')}
+    <div class="tbl-wrap"><table><thead><tr><th>Technologie</th><th class="n">Niv.</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th></tr></thead><tbody>
+    ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${S.tech[k]}"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
     </tbody></table></div>
   </details>`;
 },
@@ -2760,19 +2969,6 @@ colony(){
     </div>
   </section>`;
 },
-plan(){
-  return `<section class="panel">
-    <div class="card"><h2>Ajouter un objectif</h2>
-      <div class="grid">
-        <label class="f">Planète<select id="plP">${S.planets.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></label>
-        <label class="f">Bâtiment<select id="plB">${Object.keys(B).map(k=>`<option value="${k}">${B[k].n}</option>`).join('')}</select></label>
-        <label class="f">Niveau visé<input id="plL" type="number" min="1" value="5"></label>
-      </div>
-      <div class="row"><button class="btn primary" id="plAdd">Ajouter au plan</button><span class="note">Les recherches s'ajoutent depuis Empire, section Recherches.</span></div>
-    </div>
-    <div class="card"><div class="row spread"><h2>Plan</h2><span class="note" id="plTot"></span></div><ul class="list" id="plList"></ul></div>
-  </section>`;
-},
 settings(){
   const s=S.settings, d=S.day;
   return `<section class="panel">
@@ -2804,16 +3000,22 @@ settings(){
         <label class="f">Géologue (+10 % production)<select id="sGeo" data-set="geo"><option value="0" ${!s.geo?'selected':''}>Non</option><option value="1" ${s.geo?'selected':''}>Oui</option></select></label>
         <label class="f">Ingénieur (+10 % énergie)<select id="sEng" data-set="eng"><option value="0" ${!s.eng?'selected':''}>Non</option><option value="1" ${s.eng?'selected':''}>Oui</option></select></label>
         <label class="f">Foreuses en surcharge 150 %<select id="sOver" data-set="crawlerOverload"><option value="0" ${!s.crawlerOverload?'selected':''}>Non</option><option value="1" ${s.crawlerOverload?'selected':''}>Oui</option></select><span class="note">Moitié plus de bonus, énergie doublée. À régler comme dans le jeu.</span></label>
-        <label class="f">Épurer la page du jeu<select id="sLean" data-set="lean"><option value="1" ${s.lean?'selected':''}>Oui</option><option value="0" ${!s.lean?'selected':''}>Non</option></select></label>
-        <label class="f">Masquer les menus payants<select id="sNoShop" data-set="noshop"><option value="1" ${s.noshop?'selected':''}>Oui</option><option value="0" ${!s.noshop?'selected':''}>Non</option></select><span class="note">Les entrées jaunes du menu du jeu : Marchand, Mess des officiers, les deux boutiques.</span></label>
         <label class="f">Collecteur : +25 % soute transporteurs<select id="sColCargo" data-set="colCargo"><option value="1" ${s.colCargo?'selected':''}>Oui</option><option value="0" ${!s.colCargo?'selected':''}>Non</option></select></label>
         <label class="f">Ratio d'échange M:C:D<input id="sRatio" data-set="ratio" value="${s.ratio.join(':')}"></label>
       </div>
+    </div>
+    <div class="card"><h2>Page du jeu</h2>
+      <div class="grid">
+        <label class="f">Épurer la page du jeu<select id="sLean" data-set="lean"><option value="1" ${s.lean?'selected':''}>Oui</option><option value="0" ${!s.lean?'selected':''}>Non</option></select><span class="note">La barre Gameforge, l'en-tête, le pied de page et la bannière publicitaire s'en vont ; la photo de fond laisse place à un aplat sombre, et le menu du jeu grossit d'un septième. La page du jeu, elle, n'est pas touchée.</span></label>
+        <label class="f">Masquer les menus payants<select id="sNoShop" data-set="noshop"><option value="1" ${s.noshop?'selected':''}>Oui</option><option value="0" ${!s.noshop?'selected':''}>Non</option></select><span class="note">Les entrées jaunes du menu du jeu : Marchand, Mess des officiers, les deux boutiques.</span></label>
+      </div>
+      <p class="note">Deux réglages d'allure, qui ne touchent ni aux calculs ni au plan. Ils agissent sur la page du jeu, pas sur ce panneau.</p>
     </div>
     <div class="card"><h2>Sauvegarde</h2>
       <p class="note">Tes données restent dans ce navigateur. Copie-les pour les garder ailleurs ou les passer sur un autre appareil.</p>
       <textarea id="ioText" aria-label="Données JSON" placeholder="Colle ici une sauvegarde pour l'importer"></textarea>
       <div class="row"><button class="btn" id="ioCopy">Copier mes données</button><button class="btn" id="ioImport">Importer</button><button class="btn ghost" id="ioReset">Réinitialiser…</button><span class="note" id="ioMsg"></span></div>
+      ${noCount() ? `<div class="row" style="margin-top:8px">${noRestore()}<span class="note">Un « Non » met la carte de côté jusqu'à ce que tu la remettes.</span></div>` : ''}
     </div>
     <div class="card"><h2>Fiabilité des calculs</h2>
       <p class="note">Formules communautaires (wiki OGame, forum officiel). Production, coûts et temps de vol sont stables depuis des années. Moins sûrs : la production de deutérium (formule des univers récents, dépend de la température max), la durée des bâtiments de niveau 1 à 5, et les plafonds d'expédition. Compare une fois avec ton jeu et ajuste les réglages si besoin.</p>
@@ -2843,7 +3045,7 @@ today(){
      le vider ici ne perd rien. */
   if(night) for(const x of plan.sessions){ x.acts = []; x.waits = []; }
   const nowParts = [];
-  const missions = dailyMissions().filter(m=>!missionDone(m));
+  const missions = dailyMissions().filter(m=>!missionDone(m) && !refused('m:'+m.id));
   /* La page du jeu surligne ce que le plan recommande et pose la bande du bas.
      Elle n'en fait rien d'autre : aucun clic, aucun envoi, ce sont des repères.
      Publié ici, après les missions, parce que la bande les porte. */
@@ -2854,16 +3056,18 @@ today(){
   const infoMs = missions.filter(m=>m.info);
   const taskHtml = m=>{
     const [wi, wb] = whyParts([m.why]), meta = (m.tags||[]).map(planetTag).join('') + copyChips(m);
-    return `<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${esc(m.what)}</div></div><button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
+    return `<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns"><button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${noBtn('m:'+m.id)}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   };
   if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${s0.acts.map(a=>actHtml(a,true)).join('')}${nowMs.map(taskHtml).join('')}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
-  if(s0.waits.length) nowParts.push(`<ul class="acts">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div></li>`).join('')}</ul>`);
-  if(plan.busy.length || infoMs.length) nowParts.push(`<ul class="acts">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${hm(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`).join('')}</ul>`);
+  if(s0.waits.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${s0.waits.length})</summary><ul class="acts" style="margin-top:6px">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div></li>`).join('')}</ul></details>`);
+  if(plan.busy.length || infoMs.length) nowParts.push(`<details${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${plan.busy.length + infoMs.length})</summary><ul class="acts" style="margin-top:6px">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${hm(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`).join('')}</ul></details>`);
   const nextS = plan.sessions.slice(1).find(x=>x.acts.length);
   if(!s0.acts.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
-  document.getElementById('tdNow').innerHTML = nowParts.join('') + `<p class="note"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p>`;
+  const aide = `<details${fold('aide', false)}><summary class="note" data-fold="aide">Comment lire ces cartes</summary><p class="note" style="margin-top:6px"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. <b>Non</b> met la carte de côté jusqu'à ce que tu la remettes. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p></details>`;
+  const remets = noCount() ? `<div class="row">${noRestore()}</div>` : '';
+  document.getElementById('tdNow').innerHTML = nowParts.join('') + aide + remets;
   const alerts = plan.alerts;
   document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><h2>Alertes</h2><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('')}</ul></div>` : '';
   const later = plan.sessions.slice(1).filter(x=>x.acts.length || slotMs.has(x));
@@ -2896,9 +3100,11 @@ today(){
     + `<p class="note" style="margin-top:6px">Connexions sans action masquées. Hors plan : formes de vie, flotte, défense. Avant une longue absence, dépense ou mets tes ressources à l'abri.</p>`;
   renderTimers();
   document.getElementById('tdStamp').textContent = S.syncAt ? `synchro ${hm(S.syncAt)}` : (S.lastImport ? `import ${hm(S.lastImport)}` : '');
+  document.getElementById('tdDaySum').textContent = night ? 'mode nuit'
+    : `${later.length} connexion${later.length>1?'s':''} à venir · production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${S.day.horizon} h`;
 },
 empire(){ REFRESH.planets(); REFRESH.research(); },
-tools(){ REFRESH[S.ui.tool||'colony'](); },
+tools(){ REFRESH[toolTab()](); },
 explore(){
   const el = document.getElementById('exColo'); if(!el || !API || !API.planets) return;
   const cand = colonyCandidates().slice(0,8), tgt = coloTarget();
@@ -2967,16 +3173,16 @@ colony(){
   const F = coloFleet(), req = [];
   const nextAstro = S.tech.astro + (S.tech.astro%2===0 ? 1 : 2);
   req.push(free ? {sev:'good', what:'Emplacement libre', why:`Astrophysique ${S.tech.astro} : ${maxPl} planètes possibles.`}
-                : {sev:'bad', what:`Rechercher Astrophysique ${nextAstro}`, why:'Toutes tes planètes sont utilisées.', add:`t:astro`});
+                : {sev:'bad', what:`Rechercher Astrophysique ${nextAstro}`, why:'Toutes tes planètes sont utilisées.'});
   if(S.tech.impulse>=3) req.push({sev:'good', what:'Réacteur à impulsion 3', why:'Prérequis du vaisseau de colonisation.'});
-  else { let t=0; for(let L=S.tech.impulse+1; L<=3; L++) t+=researchTime('impulse',L); req.push({sev:'bad', what:`Réacteur à impulsion ${S.tech.impulse} → 3`, why:`Coût ${fmt(rangeCost(T.impulse,S.tech.impulse,3).reduce((a,b)=>a+b,0))} au total, environ ${dur(t)} de recherche.`, add:'t:impulse'}); }
+  else { let t=0; for(let L=S.tech.impulse+1; L<=3; L++) t+=researchTime('impulse',L); req.push({sev:'bad', what:`Réacteur à impulsion ${S.tech.impulse} → 3`, why:`Coût ${fmt(rangeCost(T.impulse,S.tech.impulse,3).reduce((a,b)=>a+b,0))} au total, environ ${dur(t)} de recherche.`}); }
   if(dp.b.shipyard>=4) req.push({sev:'good', what:`Chantier spatial 4 sur ${dp.name}`, why:'Prérequis du vaisseau de colonisation.'});
-  else req.push({sev:'bad', what:`Chantier spatial ${dp.b.shipyard} → 4 sur ${dp.name}`, why:`Coût total : ${fmt(rangeCost(B.shipyard,dp.b.shipyard,4).reduce((a,b)=>a+b,0))} ressources.`, add:`b:${dp.id}:shipyard`});
+  else req.push({sev:'bad', what:`Chantier spatial ${dp.b.shipyard} → 4 sur ${dp.name}`, why:`Coût total : ${fmt(rangeCost(B.shipyard,dp.b.shipyard,4).reduce((a,b)=>a+b,0))} ressources.`});
   const w = F.wait;
   req.push({sev: w.sec===0 ? 'good' : w.storage!=null ? 'bad' : 'warn',
     what: colBuilt() ? 'Ressources du kit et carburant' : 'Ressources du vaisseau, du kit et carburant',
     why: `${w.sec===0 ? 'Disponibles maintenant.' : w.storage!=null ? storageNote(w) : `Disponibles dans ${dur(w.sec)}.`}${colBuilt() ? '' : ` Construction du vaisseau : ${dur(F.shipTime)}.`}`});
-  document.getElementById('coReq').innerHTML = req.map(r=>`<li><span class="pill ${r.sev==='info'?'info':r.sev}">${({good:'OK',warn:'Bientôt',bad:'À faire'})[r.sev]}</span><span class="what">${esc(r.what)}${r.add?` <button class="btn sm" data-coadd="${r.add}">+ Plan</button>`:''}</span><span class="why">${esc(r.why)}</span></li>`).join('');
+  document.getElementById('coReq').innerHTML = req.map(r=>`<li><span class="pill ${r.sev==='info'?'info':r.sev}">${({good:'OK',warn:'Bientôt',bad:'À faire'})[r.sev]}</span><span class="what">${esc(r.what)}</span><span class="why">${esc(r.why)}</span></li>`).join('');
 
   const rows = rankPositions(), tgtPos = (parseC(coloTarget())||[])[2];
   document.getElementById('coPos').innerHTML = rows.map(r=>`<tr style="${r.ok?'':'opacity:.45'}">
@@ -3005,22 +3211,6 @@ colony(){
   const fpos = +S.colo.fpos || (parseC(coloTarget())||[])[2], v = coloVerdict(+S.colo.fields, fpos);
   document.getElementById('coEval').innerHTML = v ? `<ul class="advice"><li><span class="pill ${v.sev}">${v.t}</span><span class="what">Position ${fpos}</span><span class="why">${esc(v.why)}</span></li></ul>` : '';
 },
-plan(){
-  const tot=[0,0,0]; let tTime=0;
-  const items = S.plan.map((it,i)=>{
-    let name, cost, time, from;
-    if(it.type==='b'){ const p=planetById(it.pid); if(!p) return ''; from=p.b[it.k]; cost=rangeCost(B[it.k],from,it.lvl); time=0; for(let L=from+1;L<=it.lvl;L++) time+=buildTime(it.k,L,p); name=`${B[it.k].n} ${it.lvl} · ${esc(p.name)}`; }
-    else { from=S.tech[it.k]; cost=rangeCost(T[it.k],from,it.lvl); time=0; for(let L=from+1;L<=it.lvl;L++) time+=researchTime(it.k,L); name=`${T[it.k].n} ${it.lvl}`; }
-    const done = from>=it.lvl;
-    cost.forEach((x,j)=>tot[j]+=x); tTime+=time;
-    return `<li><div><div>${name} ${done?'<span class="pill good">atteint</span>':''}</div>${done?'':`<div class="row" style="gap:12px">${costHtml(cost)}<span class="mono note">${dur(time)}</span></div>`}</div>
-      <div class="row" style="gap:6px"><button class="btn sm ghost" data-up="${i}" aria-label="Monter">↑</button><button class="btn sm ghost" data-rm="${i}">Retirer</button></div></li>`;
-  });
-  document.getElementById('plList').innerHTML = items.join('') || `<li><div class="note">Aucun objectif. Ajoute un bâtiment ci-dessus, ou une recherche depuis Empire.</div></li>`;
-  const pm = S.planets.reduce((a,p)=>{ const r=production(p); return [a[0]+r.m,a[1]+r.c,a[2]+r.d]; },[0,0,0]);
-  const hrs = Math.max(...tot.map((x,j)=>pm[j]>0?x/pm[j]:(x>0?Infinity:0)));
-  document.getElementById('plTot').innerHTML = `${costHtml(tot)} <span class="mono">· ${dur(tTime)} de chantier · ${dur(hrs*3600)} de production</span>`;
-},
 };
 
 /* ---------- events ---------- */
@@ -3047,20 +3237,18 @@ function bind(){
   on('dayNight','click',()=>{ S.day.night = !S.day.night; save(); render(); });
   on('addPlanet','click',()=>{ S.planets.push(newPlanet('Colonie '+S.planets.length,'1:1:'+(S.planets.length+4),20,{})); S.sample=false; save(); render(); });
   view.querySelectorAll('input[data-t]').forEach(el=>el.addEventListener('input',()=>{ S.tech[el.dataset.t]=Math.max(0,parseInt(el.value)||0); changed(); }));
-  view.querySelectorAll('[data-addt]').forEach(b=>b.addEventListener('click',()=>{ const k=b.dataset.addt; S.plan.push({type:'t',k,lvl:S.tech[k]+1}); save(); toast('Ajouté au plan'); }));
   view.querySelectorAll('[data-set]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k=el.dataset.set, s=S.settings;
     if(k==='ratio'){ const r=el.value.split(':').map(Number); if(r.length===3 && r.every(x=>x>0)) s.ratio=r; }
     else if(k==='cls') s.cls=el.value;
-    else if(['geo','eng','colCargo','lean','noshop','crawlerOverload'].includes(k)) s[k]=el.value==='1';
+    else if(['geo','eng','colCargo','lean','noshop','large','peau','clair','crawlerOverload'].includes(k)) s[k]=el.value==='1';
     else s[k]=Math.max(k==='top1'?0:1, parseFloat(el.value)||0);
     changed();
-    if(k==='lean' || k==='noshop') pushLook();
+    if(k==='lean' || k==='noshop' || k==='large' || k==='peau' || k==='clair') pushLook();
   }));
   view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.value==='1'; changed(); }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
   view.querySelectorAll('[data-ship]').forEach(el=>el.addEventListener('input',()=>{ S.fleetCalc.ships[el.dataset.ship]=Math.max(0,parseInt(el.value)||0); changed(); }));
-  on('plAdd','click',()=>{ const pid=document.getElementById('plP').value, k=document.getElementById('plB').value, lvl=Math.max(1,parseInt(document.getElementById('plL').value)||1); S.plan.push({type:'b',pid,k,lvl}); save(); refresh(); toast('Ajouté au plan'); });
   on('ioCopy','click',()=>{ const txt=JSON.stringify(S); const ta=document.getElementById('ioText'); ta.value=txt;
     (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>msg('Copié dans le presse-papiers')).catch(()=>{ ta.select(); msg('Sélectionné : copie-le manuellement'); }); });
   on('ioImport','click',()=>{ try{ const d=JSON.parse(document.getElementById('ioText').value); if(!d.planets||!d.settings) throw 0; S=Object.assign(sample(),d); S.sample=false; save(); render(); toast('Données importées'); }catch(e){ msg('Texte invalide : colle une sauvegarde complète'); } });
@@ -3071,26 +3259,15 @@ function bind(){
 view.addEventListener('click', e=>{
   // « Comment faire » se lit sans partir : seul le corps de la carte navigue.
   if(e.target.closest('button, a, summary, input, select, .how')) return;
-  const li = e.target.closest('li[data-go]'); if(!li) return;
+  // `closest` rend le plus proche : une coordonnée liée l'emporte sur la carte.
+  const li = e.target.closest('[data-go]'); if(!li) return;
   const url = li.dataset.go;
   if(IS_EXT) chrome.runtime.sendMessage({type:'go', url});
   else window.open(url, '_blank', 'noopener');
 });
-view.addEventListener('click',e=>{
-  const ab=e.target.closest('[data-addb]'); if(ab){ const [pid,k,l]=ab.dataset.addb.split(':'); S.plan.push({type:'b',pid,k,lvl:+l}); save(); toast('Ajouté au plan'); }
-  const rm=e.target.closest('[data-rm]'); if(rm){ S.plan.splice(+rm.dataset.rm,1); save(); refresh(); }
-  const up=e.target.closest('[data-up]'); if(up){ const i=+up.dataset.up; if(i>0){ [S.plan[i-1],S.plan[i]]=[S.plan[i],S.plan[i-1]]; save(); refresh(); } }
-});
 view.addEventListener('click', e=>{
   const cp = e.target.closest('[data-copos]');
   if(cp){ const [g,sy] = coloSystem(); S.colo.target = `${g}:${sy}:${cp.dataset.copos}`; save(); render(); return; }
-  const ca = e.target.closest('[data-coadd]');
-  if(ca){
-    const [kind,a,c] = ca.dataset.coadd.split(':');
-    if(kind==='t') S.plan.push({type:'t', k:a, lvl: a==='impulse' ? 3 : S.tech[a] + (S.tech[a]%2===0?1:2)});
-    else S.plan.push({type:'b', pid:a, k:c, lvl:4});
-    save(); toast('Ajouté au plan');
-  }
 });
 view.addEventListener('click', e=>{
   // Le ⓘ de la ligne du type ouvre son texte, posé plus bas dans la carte.
@@ -3111,6 +3288,11 @@ view.addEventListener('click', e=>{
   const dn = e.target.closest('[data-done]'); if(dn){ S.daily.done[dn.dataset.done] = Date.now();
     // Fait sur un espionnage : les cibles nommées sortent de la liste pour un jour.
     if(dn.dataset.mark) dn.dataset.mark.split(',').forEach(c=>{ S.raids[c] = {at:Date.now(), probe:true}; }); save(); refresh(); toast('Bien joué'); return; }
+  const no = e.target.closest('[data-no]'); if(no){ S.daily.no[no.dataset.no] = Date.now(); save(); refresh(); toast('Mis de côté'); return; }
+  const nc = e.target.closest('[data-noclear]'); if(nc){ S.daily.no = {}; save(); render(); toast('Cartes refusées remises'); return; }
+  const sm = e.target.closest('summary[data-fold]');
+  // Le repli bascule tout seul : on ne note que l'état où il va.
+  if(sm){ (S.ui.fold = S.ui.fold || {})[sm.dataset.fold] = !sm.parentElement.open; save(); return; }
   const rpp = e.target.closest('[data-raidprep]'); if(rpp){ S.raid = {coords:rpp.dataset.raidprep, name:rpp.dataset.raidname, m:0, c:0, d:0, safe:false}; save(); render(); return; }
   const rpc = e.target.closest('[data-raidclose]'); if(rpc){ S.raid = null; save(); render(); return; }
   const ct = e.target.closest('[data-cotarget]'); if(ct){ S.colo.target = ct.dataset.cotarget; save(); render(); toast('Destination de colonie mise à jour'); return; }
@@ -3248,7 +3430,16 @@ view.addEventListener('click', e=>{
   if(rmT){ S.timers = S.timers.filter(t=>t.id!==rmT.dataset.tmrm); save(); stopFlash(); renderTimers(); }
 });
 setInterval(tickTimers, 1000);
-setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); }, 30000);
+setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); else publieLePlan(); }, 30000);
+/** Recalcule le plan du jour pour la page du jeu, sans rien afficher.
+    `today` le publie en se dessinant ; ailleurs, c'est à nous de le faire.
+    Le dessin qui suit la publication écrit dans des éléments de l'onglet
+    Aujourd'hui, absents : il échoue, et c'est sans conséquence — la page a
+    déjà reçu ce qu'elle attendait. */
+function publieLePlan(){
+  if(!IS_EXT || tab === 'today') return;
+  try{ REFRESH.today(); }catch(e){}
+}
 
 
 /**
@@ -3305,6 +3496,7 @@ function applyGame(g){
     if(gp.crawlers != null) p.crawlers = gp.crawlers;
     if(gp.def != null) p.def = gp.def;
     if(gp.defs) p.defs = Object.assign({}, gp.defs);
+    if(gp.defsAt) p.defsAt = gp.defsAt;
     if(gp.energy != null){ p.eAdj = 0; p.eAdj = gp.energy - production(p).eBal; }
     if(gp.ships){ p.ships = Object.assign({}, gp.ships); p.shipsAt = gp.shipsAt || 0; }
     if(gp.stock && gp.stock.m != null && gp.stock.at !== p.stockGameAt){ p.stock = {...gp.stock}; p.stockGameAt = gp.stock.at; }
@@ -3318,7 +3510,24 @@ function applyGame(g){
     if(OG_TECH[t.techId]){ tm.kind='t'; tm.k=OG_TECH[t.techId]; tm.lvl=S.tech[tm.k]+1; }
     else if(OG_BUILD[t.techId] && pi>=0){ tm.kind='b'; tm.pid=S.planets[pi].id; tm.k=OG_BUILD[t.techId]; tm.lvl=S.planets[pi].b[tm.k]+1; }
     else if(t.type==='fleet'){ tm.kind='x'; tm.k = /exp/i.test(t.label) ? 'expo' : 'fleet'; tm.label = t.label; }
-    else { tm.kind='x'; tm.k = t.type==='shipyard' ? 'shipyard' : 'other'; tm.pid = (S.planets[pi]||{}).id; tm.label = t.label + (pi>=0 && S.planets.length>1 ? ` · ${S.planets[pi].name}` : ''); }
+    else {
+      tm.kind='x'; tm.k = t.type!=='shipyard' ? 'other' : +t.techId===212 ? 'sats' : 'shipyard';
+      tm.techId = t.techId || null;
+      tm.pid = (S.planets[pi]||{}).id;
+      tm.label = t.label + (pi>=0 && S.planets.length>1 ? ` · ${S.planets[pi].name}` : '');
+      /* Le jeu nomme ce que son chantier sort, jamais combien : « Grand
+         transporteur » peut en valoir un ou cent, et sa file enchaîne les lots
+         sans annoncer les suivants. On retient donc l'heure du lot : le compte
+         au sol ne vaut que jusque-là, et `chantierFlou` fait taire ce chantier
+         jusqu'à ce que la page le redise. Sans ça, le copilote reproposait ce
+         qui était déjà en construction, et la carte disparaissait au clic — au
+         moment où la page relue lui apprenait la vérité. */
+      if(t.type==='shipyard' && S.planets[pi]){
+        const q = S.planets[pi], id = +t.techId || 0, def = id>=400 && id<500;
+        if(!def) q.flotteFloue = Math.max(q.flotteFloue||0, tm.end);
+        if(def || !id) q.defFloue = Math.max(q.defFloue||0, tm.end);
+      }
+    }
     S.timers.push(tm);
   }
   S.timers = S.timers.filter(t=>t.game || !t.manual || !S.timers.some(g=>g.game && !g.done && g.kind===t.kind && g.k===t.k && (g.kind!=='b' || g.pid===t.pid)));
@@ -3348,6 +3557,12 @@ render();
    page sache l'écouter, auquel cas aucun changement de sélecteur ne viendra
    plus jamais le lui dire. */
 pushLook();
+/* Ce que la page du jeu affiche vient du plan, et le plan ne se publie que
+   depuis l'onglet Aujourd'hui. Un panneau rouvert sur Réglages laissait donc
+   la page avec le plan d'avant — et rien ne le disait. On le recalcule pour
+   elle, même quand on regarde ailleurs : le dessin ne doit pas dépendre de
+   l'onglet ouvert. */
+publieLePlan();
 if(window.__game) applyGame(window.__game);
 chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ API = ch.api.newValue; if(tab==='tools' && S.ui.tool==='explore') render(); } });
 
