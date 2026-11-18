@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.1';
+const APP_VERSION = '1.46.2';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -825,6 +825,89 @@ function production(p, ov){
           cap:[storageCap(b.smetal), storageCap(b.scrystal), storageCap(b.sdeut)]};
 }
 function mse(m,c,d){ const r=S.settings.ratio; return m + c*r[0]/r[1] + d*r[0]/r[2]; }
+
+/* ---------- la vocation d'une planète ---------- */
+/* Ce que le sol d'une planète lui donne de mieux ne se choisit pas : il se
+   lit. Et il ne se lit qu'en comparant les planètes entre elles. Comparer les
+   trois ressources d'une même planète ne dirait rien d'utile — au taux 3:2:1
+   le deutérium l'emporte presque partout, et les quinze planètes seraient
+   « deutérium ». Ce que le joueur cherche est une place dans son empire : LA
+   planète à cristal. */
+/* Niveau commun des trois mines pour la lecture de terrain. La valeur n'a pas
+   d'importance tant qu'elle est la même partout et qu'elle n'est pas nulle :
+   à zéro, les trois taux de deutérium valent zéro et il n'y a plus rien à
+   classer. */
+const TERRAIN_LVL = 20;
+/**
+ * Ce que le sol d'une planète donne, à niveaux égaux et sans bridage.
+ * Tout ce qui n'est pas le sol est neutralisé : la centrale de fusion, dont la
+ * consommation est retranchée du deutérium et qui se construit ; les foreuses
+ * et les satellites, qui se construisent aussi ; et le bonus de forme de vie,
+ * un forfait lu sur le jeu qui périme au bout de sept jours — le laisser
+ * entrer ferait changer une vocation toute seule le jour de la péremption.
+ * Il sort en privant la copie de son `gid`, la clé par laquelle `prodOf` le
+ * retrouve.
+ * @param {object} p planète
+ * @returns {{m:number, c:number, d:number}|null} null quand les coordonnées ne
+ *   se lisent pas : l'inconnu se dit, il ne se devine pas.
+ */
+function terrainRates(p){
+  if(!p || !parseC(p.coords)) return null;
+  const nu = Object.assign({}, p, {gid:null, crawlers:0, sats:0, eAdj:0});
+  const ov = {metal:TERRAIN_LVL, crystal:TERRAIN_LVL, deut:TERRAIN_LVL, fusion:0, crawlers:0, solar:p.b.solar};
+  /* Assez de centrales pour que rien ne soit bridé : un terrain se mesure à
+     plein régime, sinon il dirait l'énergie posée plutôt que le sol. Même
+     boucle bornée que rankUpgrades. */
+  let pr = production(nu, ov), garde = 0;
+  while(pr.factor < 1 && garde++ < 200){ ov.solar++; pr = production(nu, ov); }
+  return {m:pr.m, c:pr.c, d:pr.d};
+}
+const VOC_KEYS = ['metal', 'crystal', 'deut'];
+const VOC_RATE = {metal:'m', crystal:'c', deut:'d'};
+const VOC_NOM = {metal:'Métal', crystal:'Cristal', deut:'Deutérium'};
+/** La raison d'une vocation, en clair. Une vocation sans raison ne se conteste
+    pas, donc ne se croit pas. */
+function vocWhy(p, k, n){
+  const pos = (parseC(p.coords) || [])[2] || 0;
+  if(k === 'deut') return `${p.tmax} °C, la plus froide de tes ${n} planètes`;
+  const b = (k === 'metal' ? POS_BONUS_M : POS_BONUS_C)[pos] || 0;
+  return b ? `position ${pos}, +${Math.round(b*100)} % de ${k === 'metal' ? 'métal' : 'cristal'}`
+           : `position ${pos}, la meilleure de ton empire sans pour autant toucher de bonus`;
+}
+/**
+ * Quelle planète est première de l'empire sur quelle ressource.
+ * Une ressource sur laquelle toutes les planètes se valent ne donne de
+ * vocation à personne : rien ne les distingue, et en désigner une au hasard
+ * donnerait une raison fausse. Une planète peut n'être première nulle part, ou
+ * première sur deux ressources — les deux sont des informations vraies. Un
+ * empire d'une seule planète comparable n'a rien à comparer.
+ * @returns {object} par id de planète : {keys:string[], why:string}
+ */
+function vocations(){
+  const out = {}, lus = [];
+  for(const p of S.planets){
+    const r = terrainRates(p);
+    if(r) lus.push({p, r});
+    else out[p.id] = {keys:[], why:'vocation inconnue'};
+  }
+  if(lus.length < 2) return out;
+  for(const k of VOC_KEYS){
+    const f = VOC_RATE[k], vals = lus.map(x => x.r[f]);
+    const max = Math.max(...vals), min = Math.min(...vals);
+    /* Pas de dispersion, pas de vocation : POS_BONUS_C ne couvre que les
+       positions 1 à 3, donc un empire sans planète en 1, 2 ou 3 n'a pas de
+       planète à cristal, et le copilote le dit au lieu d'en sacrer une. */
+    if(!(max - min > Math.abs(max)*1e-9)) continue;
+    for(const x of lus) if(x.r[f] === max){
+      (out[x.p.id] || (out[x.p.id] = {keys:[], why:''})).keys.push(k);
+    }
+  }
+  for(const x of lus){
+    const e = out[x.p.id];
+    if(e) e.why = e.keys.map(k => vocWhy(x.p, k, lus.length)).join(' · ');
+  }
+  return out;
+}
 function stockNow(p){
   const pr = production(p), h = (Date.now()-p.stock.at)/36e5;
   return [Math.min(Math.max(p.stock.m, pr.cap[0]), p.stock.m + pr.m*h),

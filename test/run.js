@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -3993,6 +3993,54 @@ t('mines à 100 %, rien à dire', () => {
   g.S.prod = { colo1: Object.assign(g.parseProdPanel(PANNEAU_CARIBOU), { at: SOIR }) };
   assert.equal(g.bridage(p), null);
   assert.ok(!g.planetAlerts(p).some(x => /mines/i.test(x.what)));
+});
+
+/* ---------- la vocation d'une planète ---------- */
+/* Le sol ne se choisit pas : il se lit. Et il ne se lit qu'en comparant les
+   planètes entre elles — « la planète à cristal » est une place dans l'empire,
+   pas une valeur absolue. */
+
+t('la planète en 8 porte le métal, la colonie en 6 ne porte rien', () => {
+  const g = app();
+  const v = g.vocations();
+  assert.deepEqual(v.mere.keys, ['metal', 'deut'], 'mère première sur métal et deutérium');
+  assert.ok(!v.colo, 'la colonie n\'est première sur rien');
+});
+
+t('sans planète en position 1 à 3, personne ne porte le cristal', () => {
+  const g = app();
+  const v = g.vocations();
+  assert.ok(!Object.values(v).some(x => x.keys.includes('crystal')));
+});
+
+t('une planète en position 1 porte le cristal', () => {
+  const g = app(s => { s.planets[1].coords = '1:142:1'; s.planets[1].tmax = 240; });
+  assert.deepEqual(g.vocations().colo.keys, ['crystal']);
+});
+
+t('une planète seule n\'a pas de vocation', () => {
+  const g = app(s => { s.planets = [s.planets[0]]; });
+  assert.deepEqual(g.vocations(), {});
+});
+
+t('deux planètes au même terrain n\'ont aucune vocation', () => {
+  const g = app(s => { s.planets[1].coords = '1:143:8'; s.planets[1].tmax = 40; });
+  assert.deepEqual(g.vocations(), {});
+});
+
+t('des coordonnées illisibles donnent une vocation inconnue, sans fausser les autres', () => {
+  const g = app(s => {
+    s.planets.push(Object.assign({}, s.planets[1], { id: 'perdue', coords: 'ailleurs' }));
+  });
+  const v = g.vocations();
+  assert.deepEqual(v.perdue, { keys: [], why: 'vocation inconnue' });
+  assert.deepEqual(v.mere.keys, ['metal', 'deut'], 'la mère garde sa vocation');
+  assert.equal(g.terrainRates(g.S.planets[2]), null);
+});
+
+t('la vocation porte sa raison', () => {
+  const g = app();
+  assert.ok(/position 8/.test(g.vocations().mere.why), g.vocations().mere.why);
 });
 
 /* ---------- défense ---------- */
