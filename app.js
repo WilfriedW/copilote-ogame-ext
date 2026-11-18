@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.2';
+const APP_VERSION = '1.46.3';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -88,7 +88,7 @@ function sample(){
     ui:{tool:'colony', fold:{}},
     day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false},
     lf:{found:['humans','rocktal']},
-    roles:{}, raid:null, raids:{},
+    centre:null, raid:null, raids:{},
     daily:{done:{}, no:{}},
     colo:{fromId:null, objective:'balanced', bonus:0, target:'', kit:'std', tr:'sc', built:false, fields:'', fpos:''},
   };
@@ -119,7 +119,7 @@ S.tech = Object.assign(sample().tech, S.tech);
 S.day = Object.assign(sample().day, S.day);
 S.ui = Object.assign(sample().ui, S.ui);
 S.lf = Object.assign(sample().lf, S.lf);
-S.roles = S.roles || {}; S.raids = S.raids || {};
+S.raids = S.raids || {};
 migratePlanetIds();
 S.daily = Object.assign(sample().daily, S.daily);
 /* Une sauvegarde perdue en silence est pire qu'une erreur : l'écran montre la
@@ -159,6 +159,9 @@ function migratePlanetIds(){
   // La liste d'objectifs a disparu : rien ne la lisait. Ce qu'elle a laissé
   // dans les sauvegardes s'en va au premier chargement.
   delete S.plan;
+  // Le rôle par planète aussi : il n'était lu que par son propre menu, et le
+  // centre le remplace. Rien n'est perdu, puisque rien ne s'en servait.
+  delete S.roles;
   if(typeof S.colo.from === 'number'){ S.colo.fromId = idAt(S.colo.from); delete S.colo.from; }
   S.v = 2;
 }
@@ -2858,6 +2861,57 @@ function defMixList(p){ const m = defMix(p); return m ? shipList(m.cible) : ''; 
 function tournee(p){ const r = production(p); return mse(r.m, r.c, r.d) * Math.max(15,+S.day.interval||90)/60; }
 const ROLES = {hub:'Centre (recherche, flotte)', mines:'Mines', deut:'Deutérium', crystal:'Cristal et énergie'};
 function hubIndex(){ let best=0; S.planets.forEach((p,i)=>{ if(p.b.lab+p.b.shipyard > S.planets[best].b.lab+S.planets[best].b.shipyard) best=i; }); return best; }
+/* ---------- le centre ---------- */
+/* La planète où vivent le labo et le chantier. Le wiki l'appelle Vault Planet
+   et dit ce qu'on y fait : « should build most of your fleets, defenses, and
+   do most of the research ». Il en donne aussi les trois règles, et ce sont
+   elles qu'on applique ici : c'est la plus grande planète ; ce n'est pas la
+   planète mère, dont le nombre de cases est borné ; et un joueur de flotte
+   n'en veut pas, ses planètes devant rester dispersées.
+   Ce que ça corrige : `labP` prenait la planète au plus haut labo, donc, sur
+   un empire neuf où toutes sont à zéro, la première de la liste — la mère.
+   Le premier labo de la partie atterrissait par accident et y restait, la
+   règle se nourrissant d'elle-même. */
+/** L'index du centre dans S.planets, ou -1 quand l'empire n'en a pas. */
+function centreIndex(){
+  const P = S.planets;
+  /* Une planète seule n'est le centre de rien, et le joueur de flotte n'en
+     veut pas : dans les deux cas tout le reste retombe sur l'ancien
+     comportement. */
+  if(P.length < 2 || S.day.focus === 'fleet') return -1;
+  if(S.centre){ const i = planetIndexById(S.centre); if(i >= 0) return i; }
+  /* Les cases décident tant que rien n'est bâti, le bâti décide ensuite : un
+     bâtiment payé est payé, et en déplacer un coûterait tout ce qu'il a déjà
+     coûté. Le centre ne bouge donc jamais de lui-même. */
+  const bati = p => Math.max(p.b.lab||0, p.b.shipyard||0);
+  const cases = p => ((POS[(parseC(p.coords)||[])[2]] || {}).avg) || 0;
+  const pose = P.some(p => bati(p) > 0);
+  const note = p => pose ? bati(p) : cases(p);
+  const valeur = p => { const r = production(p); return mse(r.m, r.c, r.d); };
+  let best = 0;
+  for(let i = 1; i < P.length; i++){
+    const a = note(P[i]), b = note(P[best]);
+    /* À note égale la production départage ; à production égale, l'index le
+       plus grand l'emporte, c'est-à-dire une colonie plutôt que la mère. */
+    if(a > b || (a === b && valeur(P[i]) >= valeur(P[best]))) best = i;
+  }
+  return best;
+}
+/** Le centre, ou null. */
+function centrePlanet(){ const i = centreIndex(); return i >= 0 ? S.planets[i] : null; }
+/** Pourquoi le copilote a désigné cette planète, ou '' quand c'est le joueur
+    qui l'a désignée : une raison qu'on n'a pas donnée ne se conteste pas. */
+function centreWhy(){
+  const i = centreIndex();
+  if(i < 0 || (S.centre && planetIndexById(S.centre) === i)) return '';
+  const p = S.planets[i];
+  if(Math.max(p.b.lab||0, p.b.shipyard||0) > 0)
+    return p.b.lab >= p.b.shipyard
+      ? `elle porte déjà le labo ${p.b.lab} : le déplacer coûterait tout ce qu'il a coûté`
+      : `elle porte déjà le chantier ${p.b.shipyard} : le déplacer coûterait tout ce qu'il a coûté`;
+  const pos = (parseC(p.coords) || [])[2], avg = ((POS[pos] || {}).avg) || 0;
+  return avg ? `position ${pos}, ${avg} cases en moyenne : un centre est d'abord de la place` : '';
+}
 function autoRole(p, i){ if(i===hubIndex()) return 'hub'; const pos=(parseC(p.coords)||[])[2]||8; return pos>=13 ? 'deut' : pos<=3 ? 'crystal' : 'mines'; }
 function roleOf(p, i){ return (S.roles||{})[p.id] || autoRole(p, i); }
 /** Parses metal, crystal and deuterium from a pasted espionage report. */

@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -4041,6 +4041,51 @@ t('des coordonnées illisibles donnent une vocation inconnue, sans fausser les a
 t('la vocation porte sa raison', () => {
   const g = app();
   assert.ok(/position 8/.test(g.vocations().mere.why), g.vocations().mere.why);
+});
+
+/* ---------- le centre ---------- */
+/* Le wiki appelle ça une Vault Planet : la planète où vivent le labo et le
+   chantier. Il dit aussi que ce n'est pas la planète mère, et c'est pourtant
+   elle que le copilote prenait, parce qu'il prenait la première de la liste. */
+
+t('le centre est la planète qui porte déjà le labo', () => {
+  assert.equal(app().centrePlanet().id, 'mere');
+});
+
+t('sur un empire neuf, le centre est la planète qui a le plus de cases, pas la première', () => {
+  const g = app(s => {
+    s.planets[0].coords = '1:142:15'; s.planets[0].tmax = -110;
+    s.planets[0].b.lab = 0; s.planets[0].b.shipyard = 0;
+    s.planets[1].coords = '1:142:8'; s.planets[1].tmax = 40;
+  });
+  assert.equal(g.centrePlanet().id, 'colo', 'la position 8 a 204 cases, la 15 en a 127');
+});
+
+t('en stratégie flotte, il n\'y a pas de centre', () => {
+  const g = app(s => { s.day.focus = 'fleet'; });
+  assert.equal(g.centreIndex(), -1);
+  assert.equal(g.centrePlanet(), null);
+});
+
+t('une planète seule n\'est pas un centre', () => {
+  const g = app(s => { s.planets = [s.planets[0]]; });
+  assert.equal(g.centreIndex(), -1);
+});
+
+t('le joueur reprend la main', () => {
+  const g = app(s => { s.centre = 'colo'; });
+  assert.equal(g.centrePlanet().id, 'colo');
+  assert.equal(g.centreWhy(), '');
+});
+
+t('un centre qui ne répond plus retombe sur le choix automatique', () => {
+  const g = app(s => { s.centre = 'disparue'; });
+  assert.equal(g.centrePlanet().id, 'mere');
+});
+
+t('l\'ancien réglage de rôle est oublié au chargement', () => {
+  const g = app(s => { s.roles = { mere: 'crystal' }; });
+  assert.equal(g.S.roles, undefined);
 });
 
 /* ---------- défense ---------- */
