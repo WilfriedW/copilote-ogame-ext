@@ -4243,6 +4243,51 @@ t('la carte du chantier du centre dit pourquoi là', () => {
   assert.ok(/centre/i.test(a.why), 'la raison nomme le centre : ' + a.why);
 });
 
+/* ---------- les détails relevés à la relecture ---------- */
+
+t('la raison du deutérium ne promet pas un compte de planètes qu\'elle ne peut pas tenir', () => {
+  const g = app(s => {
+    s.planets.push(Object.assign({}, s.planets[1], { id: 'perdue', coords: 'ailleurs' }));
+  });
+  const why = g.vocations().mere.why;
+  assert.ok(!/de tes \d+ plan/.test(why), 'pas de compte, il serait faux : ' + why);
+});
+
+t('deux planètes aussi froides se disent à égalité', () => {
+  const g = app(s => {
+    s.planets[1].tmax = 40;
+    s.planets.push(Object.assign({}, s.planets[1], { id: 'chaude', coords: '1:142:3', tmax: 140 }));
+  });
+  const v = g.vocations();
+  assert.ok(v.mere.keys.includes('deut') && v.colo.keys.includes('deut'), 'les deux portent le deutérium');
+  assert.ok(/égalité/.test(v.mere.why), 'le superlatif se partage : ' + v.mere.why);
+});
+
+t('la raison du centre ne disparaît pas quand le joueur confirme le conseil', () => {
+  const g = app(s => { s.centre = 'mere'; });
+  assert.equal(g.centreIndex(), 0);
+  assert.ok(g.centreWhy(), 'confirmer le conseil ne doit pas faire taire sa raison');
+});
+
+t('retirer le centre emporte le réglage', () => {
+  const g = app(s => { s.centre = 'colo'; });
+  g.forgetPlanet('colo');
+  assert.equal(g.S.centre, null, 'un id mort ne doit pas rester en sauvegarde');
+});
+
+t('une planète seule dit qu\'il n\'y a rien à comparer', () => {
+  const h = app(s => { s.planets = [s.planets[0]]; }).VIEWS.planets();
+  assert.ok(/rien à comparer/.test(h), 'le message dit la vérité : ' + h.slice(0, 300));
+  assert.ok(!/aucune autre/.test(h), 'il n\'y a pas d\'autre planète dont la distinguer');
+});
+
+t('la ligne de vocation se remet à jour sans tout redessiner', () => {
+  const g = app();
+  g.REFRESH.planets();
+  assert.ok(/[Mm]étal/.test(g.html()['pvoc-0'] || ''),
+    'la vocation suit un changement de coordonnées sans attendre un rendu complet');
+});
+
 /* ---------- défense ---------- */
 /* Ce qui manquait : le plan ne proposait jamais de défense, et une planète
    pleine restait une ferme gratuite. On vérifie les trois états de p.def :

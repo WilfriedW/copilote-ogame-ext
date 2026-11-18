@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.8';
+const APP_VERSION = '1.46.9';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -143,6 +143,7 @@ function forgetPlanet(id){
   S.planets = S.planets.filter(p => p.id !== id);
   S.timers = (S.timers || []).filter(t => t.pid !== id);
   if(S.colo.fromId === id) S.colo.fromId = null;
+  if(S.centre === id) S.centre = null;
 }
 
 /* Les rangs enregistrés deviennent des identités. Un rang écrit hier ne
@@ -878,13 +879,22 @@ const VOC_KEYS = ['metal', 'crystal', 'deut'];
 const VOC_RATE = {metal:'m', crystal:'c', deut:'d'};
 const VOC_NOM = {metal:'Métal', crystal:'Cristal', deut:'Deutérium'};
 /** La raison d'une vocation, en clair. Une vocation sans raison ne se conteste
-    pas, donc ne se croit pas. */
-function vocWhy(p, k, n){
+    pas, donc ne se croit pas — et une raison doit rester vraie : pas de compte
+    de planètes, qui laisserait dehors celles dont on ne sait rien, et pas de
+    superlatif pour une seule quand deux le partagent.
+    @param {object} p la planète
+    @param {string} k la ressource
+    @param {object[]} tenants toutes les planètes premières sur cette ressource */
+function vocWhy(p, k, tenants){
   const pos = (parseC(p.coords) || [])[2] || 0;
-  if(k === 'deut') return `${p.tmax} °C, la plus froide de tes ${n} planètes`;
+  if(k === 'deut'){
+    const autres = tenants.filter(x => x !== p);
+    return `${p.tmax} °C, la plus froide de ton empire`
+      + (autres.length ? ` à égalité avec ${autres.map(planetRef).join(', ')}` : '');
+  }
   const b = (k === 'metal' ? POS_BONUS_M : POS_BONUS_C)[pos] || 0;
   return b ? `position ${pos}, +${Math.round(b*100)} % de ${k === 'metal' ? 'métal' : 'cristal'}`
-           : `position ${pos}, la meilleure de ton empire sans pour autant toucher de bonus`;
+           : `position ${pos}`;
 }
 /**
  * Quelle planète est première de l'empire sur quelle ressource.
@@ -903,6 +913,7 @@ function vocations(){
     else out[p.id] = {keys:[], why:'vocation inconnue'};
   }
   if(lus.length < 2) return out;
+  const tenants = {};
   for(const k of VOC_KEYS){
     const f = VOC_RATE[k], vals = lus.map(x => x.r[f]);
     const max = Math.max(...vals), min = Math.min(...vals);
@@ -910,13 +921,12 @@ function vocations(){
        positions 1 à 3, donc un empire sans planète en 1, 2 ou 3 n'a pas de
        planète à cristal, et le copilote le dit au lieu d'en sacrer une. */
     if(!(max - min > Math.abs(max)*1e-9)) continue;
-    for(const x of lus) if(x.r[f] === max){
-      (out[x.p.id] || (out[x.p.id] = {keys:[], why:''})).keys.push(k);
-    }
+    tenants[k] = lus.filter(x => x.r[f] === max).map(x => x.p);
+    for(const q of tenants[k]) (out[q.id] || (out[q.id] = {keys:[], why:''})).keys.push(k);
   }
   for(const x of lus){
     const e = out[x.p.id];
-    if(e) e.why = e.keys.map(k => vocWhy(x.p, k, lus.length)).join(' · ');
+    if(e) e.why = e.keys.map(k => vocWhy(x.p, k, tenants[k])).join(' · ');
   }
   return out;
 }
@@ -1629,7 +1639,7 @@ function pickBuildings(p, ctx){
     if(p.b.robot<2) add('robot', 'Prérequis du chantier spatial.' + centreNote());
     else add('shipyard', 'Prérequis du vaisseau de colonisation.' + centreNote());
   }
-  if(ctx.labNeed && p===ctx.labP && p.b.lab<ctx.labNeed && !ctx.researchRunning) add('lab', 'Débloque la recherche suivante.' + centreNote());
+  if(ctx.labNeed && p===ctx.labP && p.b.lab<ctx.labNeed && !ctx.researchRunning) add('lab', POURQUOI_LABO + centreNote());
   if(needsOwnCargo(p, ctx.hub) && p.b.shipyard < 2){
     if(p.b.robot < 2) add('robot', 'Prérequis du chantier spatial');
     else add('shipyard', 'Pour que cette colonie ait ses propres transporteurs');
@@ -1753,7 +1763,7 @@ function simulateDay(){
       const nr = nextResearch();
       if(nr.labNeed && labP.b.lab<nr.labNeed && labP.bq<=Tm && sim.rq<=Tm){
         const c = levelCost(B.lab, labP.b.lab+1);
-        if(can(labP,c,reserveOf(labP,Tm))){ pay(labP,c); const d=buildTime('lab',labP.b.lab+1,labP), L=labP.b.lab+1, pp=labP; pp.bq=Tm+d; pp.bqKey='lab'; sim.ev.push({at:Tm+d, fn:()=>{ pp.b.lab=Math.max(pp.b.lab,L); }}); acts.push({q:'Bâtiment · '+planetRef(pp), what:`${B.lab.n} ${L}`, why:'Débloque la recherche suivante.' + centreNote(), cost:c, dur:d, end:Tm+d, kind:'b', k:'lab', lvl:L, p:pp.i}); }
+        if(can(labP,c,reserveOf(labP,Tm))){ pay(labP,c); const d=buildTime('lab',labP.b.lab+1,labP), L=labP.b.lab+1, pp=labP; pp.bq=Tm+d; pp.bqKey='lab'; sim.ev.push({at:Tm+d, fn:()=>{ pp.b.lab=Math.max(pp.b.lab,L); }}); acts.push({q:'Bâtiment · '+planetRef(pp), what:`${B.lab.n} ${L}`, why:POURQUOI_LABO + centreNote(), cost:c, dur:d, end:Tm+d, kind:'b', k:'lab', lvl:L, p:pp.i}); }
       }
       const labBusy = labP.bq>Tm && labP.bqKey==='lab';
       const launchR = (R, why)=>{ const c=levelCost(T[R.k],R.lvl); pay(labP,c); const d=researchTime(R.k,R.lvl), k=R.k, L=R.lvl; sim.rq=Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ sim.tech[k]=Math.max(sim.tech[k],L); }}); acts.push({q:'Recherche · '+planetRef(labP), what:`${T[k].n} ${L}`, why: [why, R.why].filter(Boolean).join(' '), cost:c, dur:d, end:Tm+d, kind:'t', k, lvl:L, p:labP.i}); };
@@ -2939,6 +2949,9 @@ function cargoHomeIndex(){
 }
 /** Ce qu'on ajoute à la raison d'un bâtiment d'empire : pourquoi là et pas
     ailleurs. Vide quand l'empire n'a pas de centre. */
+/* La même phrase sur la carte du plan et sur celle de pickBuildings : écrite
+   deux fois, elles auraient dérivé. */
+const POURQUOI_LABO = 'Débloque la recherche suivante.';
 function centreNote(){ return centreIndex() >= 0 ? ' Ton centre : c\'est de là que partent tes recherches et tes vaisseaux.' : ''; }
 /** Le centre, ou null. */
 function centrePlanet(){ const i = centreIndex(); return i >= 0 ? S.planets[i] : null; }
@@ -2946,7 +2959,10 @@ function centrePlanet(){ const i = centreIndex(); return i >= 0 ? S.planets[i] :
     qui l'a désignée : une raison qu'on n'a pas donnée ne se conteste pas. */
 function centreWhy(){
   const i = centreIndex();
-  if(i < 0 || (S.centre && planetIndexById(S.centre) === i)) return '';
+  /* Elle ne se tait que si le joueur a choisi autrement que le conseil :
+     confirmer le conseil ne doit pas faire disparaître sa raison au moment
+     même où il est d'accord avec elle. */
+  if(i < 0 || i !== centreIndex(true)) return '';
   const p = S.planets[i];
   if((p.b.lab||0) > 0) return `elle porte déjà le labo ${p.b.lab} : le déplacer coûterait tout ce qu'il a coûté`;
   const pos = (parseC(p.coords) || [])[2], avg = ((POS[pos] || {}).avg) || 0;
@@ -2982,10 +2998,17 @@ function raidPlan(){
 const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte']];
 function toolTab(){ return TOOLS.some(([k])=>k===S.ui.tool) ? S.ui.tool : 'colony'; }
 
+/** Ce que la carte du centre dit sous la case : le risque que le wiki nomme,
+    et ce qu'un centre sans labo laisse derrière lui. Vide ailleurs. */
+function centreNoteHtml(p, i, ci){
+  return i === ci ? `Un espionnage montre où tu bases ta flotte : mets-la à l'abri comme ailleurs.${labLaisse(p)}` : '';
+}
 /** La vocation d'une planète, en une pastille et sa raison. Rien à dire est
     aussi une information : rien ne distingue cette planète des autres. */
 function vocHtml(v){
-  if(!v) return '<span class="note">Pas de vocation marquée : son sol ne la distingue d\'aucune autre.</span>';
+  if(!v) return `<span class="note">${S.planets.length < 2
+    ? 'Une seule planète : rien à comparer pour l\'instant.'
+    : 'Pas de vocation marquée : son sol ne la distingue d\'aucune autre.'}</span>`;
   const nom = v.keys.length ? v.keys.map(k=>VOC_NOM[k]).join(' et ') : 'Vocation inconnue';
   return `<span class="pill info">${nom}</span>${v.why?`<span class="note">${esc(v.why)}</span>`:''}`;
 }
@@ -3072,13 +3095,13 @@ planets(){
         ${S.planets.length>1?`<button class="btn sm ghost" data-del="${i}">Retirer</button>`:''}
       </div>
       <div class="res" id="pres-${i}"></div>
-      <div class="row" style="gap:8px">${vocHtml(voc[p.id])}</div>
+      <div class="row" style="gap:8px" id="pvoc-${i}">${vocHtml(voc[p.id])}</div>
       <div class="row" style="gap:8px">${ci<0
         ? `<span class="note">${S.day.focus==='fleet'
             ? 'Stratégie flotte : pas de centre, tes planètes doivent rester dispersées.'
             : 'Un centre se choisit entre plusieurs planètes.'}</span>`
         : `<label class="f" style="width:auto"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>${i===ci&&centreWhy()?`<span class="note">${esc(centreWhy())}</span>`:''}`}</div>
-      ${i===ci?`<p class="note" style="margin:0">Un espionnage montre où tu bases ta flotte : mets-la à l'abri comme ailleurs.${labLaisse(p)}</p>`:''}
+      <p class="note" style="margin:0" id="pctrn-${i}">${centreNoteHtml(p, i, ci)}</p>
       <p class="note" id="pfleet-${i}" style="margin:0"></p>
       <details><summary class="note">Niveaux des bâtiments et stock</summary>
       <div class="grid tight" style="margin-top:8px">
@@ -3329,6 +3352,7 @@ explore(){
 },
 planets(){
   let tm=0,tc=0,td=0, worst=1;
+  const voc = vocations(), ci = centreIndex();
   S.planets.forEach((p,i)=>{
     const pr=production(p); tm+=pr.m; tc+=pr.c; td+=pr.d; worst=Math.min(worst,pr.factor);
     const st=stockNow(p), full = i2 => { const r=[pr.m,pr.c,pr.d][i2]; return r>0 && st[i2]<pr.cap[i2] ? `plein dans ${dur((pr.cap[i2]-st[i2])/r*3600)}` : (st[i2]>=pr.cap[i2]?'hangar plein':''); };
@@ -3337,6 +3361,12 @@ planets(){
       gauge('e','e','Énergie',(pr.eBal>=0?'+':'')+fmt(pr.eBal), `${fmt(pr.eProd)} produits / ${fmt(pr.eCons)}${p.eAdj<0?` · dont ${fmt(p.eAdj)} formes de vie`:''}`) +
       crawlerPill(p);
     const fl = document.getElementById('pfleet-'+i); if(fl){ const l = shipList(p.ships); fl.innerHTML = l ? `<b>Flotte à quai :</b> ${esc(l)}` : (IS_EXT ? 'Flotte inconnue : ouvre la page Flotte du jeu sur cette planète.' : ''); }
+    /* La vocation et la note du centre suivent les coordonnées, la température
+       et les niveaux qu'on tape dans la carte : sans ça elles restaient
+       périmées jusqu'au prochain rendu complet. On ne réécrit que du texte —
+       la case du centre garde son écouteur, qu'un innerHTML emporterait. */
+    const vq = document.getElementById('pvoc-'+i); if(vq) vq.innerHTML = vocHtml(voc[p.id]);
+    const cn = document.getElementById('pctrn-'+i); if(cn) cn.innerHTML = centreNoteHtml(p, i, ci);
   });
   document.getElementById('empireRes').innerHTML = gauge('m','m','Métal',fmt(tm),fmt(tm*24)+' / jour')+gauge('c','c','Cristal',fmt(tc),fmt(tc*24)+' / jour')+gauge('d','d','Deutérium',fmt(td),fmt(td*24)+' / jour')+gauge('e','e','Planètes',S.planets.length,`max ${1+Math.ceil(S.tech.astro/2)} (Astro ${S.tech.astro})`);
   document.getElementById('empireFactor').innerHTML = factorPill(worst);
