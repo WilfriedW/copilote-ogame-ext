@@ -5137,6 +5137,34 @@ t('la priorité de recherche épargne pour le pas lançable, pas pour la cible l
     'et aucun hangar n\'est réclamé pour un prix qui n\'est pas encore au programme');
 });
 
+t('une priorité de recherche qui épargne n\'accepte pas un second objectif', () => {
+  /* `reserveOf` additionne les objectifs d'une planète : deux réserves sur le
+     centre et il n'achète plus rien jusqu'à ce que les deux soient payables.
+     L'objectif d'une priorité de recherche porte la clé `t:`, pas `prio:` —
+     reconnaître le joueur à la clé laissait le vaisseau de colonisation poser
+     la sienne à côté. Le stock ne paie ni Plasma 5 (32 k / 64 k / 16 k) ni le
+     vaisseau (10 k / 20 k / 10 k) : les deux voudraient épargner. */
+  const p = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:5}];
+    prePlasma(s); s.tech.plasma = 4;
+    s.planets[0].stock = {m:20000, c:40000, d:5000, at:SOIR}; }).simulateDay();
+  assert.deepEqual(p.sessions[0].goals.map(g => g.key), ['t:plasma5'],
+    'la priorité épargne, seule');
+});
+
+t('la place de la priorité de recherche est gardée avant même qu\'elle épargne', () => {
+  /* Un labo en chantier fait sortir `tryResearch` avant tout : l'objectif de la
+     priorité n'est pas encore posé. Rien ne lâchant un objectif avant qu'il soit
+     payé, celui que le vaisseau de colonisation poserait ici tiendrait la réserve
+     pour des jours, et la priorité s'ajouterait par-dessus. La place se garde
+     donc à la priorité vivante, pas à l'objectif déjà posé. */
+  const p = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:5}];
+    prePlasma(s); s.tech.plasma = 4;
+    s.planets[0].stock = {m:20000, c:40000, d:5000, at:SOIR};
+    s.timers = [{id:'b1', kind:'b', pid:'mere', k:'lab', lvl:6, end:SOIR + 3 * 3600e3}]; }).simulateDay();
+  assert.deepEqual(p.sessions[0].goals.map(g => g.key), [],
+    'aucun objectif ne prend la place');
+});
+
 t('une priorité de recherche trop chère pour le hangar fait sortir le hangar', () => {
   /* Plasma 6 demande 128 k de cristal, le Hangar C 3 de la mère en loge 75 k :
      `wait` rendrait Infinity, `setGoal` null, et la priorité disparaîtrait sans

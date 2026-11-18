@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.49.0';
+const APP_VERSION = '1.49.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1933,6 +1933,16 @@ function simulateDay(){
         if(can(labP,c,reserveOf(labP,Tm))){ pay(labP,c); const d=buildTime('lab',labP.b.lab+1,labP), L=labP.b.lab+1, pp=labP; pp.bq=Tm+d; pp.bqKey='lab'; sim.ev.push({at:Tm+d, fn:()=>{ pp.b.lab=Math.max(pp.b.lab,L); }}); acts.push({q:'Bâtiment · '+planetRef(pp), what:`${B.lab.n} ${L}`, why:POURQUOI_LABO + centreNote(), cost:c, dur:d, end:Tm+d, kind:'b', k:'lab', lvl:L, p:pp.i}); }
       }
       const labBusy = labP.bq>Tm && labP.bqKey==='lab';
+      /* « Devant, seule » : rien ne s'empile sur une planète où une priorité du
+         joueur épargne. L'objectif d'une priorité de recherche porte la clé
+         `t:`, comme n'importe quelle recherche, donc `epargnePrio` ne le
+         reconnaît pas à sa clé — et un labo occupé peut retarder sa pose d'une
+         session ou deux, le temps qu'un objectif spontané s'installe et n'en
+         reparte plus, puisque rien ne le lâche avant qu'il soit payé. La
+         question se pose donc à la priorité elle-même. `tryResearch`, lui,
+         continue de n'interroger que `epargnePrio` : c'est lui qui pose
+         l'objectif de cette priorité, il ne peut pas se l'interdire. */
+      const prioDevant = p => epargnePrio(p) || (p === labP && !!(nr.list[0] || {}).prio);
       const launchR = (R, why)=>{ const c=levelCost(T[R.k],R.lvl); pay(labP,c); const d=researchTime(R.k,R.lvl), k=R.k, L=R.lvl; sim.rq=Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ sim.tech[k]=Math.max(sim.tech[k],L); }}); acts.push({q:'Recherche · '+planetRef(labP), what:`${T[k].n} ${L}`, why: [why, R.why].filter(Boolean).join(' '), cost:c, dur:d, end:Tm+d, kind:'t', k, lvl:L, p:labP.i}); };
       const tryResearch = phase=>{
         if(sim.rq>Tm || !nr.k || labBusy) return;
@@ -2027,7 +2037,7 @@ function simulateDay(){
       if(wantColony && !sim.colShip && sim.tech.impulse>=3 && dep.b.shipyard>=4 && dep.sq<=Tm && !(dep.bq>Tm && dep.bqKey==='shipyard')){
         const c = COL_SHIP_COST, key='ship:col', mine = goals.find(g=>g.key===key);
         if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*S.settings.eco)*3600; dep.sq=Tm+d; sim.colShip=true; sim.colReady=Tm+d; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'', cost:c, dur:d, end:Tm+d, kind:'ship', p:dep.i}); }
-        else { if(!epargnePrio(dep)) setGoal(key, 'le vaisseau de colonisation', c, dep, Tm); waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), miss:missOf(dep,c), kind:'ship', p:dep.i}); }
+        else { if(!prioDevant(dep)) setGoal(key, 'le vaisseau de colonisation', c, dep, Tm); waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), miss:missOf(dep,c), kind:'ship', p:dep.i}); }
       }
       if(wantColony && sim.colShip && sim.colReady<=Tm && !refused(moveKey('fleet', (real.planets[dep.i]||{}).id, target))){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight, kind:'fleet', p:dep.i, dest:target, mission:7, ships:{col:1}}); }
       const hubP = P[centreIndex()] || P[Math.min(hubIndex(), P.length-1)];
