@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -4162,6 +4162,26 @@ t('une colonie monte son chantier pour ses propres transporteurs, centre ou pas'
   g.S.planets[1].stock = { m: cap * 0.75, c: cap * 0.75, d: cap * 0.75, at: SOIR };
   const b = g.simulateDay().sessions.flatMap(x => x.acts).filter(x => x.kind === 'b' && x.p === 1);
   assert.ok(b.some(x => x.k === 'shipyard'), 'la règle locale survit au centre : ' + b.map(x => x.k).join(','));
+});
+
+/* ---------- la carte de planète ---------- */
+
+t('la carte d\'une planète porte sa vocation et sa raison', () => {
+  const h = app().VIEWS.planets();
+  assert.ok(/[Mm]étal/.test(h) && /position 8/.test(h), 'la vocation et sa raison sont écrites');
+});
+
+t('la carte du centre dit le risque', () => {
+  assert.ok(/espionnage/i.test(app().VIEWS.planets()), 'le risque du centre est dit');
+});
+
+t('un centre sans labo dit ce que le choix coûte', () => {
+  const g = app(s => { s.centre = 'colo'; });
+  assert.ok(/ne suit pas/.test(g.VIEWS.planets()), 'la carte annonce le labo laissé derrière');
+});
+
+t('le menu de rôle a disparu', () => {
+  assert.ok(!/data-role=/.test(app().VIEWS.planets()), 'plus de menu Rôle');
 });
 
 /* ---------- défense ---------- */

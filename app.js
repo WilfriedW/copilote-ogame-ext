@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.6';
+const APP_VERSION = '1.46.7';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -2878,7 +2878,6 @@ function defNeed(p, lot){
 function defMixList(p){ const m = defMix(p); return m ? shipList(m.cible) : ''; }
 /** Ce que cette planète produit entre deux connexions, en métal. */
 function tournee(p){ const r = production(p); return mse(r.m, r.c, r.d) * Math.max(15,+S.day.interval||90)/60; }
-const ROLES = {hub:'Centre (recherche, flotte)', mines:'Mines', deut:'Deutérium', crystal:'Cristal et énergie'};
 function hubIndex(){ let best=0; S.planets.forEach((p,i)=>{ if(p.b.lab+p.b.shipyard > S.planets[best].b.lab+S.planets[best].b.shipyard) best=i; }); return best; }
 /* ---------- le centre ---------- */
 /* La planète où vivent le labo et le chantier. Le wiki l'appelle Vault Planet
@@ -2892,13 +2891,13 @@ function hubIndex(){ let best=0; S.planets.forEach((p,i)=>{ if(p.b.lab+p.b.shipy
    Le premier labo de la partie atterrissait par accident et y restait, la
    règle se nourrissant d'elle-même. */
 /** L'index du centre dans S.planets, ou -1 quand l'empire n'en a pas. */
-function centreIndex(){
+function centreIndex(auto){
   const P = S.planets;
   /* Une planète seule n'est le centre de rien, et le joueur de flotte n'en
      veut pas : dans les deux cas tout le reste retombe sur l'ancien
      comportement. */
   if(P.length < 2 || S.day.focus === 'fleet') return -1;
-  if(S.centre){ const i = planetIndexById(S.centre); if(i >= 0) return i; }
+  if(!auto && S.centre){ const i = planetIndexById(S.centre); if(i >= 0) return i; }
   /* Les cases décident tant que rien n'est bâti, le bâti décide ensuite : un
      bâtiment payé est payé, et en déplacer un coûterait tout ce qu'il a déjà
      coûté. Le centre ne bouge donc jamais de lui-même. */
@@ -2945,8 +2944,6 @@ function centreWhy(){
   const pos = (parseC(p.coords) || [])[2], avg = ((POS[pos] || {}).avg) || 0;
   return avg ? `position ${pos}, ${avg} cases en moyenne : un centre est d'abord de la place` : '';
 }
-function autoRole(p, i){ if(i===hubIndex()) return 'hub'; const pos=(parseC(p.coords)||[])[2]||8; return pos>=13 ? 'deut' : pos<=3 ? 'crystal' : 'mines'; }
-function roleOf(p, i){ return (S.roles||{})[p.id] || autoRole(p, i); }
 /** Parses metal, crystal and deuterium from a pasted espionage report. */
 function parseReport(txt){
   const num = label=>{ const m = String(txt).match(new RegExp(label+'\\s*:?\\s*(\\d[\\d.,]*)\\s*(Mn|M|k|K)?', 'i')); if(!m) return null; const suf = m[2]||''; if(/m/i.test(suf)) return Math.round(parseFloat(m[1].replace(/\./g,'').replace(',','.'))*1e6); if(/k/i.test(suf)) return Math.round(parseFloat(m[1].replace(/\./g,'').replace(',','.'))*1e3); return +m[1].replace(/[.,]/g,'') || 0; };
@@ -2977,6 +2974,20 @@ function raidPlan(){
 const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte']];
 function toolTab(){ return TOOLS.some(([k])=>k===S.ui.tool) ? S.ui.tool : 'colony'; }
 
+/** La vocation d'une planète, en une pastille et sa raison. Rien à dire est
+    aussi une information : rien ne distingue cette planète des autres. */
+function vocHtml(v){
+  if(!v) return '<span class="note">Pas de vocation marquée : son sol ne la distingue d\'aucune autre.</span>';
+  const nom = v.keys.length ? v.keys.map(k=>VOC_NOM[k]).join(' et ') : 'Vocation inconnue';
+  return `<span class="pill info">${nom}</span>${v.why?`<span class="note">${esc(v.why)}</span>`:''}`;
+}
+/** Ce qu'un centre sans labo laisse derrière lui. Le copilote obéit au joueur,
+    mais il ne lui cache pas qu'un labo déjà payé ne suivra pas. */
+function labLaisse(p){
+  const autre = S.planets.filter(x=>x!==p).reduce((a,x)=>(!a || (x.b.lab||0)>(a.b.lab||0)) ? x : a, null);
+  if(!autre || (autre.b.lab||0) <= (p.b.lab||0)) return '';
+  return ` Le labo ${autre.b.lab} de ${esc(planetRef(autre))} ne suit pas : repartir d'un labo 1 ici coûterait ${fmt(mse(...rangeCost(B.lab, 0, autre.b.lab)))} en équivalent métal.`;
+}
 const VIEWS = {
 /* Ce que le joueur vient chercher, c'est la carte à suivre maintenant : elle
    seule reste dépliée. Le reste — la journée qui vient, les minuteurs — se
@@ -3043,7 +3054,7 @@ planets(){
       <div id="impReport"></div>
     </details>`}
     <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div></div>
-    ${S.planets.map((p,i)=>`
+    ${(()=>{ const voc = vocations(), ci = centreIndex(), auto = centreIndex(true); return S.planets.map((p,i)=>`
     <div class="card" data-pi="${i}">
       <div class="planet-head">
         <input id="pn-${p.id}" data-p="name" value="${esc(p.name)}" aria-label="Nom de la planète">
@@ -3053,7 +3064,9 @@ planets(){
         ${S.planets.length>1?`<button class="btn sm ghost" data-del="${i}">Retirer</button>`:''}
       </div>
       <div class="res" id="pres-${i}"></div>
-      <div class="row" style="gap:8px"><span class="note">Rôle</span><select id="prole-${p.id}" data-role="${p.id}" style="width:auto">${Object.entries(ROLES).map(([k,l])=>`<option value="${k}" ${roleOf(p,i)===k?'selected':''}>${l}${autoRole(p,i)===k?' (conseillé)':''}</option>`).join('')}</select></div>
+      <div class="row" style="gap:8px">${vocHtml(voc[p.id])}</div>
+      <div class="row" style="gap:8px"><label class="f" style="width:auto"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>${i===ci&&centreWhy()?`<span class="note">${esc(centreWhy())}</span>`:''}</div>
+      ${i===ci?`<p class="note" style="margin:0">Un espionnage montre où tu bases ta flotte : mets-la à l'abri comme ailleurs.${labLaisse(p)}</p>`:''}
       <p class="note" id="pfleet-${i}" style="margin:0"></p>
       <details><summary class="note">Niveaux des bâtiments et stock</summary>
       <div class="grid tight" style="margin-top:8px">
@@ -3066,7 +3079,7 @@ planets(){
           <label class="f">Deutérium<input id="sd-${p.id}" type="number" data-s="d" value="${Math.round(stockNow(p)[2])}"></label>
       </div><p class="note" style="margin-top:6px">Le stock avance tout seul avec ta production. Recale-le quand tu dépenses.</p>
       </details>
-    </div>`).join('')}
+    </div>`).join(''); })()}
     <div class="row"><button class="btn" id="addPlanet">Ajouter une colonie</button>
     <span class="note" id="colonyNote"></span></div>
   </section>`;
@@ -3389,7 +3402,10 @@ colony(){
 
 /* ---------- events ---------- */
 function bind(){
-  view.querySelectorAll('[data-role]').forEach(el=>el.addEventListener('change',()=>{ S.roles[el.dataset.role]=el.value; save(); refresh(); }));
+  /* Un centre et un seul : cocher ici décoche ailleurs, et comme le choix
+     déplace le « (conseillé) » des autres cartes et tout le plan, la vue se
+     redessine au lieu de se rafraîchir. */
+  view.querySelectorAll('[data-centre]').forEach(el=>el.addEventListener('change',()=>{ S.centre = el.checked ? el.dataset.centre : null; save(); render(); }));
   view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ const r=parseReport(el.value); if(r.some(x=>x!=null)){ S.raid.m=r[0]||0; S.raid.c=r[1]||0; S.raid.d=r[2]||0; S.raid.at=Date.now(); save(); render(); } return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); if(k!=='safe') S.raid.at=Date.now(); save(); REFRESH.explore(); }));
   view.querySelectorAll('[data-lf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.lf, f=new Set(S.lf.found); el.checked ? f.add(k) : f.delete(k); S.lf.found=[...f]; save(); render(); }));
   view.querySelectorAll('[data-day]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
