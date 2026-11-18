@@ -1,0 +1,26 @@
+Rapport d`espionnage de Planète Chantier [2:88:4]
+De: Contrôle aérospatial
+Joueur: Dormeur (i)
+Ressources: 184500
+Butin: 50%
+Ressources
+Métal
+120.000
+Cristal
+48.000
+Deutérium
+16.500
+Nourriture
+0
+Population
+0
+Energie
+1.200
+Flottes
+Réparations en cours
+Aucune donnée fiable n`a pu être détectée pour ce type en scannant.
+Défense
+Bâtiment
+Usine de robots
+8
+Commentaires

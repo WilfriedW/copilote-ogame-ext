@@ -1,0 +1,37 @@
+Rapport d`espionnage de Planète Knowhere [1:65:12]
+De: Contrôle aérospatial
+Joueur: Clyde (ph)
+Classe: L`explorateur
+Classe d`alliance: Guerrier (alliance)
+Ressources: 0
+Probabilité de contre-espionnage : 0 %
+Butin: 75%
+Le scanner des sondes a détecté des anomalies dans l`atmosphère de cette planète, indiquant qu`il y a eu une activité sur cette planète dans les 20 dernières minutes.
+Ressources
+Métal
+0
+Cristal
+0
+Deutérium
+0
+Nourriture
+55.310
+Population
+55.172.982
+Energie
+5.263
+Flottes
+Aucune donnée fiable n`a pu être détectée pour ce type en scannant.
+Réparations en cours
+Aucune donnée fiable n`a pu être détectée pour ce type en scannant.
+Défense
+Aucune donnée fiable n`a pu être détectée pour ce type en scannant.
+Bâtiment
+Aucune donnée fiable n`a pu être détectée pour ce type en scannant.
+Bâtiments des formes de vie
+Aucune donnée fiable n`a pu être détectée pour ce type en scannant.
+Recherche
+Aucune donnée fiable n`a pu être détectée pour ce type en scannant.
+Recherche des formes de vie
+Aucune donnée fiable n`a pu être détectée pour ce type en scannant.
+Commentaires

@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.10';
+const APP_VERSION = '1.46.11';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -2820,6 +2820,60 @@ const SHIP_REQ = {sc:{b:{shipyard:2}, t:{combustion:2}}, lc:{b:{shipyard:4}, t:{
 /* La défense passe par le même chantier, la même file et les mêmes wants que
    les vaisseaux : un seul endroit la nomme et la tarife. */
 for(const [k,d] of Object.entries(DEF)){ SHIP_COST[k] = d.c; SHIP_REQ[k] = d.r; SHIP_PLURAL[k] = d.p; SHIP_ONE[k] = d.o; }
+
+/* ---------- le vocabulaire d'un rapport d'espionnage ---------- */
+/* Relevé sur un rapport du jeu le 18 novembre 2026 (test/rapports/README.md).
+   Deux choses s'y voient qu'on ne devinerait pas : le jeu écrit tous les titres
+   de section, même celles qu'il n'a pas pu lire, et il avoue l'absence par une
+   phrase plutôt que par un vide. L'inconnu se reconnaît donc à ce qui est
+   écrit, pas à ce qui manque. Et son apostrophe est un accent grave. */
+const REPORT_RIEN = 'aucune donnee fiable';
+/**
+ * Forme comparable d'un libellé : minuscules, sans accent, apostrophes
+ * ramenées à une seule, espaces tassés. Sans ça « Défense » et « defense »
+ * seraient deux sections différentes, et l'accent grave du jeu ferait rater
+ * « sonde d'espionnage ».
+ * @param {string} s
+ * @returns {string}
+ */
+function repKey(s){
+  return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[`’']/g, "'").replace(/\s+/g, ' ').trim().replace(/\s*:$/, '');
+}
+/* Les titres connus. Ceux qui valent 'skip' sont lus et jetés : sans eux, les
+   lignes d'un bâtiment tomberaient dans la défense qui précède et la rendraient
+   inconnue pour rien. Un titre qu'on ne connaît pas n'en est pas un — il compte
+   comme une ligne non reconnue, donc il rend sa section inconnue, ce qui est le
+   sens prudent. */
+const REPORT_HEADS = {
+  'ressources':'res', 'flottes':'fleet', 'defense':'def',
+  'reparations en cours':'skip', 'batiment':'skip', 'batiments':'skip',
+  'batiments des formes de vie':'skip', 'recherche':'skip',
+  'recherche des formes de vie':'skip', 'commentaires':'skip'
+};
+/* Chaque libellé que le rapport peut porter, vers sa clé. Les noms viennent des
+   tables déjà relevées sur le jeu plutôt que d'être recopiés ; seul ce qu'elles
+   ne nomment pas s'ajoute à la main. */
+const REPORT_WORDS = {};
+{
+  const add = (k, ...noms) => { for(const n of noms) if(n) REPORT_WORDS[repKey(n)] = k; };
+  for(const k of Object.keys(SHIPS)) add(k, SHIPS[k].n, SHIP_PLURAL[k], SHIP_ONE[k]);
+  for(const k of Object.keys(DEF)) add(k, DEF[k].n, DEF[k].o, DEF[k].p);
+  add('sat', 'Satellite solaire', 'Satellites solaires');
+  add('crawl', 'Foreuse', 'Foreuses');
+  add('abm', 'Missile d\'interception', 'Missiles d\'interception');
+  add('ipm', 'Missile interplanétaire', 'Missiles interplanétaires');
+}
+/* Ce qui tire. Les cinq autres ne défendent rien : le satellite et la foreuse
+   ont 1 d'attaque, la sonde 0,01, contre 4 000 de coque à un petit transporteur,
+   et les deux missiles ne visent pas une flotte. Leur présence n'empêche donc
+   pas un pillage — l'exiger ramènerait le joueur à cocher sa case à la main,
+   parce qu'un inactif traîne presque toujours des satellites. Tout le reste,
+   petit transporteur compris, veut dire combat, et le copilote n'en simule
+   aucun : il se tait et laisse le joueur trancher. */
+const SE_BAT = {};
+for(const k of Object.values(REPORT_WORDS)) SE_BAT[k] = true;
+for(const k of ['sat','crawl','pr','abm','ipm']) delete SE_BAT[k];
 function shipReqOk(k, p){ const r = SHIP_REQ[k]; return Object.entries(r.b).every(([b,l])=>p.b[b]>=l) && Object.entries(r.t).every(([t,l])=>S.tech[t]>=l); }
 function shipTime(k, n, p){ const c = SHIP_COST[k]; return n*(c[0]+c[1])/(2500*(1+p.b.shipyard)*Math.pow(2,p.b.nanite)*S.settings.eco)*3600; }
 /* Le relevé d'avant ne donnait qu'un total et le comptait en lanceurs : on lui

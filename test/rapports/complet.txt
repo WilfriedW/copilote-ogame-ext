@@ -1,0 +1,34 @@
+Rapport d`espionnage de Planète Bastion [3:120:7]
+De: Contrôle aérospatial
+Joueur: Tortue (i)
+Ressources: 350000
+Butin: 75%
+Ressources
+Métal
+200.000
+Cristal
+120.000
+Deutérium
+30.000
+Nourriture
+0
+Population
+0
+Energie
+4.800
+Flottes
+Petit transporteur
+12
+Satellite solaire
+30
+Réparations en cours
+Aucune donnée fiable n`a pu être détectée pour ce type en scannant.
+Défense
+Lanceur de missiles
+45
+Laser léger
+12
+Bâtiment
+Usine de robots
+10
+Commentaires
