@@ -4880,6 +4880,15 @@ t('prioClean retire les mortes du stockage, prios n\'y touche pas', () => {
   assert.deepEqual(g.S.prio, [{kind:'t', k:'plasma', lvl:4}]);
 });
 
+t('un empire vide n\'efface pas les recherches que le joueur a posées', () => {
+  // posé après le chargement : sans planète, labPlanet() est null et prios() rend []
+  const g = app();
+  g.S.prio = [{kind:'t', k:'plasma', lvl:4}];
+  g.S.planets = [];
+  g.prioClean();
+  assert.deepEqual(g.S.prio, [{kind:'t', k:'plasma', lvl:4}]);
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

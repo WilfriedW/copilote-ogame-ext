@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.47.0';
+const APP_VERSION = '1.47.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -176,6 +176,10 @@ function prioOf(pid){ return prios().find(x => x.pid === pid) || null; }
 /* Ne réécrit que si une entrée tombe : render() passe ici à chaque rendu, et
    une écriture de stockage par rendu serait payée pour rien. */
 function prioClean(){
+  /* Sans planète, labPlanet() est null et toute recherche paraît morte : or une
+     recherche n'appartient à aucune planète, et un empire vidé (import tronqué)
+     ne doit pas emporter ce que le joueur a posé. Pas d'empire, rien à compacter. */
+  if(!S.planets.length) return;
   const vivantes = prios();
   if(vivantes.length === S.prio.length) return;
   S.prio = vivantes.map(x => x.kind === 't' ? {kind:'t', k:x.k, lvl:x.lvl} : x);
