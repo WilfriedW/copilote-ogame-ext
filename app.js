@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.11';
+const APP_VERSION = '1.46.12';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3027,10 +3027,57 @@ function centreWhy(){
   const pos = (parseC(p.coords) || [])[2], avg = ((POS[pos] || {}).avg) || 0;
   return avg ? `position ${pos}, ${avg} cases en moyenne : un centre est d'abord de la place` : '';
 }
-/** Parses metal, crystal and deuterium from a pasted espionage report. */
+/**
+ * Ce qu'un rapport d'espionnage collé veut dire.
+ *
+ * `null` veut dire « le rapport ne le dit pas », et jamais zéro — c'est le
+ * partage que `defsOf` fait déjà sur les planètes du joueur, pour la même
+ * raison : un espionnage trop faible n'affiche pas la section, et confondre
+ * les deux enverrait la flotte contre une défense.
+ *
+ * Le repli va toujours vers l'inconnu. Une ligne qu'on ne sait pas lire rend
+ * sa section inconnue plutôt que vide, parce que « vide » autorise un pillage
+ * et « inconnu » ne fait que se taire. Un vocabulaire incomplet rend donc le
+ * copilote muet, jamais menteur.
+ *
+ * @param {string} txt le rapport, tel que le joueur l'a collé
+ * @returns {{res:number[]|null, fleet:object|null, def:object|null, loot:number|null}}
+ */
 function parseReport(txt){
-  const num = label=>{ const m = String(txt).match(new RegExp(label+'\\s*:?\\s*(\\d[\\d.,]*)\\s*(Mn|M|k|K)?', 'i')); if(!m) return null; const suf = m[2]||''; if(/m/i.test(suf)) return Math.round(parseFloat(m[1].replace(/\./g,'').replace(',','.'))*1e6); if(/k/i.test(suf)) return Math.round(parseFloat(m[1].replace(/\./g,'').replace(',','.'))*1e3); return +m[1].replace(/[.,]/g,'') || 0; };
-  return [num('M[ée]tal'), num('Cristal'), num('Deut[ée]rium')];
+  const brut = String(txt);
+  const num = label=>{ const m = brut.match(new RegExp(label+'\\s*:?\\s*(\\d[\\d.,]*)\\s*(Mn|M|k|K)?', 'i')); if(!m) return null; const suf = m[2]||''; if(/m/i.test(suf)) return Math.round(parseFloat(m[1].replace(/\./g,'').replace(',','.'))*1e6); if(/k/i.test(suf)) return Math.round(parseFloat(m[1].replace(/\./g,'').replace(',','.'))*1e3); return +m[1].replace(/[.,]/g,'') || 0; };
+  /* Les ressources gardent leur lecture d'avant : elles ne dépendent d'aucune
+     section, pour que coller la seule partie Ressources continue de marcher. */
+  const res = [num('M[ée]tal'), num('Cristal'), num('Deut[ée]rium')];
+  const butin = brut.match(/butin\s*:?\s*(\d+)\s*%/i);
+
+  const st = {fleet:{vue:false, floue:false, n:{}}, def:{vue:false, floue:false, n:{}}};
+  const compte = (s, k, v)=>{ s.n[k] = (s.n[k]||0) + v; };
+  const chiffre = s=>{ const v = +String(s).replace(/[.,\s]/g,''); return isFinite(v) ? v : null; };
+  let sec = null, attend = null;
+  for(const ligne of brut.split(/\r?\n/)){
+    const l = ligne.trim(); if(!l) continue;
+    const cle = repKey(l), tete = REPORT_HEADS[cle];
+    if(tete){ sec = (tete==='fleet'||tete==='def') ? st[tete] : null; if(sec) sec.vue = true; attend = null; continue; }
+    if(!sec) continue;
+    // Le jeu avoue lui-même ce qu'il n'a pas pu lire : c'est le signal le plus sûr.
+    if(cle.startsWith(REPORT_RIEN)){ sec.floue = true; attend = null; continue; }
+    if(REPORT_WORDS[cle]){ attend = REPORT_WORDS[cle]; continue; }
+    /* Le libellé et son nombre peuvent tenir sur une ligne ou sur deux, selon
+       la façon dont le joueur copie : les deux se lisent, parce que deviner
+       laquelle coûterait un rapport mal lu sur une mise en page légitime. */
+    const m = l.match(/^(.*?)[\s.:]*(\d[\d.,\s]*)$/);
+    const k2 = m && REPORT_WORDS[repKey(m[1])];
+    if(k2){ compte(sec, k2, chiffre(m[2])); attend = null; continue; }
+    if(attend && m && !m[1].trim()){ compte(sec, attend, chiffre(m[2])); attend = null; continue; }
+    sec.floue = true; attend = null;
+  }
+  const rendu = s => (!s.vue || s.floue) ? null : s.n;
+  return {
+    res: res.some(x=>x!=null) ? res.map(x=>x||0) : null,
+    fleet: rendu(st.fleet), def: rendu(st.def),
+    loot: butin ? +butin[1]/100 : null
+  };
 }
 /** Fleet and outcome for a raid on the selected target. */
 function raidPlan(){
@@ -3507,7 +3554,7 @@ function bind(){
      déplace le « (conseillé) » des autres cartes et tout le plan, la vue se
      redessine au lieu de se rafraîchir. */
   view.querySelectorAll('[data-centre]').forEach(el=>el.addEventListener('change',()=>{ S.centre = el.checked ? el.dataset.centre : null; save(); render(); }));
-  view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ const r=parseReport(el.value); if(r.some(x=>x!=null)){ S.raid.m=r[0]||0; S.raid.c=r[1]||0; S.raid.d=r[2]||0; S.raid.at=Date.now(); save(); render(); } return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); if(k!=='safe') S.raid.at=Date.now(); save(); REFRESH.explore(); }));
+  view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ const r=parseReport(el.value).res; if(r){ S.raid.m=r[0]; S.raid.c=r[1]; S.raid.d=r[2]; S.raid.at=Date.now(); save(); render(); } return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); if(k!=='safe') S.raid.at=Date.now(); save(); REFRESH.explore(); }));
   view.querySelectorAll('[data-lf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.lf, f=new Set(S.lf.found); el.checked ? f.add(k) : f.delete(k); S.lf.found=[...f]; save(); render(); }));
   view.querySelectorAll('[data-day]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k = el.dataset.day; S.day[k] = dayValue(k, el.value, S.day[k]); save(); refresh();

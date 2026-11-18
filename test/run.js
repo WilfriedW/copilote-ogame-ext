@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -2600,6 +2600,66 @@ t('un rapport périmé ne produit aucune carte de pillage', () => {
   const g = app(s => { s.raid = { coords: '1:142:9', m: 50000, c: 20000, d: 0, safe: true, at: SOIR - 3 * 3600e3 }; });
   assert.ok(!g.dailyMissions().some(m => m.id === 'raid-go'),
     'on réespionne avant d\'attaquer');
+});
+
+/* ---------- lire un rapport d'espionnage ---------- */
+
+/** Un rapport de test, tel que le joueur le collerait. */
+const lire = n => require('fs').readFileSync(require('path').join(__dirname, 'rapports', n), 'utf8');
+
+t('un rapport sans section Défense lisible rend une défense inconnue, pas nulle', () => {
+  const r = app().parseReport(lire('faible.txt'));
+  assert.strictEqual(r.def, null, 'le jeu a dit qu\'il n\'avait rien vu : inconnue');
+  assert.strictEqual(r.fleet, null, 'la flotte aussi');
+  assert.deepEqual(r.res, [0, 0, 0], 'les ressources, elles, sont là');
+});
+
+t('une section Défense sans aucune ligne vaut zéro', () => {
+  const r = app().parseReport(lire('nue.txt'));
+  assert.deepEqual(r.def, {}, 'lue, et vide');
+  assert.deepEqual(r.fleet, {});
+});
+
+t('un rapport complet rend la flotte et la défense par type', () => {
+  const r = app().parseReport(lire('complet.txt'));
+  assert.equal(r.def.rl, 45, 'les lanceurs de missiles sont comptés');
+  assert.equal(r.def.ll, 12);
+  assert.equal(r.fleet.sc, 12, 'les petits transporteurs aussi');
+  assert.equal(r.fleet.sat, 30, 'et les satellites, qui ne se battent pas');
+});
+
+t('un libellé hors vocabulaire rend la section inconnue', () => {
+  const txt = lire('nue.txt').replace('Défense', 'Défense\nTourelle fantôme\n4');
+  assert.strictEqual(app().parseReport(txt).def, null,
+    'lu sans comprendre n\'est pas compris vide');
+});
+
+t('les lignes d\'un bâtiment ne tombent pas dans la défense qui précède', () => {
+  assert.deepEqual(app().parseReport(lire('nue.txt')).def, {},
+    'le titre Bâtiment ferme la section Défense');
+});
+
+t('un libellé suivi de son nombre sur la même ligne se lit aussi', () => {
+  const txt = 'Défense\nLanceur de missiles 45\nCommentaires';
+  assert.equal(app().parseReport(txt).def.rl, 45);
+});
+
+t('le taux de butin se lit dans l\'en-tête', () => {
+  assert.equal(app().parseReport(lire('complet.txt')).loot, 0.75);
+  assert.equal(app().parseReport(lire('nue.txt')).loot, 0.5);
+});
+
+t('un rapport qui ne dit pas le butin ne l\'invente pas', () => {
+  assert.strictEqual(app().parseReport('Métal\n10').loot, null);
+});
+
+t('les trois ressources se lisent encore comme avant', () => {
+  assert.deepEqual(app().parseReport('Métal\n1.234\nCristal\n567\nDeutérium\n89').res,
+    [1234, 567, 89]);
+});
+
+t('un collage sans ressources ne rend aucune ressource', () => {
+  assert.strictEqual(app().parseReport('Défense\nCommentaires').res, null);
 });
 
 /* ---------- le statut hors-la-loi s'éteint à 500 000 points ---------- */
