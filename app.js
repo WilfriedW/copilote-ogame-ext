@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.51.1';
+const APP_VERSION = '1.52.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -213,18 +213,20 @@ function prioRetire(rang){
   const i = e ? prioIdx(e.kind, e.pid, e.k) : -1;
   if(i >= 0) S.prio.splice(i, 1);
 }
-/* Le bloc ne promet rien la nuit : le plan du jour ne tourne pas, et dire
-   qu'une carte va sortir serait mentir. Celle qui agit sur une planète est la
-   première posée (prioOf) ; les autres de la même planète attendent. */
-function prioHtml(){
+/* L'état d'une ligne est celui que le plan lui a donné à la première session,
+   jamais son rang dans la liste : une priorité que rien ne sert — labo
+   manquant, prérequis absent, tour pas venu — l'annonçait quand même en
+   premier, ce qui est le contraire de ce que ce bloc doit dire.
+   Le bloc ne promet rien la nuit : le plan du jour ne tourne pas. */
+function prioHtml(plan){
   const l = prios();
   if(!l.length) return '';
-  const nuit = !!S.day.night, vues = new Set();
+  const nuit = !!S.day.night;
+  const dits = new Map((((plan || simulateDay()).sessions[0] || {}).prio || []).map(e => [e.id, e]));
   const lignes = l.map((x, i) => {
-    const p = planetById(x.pid), premiere = !vues.has(x.pid);
-    vues.add(x.pid);
+    const p = planetById(x.pid), d = dits.get(`${x.kind}:${x.pid}:${x.k}`) || {};
     const nom = x.kind === 'b' ? B_SHORT[x.k] : T[x.k].n;
-    const etat = nuit ? '' : (x.kind === 'b' && prioBloque(p, x.k)) || (premiere ? 'Elle passe en premier sur cette planète.' : 'Elle attend son tour.');
+    const etat = nuit ? '' : [d.etat, d.recoit ? 'Les rapatriements de l\'empire vont vers elle.' : ''].filter(Boolean).join(' ');
     return `<li><span class="pill">${x.kind === 'b' ? esc(p.name) : 'Recherche'}</span><span class="what">${esc(nom)} ${x.lvl}</span>${etat ? `<span class="why">${esc(etat)}</span>` : ''}<button class="btn sm ghost" data-prio-del="${i}">Retirer</button></li>`;
   });
   return `<div class="card"><h2>Tes priorités</h2><ul class="advice prios">${lignes.join('')}</ul></div>`;
@@ -1616,7 +1618,7 @@ function techWhy(r, k, l, goal){
   return g ? `${out} Son premier niveau s'amortira en ${dur(g*3600)}.`.trim() : out;
 }
 function nextResearch(){
-  let labNeed = 0; const list = [];
+  let labNeed = 0, prioLab = 0; const list = [];
   /* La priorité du joueur se glisse en tête d'une copie de la feuille de route,
      avec le drapeau critique, et tout le reste suit tout seul : `resolveTech`
      remonte les prérequis et le labo qui manque, `crit` met l'épargne en route
@@ -1638,7 +1640,11 @@ function nextResearch(){
        priorité sautée serait muette. */
     if(!mien && k==='astro' && S.tech.astro >= 1 && S.day.focus !== 'eco' && S.planets.length < maxPlanets()) return;
     const r = resolveTech(k, l, 0); if(!r) return;
-    if(r.lab){ labNeed = Math.max(labNeed, r.lab); return; }
+    /* `prioLab` : le labo manque pour la priorité du joueur, et elle n'entre
+       alors dans aucune liste. Sans ce chiffre rendu, la seule carte du jour
+       est « Laboratoire 6 · Débloque la recherche suivante », que rien ne relie
+       à ce que le joueur a posé — la priorité est muette. */
+    if(r.lab){ labNeed = Math.max(labNeed, r.lab); if(mien) prioLab = r.lab; return; }
     const pourquoi = techWhy(r, k, l, roadmapGoal(rm, i));
     if(!list.some(x=>x.k===r.k)) list.push({k:r.k, lvl:r.lvl, crit:flag==='c', prio:mien,
       why:mien ? `Tu as mis ${T[k].n} ${l} en priorité. ${pourquoi}`.trim() : pourquoi});
@@ -1701,7 +1707,7 @@ function nextResearch(){
     list.splice(i<0 ? list.length : i, 0, {k:r.k, lvl:r.lvl, crit:!!tete, why:w});
   }
   if(researchMode()==='first' && list[0]) list[0].crit = true;
-  return {list, labNeed, k:list[0]&&list[0].k, lvl:list[0]&&list[0].lvl};
+  return {list, labNeed, prioLab, k:list[0]&&list[0].k, lvl:list[0]&&list[0].lvl};
 }
 /**
  * Une colonie qui déborde et n'a aucun transporteur doit pouvoir en construire.
@@ -1783,7 +1789,13 @@ function prioStep(p, pr, cost){
   const suivant = (p.b[pr.k]||0)+1, c = bat ? levelCost(B[pr.k], suivant) : cost;
   const vise = `Tu as mis ${bat ? B_SHORT[pr.k] : T[pr.k].n} ${pr.lvl} en priorité.`;
   for(let j=0;j<3;j++) if(c[j] > cap[j]){
-    const L = storageLevelFor(c[j]);
+    /* Le niveau qui logerait le coût est la destination, pas le pas : le jeu ne
+       construit un hangar qu'un niveau à la fois, et viser le niveau 8 depuis le
+       3 émettait une carte impossible, payait un seul niveau pour en poser
+       trois, et surtout coûtait plus que le plafond du moment — `setGoal`
+       rendait alors `null`, et la priorité n'épargnait jamais. Un niveau par
+       session : la cible est atteignable, et les suivantes le deviennent. */
+    const L = Math.min(storageLevelFor(c[j]), (p.b[sk[j]]||0)+1);
     return {k:sk[j], lvl:L, why:`${vise} ${storageNote({small:[{res:j, k:sk[j], lvl:L}]})}`};
   }
   return bat ? {k:pr.k, lvl:suivant, why:vise} : null;
@@ -1937,6 +1949,15 @@ function simulateDay(){
     const wait = (p,c)=>{ const pr=production(p), r=[pr.m,pr.c,pr.d]; let w=0; for(let j=0;j<3;j++){ const miss=c[j]-p.st[j]; if(miss>0){ if(c[j]>pr.cap[j]) return Infinity; w=Math.max(w, r[j]>0?miss/r[j]*3600:Infinity); } } return w; };
     const sessions = [];
     let goals = [];
+    /* Le rang de pose, par clé d'objectif : c'est lui qui arbitre où vont les
+       rapatriements de l'empire. L'ordre du tableau `goals` ne pouvait pas le
+       dire — la clé d'une priorité change dès que son pas avance, et le nouvel
+       objectif part en fin de tableau, si bien que la destination tournait
+       d'une session à l'autre. La boucle des priorités le réécrit à chaque
+       session depuis la liste du joueur, qui en est la seule source — et un
+       objectif le garde depuis sa pose : une priorité qui s'accomplit en cours
+       de journée fait descendre les suivantes sans changer leur ordre. */
+    let prioRang = new Map();
     const RES = ['métal','cristal','deutérium'];
     const reserveOf = (p, Tm, skip, only)=>{ const pr=production(p), r=[pr.m,pr.c,pr.d], out=[0,0,0]; for(const g of goals){ if(g.p!==p || g===skip || (only && g!==only)) continue; const h=Math.max(0,(g.deadline-Tm)/3600e3); g.cost.forEach((x,j)=>out[j]+=Math.max(0, x - r[j]*h)); } return out; };
     /* Les objectifs qui retiennent quelque chose sur la planète, nommés : le
@@ -1950,7 +1971,8 @@ function simulateDay(){
       const w = wait(p, cost); if(!isFinite(w)) return null;
       const pr=production(p), r=[pr.m,pr.c,pr.d];
       let bott=0, worst=-1; cost.forEach((x,j)=>{ const t = x>p.st[j] ? (x-p.st[j])/Math.max(r[j],1e-9) : 0; if(t>worst){ worst=t; bott=j; } });
-      g = {key, label, cost, p, deadline: Tm + w*1000 + iv*3600e3, res:RES[bott], since:Tm};
+      g = {key, label, cost, p, deadline: Tm + w*1000 + iv*3600e3, res:RES[bott], since:Tm,
+        rang: prioRang.has(key) ? prioRang.get(key) : Infinity};
       goals.push(g); return g;
     };
     const dropGoal = key=>{ goals = goals.filter(g=>g.key!==key); };
@@ -2007,7 +2029,10 @@ function simulateDay(){
         const g = (mine || ((R.crit || starving) && !epargnePrio(labP))) ? setGoal(key, `${T[R.k].n} ${R.lvl}`, c, labP, Tm) : null;
         if(phase==='pre') return;
         const held = heldByOf(labP, Tm, g);
-        waits.push({q:'Recherche · '+planetRef(labP), what:`${T[R.k].n} ${R.lvl}`, eta:wait(labP,c), held:!!held, heldBy:held, miss:missOf(labP,c), kind:'t', k:R.k, p:labP.i});
+        // `R.why` porte le « tu l'as mise en priorité » quand c'est le joueur
+        // qui a posé cette recherche : sans lui, la seule ligne de sa journée
+        // ne dit que l'heure à laquelle les ressources seront réunies.
+        waits.push({q:'Recherche · '+planetRef(labP), what:`${T[R.k].n} ${R.lvl}`, why:R.why, eta:wait(labP,c), held:!!held, heldBy:held, miss:missOf(labP,c), kind:'t', k:R.k, p:labP.i});
         for(const F of nr.list.slice(1)){
           const fd = researchTime(F.k,F.lvl);
           if(g && Tm+fd*1000 > g.deadline) continue;
@@ -2018,11 +2043,10 @@ function simulateDay(){
          parce que `reserveOf` fait ensuite le travail tout seul : la recherche
          et le chantier ne partiront que s'il reste de quoi les payer au-delà
          de ce que la priorité met de côté.
-         Dans l'ordre de pose, et pas dans celui de `P` : `destOf` envoie les
-         rapatriements de l'empire vers le premier objectif du tableau, donc
-         cet ordre-là décide qui, de deux planètes qui épargnent, reçoit les
-         transports. Il était sans conséquence tant que les deux seuls
-         objectifs vivaient au même endroit ; il devient l'arbitre.
+         Dans l'ordre de pose, et pas dans celui de `P` : cet ordre décide qui,
+         de deux planètes qui épargnent, reçoit les rapatriements de l'empire.
+         Il était sans conséquence tant que les deux seuls objectifs vivaient au
+         même endroit ; il devient l'arbitre, et c'est `prioRang` qui le porte.
          `prios()` lit ici l'empire simulé — S.planets est P : une priorité que
          la journée a déjà atteinte cesse d'elle-même d'épargner, au lieu de
          geler la planète jusqu'au bout de l'horizon. */
@@ -2031,13 +2055,22 @@ function simulateDay(){
          elle n'a pas de quoi le faire pour une recherche, dont le coût ne se
          lit pas dans `B`. Rien ne bouge entre les deux : `prioStep` ne lit que
          les niveaux de la planète, et aucun chantier n'aboutit d'ici là. */
-      const prioVus = new Set(), prioClefs = new Set(), prioPas = new Map();
-      for(const pr of prios()){
+      /* `prioEtat` : ce que le plan fait de chaque priorité à cette session, et
+         rien d'autre. Le bloc du panneau le lit au lieu de déduire l'état du
+         rang dans la liste : dire « elle passe en premier » d'une priorité que
+         rien ne sert est pire que le silence, c'est le contraire du vrai.
+         L'identité d'une ligne est le trio genre/planète/cible, celui que
+         `prios()` rend au rendu. */
+      const prioVus = new Map(), prioClefs = new Set(), prioPas = new Map(), prioEtat = [];
+      prioRang = new Map();
+      for(const [rang, pr] of prios().entries()){
+        const id = `${pr.kind}:${pr.pid}:${pr.k}`;
+        const cible = `${pr.kind === 'b' ? B_SHORT[pr.k] : T[pr.k].n} ${pr.lvl}`;
         // La première posée sur la planète agit, les suivantes attendent leur
         // tour : deux réserves sur une planète ne s'ajouteraient que pour la
         // geler deux fois plus longtemps. La règle ignore les `kind`.
-        if(prioVus.has(pr.pid)) continue;
-        prioVus.add(pr.pid);
+        if(prioVus.has(pr.pid)){ prioEtat.push({id, etat:`Elle attend son tour, derrière ${prioVus.get(pr.pid)}.`}); continue; }
+        prioVus.set(pr.pid, cible);
         const pp = P.find(x=>x.id===pr.pid); if(!pp) continue;
         /* Une priorité de recherche part par la feuille de route, et ne vient ici
            que pour le hangar : son coût peut dépasser ce que le centre loge, et
@@ -2047,25 +2080,48 @@ function simulateDay(){
            épargner pour Plasma 12 quand il reste Laser 1 à faire demanderait un
            hangar des mois trop tôt. */
         const R = pr.kind === 't' ? nr.list[0] : null;
-        if(pr.kind === 't' && !(R && R.prio)) continue;
+        if(pr.kind === 't' && !(R && R.prio)){
+          /* La recherche n'est entrée dans aucune liste : son labo manque, et
+             `nextResearch` est le seul à l'avoir su. Sans cette ligne, la seule
+             carte du jour est le laboratoire, que rien ne relie à la priorité —
+             pendant que le bloc, lui, affirmait qu'elle passait en premier. */
+          const dit = nr.prioLab
+            ? `${B.lab.n} ${nr.prioLab} manque : ta priorité attend que ce soit là.`
+            : `Le plan ne trouve aucun palier à lancer pour elle.`;
+          waits.push({q:'Recherche · '+planetRef(pp), what:cible, why:`Tu as mis ${cible} en priorité. ${dit}`, eta:Infinity, miss:[0,0,0], kind:'t', k:pr.k, p:pp.i});
+          prioEtat.push({id, etat:dit});
+          continue;
+        }
         // Les prérequis d'une recherche ne sont pas une impasse : `resolveTech`
         // les remonte et le pas lançable est l'un d'eux.
         const bloque = pr.kind === 'b' ? prioBloque(pp, pr.k) : '';
         if(bloque){
           waits.push({q:'Bâtiment · '+planetRef(pp), what:`${B[pr.k].n} ${(pp.b[pr.k]||0)+1}`, why:bloque, eta:Infinity, miss:[0,0,0], kind:'b', k:pr.k, p:pp.i});
+          prioEtat.push({id, etat:bloque});
           continue;
         }
         const pas = prioStep(pp, pr, R ? levelCost(T[R.k], R.lvl) : null);
-        if(!pas) continue;
+        if(!pas){
+          /* Une recherche qui tient dans les hangars n'a rien à construire ici :
+             c'est `tryResearch` qui posera son objectif, sous la clé de la
+             recherche. Son rang de pose la suit quand même — le joueur l'a mise
+             devant une autre planète, pas devant une autre file. */
+          const sien = `t:${R.k}${R.lvl}`;
+          prioRang.set(sien, rang);
+          prioEtat.push({id, key:sien, pi:pp.i, tk:R.k});
+          continue;
+        }
         prioPas.set(pp.id, pas);
         const c = levelCost(B[pas.k], pas.lvl);
         /* La clé porte le pas, comme celle d'une recherche porte son niveau :
            quand la cible du moment avance, l'objectif d'hier est remplacé au
            lieu de tenir une réserve calculée pour un prix qui n'est plus. */
         const key = `prio:${pr.pid}:${pas.k}${pas.lvl}`;
+        prioRang.set(key, rang);
         const g = setGoal(key, `${B_SHORT[pas.k]} ${pas.lvl}`, c, pp, Tm);
         if(g){
           prioClefs.add(key);
+          prioEtat.push({id, key, pi:pp.i, bk:pas.k});
           /* Une échéance dit « quand on pense pouvoir payer », et `setGoal` ne
              la calcule qu'à la première pose. Une priorité vit des jours : la
              nuit passe, l'échéance expire, `h` retombe à zéro et `reserveOf`
@@ -2078,7 +2134,10 @@ function simulateDay(){
           const w = wait(pp, c);
           if(isFinite(w)) g.deadline = Tm + w*1000 + iv*3600e3;
         }
-        else waits.push({q:'Bâtiment · '+planetRef(pp), what:`${B[pas.k].n} ${pas.lvl}`, why:prioRien(pp, c), eta:Infinity, miss:missOf(pp,c), kind:'b', k:pas.k, p:pp.i});
+        else {
+          waits.push({q:'Bâtiment · '+planetRef(pp), what:`${B[pas.k].n} ${pas.lvl}`, why:prioRien(pp, c), eta:Infinity, miss:missOf(pp,c), kind:'b', k:pas.k, p:pp.i});
+          prioEtat.push({id, etat:prioRien(pp, c)});
+        }
       }
       // Ce que le joueur a retiré, ou que la journée a atteint, ne doit plus
       // rien retenir : sans ce ménage la réserve survivrait à sa cible.
@@ -2087,7 +2146,15 @@ function simulateDay(){
       if(wantColony && !sim.colShip && sim.tech.impulse>=3 && dep.b.shipyard>=4 && dep.sq<=Tm && !(dep.bq>Tm && dep.bqKey==='shipyard')){
         const c = COL_SHIP_COST, key='ship:col', mine = goals.find(g=>g.key===key);
         if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*S.settings.eco)*3600; dep.sq=Tm+d; sim.colShip=true; sim.colReady=Tm+d; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'', cost:c, dur:d, end:Tm+d, kind:'ship', p:dep.i}); }
-        else { if(!prioDevant(dep)) setGoal(key, 'le vaisseau de colonisation', c, dep, Tm); waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), miss:missOf(dep,c), kind:'ship', p:dep.i}); }
+        else {
+          /* La carte que la priorité écarte le plus souvent : sans `heldBy`,
+             le vaisseau n'était jamais construit et sa ligne ne disait pas un
+             mot de l'épargne qui le repoussait — un chantier gelé toute la
+             journée en silence. */
+          const g = prioDevant(dep) ? null : setGoal(key, 'le vaisseau de colonisation', c, dep, Tm);
+          const held = heldByOf(dep, Tm, g || mine);
+          waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), held:!!held, heldBy:held, miss:missOf(dep,c), kind:'ship', p:dep.i});
+        }
       }
       if(wantColony && sim.colShip && sim.colReady<=Tm && !refused(moveKey('fleet', (real.planets[dep.i]||{}).id, target))){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight, kind:'fleet', p:dep.i, dest:target, mission:7, ships:{col:1}}); }
       const hubP = P[centreIndex()] || P[Math.min(hubIndex(), P.length-1)];
@@ -2113,7 +2180,24 @@ function simulateDay(){
          recevoir dès qu'elle n'était pas aussi celle du meilleur chantier :
          `hubIndex` classe sur labo + chantier, la recherche se paie sur le
          labo seul. */
-      const destOf = q => bridees.find(d=>d!==q) || (goals.find(g => g.p !== q) || {}).p || hubP;
+      /* Et entre deux priorités, c'est l'ordre de pose qui tranche. Sans cela
+         deux planètes qui épargnent chacune pour la sienne devenaient la
+         destination l'une de l'autre : des vols croisés dans la même session,
+         deux emplacements de flotte, du deutérium brûlé, et l'épargne des deux
+         vidée. Le rang de pose est un ordre strict, donc une seule direction
+         survit : la première posée reçoit, les suivantes ne nourrissent que
+         celles d'avant elles et n'avancent, pour le reste, que sur leur
+         production locale. Ce qui part est leur surplus — `keep` leur garde
+         leur propre réserve. Le secours d'une planète bridée, lui, garde sa
+         précédence : elle perd de la production à chaque heure. */
+      const rangDe = p => Math.min(Infinity, ...goals.filter(g=>g.p===p).map(g=>g.rang));
+      const croise = (q, d) => isFinite(rangDe(q)) && rangDe(d) > rangDe(q);
+      const destOf = q => {
+        const secours = bridees.find(d=>d!==q);
+        if(secours) return secours;
+        const g = goals.filter(x=>x.p!==q && !croise(q, x.p)).sort((a,b)=>a.rang-b.rang)[0];
+        return g ? g.p : (croise(q, hubP) ? null : hubP);
+      };
       /* Un rapatriement occupe un emplacement de flotte, exactement comme une
          expédition : les deux puisent dans le même compte. Le laisser hors du
          compte faisait proposer un envoi que le jeu refuse d'un « Nombre
@@ -2130,7 +2214,7 @@ function simulateDay(){
       if(P.length>1) for(const q of P){
         const dst = destOf(q);
         if(libres-garde<=0) break;
-        if(q===dst || (q.transferAt||0)>Tm) continue;
+        if(!dst || q===dst || (q.transferAt||0)>Tm) continue;
         const pr = production(q), want = [0,0,0];
         for(const g of goals) if(g.p===dst) g.cost.forEach((x,j)=>want[j]=Math.max(want[j], x-dst.st[j]));
         /* Le manque d'une planète bridée est un besoin comme un objectif : sans
@@ -2138,7 +2222,13 @@ function simulateDay(){
         const secours = bridees.includes(dst);
         if(secours) manqueDe.get(dst).forEach((x,j)=>want[j]=Math.max(want[j], x));
         pr.cap.forEach((cap,j)=>{ if(q.st[j] > cap*.7) want[j] = Math.max(want[j], q.st[j]-cap*.3); });
-        const keep = (()=>{ const c = pickBuildings(q, {T:Tm, iv, goals:[]})[0]; return c ? levelCost(B[c.k],c.lvl) : [0,0,0]; })();
+        /* Ce que la planète garde : son prochain chantier, et ce qu'elle met
+           elle-même de côté. `pickBuildings` est appelé ici sans les objectifs,
+           donc il ignore l'épargne — un rapatriement vidait la réserve de la
+           priorité qu'il était censé servir. */
+        const mise = reserveOf(q, Tm);
+        const keep = (()=>{ const c = pickBuildings(q, {T:Tm, iv, goals:[]})[0]; return c ? levelCost(B[c.k],c.lvl) : [0,0,0]; })()
+          .map((x,j)=>x+mise[j]);
         const amt = want.map((w,j)=>Math.max(0, Math.min(w, q.st[j]-keep[j])));
         const sum = amt[0]+amt[1]+amt[2]; if(sum < 5000) continue;
         const own = (q.ships.lc||0)+(q.ships.sc||0) > 0, src = own ? q : hubP, lcC = shipStats('lc').cargoEff, scC = shipStats('sc').cargoEff;
@@ -2260,11 +2350,11 @@ function simulateDay(){
         if(!cands.length) continue;
         const res = reserveOf(p,Tm);
         /* La réserve se calcule par candidat, et pas une fois pour la liste :
-           un candidat impayable en tête bloquait tous les suivants, donc une
-           réserve de priorité qui rend la centrale de secours impayable
-           empêchait la planète de construire quoi que ce soit — ni le secours,
-           ni la priorité, et pour aussi longtemps que l'épargne dure. Ce que
-           la réserve retient, ce sont les mines du classement. */
+           une réserve unique opposerait l'épargne de la priorité à la priorité
+           elle-même, et aux deux chantiers de secours qui protègent la
+           production qui la paie — la planète ne construirait plus rien du
+           tout, et pour aussi longtemps que l'épargne dure. C'est à quoi sert
+           `libre`. Ce que la réserve retient, ce sont les mines du classement. */
         const ch = cands.find(x=>can(p, levelCost(B[x.k],x.lvl), x.libre ? reserveOf(p,Tm,gPrio) : res));
         if(ch){ const c=levelCost(B[ch.k],ch.lvl); pay(p,c); const d=buildTime(ch.k,ch.lvl,p), k=ch.k, L=ch.lvl; p.bq=Tm+d; p.bqKey=k; sim.ev.push({at:Tm+d, fn:()=>{ p.b[k]=Math.max(p.b[k],L); }}); acts.push({q:'Bâtiment · '+planetRef(p), what:`${B[k].n} ${L}`, why:ch.why, cost:c, dur:d, end:Tm+d, kind:'b', k, lvl:L, p:p.i}); }
         else { const w=cands.map(x=>({x, eta:wait(p,levelCost(B[x.k],x.lvl))})).sort((a,b)=>a.eta-b.eta)[0];
@@ -2372,7 +2462,26 @@ function simulateDay(){
         }
       }
       tryResearch('post');
-      sessions.push({T:Tm, acts, waits, goals:goals.map(g=>({key:g.key, label:g.label, deadline:g.deadline, res:g.res}))});
+      /* L'état d'une priorité ne se connaît qu'ici : son objectif peut naître
+         dans `tryResearch`, et son chantier partir au milieu de la session.
+         Trois sorts possibles, et le bloc les dit tels quels — une priorité qui
+         ne fait rien doit le dire, c'est tout ce que `S.plan` n'a jamais su
+         faire. */
+      for(const e of prioEtat){
+        if(e.etat != null) continue;
+        const parti = acts.find(a => (e.bk && a.kind==='b' && a.k===e.bk && a.p===e.pi) || (e.tk && a.kind==='t' && a.k===e.tk));
+        const g = goals.find(x=>x.key===e.key);
+        e.etat = parti ? `Elle avance : ${parti.what} part maintenant.`
+          : g ? `Elle épargne pour ${g.label}.`
+          : `Rien ne part pour elle à cette session.`;
+      }
+      /* Les rapatriements de l'empire vont à la première posée qui épargne :
+         la seconde moitié de la promesse de `destOf`, dite là où le joueur
+         relit ses priorités. */
+      const recoit = prioEtat.find(e => e.key && goals.some(g => g.key === e.key));
+      sessions.push({T:Tm, acts, waits,
+        prio:prioEtat.map(e=>({id:e.id, etat:e.etat, recoit:e === recoit})),
+        goals:goals.map(g=>({key:g.key, label:g.label, deadline:g.deadline, res:g.res, rang:g.rang, p:g.p.i}))});
     }
     const end = now + (+S.day.horizon||24)*3600e3;
     advance(end);
@@ -3441,7 +3550,7 @@ planets(){
 },
 research(){
   return `<details class="card"><summary>Recherches <span class="note">labo niveau <b id="labLv"></b></span></summary>
-    <div class="tbl-wrap"><table><thead><tr><th>Technologie</th><th class="n">Niv.</th><th class="n">Visé</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th></tr></thead><tbody>
+    <div class="tbl-wrap"><table class="tech"><thead><tr><th>Technologie</th><th class="n">Niv.</th><th class="n">Visé</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th></tr></thead><tbody>
     ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${S.tech[k]}"></td><td class="n"><input class="prio" type="number" min="1" data-prio="${k}" value="${prioLvl('t', null, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${T[k].n} : niveau visé"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
     </tbody></table></div>
   </details>`;
@@ -3603,13 +3712,13 @@ today(){
   if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${s0.acts.map(a=>actHtml(a,true)).join('')}${nowMs.map(taskHtml).join('')}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
-  if(s0.waits.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${s0.waits.length})</summary><ul class="acts" style="margin-top:6px">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`).join('')}</ul></details>`);
+  if(s0.waits.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${s0.waits.length})</summary><ul class="acts" style="margin-top:6px">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`).join('')}</ul></details>`);
   if(plan.busy.length || infoMs.length) nowParts.push(`<details${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${plan.busy.length + infoMs.length})</summary><ul class="acts" style="margin-top:6px">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${hm(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`).join('')}</ul></details>`);
   const nextS = plan.sessions.slice(1).find(x=>x.acts.length);
   if(!s0.acts.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
   const aide = `<details${fold('aide', false)}><summary class="note" data-fold="aide">Comment lire ces cartes</summary><p class="note" style="margin-top:6px"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. <b>Non</b> met la carte de côté jusqu'à ce que tu la remettes. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p></details>`;
   const remets = noCount() ? `<div class="row">${noRestore()}</div>` : '';
-  document.getElementById('tdNow').innerHTML = nowParts.join('') + aide + prioHtml() + remets;
+  document.getElementById('tdNow').innerHTML = nowParts.join('') + aide + prioHtml(plan) + remets;
   const alerts = plan.alerts;
   document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><h2>Alertes</h2><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('')}</ul></div>` : '';
   const later = plan.sessions.slice(1).filter(x=>x.acts.length || slotMs.has(x));

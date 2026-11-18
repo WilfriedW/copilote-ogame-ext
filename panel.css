@@ -74,6 +74,13 @@ th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 tr:last-child td{border-bottom:none}
 td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 td input{width:64px;padding:4px 6px}
+/* « Visé » est une commande, pas un affichage : c'est le seul endroit où se
+   pose une priorité de recherche. Avec le nom de technologie sur une ligne,
+   « Réseau de recherche intergalactique » prenait 231 px à lui seul et
+   repoussait la colonne hors du volet — à 380 px elle commençait après le bord
+   visible. Le nom se replie, les trois premières colonnes tiennent, et ce qui
+   déborde derrière n'est plus que de l'information. */
+table.tech td:first-child,table.tech th:first-child{white-space:normal;max-width:112px}
 .rank{font-family:var(--f-display);font-weight:700;color:var(--accent);font-size:15px}
 .note{font-size:12px;color:var(--muted);margin:0}
 .note b{color:var(--fg);font-weight:600}

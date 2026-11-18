@@ -4912,18 +4912,62 @@ t('avec la priorité, le labo sort et porte sa raison', () => {
 });
 
 t('la priorité ouvre un objectif, et la recherche n\'en ouvre pas un second', () => {
+  /* Sur toute la journée, jamais sur la seule session 0 : à la première, la
+     recherche ne voulait pas d'objectif de toute façon, et la règle pouvait
+     disparaître sans qu'un test tombe. C'est dès la sixième session que la mère
+     porterait deux réserves — celle de la priorité et celle d'Énergie 5. */
   const p = app(prioLabo).simulateDay();
-  const g = p.sessions[0].goals.filter(x => x.key.startsWith('prio:'));
-  assert.equal(g.length, 1);
-  assert.equal(p.sessions[0].goals.length, 1, 'un seul objectif sur la planète');
+  assert.ok(p.sessions.some(s => s.goals.some(x => x.key.startsWith('prio:'))),
+    'la priorité épargne bien quelque part');
+  for (const s of p.sessions)
+    for (const x of s.goals.filter(g => g.key.startsWith('prio:')))
+      assert.deepEqual(s.goals.filter(g => g.p === x.p).map(g => g.key), [x.key],
+        'objectifs de la planète ' + x.p + ' : ' + s.goals.map(g => g.key).join(', '));
 });
 
-t('un coût au-dessus du hangar fait sortir le hangar, pas le silence', () => {
-  // Nanites : 1 M de métal, très au-dessus du Hangar M 3 de la fixture
-  const p = app(s => { s.prio = [{kind:'b', pid:'mere', k:'nanite', lvl:1}];
-    s.planets[0].b.robot = 10; s.tech.computer = 10; }).simulateDay();
-  const tout = p.sessions.flatMap(x => x.acts).concat(p.sessions.flatMap(x => x.waits));
-  assert.ok(tout.some(a => a.k === 'smetal'), 'le hangar de métal est demandé');
+t('aucune planète ne porte deux objectifs, à aucune session', () => {
+  /* La règle des deux réserves ne vaut pas que pour les priorités : `reserveOf`
+     somme les objectifs d'une planète, et deux d'entre eux la gèlent jusqu'à ce
+     que les deux soient payables. Un balayage, parce qu'une seule session ne
+     tient rien. */
+  for (const prio of [prioLabo, s => { s.prio = []; }]) {
+    const p = app(prio).simulateDay();
+    for (const s of p.sessions) {
+      const parPlanete = {};
+      for (const g of s.goals) parPlanete[g.p] = (parPlanete[g.p] || 0) + 1;
+      for (const [i, n] of Object.entries(parPlanete))
+        assert.equal(n, 1, `planète ${i} : ${s.goals.filter(g => g.p == i).map(g => g.key).join(' + ')}`);
+    }
+  }
+});
+
+/** Une priorité dont le coût dépasse les hangars : Nanites 1 demande 1 M de
+    métal, très au-dessus du Hangar M 3 de la fixture. */
+const prioNanite = s => { s.prio = [{kind:'b', pid:'mere', k:'nanite', lvl:1}];
+  s.planets[0].b.robot = 10; s.tech.computer = 10; };
+
+t('un coût au-dessus du hangar fait sortir le hangar, au niveau suivant', () => {
+  const p = app(prioNanite).simulateDay();
+  const tout = p.sessions.flatMap(x => x.acts.concat(x.waits));
+  const h = tout.find(a => a.k === 'smetal');
+  assert.ok(h, 'le hangar de métal est demandé');
+  /* Et c'est le niveau 4, pas le niveau 8 qui logerait le million : le jeu ne
+     construit un hangar qu'un niveau à la fois. Assurer sur la seule clé
+     laissait passer n'importe quel niveau — c'est ce qui a caché le défaut. */
+  assert.equal(h.what, 'Hangar de métal 4', 'vu : ' + h.what);
+});
+
+t('le hangar de la priorité monte d\'un niveau par session', () => {
+  /* Viser d'emblée le niveau qui logerait le coût coûtait plus que le plafond
+     du moment : `setGoal` rendait null, aucune réserve ne s'ouvrait, et la
+     priorité se répétait sans jamais rien faire avancer. */
+  const p = app(prioNanite).simulateDay();
+  const vus = [...new Set(p.sessions.flatMap(x => x.acts.concat(x.waits))
+    .filter(a => a.k === 'smetal').map(a => a.what))];
+  assert.deepEqual(vus, ['Hangar de métal 4', 'Hangar de métal 5', 'Hangar de métal 6', 'Hangar de métal 7'],
+    'vus : ' + vus.join(', '));
+  assert.ok(p.sessions[0].goals.some(g => g.key === 'prio:mere:smetal4'),
+    'et l\'épargne commence dès la première session : ' + p.sessions[0].goals.map(g => g.key).join(', '));
 });
 
 t('un prérequis manquant ne réserve rien et le dit', () => {
@@ -5042,21 +5086,100 @@ t('sur le centre, une priorité de bâtiment posée avant fait attendre la reche
     'la feuille de route garde la tête : ' + g.nextResearch().list[0].why);
 });
 
+/** Les deux priorités de la mesure : la colonie posée la première, de quoi
+    remplir trois grands transporteurs, et la mère qui épargne de son côté. */
+const deuxPrios = s => {
+  s.planets[1].stock = {m:60000, c:30000, d:0, at:SOIR};
+  s.planets[1].ships = {lc:3};
+  s.prio = [{kind:'b', pid:'colo', k:'metal', lvl:12},
+            {kind:'b', pid:'mere', k:'lab', lvl:10}];
+};
+
 t('deux planètes, deux priorités : les transports vont à la première posée', () => {
-  const p = app(s => { s.prio = [
-    {kind:'b', pid:'colo', k:'metal', lvl:12},
-    {kind:'b', pid:'mere', k:'lab', lvl:10}]; }).simulateDay();
+  const p = app(deuxPrios).simulateDay();
   const g = p.sessions[0].goals.filter(x => x.key.startsWith('prio:'));
   assert.equal(g.length, 2, 'les deux épargnent chez elles');
-  assert.match(g[0].label, /Métal/, 'l\'ordre de pose décide de l\'ordre dans goals');
+  assert.equal(g.find(x => x.rang === 0).label.slice(0, 5), 'Métal',
+    'l\'ordre de pose décide du rang, et le rang décide de la destination');
+});
+
+t('deux priorités ne font partir aucun transport croisé', () => {
+  /* Le défaut : chacune devenait la destination de l'autre. Onze vols sur
+     l'horizon au lieu de deux, dont des paires simultanées — deux emplacements
+     de flotte, du deutérium brûlé, et l'épargne des deux planètes vidée. */
+  const g = app(deuxPrios), p = g.simulateDay();
+  const ou = c => g.S.planets.findIndex(x => x.coords === c);
+  for (const [i, s] of p.sessions.entries()) {
+    const vols = s.acts.filter(a => a.kind === 'transfer').map(a => [a.p, ou(a.dest)]);
+    for (const [de, vers] of vols)
+      assert.ok(!vols.some(([d2, v2]) => d2 === vers && v2 === de),
+        `session ${i} : ${vols.map(v => v.join('→')).join(' et ')}`);
+  }
+  assert.ok(p.sessions.some(s => s.acts.some(a => a.kind === 'transfer')),
+    'et la fixture fait bien voler quelque chose');
+});
+
+t('la planète qui déborde garde la réserve de sa priorité', () => {
+  /* Un hangar à 70 % déclenche le rapatriement du surplus, et il se calculait
+     sans l'épargne : la planète expédiait la réserve de la priorité qu'elle
+     était en train de servir. La mère déborde de métal (125 k pour 37 500 que
+     la règle du surplus lui laisse) : sans sa réserve, elle en enverrait
+     exactement 87 500. */
+  const p = app(deuxPrios).simulateDay();
+  const a = p.sessions[0].acts.find(x => x.kind === 'transfer' && x.p === 0);
+  assert.ok(a, 'la mère expédie bien son surplus');
+  assert.ok(a.res[0] > 0 && a.res[0] < 87500, 'métal envoyé : ' + a.res[0]);
+});
+
+/** Trois planètes : la mère, qui ne porte aucune priorité et déborde, et deux
+    colonies qui en portent chacune une. La mère n'est pas bridée, sans quoi le
+    secours déciderait des destinations à la place de l'ordre de pose. */
+const troisPrios = s => {
+  const clone = JSON.parse(JSON.stringify(s.planets[1]));
+  s.planets.push(Object.assign(clone, {id:'c2', coords:'1:142:4', name:'Seconde colonie', ships:{lc:3}}));
+  s.planets[1].ships = {lc:3};
+  s.planets[0].b.solar = 25;
+  s.planets[0].ships = {lc:20, sc:6, pr:4};
+  s.prio = [{kind:'b', pid:'c2', k:'metal', lvl:12},
+            {kind:'b', pid:'colo', k:'crystal', lvl:12}];
+};
+
+t('à chaque session, les rapatriements vont vers la priorité posée en premier', () => {
+  /* L'ordre du tableau `goals` ne pouvait pas porter cette promesse : la clé
+     d'une priorité change dès que son pas avance, et le nouvel objectif part en
+     fin de tableau. La destination tournait alors d'une session à l'autre.
+     Trois planètes, parce qu'à deux la question ne se pose pas : il n'y a
+     qu'une autre planète où aller. */
+  const p = app(troisPrios).simulateDay();
+  const vols = p.sessions.flatMap((s, i) => s.acts.filter(a => a.kind === 'transfer').map(a => [i, a]));
+  assert.ok(vols.length >= 2, 'des vols partent : ' + vols.length);
+  assert.ok(vols.some(([i]) => i > 0), 'et pas tous à la première session');
+  for (const [i, a] of vols)
+    assert.equal(a.dest, '1:142:4', `session ${i} : ${a.what}`);
+});
+
+t('le bloc dit laquelle des priorités reçoit les rapatriements', () => {
+  const g = app(troisPrios);
+  const h = g.prioHtml();
+  assert.equal((h.match(/rapatriements de l'empire vont vers elle/g) || []).length, 1,
+    'une seule ligne le dit : ' + h);
+  assert.match(h.split('</li>')[0], /Métal 12[\s\S]*rapatriements/,
+    'et c\'est celle que le joueur a posée la première');
 });
 
 t('la première priorité d\'une planète bloquée garde son rang', () => {
+  /* Sur toute la journée : la session 0 ne prouve rien, la centrale de secours
+     de la mère la mange. Sans le dédoublonnage par planète, la seconde se met
+     à agir et le Labo sort. */
   const p = app(s => { s.prio = [
     {kind:'b', pid:'mere', k:'nanite', lvl:1},
     {kind:'b', pid:'mere', k:'lab', lvl:10}]; }).simulateDay();
-  assert.ok(!p.sessions[0].acts.some(a => a.kind === 'b' && a.k === 'lab'),
-    'la seconde n\'agit pas tant que la première est posée');
+  for (const [i, s] of p.sessions.entries()) {
+    assert.ok(!s.acts.some(a => a.kind === 'b' && a.k === 'lab'),
+      'la seconde n\'agit pas tant que la première est posée (session ' + i + ')');
+    assert.ok(!s.goals.some(g => g.key.startsWith('prio:mere:lab')),
+      'et elle n\'épargne pas non plus (session ' + i + ')');
+  }
 });
 
 /* ---------- une priorité de recherche ---------- */
@@ -5152,10 +5275,21 @@ t('sans centre, la priorité de recherche épargne sur le plus haut labo', () =>
   const g = p.sessions[0].goals[0];
   assert.ok(g, 'un objectif est ouvert');
   assert.match(g.label, /Plasma/);
-  // L'instantané d'un objectif ne garde pas sa planète : la ligne d'attente,
-  // elle, la nomme — la mère, qui porte le plus haut labo faute de centre.
   assert.ok(p.sessions[0].waits.some(w => w.kind === 't' && w.p === 0),
     'et c\'est le plus haut labo qui attend');
+  /* La mère est aussi la première planète : l'assertion ci-dessus passerait
+     avec la règle « la première planète ». Le même cas, le labo le plus haut
+     posé sur la colonie, est le seul qui distingue les deux — ses hangars et
+     son stock sont montés pour que Plasma 5 y tienne, sinon c'est le hangar
+     qui parlerait et plus la recherche. */
+  const q = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:5}];
+    prePlasma(s); s.tech.plasma = 4;
+    s.planets[1].b.lab = 6; s.planets[1].b.smetal = 4;
+    s.planets[1].b.scrystal = 4; s.planets[1].b.sdeut = 4;
+    s.planets[1].stock = {m:20000, c:30000, d:5000, at:SOIR}; }).simulateDay();
+  assert.equal(q.sessions[0].goals[0].p, 1, 'l\'objectif passe sur la colonie');
+  assert.ok(q.sessions[0].waits.some(w => w.kind === 't' && w.p === 1),
+    'et c\'est elle qui attend');
 });
 
 t('la priorité de recherche épargne pour le pas lançable, pas pour la cible lointaine', () => {
@@ -5210,6 +5344,8 @@ t('une priorité de recherche trop chère pour le hangar fait sortir le hangar',
   const s0 = p.sessions[0];
   const h = s0.acts.concat(s0.waits).find(a => a.k === 'scrystal');
   assert.ok(h, 'le hangar de cristal est demandé dès la première session');
+  // Le niveau suivant, le seul que le jeu accepte de construire depuis 3.
+  assert.equal(h.what, 'Hangar de cristal 4', 'vu : ' + h.what);
   assert.match(h.why || '', /priorité/i, 'et il dit pour quelle priorité');
 });
 
@@ -5297,6 +5433,17 @@ t('la table des recherches porte un champ de niveau visé', () => {
   assert.match(app().VIEWS.research(), /data-prio="plasma"/);
 });
 
+t('la colonne « Visé » reste atteignable dans un volet étroit', () => {
+  /* Mesuré dans le navigateur à 380 px : le nom de technologie sur une seule
+     ligne prenait 231 px et repoussait la colonne au-delà du bord visible — la
+     seule commande qui pose une priorité de recherche était injoignable. Le
+     repli du nom tient aux deux bouts : la table le demande par sa classe, la
+     feuille de style le donne. */
+  assert.match(app().VIEWS.research(), /<table class="tech">/);
+  const css = require('fs').readFileSync(require('path').join(__dirname, '..', 'panel.css'), 'utf8');
+  assert.match(css, /table\.tech td:first-child[^}]*white-space:normal[^}]*max-width/);
+});
+
 t('le champ affiche le niveau visé par la priorité posée, et seulement celui-là', () => {
   const h = app(prioLabo).VIEWS.planets();
   assert.match(h, /data-prio="lab"[^>]*value="10"/);
@@ -5320,10 +5467,65 @@ t('le bloc nomme la planète, la cible et celle qui attend son tour', () => {
   assert.match(h, /data-prio-del="1"/);
 });
 
-t('une seule attend son tour : celle qui agit ne le dit pas', () => {
+t('une seule attend son tour : celle qui agit dit ce que le plan en fait', () => {
   const h = app(prio2).prioHtml();
   assert.equal((h.match(/attend son tour/g) || []).length, 1);
-  assert.equal((h.match(/passe en premier/g) || []).length, 1);
+  assert.match(h.split('</li>')[0], /Elle épargne pour Labo 6/,
+    'la première dit l\'épargne que le plan a ouverte : ' + h);
+});
+
+t('une priorité que rien ne sert ne s\'annonce pas en tête', () => {
+  /* L'état venait du rang dans la liste : la première de chaque planète
+     annonçait qu'elle passait en premier, même quand le plan ne faisait rien
+     pour elle. C'est l'anti-objectif retourné — plus le silence, mais le
+     contraire du vrai. Ici le labo manque pour la recherche posée. */
+  const h = app(s => { s.prio = [{kind:'t', k:'shielding', lvl:1}]; }).prioHtml();
+  assert.match(h, /Laboratoire de recherche 6 manque/, h);
+  assert.doesNotMatch(h, /épargne|passe en premier/i, h);
+});
+
+t('une priorité de recherche dont le labo manque le dit sur une carte', () => {
+  /* `resolveTech` sait que le labo manque, la priorité n'entre alors dans
+     aucune liste, et le `continue` était muet : la seule carte du jour était
+     le laboratoire, que rien ne reliait à ce que le joueur avait posé. */
+  const g = app(s => { s.prio = [{kind:'t', k:'shielding', lvl:1}]; });
+  const w = g.simulateDay().sessions[0].waits.find(x => x.kind === 't' && x.k === 'shielding');
+  assert.ok(w, 'la priorité a sa ligne d\'attente');
+  assert.match(w.why, /Bouclier 1 en priorité/, w.why);
+  assert.match(w.why, /Laboratoire de recherche 6 manque/, w.why);
+  g.REFRESH.today();
+  assert.match(g.html().tdNow, /Laboratoire de recherche 6 manque/, 'et la carte l\'écrit');
+});
+
+t('la carte d\'une priorité de recherche qui épargne dit qu\'elle en est une', () => {
+  /* Sans le pourquoi sur la ligne d'attente, la seule phrase de la journée au
+     sujet d'une priorité de recherche était l'heure à laquelle les ressources
+     seraient réunies. */
+  const g = app(s => { s.prio = [{kind:'t', k:'astro', lvl:5}]; });
+  const w = g.simulateDay().sessions[0].waits.find(x => x.kind === 't');
+  assert.ok(w, 'la recherche attend');
+  assert.match(w.why || '', /priorité/i, 'vu : ' + w.why);
+  g.REFRESH.today();
+  assert.match(g.html().tdNow, /en priorité/, 'et la carte l\'écrit');
+});
+
+t('le vaisseau de colonisation repoussé par une priorité dit ce qui le retient', () => {
+  /* C'est la carte que la priorité écarte le plus souvent : sans `heldBy`, le
+     chantier était repoussé toute la journée sans un mot. */
+  const g = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:5}];
+    prePlasma(s); s.tech.plasma = 4;
+    s.planets[0].stock = {m:20000, c:40000, d:5000, at:SOIR}; });
+  const w = g.simulateDay().sessions[0].waits.find(x => x.kind === 'ship');
+  assert.ok(w, 'le vaisseau attend');
+  assert.ok(w.held, 'et il est retenu');
+  assert.match(w.heldBy, /Plasma 5/, 'par la priorité : ' + w.heldBy);
+});
+
+t('render() compacte les priorités avant de dessiner', () => {
+  /* Une priorité atteinte doit quitter le stockage, et `prios()` n'écrit rien :
+     c'est `prioClean()`, appelé au rendu, qui le fait. Rien ne le tenait. */
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  assert.match(src, /function render\(\)\{\s*prioClean\(\);/);
 });
 
 t('aucun bloc quand il n\'y a aucune priorité', () => {
