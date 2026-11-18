@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.9';
+const APP_VERSION = '1.46.10';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -2748,12 +2748,17 @@ function colonyCandidates(){
 function raidTargets(){
   if(!API || !API.planets || !API.players) return [];
   const home = parseC(coloFrom().coords); if(!home) return [];
-  const me = myScore(), out = [];
+  /* Le statut hors-la-loi appartient à la protection débutant, et la page
+     Outlaw du wiki dit où elle s'arrête : « the status has no effect after
+     500,000 points ». Passé ce score, écarter les inactifs plus forts ne
+     protège plus de rien — ça ne fait que cacher les cibles les plus
+     riches, c'est-à-dire exactement celles qu'on cherche. */
+  const me = myScore(), risque = me != null && me < 5e5, out = [];
   for(const [coords, pl] of API.planets){
     const c = parseC(coords); if(!c || c[0]!==home[0]) continue;
     const P = API.players[pl]; if(!P || !isInactive(P[1])) continue;
     const dist = sysDiff(c[1], home[1]); if(dist>30) continue;
-    const sc = (API.scores && API.scores[pl] || [0])[0], outlaw = me!=null && sc > me;
+    const sc = (API.scores && API.scores[pl] || [0])[0], outlaw = risque && sc > me;
     out.push({coords, name:P[0], status:P[1], score:sc, dist, outlaw, longInactive:/I/.test(P[1]), value: sc*(/I/.test(P[1])?1.3:1)/(1+dist/8)});
   }
   return out.sort((a,b)=>(a.outlaw-b.outlaw) || (b.value-a.value));

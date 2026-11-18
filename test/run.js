@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -2600,6 +2600,32 @@ t('un rapport périmé ne produit aucune carte de pillage', () => {
   const g = app(s => { s.raid = { coords: '1:142:9', m: 50000, c: 20000, d: 0, safe: true, at: SOIR - 3 * 3600e3 }; });
   assert.ok(!g.dailyMissions().some(m => m.id === 'raid-go'),
     'on réespionne avant d\'attaquer');
+});
+
+/* ---------- le statut hors-la-loi s'éteint à 500 000 points ---------- */
+
+/** Un seul inactif voisin, plus fort que le joueur, et les scores qu'on veut. */
+const apiPlusFort = moi => ({
+  planets: [['1:140:8', 'p1']],
+  players: { p1: ['Alpha', 'i'] },
+  scores: moi == null ? { p1: [900000] } : { p1: [900000], moi: [moi] }
+});
+
+t('au-dessus de 500 000 points, un inactif plus fort reste une cible', () => {
+  const g = app(s => { s.me = 'moi'; }, SOIR, apiPlusFort(600000));
+  assert.equal(g.raidTargets()[0].outlaw, false,
+    'le statut hors-la-loi n\'a plus d\'effet passé 500 000 points');
+});
+
+t('en dessous de 500 000 points, un inactif plus fort reste écarté', () => {
+  const g = app(s => { s.me = 'moi'; }, SOIR, apiPlusFort(100000));
+  assert.equal(g.raidTargets()[0].outlaw, true);
+});
+
+t('score du joueur inconnu : la prudence d\'avant ne bouge pas', () => {
+  const g = app(s => { s.me = null; }, SOIR, apiPlusFort(null));
+  assert.equal(g.raidTargets()[0].outlaw, false,
+    'sans score, rien à comparer — comme aujourd\'hui');
 });
 
 /* ---------- les foreuses entrent dans le classement ---------- */
