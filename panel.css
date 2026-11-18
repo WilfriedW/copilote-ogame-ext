@@ -93,6 +93,10 @@ details.card summary{cursor:pointer;font-family:var(--f-display);font-weight:600
 .advice li{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:start;background:var(--surface-2);border-radius:var(--r-sm);padding:10px 12px}
 .advice li .what{font-weight:600}
 .advice li .why{grid-column:2;font-size:12px;color:var(--muted)}
+.advice.prios li{grid-template-columns:auto 1fr auto;align-items:center}
+.advice.prios li .btn{grid-column:3;grid-row:1}
+.lv{display:flex;gap:4px}
+.lv input.prio{width:46px;flex:0 0 auto}
 .answer{white-space:pre-wrap;font-size:14px;line-height:1.6;background:var(--surface-2);border-radius:var(--r-sm);padding:12px;min-height:3em}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .timers{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}

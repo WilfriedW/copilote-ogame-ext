@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -5282,6 +5282,156 @@ t('sans retenue, la carte n\'écrit pas « Retenu »', () => {
   g.REFRESH.today();
   assert.ok(/class="wait"/.test(g.html().tdNow), 'des cartes attendent');
   assert.ok(!/Retenu/.test(g.html().tdNow));
+});
+
+/* ---------- le joueur pose et retire ---------- */
+const prio2 = s => { s.prio = [
+  {kind:'b', pid:'mere', k:'lab', lvl:10},
+  {kind:'b', pid:'mere', k:'metal', lvl:20}]; };
+
+t('la grille des niveaux porte un champ de niveau visé', () => {
+  assert.match(app().VIEWS.planets(), /data-prio="lab"/);
+});
+
+t('la table des recherches porte un champ de niveau visé', () => {
+  assert.match(app().VIEWS.research(), /data-prio="plasma"/);
+});
+
+t('le champ affiche le niveau visé par la priorité posée, et seulement celui-là', () => {
+  const h = app(prioLabo).VIEWS.planets();
+  assert.match(h, /data-prio="lab"[^>]*value="10"/);
+  assert.match(h, /data-prio="metal"[^>]*value=""/);
+});
+
+t('une priorité de la mère n\'emplit pas le champ de la colonie', () => {
+  /* Même bâtiment sur deux planètes : seul le champ de la planète visée porte
+     la valeur, et l'attribut data-pid dit à quelle planète il répond. */
+  const h = app(prioLabo).VIEWS.planets();
+  assert.equal((h.match(/data-prio="lab"[^>]*value="10"/g) || []).length, 1);
+  assert.match(h, /data-pid="mere" data-prio="lab"/);
+});
+
+t('le bloc nomme la planète, la cible et celle qui attend son tour', () => {
+  const h = app(prio2).prioHtml();
+  assert.match(h, /Planète mère/);
+  assert.match(h, /Labo 10/);
+  assert.match(h, /attend son tour/);
+  assert.match(h, /data-prio-del="0"/);
+  assert.match(h, /data-prio-del="1"/);
+});
+
+t('une seule attend son tour : celle qui agit ne le dit pas', () => {
+  const h = app(prio2).prioHtml();
+  assert.equal((h.match(/attend son tour/g) || []).length, 1);
+  assert.equal((h.match(/passe en premier/g) || []).length, 1);
+});
+
+t('aucun bloc quand il n\'y a aucune priorité', () => {
+  assert.equal(app().prioHtml(), '');
+});
+
+t('en mode nuit le bloc reste lisible et ne promet rien', () => {
+  const h = app(s => { s.day.night = true; prioLabo(s); }).prioHtml();
+  assert.match(h, /Labo 10/);
+  assert.match(h, /data-prio-del/);
+  assert.doesNotMatch(h, /épargne|lancement|attend|passe en premier/i);
+});
+
+t('une priorité bloquée dit ce qui manque, avec la phrase de prioBloque', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'colo', k:'nanite', lvl:1}]; });
+  const phrase = g.prioBloque(g.S.planets[1], 'nanite');
+  assert.ok(phrase, 'la fixture doit réellement bloquer');
+  assert.ok(g.prioHtml().includes(phrase));
+});
+
+t('une recherche se lit « Recherche » : elle n\'a pas de planète à nommer', () => {
+  const h = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:3}]; }).prioHtml();
+  assert.match(h, /Technologie Plasma 3/);
+  assert.match(h, />Recherche</);
+  assert.doesNotMatch(h, /Planète mère/);
+});
+
+t('Aujourd\'hui affiche le bloc sous les cartes', () => {
+  const g = app(prioLabo);
+  g.REFRESH.today();
+  assert.match(g.html().tdNow, /Tes priorités/);
+});
+
+t('poser : une cible au-dessus du niveau s\'ajoute en fin de liste', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:20}]; });
+  g.prioPose('b', 'mere', 'lab', '10');
+  assert.deepEqual(g.S.prio.map(x => x.k), ['metal', 'lab']);
+  assert.deepEqual(g.S.prio[1], {kind:'b', pid:'mere', k:'lab', lvl:10});
+});
+
+t('poser une recherche ne stocke pas de planète', () => {
+  const g = app();
+  g.prioPose('t', null, 'plasma', '4');
+  assert.deepEqual(g.S.prio, [{kind:'t', k:'plasma', lvl:4}]);
+});
+
+t('corriger un niveau met à jour sur place et garde le rang', () => {
+  const g = app(prio2);
+  g.prioPose('b', 'mere', 'lab', '12');
+  assert.deepEqual(g.S.prio.map(x => x.k + x.lvl), ['lab12', 'metal20']);
+});
+
+t('vider le champ retire la priorité', () => {
+  const g = app(prio2);
+  g.prioPose('b', 'mere', 'lab', '');
+  assert.deepEqual(g.S.prio.map(x => x.k), ['metal']);
+});
+
+t('un niveau déjà atteint retire la priorité au lieu de la poser', () => {
+  const g = app(prio2);
+  g.prioPose('b', 'mere', 'lab', '5');   // le labo de la mère est à 5
+  assert.deepEqual(g.S.prio.map(x => x.k), ['metal']);
+  g.prioPose('b', 'mere', 'robot', '3'); // robots à 6 : rien à poser
+  assert.deepEqual(g.S.prio.map(x => x.k), ['metal']);
+});
+
+t('un texte qui n\'est pas un nombre ne pose rien', () => {
+  const g = app();
+  g.prioPose('b', 'mere', 'lab', 'abc');
+  assert.deepEqual(g.S.prio, []);
+});
+
+t('le même bâtiment sur deux planètes fait deux priorités distinctes', () => {
+  const g = app();
+  g.prioPose('b', 'colo', 'lab', '3');
+  g.prioPose('b', 'mere', 'lab', '10');
+  assert.deepEqual(g.S.prio.map(x => x.pid + x.lvl), ['colo3', 'mere10']);
+  g.prioPose('b', 'mere', 'lab', '');
+  assert.deepEqual(g.S.prio.map(x => x.pid + x.lvl), ['colo3']);
+});
+
+t('retirer par rang enlève la bonne entrée', () => {
+  const g = app(prio2);
+  g.prioRetire(1);
+  assert.deepEqual(g.S.prio.map(x => x.k), ['lab']);
+});
+
+t('le rang du bouton est celui du bloc même quand une entrée morte le précède', () => {
+  /* Le labo atteint son niveau en cours de session : prios() l'écarte, mais
+     S.prio ne se compacte qu'au rendu suivant. Le bouton du bloc compte dans
+     prios() ; retirer « 0 » doit retirer la mine, pas l'entrée morte. */
+  /* Posée après le chargement : le rendu de départ compacte S.prio et
+     emporterait l'entrée morte avant que le test ne la voie. */
+  const g = app(s => { s.prio = [
+    {kind:'b', pid:'mere', k:'metal', lvl:20},
+    {kind:'b', pid:'mere', k:'crystal', lvl:20}]; });
+  g.S.prio.unshift({kind:'b', pid:'mere', k:'lab', lvl:4});
+  g.prioRetire(0);
+  assert.deepEqual(g.S.prio.map(x => x.k), ['lab', 'crystal']);
+});
+
+t('le champ de niveau visé écoute change, jamais input', () => {
+  /* Sur un labo 5, taper « 10 » passe par « 1 » : à l'écoute de input, la
+     priorité serait jugée atteinte, retirée, puis recréée en fin de liste. */
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const m = src.match(/querySelectorAll\('input\[data-prio\]'\)\.forEach\(el=>el\.addEventListener\('(\w+)'/);
+  assert.ok(m, 'le champ est branché');
+  assert.equal(m[1], 'change');
 });
 
 if (failures.length) {

@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.50.1';
+const APP_VERSION = '1.51.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -184,6 +184,50 @@ function prioClean(){
   if(vivantes.length === S.prio.length) return;
   S.prio = vivantes.map(x => x.kind === 't' ? {kind:'t', k:x.k, lvl:x.lvl} : x);
   save();
+}
+
+/* Une entrée se reconnaît à ce qu'elle vise : le bâtiment sur sa planète, ou la
+   recherche — qui ne porte pas de pid. */
+function prioIdx(kind, pid, k){
+  return (S.prio || []).findIndex(e => e && e.kind === kind && e.k === k && (kind === 't' || e.pid === pid));
+}
+function prioLvl(kind, pid, k){
+  const e = prios().find(x => x.kind === kind && x.k === k && (kind === 't' || x.pid === pid));
+  return e ? e.lvl : '';
+}
+/* Le joueur écrit un niveau visé. L'ordre de pose arbitre la précédence : une
+   correction met donc l'entrée à jour sur place, et seule une priorité neuve
+   prend la fin de la liste. Un champ vidé, ou un niveau déjà atteint, retire :
+   « viser » ce qu'on a ne demande rien au plan. */
+function prioPose(kind, pid, k, raw){
+  const lvl = parseInt(raw), i = prioIdx(kind, pid, k);
+  const actuel = kind === 't' ? (S.tech[k] || 0) : ((planetById(pid) || {b:{}}).b[k] || 0);
+  if(!(lvl > actuel)){ if(i >= 0) S.prio.splice(i, 1); return; }
+  if(i >= 0) S.prio[i].lvl = lvl;
+  else S.prio.push(kind === 't' ? {kind, k, lvl} : {kind, pid, k, lvl});
+}
+/* Le rang du bouton est celui de prios(), pas celui de S.prio : une entrée
+   accomplie en cours de session y reste jusqu'au rendu suivant. */
+function prioRetire(rang){
+  const e = prios()[rang];
+  const i = e ? prioIdx(e.kind, e.pid, e.k) : -1;
+  if(i >= 0) S.prio.splice(i, 1);
+}
+/* Le bloc ne promet rien la nuit : le plan du jour ne tourne pas, et dire
+   qu'une carte va sortir serait mentir. Celle qui agit sur une planète est la
+   première posée (prioOf) ; les autres de la même planète attendent. */
+function prioHtml(){
+  const l = prios();
+  if(!l.length) return '';
+  const nuit = !!S.day.night, vues = new Set();
+  const lignes = l.map((x, i) => {
+    const p = planetById(x.pid), premiere = !vues.has(x.pid);
+    vues.add(x.pid);
+    const nom = x.kind === 'b' ? B_SHORT[x.k] : T[x.k].n;
+    const etat = nuit ? '' : (x.kind === 'b' && prioBloque(p, x.k)) || (premiere ? 'Elle passe en premier sur cette planète.' : 'Elle attend son tour.');
+    return `<li><span class="pill">${x.kind === 'b' ? esc(p.name) : 'Recherche'}</span><span class="what">${esc(nom)} ${x.lvl}</span>${etat ? `<span class="why">${esc(etat)}</span>` : ''}<button class="btn sm ghost" data-prio-del="${i}">Retirer</button></li>`;
+  });
+  return `<div class="card"><h2>Tes priorités</h2><ul class="advice prios">${lignes.join('')}</ul></div>`;
 }
 
 /* Les rangs enregistrés deviennent des identités. Un rang écrit hier ne
@@ -3381,7 +3425,7 @@ planets(){
       <p class="note" id="pfleet-${i}" style="margin:0"></p>
       <details><summary class="note">Niveaux des bâtiments et stock</summary>
       <div class="grid tight" style="margin-top:8px">
-        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${p.b[k]}"></label>`).join('')}
+        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${p.b[k]}"><input class="prio" type="number" min="1" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
         <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${p.sats}"></label>
       </div>
       <div class="grid tight" style="margin-top:8px">
@@ -3397,8 +3441,8 @@ planets(){
 },
 research(){
   return `<details class="card"><summary>Recherches <span class="note">labo niveau <b id="labLv"></b></span></summary>
-    <div class="tbl-wrap"><table><thead><tr><th>Technologie</th><th class="n">Niv.</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th></tr></thead><tbody>
-    ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${S.tech[k]}"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
+    <div class="tbl-wrap"><table><thead><tr><th>Technologie</th><th class="n">Niv.</th><th class="n">Visé</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th></tr></thead><tbody>
+    ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${S.tech[k]}"></td><td class="n"><input class="prio" type="number" min="1" data-prio="${k}" value="${prioLvl('t', null, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${T[k].n} : niveau visé"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
     </tbody></table></div>
   </details>`;
 },
@@ -3565,7 +3609,7 @@ today(){
   if(!s0.acts.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
   const aide = `<details${fold('aide', false)}><summary class="note" data-fold="aide">Comment lire ces cartes</summary><p class="note" style="margin-top:6px"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. <b>Non</b> met la carte de côté jusqu'à ce que tu la remettes. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p></details>`;
   const remets = noCount() ? `<div class="row">${noRestore()}</div>` : '';
-  document.getElementById('tdNow').innerHTML = nowParts.join('') + aide + remets;
+  document.getElementById('tdNow').innerHTML = nowParts.join('') + aide + prioHtml() + remets;
   const alerts = plan.alerts;
   document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><h2>Alertes</h2><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('')}</ul></div>` : '';
   const later = plan.sessions.slice(1).filter(x=>x.acts.length || slotMs.has(x));
@@ -3744,6 +3788,10 @@ function bind(){
   view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ const p=S.planets[+b.dataset.del]; if(p) forgetPlanet(p.id); save(); render(); }));
   on('dayNight','click',()=>{ S.day.night = !S.day.night; save(); render(); });
   on('addPlanet','click',()=>{ S.planets.push(newPlanet('Colonie '+S.planets.length,'1:1:'+(S.planets.length+4),20,{})); S.sample=false; save(); render(); });
+  /* « change » et non « input » comme les niveaux voisins : sur un labo 5,
+     taper « 10 » passe par « 1 », que prioPose jugerait atteint avant de
+     recréer la priorité en fin de liste — et le joueur perdrait son rang. */
+  view.querySelectorAll('input[data-prio]').forEach(el=>el.addEventListener('change',()=>{ prioPose(el.dataset.pid ? 'b' : 't', el.dataset.pid, el.dataset.prio, el.value); save(); render(); }));
   view.querySelectorAll('input[data-t]').forEach(el=>el.addEventListener('input',()=>{ S.tech[el.dataset.t]=Math.max(0,parseInt(el.value)||0); changed(); }));
   view.querySelectorAll('[data-set]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k=el.dataset.set, s=S.settings;
@@ -3797,6 +3845,7 @@ view.addEventListener('click', e=>{
     // Fait sur un espionnage : les cibles nommées sortent de la liste pour un jour.
     if(dn.dataset.mark) dn.dataset.mark.split(',').forEach(c=>{ S.raids[c] = {at:Date.now(), probe:true}; }); save(); refresh(); toast('Bien joué'); return; }
   const no = e.target.closest('[data-no]'); if(no){ S.daily.no[no.dataset.no] = Date.now(); save(); refresh(); toast('Mis de côté'); return; }
+  const pd = e.target.closest('[data-prio-del]'); if(pd){ prioRetire(+pd.dataset.prioDel); save(); render(); return; }
   const nc = e.target.closest('[data-noclear]'); if(nc){ S.daily.no = {}; save(); render(); toast('Cartes refusées remises'); return; }
   const sm = e.target.closest('summary[data-fold]');
   // Le repli bascule tout seul : on ne note que l'état où il va.
