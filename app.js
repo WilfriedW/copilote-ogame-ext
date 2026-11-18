@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.4';
+const APP_VERSION = '1.46.5';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -271,7 +271,7 @@ function missionGo(m){
   if(!m) return null;
   const tag = (m.tags || [])[0];
   const prep = fleetUrl(m); if(prep) return prep;
-  const url = goUrl(GO_MISSION[m.id], tag ? S.planets.findIndex(p=>planetRef(p) === tag) : hubIndex());
+  const url = goUrl(GO_MISSION[m.id], tag ? S.planets.findIndex(p=>planetRef(p) === tag) : centreOrHub());
   /* La page Galaxie accepte les mêmes paramètres que la page de flotte. Une
      carte qui nomme des coordonnées peut donc y mener directement, au lieu de
      déposer le joueur sur son propre système et de le laisser naviguer. Sans
@@ -281,7 +281,7 @@ function missionGo(m){
 }
 /** URL de la page Galaxie ouverte sur un système, ou null. */
 function galaxyUrl(coords){
-  const c = parseC(coords), url = goUrl('galaxy', hubIndex());
+  const c = parseC(coords), url = goUrl('galaxy', centreOrHub());
   return url && c ? `${url}&galaxy=${c[0]}&system=${c[1]}` : null;
 }
 /* Une carte qui nomme plusieurs systèmes n'en ouvrait qu'un : le clic sur le
@@ -1767,7 +1767,7 @@ function simulateDay(){
         else { setGoal(key, 'le vaisseau de colonisation', c, dep, Tm); waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), miss:missOf(dep,c), kind:'ship', p:dep.i}); }
       }
       if(wantColony && sim.colShip && sim.colReady<=Tm && !refused(moveKey('fleet', (real.planets[dep.i]||{}).id, target))){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight, kind:'fleet', p:dep.i, dest:target, mission:7, ships:{col:1}}); }
-      const hubP = P[Math.min(hubIndex(), P.length-1)];
+      const hubP = P[centreIndex()] || P[Math.min(hubIndex(), P.length-1)];
       /* Ce qu'il manque à chaque planète pour son prochain chantier, relevé une
          fois avant le premier envoi : c'est ce manque qui fait d'elle une
          destination. */
@@ -2906,6 +2906,17 @@ function centreIndex(){
   }
   return best;
 }
+/** L'index du centre, ou celui que `hubIndex` désignait avant lui : les liens
+    de page n'ont besoin que d'une planète, et sans centre rien ne change. */
+function centreOrHub(){ const i = centreIndex(); return i >= 0 ? i : hubIndex(); }
+/** L'index de la planète qui porte la plus grosse soute — la même mesure que
+    `donorsOf` pour choisir sa base. 0 quand aucune n'a de transporteur. */
+function cargoHomeIndex(){
+  const cargo = p => (((p.ships||{}).lc)||0)*25000 + (((p.ships||{}).sc)||0)*5000;
+  let best = 0;
+  S.planets.forEach((p,i)=>{ if(cargo(p) > cargo(S.planets[best])) best = i; });
+  return best;
+}
 /** Ce qu'on ajoute à la raison d'un bâtiment d'empire : pourquoi là et pas
     ailleurs. Vide quand l'empire n'a pas de centre. */
 function centreNote(){ return centreIndex() >= 0 ? ' Ton centre : c\'est de là que partent tes recherches et tes vaisseaux.' : ''; }
@@ -2937,7 +2948,11 @@ function raidPlan(){
   /* Un rapport vieillit : la cible produit, et surtout elle peut avoir été
      pillée entre-temps. Au-delà de deux heures il ne décrit plus rien. */
   const stale = !r.at || Date.now()-r.at > 2*3600e3;
-  const home = S.planets[hubIndex()], res = [+r.m||0, +r.c||0, +r.d||0];
+  /* Un raid se compose avec les transporteurs posés sur la planète de départ :
+     la bonne planète est donc celle qui les a, pas celle qui porte une charge.
+     Un centre désigné à la main sur une colonie neuve donnerait sinon un plan
+     de raid sans vaisseaux, et il le dirait en silence. */
+  const home = S.planets[cargoHomeIndex()], res = [+r.m||0, +r.c||0, +r.d||0];
   const rate = S.settings.cls==='explorer' ? .75 : .5, loot = res.map(x=>Math.floor(x*rate)), need = loot[0]+loot[1]+loot[2];
   const av = home.ships||{}, lcC = shipStats('lc').cargoEff, scC = shipStats('sc').cargoEff;
   let left = need; const lc = Math.min(av.lc||0, Math.ceil(left/lcC)); left -= lc*lcC; const sc = left>0 ? Math.min(av.sc||0, Math.ceil(left/scC)) : 0; left -= sc*scC;

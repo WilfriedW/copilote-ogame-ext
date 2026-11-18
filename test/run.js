@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -4109,6 +4109,29 @@ t('le niveau de labo est celui du centre, pas le maximum de l\'empire', () => {
 t('sans centre, le labo reste le plus haut de l\'empire', () => {
   const g = app(s => { s.day.focus = 'fleet'; });
   assert.equal(g.labLevel(), 5);
+});
+
+/* ---------- les liens et le raid ---------- */
+
+t('le raid part de la planète qui a les transporteurs, pas du centre', () => {
+  const g = app(s => {
+    s.centre = 'colo';
+    s.raid = { coords: '1:142:9', m: 500000, c: 200000, d: 0, at: SOIR, safe: true };
+  });
+  assert.equal(g.raidPlan().home.id, 'mere', 'les transporteurs sont sur la mère');
+});
+
+t('la galaxie s\'ouvre depuis le centre', () => {
+  const g = app(s => {
+    s.centre = 'colo'; s.host = 's199-fr.ogame.gameforge.com';
+    s.planets[0].gid = '111'; s.planets[1].gid = '222';
+  });
+  assert.ok(/cp=222/.test(g.galaxyUrl('1:142:9')), 'la galaxie s\'ouvre sur la colonie : ' + g.galaxyUrl('1:142:9'));
+});
+
+t('la planète du fret est celle qui porte la plus grosse soute', () => {
+  const g = app(s => { s.planets[1].ships = { lc: 40 }; });
+  assert.equal(g.cargoHomeIndex(), 1, '40 grands transporteurs battent 6 petits et 2 grands');
 });
 
 /* ---------- défense ---------- */
