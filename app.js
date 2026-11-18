@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.50.0';
+const APP_VERSION = '1.50.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1962,7 +1962,7 @@ function simulateDay(){
            règle lue trop largement tuerait. */
         const g = (mine || ((R.crit || starving) && !epargnePrio(labP))) ? setGoal(key, `${T[R.k].n} ${R.lvl}`, c, labP, Tm) : null;
         if(phase==='pre') return;
-        const held = heldByOf(labP, Tm, mine);
+        const held = heldByOf(labP, Tm, g);
         waits.push({q:'Recherche · '+planetRef(labP), what:`${T[R.k].n} ${R.lvl}`, eta:wait(labP,c), held:!!held, heldBy:held, miss:missOf(labP,c), kind:'t', k:R.k, p:labP.i});
         for(const F of nr.list.slice(1)){
           const fd = researchTime(F.k,F.lvl);

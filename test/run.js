@@ -5251,6 +5251,19 @@ t('la recherche qui épargne pour elle-même ne se dit pas retenue par elle-mêm
   assert.equal(w.heldBy, '');
 });
 
+t('une recherche non critique, qui n\'épargne qu\'après quatre heures, ne se nomme pas elle-même', () => {
+  /* Stock vide : Énergie 4 n'est pas critique, son objectif naît pour la
+     première fois en phase « post » de la session où l'attente atteint quatre
+     heures — `mine` est alors encore vide. Le vaisseau de colonisation retient
+     aussi la mère : lui seul doit être nommé. */
+  const p = app(s => { s.planets[0].stock = {m:0, c:0, d:0, at:SOIR}; }).simulateDay();
+  const i = p.sessions.findIndex(x => x.goals.some(g => g.label === 'Technologie Énergie 4'));
+  assert.ok(i > 0, 'l\'objectif naît après la première session');
+  const w = p.sessions[i].waits.find(x => x.kind === 't');
+  assert.ok(w && w.heldBy, 'la recherche est retenue par autre chose');
+  assert.ok(!/Énergie 4/.test(w.heldBy), w.heldBy);
+});
+
 t('le bâtiment retenu par la réserve d\'une priorité nomme laquelle', () => {
   // Mine de cristal 13 est retenue par la réserve du Labo 7 (4e session)
   const w = app(prioLabo).simulateDay().sessions[4].waits.find(x => x.kind === 'b' && x.k === 'crystal');
