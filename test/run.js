@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -2660,6 +2660,64 @@ t('les trois ressources se lisent encore comme avant', () => {
 
 t('un collage sans ressources ne rend aucune ressource', () => {
   assert.strictEqual(app().parseReport('Défense\nCommentaires').res, null);
+});
+
+/* ---------- le collage remplit la case ---------- */
+
+/** Une cible préparée, prête à recevoir un rapport. */
+const cible = (extra) => s => { s.raid = Object.assign({ coords: '1:142:9', m: 0, c: 0, d: 0, safe: false }, extra); };
+
+t('un rapport nu coche la case', () => {
+  const g = app(cible());
+  g.applyReport(lire('nue.txt'));
+  assert.strictEqual(g.S.raid.safe, true, 'ni flotte ni défense : la cible est nue');
+});
+
+t('un rapport avec défense décoche la case', () => {
+  const g = app(cible({ safe: true }));
+  g.applyReport(lire('complet.txt'));
+  assert.strictEqual(g.S.raid.safe, false, 'la défense lue reprend la parole du joueur');
+});
+
+t('un rapport trop faible décoche aussi, et dit que la défense est inconnue', () => {
+  const g = app(cible({ safe: true }));
+  g.applyReport(lire('faible.txt'));
+  assert.strictEqual(g.S.raid.safe, false);
+  assert.strictEqual(g.S.raid.def, null, 'inconnue, pas vide');
+});
+
+t('un second collage efface la défense du premier', () => {
+  const g = app(cible());
+  g.applyReport(lire('complet.txt'));
+  assert.equal(g.S.raid.def.rl, 45, 'le premier rapport est bien lu');
+  g.applyReport(lire('faible.txt'));
+  assert.strictEqual(g.S.raid.def, null,
+    'la défense d\'hier ne se lit pas sur la cible d\'aujourd\'hui');
+});
+
+t('un collage sans ressources laisse celles qui ont été tapées', () => {
+  const g = app(cible({ m: 50000 }));
+  g.applyReport('Défense\nCommentaires');
+  assert.equal(g.S.raid.m, 50000,
+    'un chiffre tapé à la main est une information du joueur');
+});
+
+t('une flotte de satellites et de sondes ne bloque pas le pillage', () => {
+  const g = app(cible());
+  g.applyReport(lire('nue.txt').replace('Flottes', 'Flottes\nSatellite solaire\n12\nSonde d`espionnage\n3'));
+  assert.strictEqual(g.S.raid.safe, true, 'ni l\'un ni l\'autre ne tire');
+});
+
+t('un petit transporteur au sol, lui, bloque le pillage', () => {
+  const g = app(cible());
+  g.applyReport(lire('nue.txt').replace('Flottes', 'Flottes\nPetit transporteur\n2'));
+  assert.strictEqual(g.S.raid.safe, false, 'c\'est un combat, et le copilote n\'en simule aucun');
+});
+
+t('le butin lu dans le rapport est retenu', () => {
+  const g = app(cible());
+  g.applyReport(lire('complet.txt'));
+  assert.equal(g.S.raid.lootSeen, 0.75);
 });
 
 /* ---------- le statut hors-la-loi s'éteint à 500 000 points ---------- */

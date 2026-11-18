@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.12';
+const APP_VERSION = '1.46.13';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3079,6 +3079,34 @@ function parseReport(txt){
     loot: butin ? +butin[1]/100 : null
   };
 }
+/** Une section lue où rien ne tire. Inconnue (`null`) n'est pas nue. */
+function seNue(n){ return !!n && !Object.keys(n).some(k=>SE_BAT[k] && n[k]>0); }
+/**
+ * Pose sur la cible ce qu'un rapport collé vient de dire.
+ *
+ * `S.raid.safe` garde le sens qu'il a toujours eu — le joueur affirme que la
+ * cible est nue, et c'est lui qui engage sa flotte — mais le collage le
+ * pré-remplit au lieu de le laisser à une case qu'on coche sans avoir lu. Le
+ * joueur peut recocher : il a pu lire le rapport mieux que l'analyseur, et le
+ * copilote ne refuse pas un choix du joueur.
+ *
+ * @param {string} txt le rapport collé
+ */
+function applyReport(txt){
+  if(!S.raid) return;
+  const r = parseReport(txt);
+  /* La flotte et la défense repartent à chaque collage, y compris vers
+     l'inconnu : gardées, celles d'hier décriraient la cible d'hier. Les trois
+     ressources, elles, survivent à un collage qui ne les contient pas — le
+     joueur a pu les taper, et une ressource périmée ne fait rater qu'un butin
+     quand une défense périmée fait perdre une flotte. */
+  S.raid.fleet = r.fleet;
+  S.raid.def = r.def;
+  S.raid.lootSeen = r.loot;
+  if(r.res){ S.raid.m = r.res[0]; S.raid.c = r.res[1]; S.raid.d = r.res[2]; }
+  S.raid.at = Date.now();
+  S.raid.safe = seNue(r.fleet) && seNue(r.def);
+}
 /** Fleet and outcome for a raid on the selected target. */
 function raidPlan(){
   const r = S.raid; if(!r) return null;
@@ -3163,8 +3191,8 @@ explore(){
     </div>
     <div class="card"><h2>Où coloniser</h2><div id="exColo"></div></div>
     ${S.raid ? `<div class="card"><div class="row spread"><h2>Pillage de ${esc(S.raid.coords)}</h2><button class="btn sm ghost" data-raidclose="1">Fermer</button></div>
-      <p class="note">${esc(S.raid.name||'')} · 1. Espionne la cible depuis Galaxie. 2. Colle le rapport ici ou saisis ses ressources. 3. Vérifie qu'il n'a ni flotte ni défense.</p>
-      <textarea id="rdPaste" data-raid="paste" placeholder="Colle ici le rapport d'espionnage (texte)"></textarea>
+      <p class="note">${esc(S.raid.name||'')} · 1. Espionne la cible depuis Galaxie. 2. Colle le rapport <b>en entier</b> ici : flotte et défense comprises, pas seulement les ressources. Ce que le rapport ne montre pas, le copilote le dira comme manquant plutôt que de le prendre pour zéro.</p>
+      <textarea id="rdPaste" data-raid="paste" placeholder="Colle ici le rapport d'espionnage entier (texte)"></textarea>
       <div class="grid tight">
         <label class="f">Métal<input id="rdM" type="number" min="0" data-raid="m" value="${S.raid.m||0}"></label>
         <label class="f">Cristal<input id="rdC" type="number" min="0" data-raid="c" value="${S.raid.c||0}"></label>
@@ -3554,7 +3582,7 @@ function bind(){
      déplace le « (conseillé) » des autres cartes et tout le plan, la vue se
      redessine au lieu de se rafraîchir. */
   view.querySelectorAll('[data-centre]').forEach(el=>el.addEventListener('change',()=>{ S.centre = el.checked ? el.dataset.centre : null; save(); render(); }));
-  view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ const r=parseReport(el.value).res; if(r){ S.raid.m=r[0]; S.raid.c=r[1]; S.raid.d=r[2]; S.raid.at=Date.now(); save(); render(); } return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); if(k!=='safe') S.raid.at=Date.now(); save(); REFRESH.explore(); }));
+  view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ applyReport(el.value); save(); render(); return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); if(k!=='safe') S.raid.at=Date.now(); save(); REFRESH.explore(); }));
   view.querySelectorAll('[data-lf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.lf, f=new Set(S.lf.found); el.checked ? f.add(k) : f.delete(k); S.lf.found=[...f]; save(); render(); }));
   view.querySelectorAll('[data-day]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k = el.dataset.day; S.day[k] = dayValue(k, el.value, S.day[k]); save(); refresh();
