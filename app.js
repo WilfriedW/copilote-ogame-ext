@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.46.3';
+const APP_VERSION = '1.46.4';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -668,8 +668,17 @@ function gameSkin(acts, missions, waits){
           lean: !!S.settings.lean, noshop: !!S.settings.noshop, large: !!S.settings.large,
           peau: !!S.settings.peau, clair: !!S.settings.clair};
 }
-function labPlanet(){ return S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
-function labLevel(){ return Math.max(0, ...S.planets.map(p=>p.b.lab)); }
+/* Le centre d'abord : une recherche se lance depuis une planète, et c'est son
+   labo à elle qui en fixe la durée et les prérequis. Sans centre — joueur de
+   flotte, planète unique — on retombe sur le plus haut labo de l'empire,
+   c'est-à-dire sur le comportement d'avant. */
+function labPlanet(){ return centrePlanet() || S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
+/* Le labo du centre, et non plus le maximum de l'empire : les deux
+   coïncidaient tant que le centre était par construction la planète du plus
+   haut labo, et ils divergent dès que le joueur reprend la main. Annoncer le
+   maximum ferait promettre une durée que le jeu ne tiendra pas, et lancer une
+   recherche depuis un labo trop petit. */
+function labLevel(){ const p = labPlanet(); return p ? (p.b.lab || 0) : 0; }
 /** Research time in seconds. */
 function researchTime(key, L){
   const c = levelCost(T[key], L);
@@ -1616,7 +1625,7 @@ function pickBuildings(p, ctx){
     if(p.b.robot<2) add('robot', 'Prérequis du chantier spatial');
     else add('shipyard', 'Prérequis du vaisseau de colonisation');
   }
-  if(ctx.labNeed && p===ctx.labP && p.b.lab<ctx.labNeed && !ctx.researchRunning) add('lab', 'Débloque la recherche suivante');
+  if(ctx.labNeed && p===ctx.labP && p.b.lab<ctx.labNeed && !ctx.researchRunning) add('lab', 'Débloque la recherche suivante.' + centreNote());
   if(needsOwnCargo(p, ctx.hub) && p.b.shipyard < 2){
     if(p.b.robot < 2) add('robot', 'Prérequis du chantier spatial');
     else add('shipyard', 'Pour que cette colonie ait ses propres transporteurs');
@@ -1724,13 +1733,13 @@ function simulateDay(){
          limite de délai : ce que la production n'aura pas couvert d'ici là. */
       const softAll = p=>{ const pr=production(p), r=[pr.m,pr.c,pr.d], out=[0,0,0]; for(const x of soft){ if(x.p!==p) continue; x.cost.forEach((c,j)=>out[j]+=Math.max(0, c - r[j]*(x.eta/3600+iv))); } return out; };
       const softRes = p=>{ const pr=production(p), r=[pr.m,pr.c,pr.d], out=[0,0,0]; for(const x of soft){ if(x.p!==p || !(x.eta<=3*3600)) continue; x.cost.forEach((c,j)=>out[j]+=Math.max(0, c - r[j]*(x.eta/3600+iv))); } return out; };
-      const labP = P.reduce((a,p)=>p.b.lab>a.b.lab?p:a, P[0]);
+      const labP = P[centreIndex()] || P.reduce((a,p)=>p.b.lab>a.b.lab?p:a, P[0]);
       const dep = P[colShipAt()>=0 ? colShipAt() : planetIndexById(S.colo.fromId)] || P[0];
       const wantColony = S.day.focus!=='eco' && P.length < maxPlanets() && !sim.colSent;
       const nr = nextResearch();
       if(nr.labNeed && labP.b.lab<nr.labNeed && labP.bq<=Tm && sim.rq<=Tm){
         const c = levelCost(B.lab, labP.b.lab+1);
-        if(can(labP,c,reserveOf(labP,Tm))){ pay(labP,c); const d=buildTime('lab',labP.b.lab+1,labP), L=labP.b.lab+1, pp=labP; pp.bq=Tm+d; pp.bqKey='lab'; sim.ev.push({at:Tm+d, fn:()=>{ pp.b.lab=Math.max(pp.b.lab,L); }}); acts.push({q:'Bâtiment · '+planetRef(pp), what:`${B.lab.n} ${L}`, why:'Débloque la recherche suivante', cost:c, dur:d, end:Tm+d, kind:'b', k:'lab', lvl:L, p:pp.i}); }
+        if(can(labP,c,reserveOf(labP,Tm))){ pay(labP,c); const d=buildTime('lab',labP.b.lab+1,labP), L=labP.b.lab+1, pp=labP; pp.bq=Tm+d; pp.bqKey='lab'; sim.ev.push({at:Tm+d, fn:()=>{ pp.b.lab=Math.max(pp.b.lab,L); }}); acts.push({q:'Bâtiment · '+planetRef(pp), what:`${B.lab.n} ${L}`, why:'Débloque la recherche suivante.' + centreNote(), cost:c, dur:d, end:Tm+d, kind:'b', k:'lab', lvl:L, p:pp.i}); }
       }
       const labBusy = labP.bq>Tm && labP.bqKey==='lab';
       const launchR = (R, why)=>{ const c=levelCost(T[R.k],R.lvl); pay(labP,c); const d=researchTime(R.k,R.lvl), k=R.k, L=R.lvl; sim.rq=Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ sim.tech[k]=Math.max(sim.tech[k],L); }}); acts.push({q:'Recherche · '+planetRef(labP), what:`${T[k].n} ${L}`, why: [why, R.why].filter(Boolean).join(' '), cost:c, dur:d, end:Tm+d, kind:'t', k, lvl:L, p:labP.i}); };
@@ -2897,6 +2906,9 @@ function centreIndex(){
   }
   return best;
 }
+/** Ce qu'on ajoute à la raison d'un bâtiment d'empire : pourquoi là et pas
+    ailleurs. Vide quand l'empire n'a pas de centre. */
+function centreNote(){ return centreIndex() >= 0 ? ' Ton centre : c\'est de là que partent tes recherches et tes vaisseaux.' : ''; }
 /** Le centre, ou null. */
 function centrePlanet(){ const i = centreIndex(); return i >= 0 ? S.planets[i] : null; }
 /** Pourquoi le copilote a désigné cette planète, ou '' quand c'est le joueur

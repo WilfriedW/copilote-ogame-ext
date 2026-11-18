@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -4086,6 +4086,29 @@ t('un centre qui ne répond plus retombe sur le choix automatique', () => {
 t('l\'ancien réglage de rôle est oublié au chargement', () => {
   const g = app(s => { s.roles = { mere: 'crystal' }; });
   assert.equal(g.S.roles, undefined);
+});
+
+/* ---------- la recherche part du centre ---------- */
+
+t('la recherche part du centre, pas du plus haut labo', () => {
+  const g = app(s => { s.centre = 'colo'; s.planets[1].b.lab = 2; });
+  assert.equal(g.labPlanet().id, 'colo', 'la mère a le labo 5, le centre est la colonie');
+});
+
+t('la carte du labo dit pourquoi c\'est là', () => {
+  const g = app(s => { s.centre = 'colo'; });
+  const a = g.simulateDay().sessions.flatMap(x => x.acts).find(x => x.kind === 'b' && x.k === 'lab');
+  if (a) assert.ok(/centre/i.test(a.why), 'la raison nomme le centre : ' + a.why);
+});
+
+t('le niveau de labo est celui du centre, pas le maximum de l\'empire', () => {
+  const g = app(s => { s.centre = 'colo'; });
+  assert.equal(g.labLevel(), 0, 'la colonie n\'a pas de labo, la mère en a 5');
+});
+
+t('sans centre, le labo reste le plus haut de l\'empire', () => {
+  const g = app(s => { s.day.focus = 'fleet'; });
+  assert.equal(g.labLevel(), 5);
 });
 
 /* ---------- défense ---------- */
