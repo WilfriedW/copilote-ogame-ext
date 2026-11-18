@@ -5095,6 +5095,41 @@ t('une Astrophysique que le joueur pose ne se saute pas', () => {
   assert.match(nr.list[0].why, /priorité/i);
 });
 
+t('une Astrophysique du joueur garde sa phrase, et ne s\'accuse pas de se déplacer', () => {
+  /* La priorité *est* le plafond « tête » : le texte du plafond s'ajoute à sa
+     phrase au lieu de l'écraser — sinon la carte perd « tu l'as mise en
+     priorité » — et rien n'est déplacé, donc elle ne dit pas qu'une planète
+     attend à cause d'elle. `astro 1` arme le plafond : les deux emplacements que
+     ce niveau ouvre sont pris. */
+  const g = app(s => { s.prio = [{kind:'t', k:'astro', lvl:5}]; s.tech.astro = 1; });
+  assert.equal(g.maxPlanets(), g.S.planets.length, 'le plafond des planètes est bien armé');
+  const why = g.nextResearch().list[0].why;
+  assert.match(why, /priorité/i, why);
+  assert.match(why, /Autorisera une/, 'le plafond s\'ajoute à la phrase de la priorité');
+  assert.ok(!/attend : tu as mis/.test(why), 'et elle ne se déplace pas elle-même : ' + why);
+});
+
+t('un plafond « tête » qui n\'est pas déjà dans la liste ne passe pas devant non plus', () => {
+  /* Passé le dernier palier d'Astrophysique de la feuille de route, le plafond
+     des planètes n'a plus d'entrée où se fondre : il s'insère. C'est l'autre
+     chemin de `garde`, et sans lui `nr.list[0]` est l'Astrophysique — la
+     priorité redevient inerte, et la phrase qui dit ce qu'elle déplace s'écrit
+     sur une carte que rien n'affiche. */
+  const g = app(s => {
+    // quatre planètes pour qu'Astrophysique 6 les ait toutes ouvertes, et un
+    // plan « flotte » dont les deux paliers d'astro sont dépassés
+    const clone = (id, co) => Object.assign(JSON.parse(JSON.stringify(s.planets[1])), {id, coords:co});
+    s.planets.push(clone('c2', '1:142:4'), clone('c3', '1:142:5'));
+    s.day.focus = 'fleet'; s.tech.astro = 6; prePlasma(s);
+    s.prio = [{kind:'t', k:'plasma', lvl:4}];
+  });
+  assert.equal(g.maxPlanets(), g.S.planets.length, 'les emplacements sont tous pris');
+  const nr = g.nextResearch();
+  const vue = nr.list.map(x => x.k + ' ' + x.lvl).join(', ');
+  assert.equal(nr.list[0].k, 'plasma', 'liste : ' + vue);
+  assert.ok(nr.list.some(x => x.k === 'astro'), 'et le plafond est bien là, derrière : ' + vue);
+});
+
 t('la priorité de recherche dit la planète qu\'elle fait attendre', () => {
   /* Le palier d'Astrophysique chassé de la tête n'a aucune ligne à lui : au-delà
      de `list[0]`, rien de `nextResearch` ne s'affiche. C'est donc la carte de la
@@ -5102,7 +5137,7 @@ t('la priorité de recherche dit la planète qu\'elle fait attendre', () => {
   const g = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:4}];
     prePlasma(s); s.tech.astro = 1; });
   const nr = g.nextResearch();
-  assert.match(nr.list[0].why, /planète de plus/, nr.list[0].why);
+  assert.match(nr.list[0].why, /planète de plus attend : tu as mis/, nr.list[0].why);
   assert.match(nr.list[0].why, /Plasma 4/, 'et elle nomme la cible que le joueur a posée');
 });
 
