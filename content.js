@@ -289,7 +289,6 @@
   const LEAN = `html.copilote-lean #mmonetbar,
 html.copilote-lean #siteHeader,
 html.copilote-lean #siteFooter{display:none}
-html.copilote-lean #middle .maincontent > div > header{display:none}
 /* Le fond du jeu est une photo posée sur le corps de la page : elle se voit
    entre les panneaux et derrière le texte des listes. On garde l'aplat.
    La peau repose le sien par-dessus — même règle, plus bas dans la feuille. */
@@ -300,7 +299,17 @@ html.copilote-lean #bannerskyscrapercomponent{display:none}
    jeu dessine ses entrées sur des images de fond à hauteur fixe, et le texte
    seul, grossi, débordait de son bouton. Sous la peau, c'est le rail qui
    prend le relais — inutile d'agrandir ce qui est hors de l'écran. */
-html.copilote-lean:not(.copilote-peau) #links{zoom:1.15}
+/* Grossi, le menu déborde de son couloir : le jeu lui laisse 170 px entre
+   le bord et la page, et un septième de plus en fait 199. On le décale
+   d'autant vers la gauche, dans la marge de l'écran — sans quoi sa colonne
+   d'icônes passait par-dessus les panneaux du jeu. Le décalage est écrit
+   avant le zoom, qui le grossit lui aussi : 26 px deviennent 30.
+   Cette marge n'existe qu'au-delà de 1056 px de fenêtre — la page du jeu en
+   fait 996, centrées. En dessous, le menu garde sa taille : mieux vaut un
+   menu normal qu'un menu rogné par le bord de l'écran. */
+@media (min-width:1060px){
+  html.copilote-lean:not(.copilote-peau) #links{margin-left:-26px;zoom:1.15}
+}
 .copilote-menu a, .copilote-menu a .textlabel, a.copilote-menu, a.copilote-menu .textlabel{color:var(--cm) !important}`;
 
   /* La largeur. Le jeu range sa page dans un cadre étroit et centré : sur un
@@ -2071,6 +2080,14 @@ color:#0c1120;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shado
 box-shadow:inset 0 0 0 1px rgba(138,169,255,.3)}
 .copilote-pin.copilote-gris:hover{background:rgba(138,169,255,.14);color:#e4edff}
 .copilote-bande .cb-l.copilote-gris{color:#9fb2d4;font-weight:400}
+/* Le panneau de détail d'une case n'est pas dans le flux : le jeu le pose en
+   absolu sur le bandeau de titre, toujours 300 px de haut. Les pages dont le
+   bandeau en fait 250 lui laissent donc 50 px de trop, qui retombaient sur le
+   haut de la bande — on la voyait par-dessous, dépassant du panneau. Le temps
+   qu'il est ouvert, le bandeau prend la taille du panneau qui le couvre : la
+   bande descend d'autant, et les pages dont le bandeau fait déjà 300 px ne
+   bougent pas. */
+.maincontent:has(#technologydetails_wrapper.slide-up) > div > header{min-height:300px}
 .copilote-bande{display:flex;flex-wrap:wrap;gap:14px;width:100%;box-sizing:border-box;
 flex-basis:100%;grid-column:1/-1;
 margin:10px 0 18px;padding:10px 12px;border:1px solid rgba(138,169,255,.45);
