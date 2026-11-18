@@ -5213,6 +5213,64 @@ t('une priorité de recherche trop chère pour le hangar fait sortir le hangar',
   assert.match(h.why || '', /priorité/i, 'et il dit pour quelle priorité');
 });
 
+/* ---------- une carte en attente dit ce qui la retient ---------- */
+
+/* Le Labo 6 de la mère est la priorité : son objectif épargne sur la mère, qui
+   porte aussi le labo. Énergie 4 (6,4 k de cristal, 3,2 k de deutérium) est
+   payable avec le stock de la fixture seul, mais pas au-delà de la réserve :
+   la recherche attend à cause de la priorité, et de rien d'autre. */
+t('la recherche retenue par une priorité le dit', () => {
+  const w = app(prioLabo).simulateDay().sessions[0].waits.find(x => x.kind === 't');
+  assert.ok(w, 'la recherche attend');
+  assert.ok(w.held, 'elle est retenue');
+  assert.equal(w.heldBy, 'Labo 6');
+});
+
+t('sans priorité, la même recherche part au lieu d\'attendre', () => {
+  // garde de la fixture : c'est bien la réserve de la priorité qui la retenait
+  const s0 = app().simulateDay().sessions[0];
+  assert.ok(s0.acts.some(a => a.kind === 't' && a.k === 'energy'), 'Énergie 4 part');
+  assert.ok(!s0.waits.some(x => x.kind === 't'));
+});
+
+t('une recherche qui attend le stock, sans réserve, ne nomme personne', () => {
+  const w = app(s => { s.planets[0].stock = {m:0, c:0, d:0, at:SOIR}; })
+    .simulateDay().sessions[0].waits.find(x => x.kind === 't');
+  assert.ok(w, 'la recherche attend');
+  assert.equal(w.heldBy, '');
+  assert.ok(!w.held);
+});
+
+t('la recherche qui épargne pour elle-même ne se dit pas retenue par elle-même', () => {
+  // Plasma 5 (64 k de cristal pour 60 k) pose son propre objectif sur la mère
+  const s0 = app(s => { s.prio = [{kind:'t', k:'plasma', lvl:5}];
+    prePlasma(s); s.tech.plasma = 4; }).simulateDay().sessions[0];
+  assert.deepEqual(s0.goals.map(g => g.key), ['t:plasma5'], 'l\'objectif est posé');
+  const w = s0.waits.find(x => x.kind === 't');
+  assert.ok(w, 'la recherche attend');
+  assert.equal(w.heldBy, '');
+});
+
+t('le bâtiment retenu par la réserve d\'une priorité nomme laquelle', () => {
+  // Mine de cristal 13 est retenue par la réserve du Labo 7 (4e session)
+  const w = app(prioLabo).simulateDay().sessions[4].waits.find(x => x.kind === 'b' && x.k === 'crystal');
+  assert.ok(w && w.held, 'la mine est retenue');
+  assert.equal(w.heldBy, 'Labo 7');
+});
+
+t('la carte en attente écrit ce que la priorité retient', () => {
+  const g = app(prioLabo);
+  g.REFRESH.today();
+  assert.match(g.html().tdNow, /Retenu : tu épargnes pour Labo 6\./);
+});
+
+t('sans retenue, la carte n\'écrit pas « Retenu »', () => {
+  const g = app(s => { s.planets[0].stock = {m:0, c:0, d:0, at:SOIR}; });
+  g.REFRESH.today();
+  assert.ok(/class="wait"/.test(g.html().tdNow), 'des cartes attendent');
+  assert.ok(!/Retenu/.test(g.html().tdNow));
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');
