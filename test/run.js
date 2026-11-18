@@ -4958,11 +4958,65 @@ t('la centrale passe devant la priorité quand l\'énergie est négative', () =>
 });
 
 t('la réserve de la priorité ne gèle pas la centrale', () => {
-  // le secours doit être payable même quand la réserve couvre tout le stock
+  /* Le secours doit être payable même quand la réserve couvre tout le stock.
+     Le stock vaut donc exactement le coût de Labo 6 : la réserve ne laisse
+     libre que la production de l'intervalle, environ 1 570 de métal, très
+     au-dessous des 4 324 que coûte la centrale suivante. Sans la réserve
+     calculée par candidat, la mère ne construit plus rien du tout — ni le
+     secours, ni la priorité. Un stock plus confortable ne prouverait rien :
+     `reserveOf` amortit la réserve par la production à venir, et une centrale
+     à 112 de métal n'est jamais en danger. */
+  const p = app(s => { prioLabo(s); s.planets[0].b.solar = 10;
+    s.planets[0].stock = {m:6400, c:12800, d:6400, at:SOIR}; }).simulateDay();
+  assert.ok(p.sessions[0].acts.some(a => a.kind === 'b' && a.p === 0 && a.k === 'solar'),
+    'la centrale sort dès la première session');
+});
+
+t('une priorité que les secours doublent session après session le dit quand même', () => {
+  /* La mère n'a plus qu'une centrale : son secours est payable à chaque
+     session et passe devant, douze fois de suite. La ligne d'attente générique
+     ne parle que du candidat le plus proche, qui n'est pas la priorité — sans
+     une phrase à elle, le joueur lirait douze centrales et rien d'autre. */
   const p = app(s => { prioLabo(s); s.planets[0].b.solar = 1;
     s.planets[0].stock = {m:5000, c:5000, d:1000, at:0}; }).simulateDay();
-  const tout = p.sessions.flatMap(x => x.acts);
-  assert.ok(tout.some(a => a.k === 'solar'), 'la centrale finit par sortir');
+  assert.ok(p.sessions[0].acts.some(a => a.k === 'solar'), 'le secours passe devant');
+  assert.ok(p.sessions.every(s => s.acts.concat(s.waits)
+      .some(x => x.kind === 'b' && x.k === 'lab' && /priorité/i.test(x.why || ''))),
+    'et chaque session dit où en est la priorité');
+});
+
+t('l\'épargne d\'une priorité ne se referme pas sur la planète la nuit venue', () => {
+  /* L'échéance d'un objectif dit quand on pense pouvoir payer, et `reserveOf`
+     s'en sert pour amortir la réserve par la production d'ici là. Posée une
+     fois pour toutes, elle expire pendant la nuit : `h` retombe à zéro, la
+     réserve passe au coût entier, et la planète gèle pour une cible qui n'a
+     pas bougé. Une priorité vit des jours, elle la recalcule à chaque session. */
+  const p = app(prioLabo).simulateDay();
+  for (const s of p.sessions)
+    for (const g of s.goals.filter(x => x.key.startsWith('prio:')))
+      assert.ok(g.deadline > s.T,
+        g.key + ' : échéance dépassée de ' + ((s.T - g.deadline) / 3600e3).toFixed(1) + ' h');
+});
+
+t('la cible du moment avance, et l\'objectif avec elle', () => {
+  /* La clé porte le pas, comme celle d'une recherche porte son niveau. Sans
+     lui, `setGoal` rendrait l'objectif de Labo 6 avec son ancien prix une fois
+     le Labo 6 construit, et la réserve épargnerait pour un prix qui n'est plus. */
+  const p = app(prioLabo).simulateDay();
+  const clefs = [...new Set(p.sessions.flatMap(s => s.goals.map(g => g.key)
+    .filter(k => k.startsWith('prio:'))))];
+  assert.deepEqual(clefs, ['prio:mere:lab6', 'prio:mere:lab7'], 'clés vues : ' + clefs.join(', '));
+});
+
+t('une priorité atteinte dans la journée rend sa réserve', () => {
+  // Sans le ménage, l'objectif survivrait à sa cible et retiendrait encore,
+  // son échéance passée, le coût entier jusqu'au bout de l'horizon.
+  const p = app(s => { s.prio = [{kind:'b', pid:'mere', k:'lab', lvl:6}]; }).simulateDay();
+  const prioG = s => s.goals.some(g => g.key.startsWith('prio:'));
+  assert.ok(p.sessions.some(prioG), 'la priorité a bien épargné');
+  assert.ok(p.sessions.flatMap(s => s.acts).some(a => a.kind === 'b' && a.k === 'lab' && a.lvl === 6),
+    'et le Labo 6 est posé');
+  assert.ok(!prioG(p.sessions[p.sessions.length - 1]), 'elle ne retient plus rien ensuite');
 });
 
 t('sur le centre, une priorité de recherche posée avant tient le rang', () => {

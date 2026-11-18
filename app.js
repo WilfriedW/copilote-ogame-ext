@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.48.0';
+const APP_VERSION = '1.48.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1750,8 +1750,8 @@ function pickBuildings(p, ctx){
     const pas = prioStep(p, ctx.prio.k, ctx.prio.lvl), deja = out.find(o=>o.k===pas.k);
     // Un secours qui vise déjà ce bâtiment y va un niveau à la fois, et c'est
     // le même pas : les deux raisons sont vraies, elles s'ajoutent.
-    if(deja) deja.why = deja.why ? `${deja.why}. ${pas.why}` : pas.why;
-    else out.push({k:pas.k, lvl:pas.lvl, why:pas.why, libre:true});
+    if(deja){ deja.why = deja.why ? `${deja.why}. ${pas.why}` : pas.why; deja.prio = true; }
+    else out.push({k:pas.k, lvl:pas.lvl, why:pas.why, libre:true, prio:true});
   }
   const best = ranked[0];
   if(best){ const bc = best.extraSolar ? levelCost(B.solar,p.b.solar+1) : levelCost(B[best.key],best.lvl); for(let j=0;j<3;j++) if(bc[j]>pr.cap[j]) add(sk[j], 'Hangar trop petit pour la suite'); }
@@ -1946,7 +1946,21 @@ function simulateDay(){
            quand la cible du moment avance, l'objectif d'hier est remplacé au
            lieu de tenir une réserve calculée pour un prix qui n'est plus. */
         const key = `prio:${pr.pid}:${pas.k}${pas.lvl}`;
-        if(setGoal(key, `${B_SHORT[pas.k]} ${pas.lvl}`, c, pp, Tm)) prioClefs.add(key);
+        const g = setGoal(key, `${B_SHORT[pas.k]} ${pas.lvl}`, c, pp, Tm);
+        if(g){
+          prioClefs.add(key);
+          /* Une échéance dit « quand on pense pouvoir payer », et `setGoal` ne
+             la calcule qu'à la première pose. Une priorité vit des jours : la
+             nuit passe, l'échéance expire, `h` retombe à zéro et `reserveOf`
+             retient d'un coup le coût entier, pour tout le reste de l'horizon.
+             La planète gèle alors pour une cible qui n'a pas bougé. L'échéance
+             se recalcule donc à chaque session, comme au premier passage.
+             `since`, lui, ne bouge pas : c'est depuis là qu'on économise.
+             Les autres genres d'objectifs vivent une session ou deux et sont
+             lâchés au lancement : ils gardent leur échéance d'origine. */
+          const w = wait(pp, c);
+          if(isFinite(w)) g.deadline = Tm + w*1000 + iv*3600e3;
+        }
         else waits.push({q:'Bâtiment · '+planetRef(pp), what:`${B[pas.k].n} ${pas.lvl}`, why:prioRien(pp, c), eta:Infinity, miss:missOf(pp,c), kind:'b', k:pas.k, p:pp.i});
       }
       // Ce que le joueur a retiré, ou que la journée a atteint, ne doit plus
@@ -2140,6 +2154,17 @@ function simulateDay(){
           // `held` dira un jour « retenu : tu épargnes pour Labo 10 », et un
           // candidat que la réserve ne regarde pas ne doit pas le dire à tort.
           waits.push({q:'Bâtiment · '+planetRef(p), what:`${B[w.x.k].n} ${w.x.lvl}`, eta:w.eta, held:(w.x.libre ? reserveOf(p,Tm,gPrio) : res).some(x=>x>0), miss:missOf(p,levelCost(B[w.x.k],w.x.lvl)), kind:'b', k:w.x.k, p:p.i}); soft.push({p, cost:levelCost(B[w.x.k],w.x.lvl), eta:w.eta}); }
+        /* Une priorité qui n'a pas été servie cette session le dit elle-même.
+           Elle n'est que le troisième candidat : un secours payable à chaque
+           session la mangeait l'une après l'autre sans qu'une seule ligne le
+           dise, et la ligne d'attente ci-dessus ne parle que du candidat le
+           plus proche, qui n'est pas elle. L'attente se mesure après le
+           paiement du chantier retenu : c'est de là que le joueur repart. */
+        const lePas = cands.find(x=>x.prio);
+        if(lePas && lePas !== ch && !waits.some(x=>x.p===p.i && x.k===lePas.k)){
+          const c = levelCost(B[lePas.k], lePas.lvl);
+          waits.push({q:'Bâtiment · '+planetRef(p), what:`${B[lePas.k].n} ${lePas.lvl}`, why:lePas.why, eta:wait(p,c), held:reserveOf(p,Tm,gPrio).some(x=>x>0), miss:missOf(p,c), kind:'b', k:lePas.k, p:p.i});
+        }
       }
       if(lfMode()==='after') lfPass(false);
       // Chaque planète qui a un chantier peut construire : le hub pour la soute
