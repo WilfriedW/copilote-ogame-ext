@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.51.0';
+const APP_VERSION = '1.51.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3791,7 +3791,14 @@ function bind(){
   /* « change » et non « input » comme les niveaux voisins : sur un labo 5,
      taper « 10 » passe par « 1 », que prioPose jugerait atteint avant de
      recréer la priorité en fin de liste — et le joueur perdrait son rang. */
-  view.querySelectorAll('input[data-prio]').forEach(el=>el.addEventListener('change',()=>{ prioPose(el.dataset.pid ? 'b' : 't', el.dataset.pid, el.dataset.prio, el.value); save(); render(); }));
+  view.querySelectorAll('input[data-prio]').forEach(el=>el.addEventListener('change',()=>{ const kind = el.dataset.pid ? 'b' : 't';
+    prioPose(kind, el.dataset.pid, el.dataset.prio, el.value);
+    /* Pas de render() : il refermerait le volet qui porte le champ, et le
+       joueur qui en pose deux de suite devrait le rouvrir à chaque fois. Le
+       champ dit ce que la priorité est devenue — vide si elle a été retirée. */
+    el.value = prioLvl(kind, el.dataset.pid, el.dataset.prio);
+    save(); refresh();
+  }));
   view.querySelectorAll('input[data-t]').forEach(el=>el.addEventListener('input',()=>{ S.tech[el.dataset.t]=Math.max(0,parseInt(el.value)||0); changed(); }));
   view.querySelectorAll('[data-set]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k=el.dataset.set, s=S.settings;

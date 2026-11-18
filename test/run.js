@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -5403,6 +5403,28 @@ t('le même bâtiment sur deux planètes fait deux priorités distinctes', () =>
   assert.deepEqual(g.S.prio.map(x => x.pid + x.lvl), ['colo3', 'mere10']);
   g.prioPose('b', 'mere', 'lab', '');
   assert.deepEqual(g.S.prio.map(x => x.pid + x.lvl), ['colo3']);
+});
+
+t('après une pose le champ dit la priorité, et se vide quand elle est retirée', () => {
+  /* Le gestionnaire n'appelle plus render() : il réécrit lui-même le champ
+     avec prioLvl. Cette valeur doit donc être juste après chaque geste. */
+  const g = app();
+  g.prioPose('b', 'mere', 'lab', '10');
+  assert.equal(g.prioLvl('b', 'mere', 'lab'), 10);
+  g.prioPose('b', 'mere', 'lab', '5');   // niveau déjà atteint : retirée
+  assert.equal(g.prioLvl('b', 'mere', 'lab'), '');
+  g.prioPose('t', null, 'plasma', '4');
+  assert.equal(g.prioLvl('t', null, 'plasma'), 4);
+  assert.equal(g.prioLvl('b', 'mere', 'plasma'), '', 'une recherche ne remplit aucun bâtiment');
+});
+
+t('le champ de niveau visé ne redessine pas la vue', () => {
+  /* render() refermerait le <details> qui porte le champ. */
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const i = src.indexOf("querySelectorAll('input[data-prio]')");
+  const corps = src.slice(i, src.indexOf('\n  }));', i));
+  assert.ok(!/render\(\)/.test(corps.replace(/\/\*[\s\S]*?\*\//g, '')), 'pas de render()');
+  assert.match(corps, /el\.value = prioLvl\(/);
 });
 
 t('retirer par rang enlève la bonne entrée', () => {
