@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.21';
+const APP_VERSION = '1.53.22';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4620,6 +4620,8 @@ function prioAccueille(liste){
   try{ chrome.storage.local.remove('prioAsk'); }catch(e){ console.error('Copilote : clé prioAsk non effacée, le prochain démarrage rejouera ce lot', e); }
   save();
   render();
+  // render() ne publie le plan que sur Aujourd'hui : sans cela la tuile resterait muette
+  publieLePlan();
 }
 chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioAsk) prioAccueille(ch.prioAsk.newValue); if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ API = ch.api.newValue; if(tab==='tools' && S.ui.tool==='explore') render(); } });
 

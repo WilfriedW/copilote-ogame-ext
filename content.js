@@ -993,8 +993,8 @@ box-shadow:inset 0 0 0 1px var(--cp-ligne);cursor:default}
 .copilote-peau-panneau .cp-cible[disabled]{background:var(--cp-ligne);color:var(--cp-doux)}
 /* ce que le clic a donné, dit sur la pastille elle-même */
 .copilote-peau-panneau .cp-cible[data-etat]::after{content:" · " attr(data-etat)}
-.copilote-peau-panneau .cp-cible[data-etat="lancé"]{background:var(--cp-bon)}
-.copilote-peau-panneau .cp-cible[data-etat="pas payable"]{background:var(--cp-attention)}
+.copilote-peau-panneau .cp-cible[data-etat="lancé"]{background:var(--cp-bon);color:var(--cp-creux)}
+.copilote-peau-panneau .cp-cible[data-etat="pas payable"]{background:var(--cp-attention);color:var(--cp-creux)}
 .copilote-peau-panneau .cp-vide{color:var(--cp-doux);font-size:12px}
 /* Le jeu donne 654 px à son panneau et l'empile en trois étages posés en
    absolu : l'enveloppe, le contenu, le panneau. Les trois reviennent dans le
@@ -1898,7 +1898,9 @@ width:auto !important;max-width:none !important;background-image:none !important
   function marques(gid) {
     const m = {};
     const ids = new Set([...Object.keys(hints[gid] || {}), ...Object.keys(prio[gid] || {}),
-      ...(Array.isArray(asks) ? asks : []).filter(x => x && String(x.gid) === String(gid)).map(x => String(x.tech))]);
+      ...(Array.isArray(asks) ? asks : []).filter(x => x && String(x.gid) === String(gid)).map(x => String(x.tech))
+      // la valeur vient du stockage et entre dans un sélecteur : un entier, ou rien
+      .filter(id => /^\d+$/.test(id))]);
     for (const id of ids) {
       const v = prioVisee(gid, id, asks);
       if (v != null) m[id] = { lvl: v, src: demandeDe(asks, gid, id) ? 'attente' : 'prio' };
@@ -2108,8 +2110,9 @@ li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-
 overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
 border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}
 /* Deux teintes : la cible du plan est bleue, ta priorité est ambre ; ta demande
-   que le panneau n'a pas encore reprise garde l'ambre, en pointillé. */
-.copilote-tag.cp-tag-prio,.cp-tag-prio{background:#ffc95c}
+   que le panneau n'a pas encore reprise garde l'ambre, mais en retrait : cerclée
+   et atténuée, pour qu'on la voie comme provisoire. */
+.copilote-tag.cp-tag-prio{background:#ffc95c}
 .copilote-tag.cp-tag-attente{background:#ffc95c;box-shadow:inset 0 0 0 1px #0c1120,0 1px 3px rgba(0,0,0,.5);opacity:.8}
 /* Le champ du clic droit et son refus : posés sur la tuile, retirés après. */
 .cp-prio-hote{position:relative !important}

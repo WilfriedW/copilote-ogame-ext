@@ -357,7 +357,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
         set(o, cb) {
           Object.assign(ecrit, JSON.parse(JSON.stringify(o)));
           // `onChanged` sonne aussi dans le contexte qui écrit
-          if ('prioAsk' in o && republie) republie({ prioAsk: { newValue: ecrit.prioAsk } }, 'local');
+          if ('prioAsk' in o && republie && stockageCasse !== 'lastError') republie({ prioAsk: { newValue: ecrit.prioAsk } }, 'local');
           if (stockageCasse === 'lastError') chrome.runtime.lastError = { message: 'Extension context invalidated.' };
           try { if (cb) cb(); } finally { delete chrome.runtime.lastError; }
         }
@@ -510,7 +510,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
       const li = tuiles.find(t => t.dataset.technology === String(id));
       const tag = li && li.querySelector('.copilote-tag');
       return { pastille: tag ? tag.textContent : null, infobulle: tag ? tag.title : '',
-        classe: tag ? tag.className : '', marquee: !!li && li.classList.contains('copilote-next') };
+        classe: tag ? tag.className : '', noeud: tag, marquee: !!li && li.classList.contains('copilote-next') };
     },
     /** La pastille de la carte de la peau, ou null. */
     carte: id => {

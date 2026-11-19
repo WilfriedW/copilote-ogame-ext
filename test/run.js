@@ -6907,6 +6907,38 @@ t('la priorité disparaît de la tuile quand le panneau la retire', () => {
   assert.ok(!p.tuile(1).marquee, 'et la tuile n\'est plus entourée');
 });
 
+t('la pastille n\'est pas reposée quand rien n\'a changé : le jeu n\'est pas remué', () => {
+  // retirer puis reposer le nœud ferait sonner l'observateur, qui repeindrait, sans fin
+  for (const skin of [{ prio: { 33701: { 1: 20 } } }, { hints: { 33701: { 1: 15 } } }]) {
+    const p = runPage({ ...DEUX, skin });
+    const n = p.tuile(1).noeud;
+    assert.ok(n);
+    p.secousse();
+    assert.equal(p.tuile(1).noeud, n);
+  }
+});
+
+t('une demande dont la tuile n\'est pas un entier ne touche aucun sélecteur', () => {
+  const p = runPage({ ...DEUX, skin: {}, askAvant: [{ gid: '33701', tech: '1"] , [x', lvl: 9, at: 1 }] });
+  assert.equal(p.tuile(1).pastille, null);
+});
+
+t('la pastille « pas payable » garde une couleur lisible sur son fond', () => {
+  const p = runPage({ ...DEUX, skin: {} });
+  for (const e of ['lancé', 'pas payable']) {
+    const r = p.styleTxt.match(new RegExp('cp-cible\\[data-etat="' + e + '"\\]\\{[^}]*\\}'))[0];
+    assert.match(r, /color:var\(--cp-creux\)/, e);
+  }
+});
+
+t('une écriture refusée ne fait pas sonner onChanged : pas de pastille en attente', () => {
+  const log = console.error; console.error = () => {};
+  let p;
+  try { p = runPage({ ...DEUX, skin: {}, stockageCasse: 'lastError' }); p.clicDroit(1, '20'); }
+  finally { console.error = log; }
+  assert.equal(p.tuile(1).pastille, null);
+});
+
 t('une priorité marquée reste après une secousse de la page', () => {
   const p = runPage({ ...DEUX, skin: { prio: { 33701: { 1: 20 } } } });
   p.secousse();
