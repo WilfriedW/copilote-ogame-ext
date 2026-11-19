@@ -6493,12 +6493,33 @@ t('une demande que le panneau n\'a pas su placer se voit', () => {
   assert.match(h, /aucune de tes planètes/i, 'et dit ce qui manque');
 });
 
-t('le nom d\'une demande, lu dans le jeu, n\'entre jamais comme HTML', () => {
+/* Ce que esc() produit, écrit en dur : « absent du HTML brut » passerait aussi
+   contre un esc() à moitié fait, ou contre une ligne qui ne rendrait plus le nom. */
+const HOSTILE = '<script>alert("x")</script><img src=x onerror=alert(1)>&';
+const HOSTILE_ESC = '&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;&amp;';
+
+t('le nom d\'une demande, lu dans le jeu, est échappé en entier', () => {
   const g = app();
-  g.S.prioAsk = g.prioDrain([{gid:'99999', tech:14, nom:'<img src=x onerror=alert(1)>"', lvl:8, at:Date.now()}]);
+  g.S.prioAsk = g.prioDrain([{gid:'99999', tech:14, nom:HOSTILE, lvl:8, at:Date.now()}]);
   const h = g.prioHtml(g.simulateDay());
-  assert.ok(!h.includes('<img'), h);
-  assert.match(h, /&lt;img/);
+  assert.ok(h.includes(`<span class="what">${HOSTILE_ESC}</span>`), h);
+  assert.ok(!h.includes('<script') && !h.includes('<img') && !h.includes('"x"'), 'rien de brut');
+});
+
+t('le nom d\'une planète est échappé dans le bloc (bâtiment et forme de vie)', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})});
+  g.S.planets[0].name = HOSTILE;
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}, {kind:'lf', pid:'mere', k:11101, lvl:4}];
+  const h = g.prioHtml(g.simulateDay());
+  assert.equal(h.split(`<span class="pill">${HOSTILE_ESC}</span>`).length, 3, 'les deux lignes');
+  assert.ok(!h.includes('<script') && !h.includes('<img'));
+});
+
+t('le nom d\'une case de forme de vie lu dans le jeu est échappé', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:HOSTILE})});
+  const h = lfHtml(g, lf11101);
+  assert.ok(h.includes(`<span class="what">${HOSTILE_ESC} 4</span>`), h);
+  assert.ok(!h.includes('<script') && !h.includes('<img'));
 });
 
 t('une demande de retrait en attente se dit retrait', () => {
