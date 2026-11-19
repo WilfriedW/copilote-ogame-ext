@@ -5940,8 +5940,9 @@ t('le bloc nomme la planète, la cible et celle qui attend son tour', () => {
   assert.match(h, /Planète mère/);
   assert.match(h, /Labo 10/);
   assert.match(h, /attend son tour/);
-  assert.match(h, /data-prio-del="0"/);
-  assert.match(h, /data-prio-del="1"/);
+  // Le bouton porte l'espèce et l'identité de sa ligne, plus un rang.
+  assert.match(h, /data-prio-del="b\|mere\|lab"/);
+  assert.match(h, /data-prio-del="b\|mere\|metal"/);
 });
 
 t('une seule attend son tour : celle qui agit dit ce que le plan en fait', () => {
@@ -6119,23 +6120,23 @@ t('le champ de niveau visé ne redessine pas la vue', () => {
   assert.match(corps, /el\.value = prioLvl\(/);
 });
 
-t('retirer par rang enlève la bonne entrée', () => {
+t('retirer par référence enlève la bonne entrée', () => {
   const g = app(prio2);
-  g.prioRetire(1);
+  g.prioRetire('b|mere|metal');
   assert.deepEqual(g.S.prio.map(x => x.k), ['lab']);
 });
 
-t('le rang du bouton est celui du bloc même quand une entrée morte le précède', () => {
+t('la référence du bouton désigne sa ligne même quand une entrée morte la précède', () => {
   /* Le labo atteint son niveau en cours de session : prios() l'écarte, mais
-     S.prio ne se compacte qu'au rendu suivant. Le bouton du bloc compte dans
-     prios() ; retirer « 0 » doit retirer la mine, pas l'entrée morte. */
+     S.prio ne se compacte qu'au rendu suivant. Le premier bouton du bloc doit
+     retirer la mine, pas l'entrée morte qui la précède dans S.prio. */
   /* Posée après le chargement : le rendu de départ compacte S.prio et
      emporterait l'entrée morte avant que le test ne la voie. */
   const g = app(s => { s.prio = [
     {kind:'b', pid:'mere', k:'metal', lvl:20},
     {kind:'b', pid:'mere', k:'crystal', lvl:20}]; });
   g.S.prio.unshift({kind:'b', pid:'mere', k:'lab', lvl:4});
-  g.prioRetire(0);
+  g.prioRetire(/data-prio-del="([^"]+)"/.exec(g.prioHtml(g.simulateDay()))[1]);
   assert.deepEqual(g.S.prio.map(x => x.k), ['lab', 'crystal']);
 });
 
@@ -6425,6 +6426,131 @@ t('une demande sans at utilisable est gardée, non expirée', () => {
 t('un nom démesuré est borné avant d\'entrer dans l\'état', () => {
   const g = app();
   assert.equal(g.prioDrain([D({nom:'x'.repeat(5000)})])[0].nom.length, 80);
+});
+
+/* ---------- le bloc dit aussi les formes de vie et les demandes en attente ---------- */
+
+/* Une case lue : `next` est le niveau que le prix vise, sinon lfCost ne la dit
+   pas chiffrée (lfCase, plus haut, la construit). */
+const lfBloc = (cases, mode) => { const g = app(s => { s.planets[0].lf = cases; }); if(mode) g.S.day.lf = mode; return g; };
+const lfHtml = (g, prio) => { g.S.prio = prio; return g.prioHtml(g.simulateDay()); };
+const lf11101 = [{kind:'lf', pid:'mere', k:11101, lvl:4}];
+
+t('le bloc nomme une priorité de forme de vie, avec le nom du jeu', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})});
+  assert.match(lfHtml(g, lf11101), /Habitation 4/);
+});
+
+t('une priorité lf pas encore chiffrée dit quoi faire', () => {
+  const g = lfBloc({11101: {lvl:1, state:'ok', name:'Habitation'}});
+  assert.match(lfHtml(g, lf11101), /ouvre-la dans le jeu/i);
+});
+
+t('une priorité lf verrouillée le dit', () => {
+  const g = lfBloc({11101: {lvl:0, state:'locked', name:'Habitation'}});
+  assert.match(lfHtml(g, [{kind:'lf', pid:'mere', k:11101, lvl:1}]), /prérequis/i);
+});
+
+t('une priorité lf absente du relevé le dit, et n\'est pas « pas chiffrée »', () => {
+  const h = lfHtml(lfBloc({}), lf11101);
+  assert.match(h, /jamais vu cette case/);
+  assert.doesNotMatch(h, /Pas encore chiffrée/);
+  assert.match(h, /<span class="what">[^<]+ 4<\/span>/, 'la ligne existe, avec un nom de repli');
+});
+
+t('une priorité lf en tête de sa file le dit, et nomme le réglage', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})}, 'first');
+  const h = lfHtml(g, lf11101);
+  assert.match(h, /En tête de sa file/);
+  assert.match(h, /Avant tout le reste/);
+});
+
+t('une priorité lf que le réglage fait passer après les bâtiments nomme ce réglage', () => {
+  const g = lfBloc({11101: lfCase(1, [9e9, 0, 0], {name:'Habitation'})});
+  g.S.day.lf = 'after';
+  assert.match(lfHtml(g, lf11101), /après les bâtiments/i);
+});
+
+t('une priorité lf qui attend le tour d\'une autre de sa file le dit', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'}), 11102: lfCase(1, [10, 0, 0], {name:'Cuisine'})}, 'first');
+  const h = lfHtml(g, [{kind:'lf', pid:'mere', k:11101, lvl:4}, {kind:'lf', pid:'mere', k:11102, lvl:4}]);
+  assert.equal((h.match(/Attend son tour dans sa file/g) || []).length, 1);
+  assert.match(h.split('</li>')[1], /Cuisine 4[\s\S]*Attend son tour/, 'la seconde attend');
+  assert.match(h.split('</li>')[1], /Avant tout le reste/, 'et nomme le réglage');
+});
+
+t('formes de vie réglées sur « Ne pas s\'en occuper » : la ligne le dit', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})}, 'off');
+  assert.match(lfHtml(g, lf11101), /Ne pas s'en occuper[^<]*n'y touche pas/);
+});
+
+// Review Focus 1, côté visible
+t('une demande que le panneau n\'a pas su placer se voit', () => {
+  const g = app();
+  g.S.prioAsk = g.prioDrain([{gid:'99999', tech:14, nom:'Usine de robots', lvl:8, at:Date.now()}]);
+  const h = g.prioHtml(g.simulateDay());
+  assert.match(h, /Usine de robots/);
+  assert.match(h, /aucune de tes planètes/i, 'et dit ce qui manque');
+});
+
+t('le nom d\'une demande, lu dans le jeu, n\'entre jamais comme HTML', () => {
+  const g = app();
+  g.S.prioAsk = g.prioDrain([{gid:'99999', tech:14, nom:'<img src=x onerror=alert(1)>"', lvl:8, at:Date.now()}]);
+  const h = g.prioHtml(g.simulateDay());
+  assert.ok(!h.includes('<img'), h);
+  assert.match(h, /&lt;img/);
+});
+
+t('une demande de retrait en attente se dit retrait', () => {
+  const g = app();
+  g.S.prioAsk = g.prioDrain([{gid:'99999', tech:14, nom:'Usine de robots', lvl:0, at:Date.now()}]);
+  assert.match(g.prioHtml(g.simulateDay()), /Retrait demandé/);
+});
+
+t('Retirer enlève la bonne ligne, quelle que soit son espèce', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})});
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10},
+              {kind:'lf', pid:'mere', k:11101, lvl:4},
+              {kind:'t', k:'plasma', lvl:12}];
+  g.S.prioAsk = g.prioDrain([{gid:'99999', tech:14, nom:'Usine de robots', lvl:8, at:Date.now()}]);
+  // Les références que le bloc pose sur ses boutons, relues telles quelles.
+  const refs = () => [...g.prioHtml(g.simulateDay()).matchAll(/data-prio-del="([^"]+)"/g)].map(m => m[1]);
+  assert.equal(refs().length, 4, 'quatre lignes, quatre boutons');
+  // l'ordre du bloc : bâtiments et recherches (prios), puis formes de vie, puis demandes
+  const [b, t4, l, ask] = refs();
+  g.prioRetire(l);
+  assert.deepEqual(g.priosLf(), [], 'la lf est partie');
+  assert.equal(g.prios().length, 2, 'les deux autres priorités sont intactes');
+  g.prioRetire(ask);
+  assert.deepEqual(g.prioDemandes(), [], 'la demande est partie');
+  assert.equal(g.prios().length, 2, 'et rien d\'autre n\'a bougé');
+  g.prioRetire(t4);
+  assert.deepEqual(g.prios().map(x => x.k), ['lab'], 'la recherche part, le bâtiment reste');
+  g.prioRetire(b);
+  assert.equal(g.prios().length, 0);
+});
+
+t('une référence périmée ou étrangère ne retire rien', () => {
+  const g = app(prio2);
+  g.prioRetire('lf|mere|11101'); g.prioRetire('ask|1|2'); g.prioRetire('n\'importe quoi'); g.prioRetire(0);
+  assert.equal(g.S.prio.length, 2);
+});
+
+t('le bloc vide nomme le clic droit avant le volet Empire', () => {
+  const h = app().prioHtml(app().simulateDay());
+  assert.ok(h.indexOf('clic droit') >= 0, 'le clic droit est nommé');
+  assert.ok(h.indexOf('clic droit') < h.indexOf('Empire'), 'et il vient avant');
+});
+
+t('le gestionnaire de clic passe la référence telle quelle, sans « + »', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  assert.match(src, /prioRetire\(pd\.dataset\.prioDel\)/);
+});
+
+t('une demande en attente seule suffit à remplir le bloc', () => {
+  const g = app();
+  g.S.prioAsk = g.prioDrain([{gid:'99999', tech:14, nom:'Usine de robots', lvl:8, at:Date.now()}]);
+  assert.doesNotMatch(g.prioHtml(g.simulateDay()), /Aucune pour l'instant/);
 });
 
 if (failures.length) {

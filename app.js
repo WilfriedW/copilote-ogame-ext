@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.15';
+const APP_VERSION = '1.53.16';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -292,12 +292,42 @@ function prioPose(kind, pid, k, raw){
   if(i >= 0) S.prio[i].lvl = lvl;
   else S.prio.push(kind === 't' ? {kind, k, lvl} : {kind, pid, k, lvl});
 }
-/* Le rang du bouton est celui de prios(), pas celui de S.prio : une entrée
-   accomplie en cours de session y reste jusqu'au rendu suivant. */
-function prioRetire(rang){
-  const e = prios()[rang];
-  const i = e ? prioIdx(e.kind, e.pid, e.k) : -1;
+/* Chaque ligne du bloc porte sa propre référence — espèce et identité —, jamais
+   un rang : le bloc mêle trois listes (prios, priosLf, demandes gardées), et un
+   rang de l'une désignerait n'importe quoi dans l'autre. Les morceaux passent
+   par encodeURIComponent : la référence voyage dans un attribut HTML, et un
+   identifiant venu du jeu ne doit pas pouvoir y casser un guillemet. */
+const prioRef = (...parts) => parts.map(x => encodeURIComponent(String(x == null ? '' : x))).join('|');
+function prioRetire(ref){
+  const [kind, a, b] = String(ref).split('|').map(decodeURIComponent);
+  if(kind === 'ask'){
+    const i = prioDemandes().findIndex(d => String(d.gid) === a && String(d.tech) === b);
+    if(i >= 0) S.prioAsk.splice(i, 1);
+    return;
+  }
+  const i = kind === 't' ? prioIdx('t', null, a) : kind === 'lf' ? prioIdx('lf', a, +b) : kind === 'b' ? prioIdx('b', a, b) : -1;
   if(i >= 0) S.prio.splice(i, 1);
+}
+/* Ce qu'une ligne de forme de vie dit d'elle-même. Cinq états, et aucun ne se
+   confond avec un autre : le relevé n'a jamais vu la case (le joueur a posé
+   avant que la page de sa forme de vie soit parcourue), elle est verrouillée,
+   elle n'est pas encore chiffrée (état normal juste après la pose : le prix ne
+   vient qu'en ouvrant la case dans le jeu), elle est en tête de sa file, ou
+   elle attend son tour. Dans les deux derniers, le réglage des formes de vie
+   est nommé : c'est lui qui décide du moment, et le taire laisserait croire
+   à une priorité ignorée. */
+function prioLfEtat(p, x, nuit){
+  const v = (p.lf || {})[x.k];
+  if(!v) return 'Le relevé n\'a jamais vu cette case : ouvre la page de ta forme de vie dans le jeu pour qu\'elle apparaisse.';
+  if(v.state === 'locked') return 'Verrouillée : un prérequis manque dans le jeu.';
+  const l = lfCandidates(p, lfQueue(x.k));
+  if(!l.some(c => c.id === x.k)) return 'Pas encore chiffrée : ouvre-la dans le jeu pour que le plan connaisse son prix.';
+  if(nuit) return '';
+  const reglage = `Formes de vie : « ${LF_MODE[lfMode()]} »`;
+  if(lfMode() === 'off') return `${reglage} — le plan n'y touche pas.`;
+  if(l[0].id !== x.k) return `Attend son tour dans sa file : une case posée avant elle passe d'abord. ${reglage}.`;
+  return lfMode() === 'first' ? `En tête de sa file : le plan la sert avant tout le reste. ${reglage}.`
+    : `En tête de sa file, mais le réglage la fait passer après les bâtiments. ${reglage}.`;
 }
 /* L'état d'une ligne est celui que le plan lui a donné à la première session,
    jamais son rang dans la liste : une priorité que rien ne sert — labo
@@ -311,16 +341,25 @@ function prioRetire(rang){
    où aller coûte trois lignes ; un joueur qui ne trouve pas le champ ne pose
    jamais rien, et tout le reste de ce travail ne sert à personne. */
 function prioHtml(plan){
-  const l = prios();
-  if(!l.length) return `<div class="card"><h2>Tes priorités</h2><p class="note" style="margin:0">Aucune pour l'instant. Dans <b>Empire</b>, déplie les niveaux d'une planète — ou les recherches — et écris le niveau que tu vises dans le petit champ <b>→</b>, à droite du niveau actuel. Le plan épargnera pour l'atteindre, et le dira sur ses cartes.</p></div>`;
+  const l = prios(), lf = priosLf(), at = prioDemandes();
+  if(!l.length && !lf.length && !at.length) return `<div class="card"><h2>Tes priorités</h2><p class="note" style="margin:0">Aucune pour l'instant. Dans le jeu, fais un <b>clic droit</b> sur la case d'un bâtiment, d'une recherche ou d'une forme de vie : elle devient une priorité, et le plan la sert. Ici, dans <b>Empire</b>, déplie les niveaux d'une planète — ou les recherches — et écris le niveau que tu vises dans le petit champ <b>→</b>, à droite du niveau actuel. Le plan épargnera pour l'atteindre, et le dira sur ses cartes.</p></div>`;
   const nuit = !!S.day.night;
   const dits = new Map((((plan || simulateDay()).sessions[0] || {}).prio || []).map(e => [e.id, e]));
-  const lignes = l.map((x, i) => {
+  const li = (pill, what, why, ref) => `<li><span class="pill">${pill}</span><span class="what">${what}</span>${why ? `<span class="why">${esc(why)}</span>` : ''}<button class="btn sm ghost" data-prio-del="${esc(ref)}">Retirer</button></li>`;
+  const lignes = l.map(x => {
     const p = planetById(x.pid), d = dits.get(`${x.kind}:${x.pid}:${x.k}`) || {};
     const nom = x.kind === 'b' ? B_SHORT[x.k] : T[x.k].n;
     const etat = nuit ? '' : [d.etat, d.recoit ? 'Les rapatriements de l\'empire vont vers elle.' : ''].filter(Boolean).join(' ');
-    return `<li><span class="pill">${x.kind === 'b' ? esc(p.name) : 'Recherche'}</span><span class="what">${esc(nom)} ${x.lvl}</span>${etat ? `<span class="why">${esc(etat)}</span>` : ''}<button class="btn sm ghost" data-prio-del="${i}">Retirer</button></li>`;
-  });
+    return li(x.kind === 'b' ? esc(p.name) : 'Recherche', `${esc(nom)} ${x.lvl}`, etat, x.kind === 'b' ? prioRef('b', x.pid, x.k) : prioRef('t', x.k));
+  }).concat(lf.map(x => {
+    const p = planetById(x.pid), v = (p.lf || {})[x.k] || {};
+    const nom = v.nom || v.name || LF_NAMES[x.k] || `Forme de vie ${x.k}`;
+    return li(esc(p.name), `${esc(nom)} ${x.lvl}`, prioLfEtat(p, x, nuit), prioRef('lf', x.pid, x.k));
+  }), at.map(d => {
+    /* nom est du texte lu dans le DOM du jeu : il passe par esc, comme tout ce qui vient de là. */
+    const quoi = d.lvl === 0 ? 'Retrait demandé' : `Niveau ${d.lvl} demandé`;
+    return li('En attente', esc(d.nom || `Case ${d.tech}`), `${quoi}, mais aucune de tes planètes relevées ne porte cette case (une lune, une colonie jamais parcourue ?). Ouvre cette planète dans le jeu : la demande sera placée alors, sinon elle s'efface au bout de 24 h.`, prioRef('ask', d.gid, d.tech));
+  }));
   return `<div class="card"><h2>Tes priorités</h2><ul class="advice prios">${lignes.join('')}</ul></div>`;
 }
 
@@ -4285,7 +4324,7 @@ view.addEventListener('click', e=>{
     // Fait sur un espionnage : les cibles nommées sortent de la liste pour un jour.
     if(dn.dataset.mark) dn.dataset.mark.split(',').forEach(c=>{ S.raids[c] = {at:Date.now(), probe:true}; }); save(); refresh(); toast('Bien joué'); return; }
   const no = e.target.closest('[data-no]'); if(no){ S.daily.no[no.dataset.no] = Date.now(); save(); refresh(); toast('Mis de côté'); return; }
-  const pd = e.target.closest('[data-prio-del]'); if(pd){ prioRetire(+pd.dataset.prioDel); save(); render(); return; }
+  const pd = e.target.closest('[data-prio-del]'); if(pd){ prioRetire(pd.dataset.prioDel); save(); render(); return; }
   const nc = e.target.closest('[data-noclear]'); if(nc){ S.daily.no = {}; save(); render(); toast('Cartes refusées remises'); return; }
   const sm = e.target.closest('summary[data-fold]');
   // Le repli bascule tout seul : on ne note que l'état où il va.
