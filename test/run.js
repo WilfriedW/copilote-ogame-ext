@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -6146,6 +6146,55 @@ t('le champ de niveau visé écoute change, jamais input', () => {
   const m = src.match(/querySelectorAll\('input\[data-prio\]'\)\.forEach\(el=>el\.addEventListener\('(\w+)'/);
   assert.ok(m, 'le champ est branché');
   assert.equal(m[1], 'change');
+});
+
+/* ---------- le canal des priorités vers la page du jeu ---------- */
+t('prioHints publie ce que le joueur a posé, pas ce que le plan fait', () => {
+  const g = app(s => { s.planets[0].gid = '33701'; });
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}];
+  assert.deepEqual(g.prioHints(), {'33701': {31: 10}});
+  assert.deepEqual(g.planHints([]), {}, 'planHints reste ce qu\'il était');
+});
+
+t('une priorité de recherche se montre sur la planète du labo, pas sur une autre', () => {
+  const g = app(s => { s.planets[0].gid = '33701'; s.planets[1].gid = '33702'; });
+  g.S.prio = [{kind:'t', k:'plasma', lvl:12}];
+  assert.equal(g.labPlanet().id, 'mere', 'le labo de l\'échantillon est la mère');
+  assert.deepEqual(g.prioHints(), {'33701': {122: 12}});
+  g.S.centre = 'colo';
+  assert.equal(g.labPlanet().id, 'colo');
+  assert.deepEqual(g.prioHints(), {'33702': {122: 12}}, 'le centre déplacé, la pastille suit');
+});
+
+t('une priorité lf se montre sur sa planète, par son identifiant de tuile', () => {
+  const g = app(s => { s.planets[0].gid = '33701'; s.planets[0].lf = {11101:{lvl:1, state:'ok'}}; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:4}];
+  assert.deepEqual(g.prioHints(), {'33701': {11101: 4}});
+});
+
+t('une planète que le jeu n\'a pas nommée ne publie rien', () => {
+  const g = app(s => { s.planets[0].gid = null; });
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}, {kind:'lf', pid:'mere', k:11101, lvl:4}];
+  assert.deepEqual(g.prioHints(), {});
+});
+
+t('une clé de planète hostile ne devient pas une clé du canal des priorités', () => {
+  const g = app(s => { s.planets[0].gid = '__proto__'; s.planets[1].gid = '33702'; });
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}, {kind:'lf', pid:'mere', k:11101, lvl:4},
+    {kind:'b', pid:'colo', k:'lab', lvl:3}];
+  const h = g.prioHints();
+  assert.deepEqual(Object.keys(h), ['33702']);
+  // sans garde, « __proto__ » n'ajoute aucune clé : il écrit dans le prototype
+  assert.equal(Object.getPrototypeOf(h)[31], undefined);
+  assert.equal(Object.getPrototypeOf(h)[11101], undefined);
+  assert.equal(h[31], undefined);
+});
+
+t('gameSkin porte le canal des priorités', () => {
+  const g = app(s => { s.planets[0].gid = '33701'; });
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}];
+  assert.deepEqual(g.gameSkin([], [], []).prio, {'33701': {31: 10}});
+  assert.deepEqual(g.gameSkin([], [], []).hints, {}, 'hints ne porte pas la priorité');
 });
 
 if (failures.length) {

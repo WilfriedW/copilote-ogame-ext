@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.7';
+const APP_VERSION = '1.53.8';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -628,6 +628,29 @@ function planHints(acts){
   return out;
 }
 /**
+ * Ce que le joueur a posé, rangé comme `planHints` : { [planète du jeu]: { [tuile]: niveau visé } }.
+ * Ce canal existe à côté de `hints` et ne s'y réduit pas : `hints` vient des
+ * actions de la session en cours, or une priorité qui épargne sans être encore
+ * payable tombe dans les attentes, pas dans les actions — la pastille
+ * disparaîtrait et le joueur ne verrait rien de ce qu'il a déclaré. Fusionner
+ * les deux ferait de nouveau dépendre la déclaration du plan.
+ * Une recherche se montre sur la planète du labo, où l'épargne se fait ; sa
+ * priorité porte déjà ce pid (voir prios()).
+ * @returns {object} { [planetId]: { [tuileId]: niveau visé } }
+ */
+function prioHints(){
+  const out = {};
+  const put = (pid, tuile, lvl) => {
+    const p = planetById(pid);
+    // même garde que tourData : sert de clé d'objet, « __proto__ » n'est jamais une planète du jeu
+    if(!p || !tuile || !/^\d+$/.test(String(p.gid || ''))) return;
+    (out[p.gid] = out[p.gid] || {})[tuile] = lvl;
+  };
+  for(const e of prios()) put(e.pid, e.kind === 'b' ? BUILD_ID[e.k] : TECH_ID[e.k], e.lvl);
+  for(const e of priosLf()) put(e.pid, e.k, e.lvl);
+  return out;
+}
+/**
  * Ce que la page du jeu doit savoir des autres planètes pour proposer une
  * tournée : leur nom, le niveau de chaque tuile, le prix du niveau suivant, la
  * fin de leur file et leur stock. Rangé par planète du jeu, comme les indices :
@@ -807,7 +830,7 @@ function gameSkin(acts, missions, waits){
     if(p.name) teintes[p.name] = c;
     teintes[planetRef(p)] = c;
   }
-  return {hints: planHints(acts), rates, donors: donorsOf(), tour: tourData(), teintes,
+  return {hints: planHints(acts), prio: prioHints(), rates, donors: donorsOf(), tour: tourData(), teintes,
           band: bandData(acts, missions, waits),
           colonne: colonneData(acts, missions, waits),
           cargo: [shipStats('lc').cargoEff, shipStats('sc').cargoEff],
