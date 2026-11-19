@@ -5217,6 +5217,7 @@ t('une priorité lf sur une case que le relevé ignore reste vivante, à partir 
 t('une priorité lf mal formée ne compte pas', () => {
   const g = app();
   g.S.prio = [{kind:'lf', pid:'mere', k:'11101', lvl:5}, {kind:'lf', pid:'mere', k:'constructor', lvl:5},
+    {kind:'lf', pid:'mere', k:101, lvl:5}, {kind:'lf', pid:'mere', k:11101, lvl:5.5},
     {kind:'lf', pid:'mere', k:11101, lvl:0}, {kind:'lf', pid:'absente', k:11101, lvl:5}];
   assert.deepEqual(g.priosLf(), []);
 });
@@ -5226,6 +5227,14 @@ t('une priorité lf meurt avec sa planète oubliée', () => {
   g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:5}];
   g.forgetPlanet('mere');
   assert.deepEqual(g.priosLf(), []);
+});
+
+t('prioPose range la tuile en nombre : une chaîne du DOM est retrouvée', () => {
+  const g = app();
+  g.prioPose('lf', 'mere', '11101', '5');
+  assert.equal(g.prioLvl('lf', 'mere', 11101), 5);
+  g.prioPose('lf', 'mere', 'abc', '5');          // pas une tuile : rien ne se pose
+  assert.equal(g.S.prio.length, 1);
 });
 
 t('prioClean garde les lf, dans l\'ordre de pose, et ne réécrit pas pour rien', () => {

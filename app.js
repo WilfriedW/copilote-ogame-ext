@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.2';
+const APP_VERSION = '1.53.3';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -223,6 +223,10 @@ function prioLvl(kind, pid, k){
    prend la fin de la liste. Un champ vidé, ou un niveau déjà atteint, retire :
    « viser » ce qu'on a ne demande rien au plan. */
 function prioPose(kind, pid, k, raw){
+  /* Une tuile se lit d'un attribut du DOM, donc en chaîne : stockée telle quelle,
+     priosLf() — qui exige un entier — ne la retrouverait jamais et la priorité
+     s'évanouirait sans un mot. On convertit ici, une fois, pour tous les appelants. */
+  if(kind === 'lf'){ k = Number(k); if(!Number.isInteger(k)) return; }
   const lvl = parseInt(raw), i = prioIdx(kind, pid, k);
   const actuel = kind === 't' ? (S.tech[k] || 0)
     : kind === 'lf' ? (((planetById(pid) || {lf:{}}).lf || {})[k] || {}).lvl || 0
