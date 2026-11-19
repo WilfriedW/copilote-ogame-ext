@@ -24,7 +24,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'view', 'bind'], api, ext, prioAsk);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -6325,12 +6325,18 @@ t('une demande en attente placée par un relevé republie le plan, même sur l\'
 });
 
 t('le champ du volet Empire republie le plan après avoir posé', () => {
-  /* Le harnais n'a pas de DOM qui déclenche l'écouteur : on épingle la source,
-     comme pour le test voisin. REFRESH.empire ne publie rien. */
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
-  const i = src.indexOf("querySelectorAll('input[data-prio]')");
-  const corps = src.slice(i, src.indexOf('\n  }));', i));
-  assert.match(corps, /save\(\); refresh\(\);[\s\S]*publieLePlan\(\);/);
+  /* On nomme view et bind pour attraper l'écouteur « change » du champ, puis on
+     le déclenche : c'est le comportement qui est vérifié, pas la présence d'une
+     ligne — REFRESH.empire ne publie rien, seul publieLePlan() après save() le fait. */
+  const g = app(s => { G(s); s.__tab = 'empire'; }, SOIR, null, true);
+  let change;
+  const champ = { dataset: { pid: 'mere', prio: 'lab' }, value: '10', addEventListener: (ev, fn) => { if (ev === 'change') change = fn; } };
+  g.view.querySelectorAll = sel => (sel === 'input[data-prio]' ? [champ] : []);
+  g.bind();
+  assert.ok(change, 'le champ écoute « change »');
+  assert.equal((((g.stored().skin || {}).prio) || {})['33701'], undefined, 'rien de publié avant la saisie');
+  change();
+  assert.deepEqual(g.stored().skin.prio['33701'], { 31: 10 }, 'la tuile voit la priorité posée');
 });
 
 t('la minuterie de 30 s republie le plan aussi sur Empire', () => {
