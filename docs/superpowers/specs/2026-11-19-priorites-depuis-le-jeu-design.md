@@ -173,8 +173,10 @@ retenue si, et seulement si :
 2. son identifiant est **modélisé** — dans `OG_BUILD`, dans `OG_TECH`, ou
    `>= 11000`.
 
-Sinon : pas de champ, et une brève infobulle sur place dit laquelle des deux
-raisons s'applique. Refuser dans la page est ce qui tient l'anti-objectif 2 :
+Sinon : pas de champ, et un message sur place dit laquelle des deux raisons
+s'applique. Il ne s'efface pas de lui-même : il part au clic ou au clic droit
+suivant, car un message qui s'estompe est manqué par un joueur dont les yeux
+sont sur le jeu. Refuser dans la page est ce qui tient l'anti-objectif 2 :
 un refus décidé dans le panneau serait invisible depuis la tuile.
 
 Reste un cas que la page ne peut pas juger : **une planète que le panneau ne
@@ -248,7 +250,10 @@ La tuile marque alors **deux choses différentes, différemment** :
 
 - la cible du plan (`hints`), comme aujourd'hui ;
 - **ta priorité** (`skin.prio`), dans une autre teinte, avec son infobulle :
-  « Ta priorité : niveau 10. Clic droit pour la changer. »
+  « Ta priorité : monter au niveau 10. Clic droit pour la changer. » L'invite
+  est sur toute infobulle de priorité, y compris celle d'une priorité pas
+  encore confirmée : le joueur qui en a déjà une ne reverra jamais le bloc
+  vide qui apprend le geste, et c'est ce geste qu'il n'avait pas trouvé.
 
 Quand les deux portent sur la même tuile, c'est la priorité qui s'affiche :
 elle est la cause, le plan n'en est que l'effet.
@@ -290,7 +295,13 @@ stockage, un seul « Retirer » — et **deux lectures** :
   vraies mot pour mot, et la boucle des objectifs n'est pas touchée.
 - `priosLf()` : les `lf` seules. Vivante tant que
   `(p.lf[k] || {}).lvl || 0 < lvl`, mêmes gardes que les deux autres — niveau
-  entier positif, planète qui répond, case que le relevé connaît.
+  entier positif, planète qui répond — **sauf la dernière : on n'exige pas que
+  le relevé connaisse la case.** Le joueur qui clique sur une habitation est sur
+  la page de cette forme de vie, mais sa demande peut être traitée avant que le
+  relevé suivant n'arrive : `p.lf[11101]` est alors absent, et l'écarter
+  jetterait la priorité en silence, ce que l'anti-objectif 2 interdit. Une case
+  absente compte pour le niveau 0 et la priorité reste vivante ; rétablir la
+  garde « case connue » rouvrirait cette perte.
 
 Une planète peut donc porter **un objectif de bâtiment et une priorité de forme
 de vie en même temps** : ils ne jouent pas dans la même file et ne se disputent

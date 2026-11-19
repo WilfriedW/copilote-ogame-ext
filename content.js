@@ -1910,8 +1910,8 @@ width:auto !important;max-width:none !important;background-image:none !important
   }
   const MARQUE = {
     plan: { cls: '', titre: n => 'Copilote : monter au niveau ' + n },
-    prio: { cls: ' cp-tag-prio', titre: n => 'Ta priorité : monter au niveau ' + n },
-    attente: { cls: ' cp-tag-attente', titre: n => 'Ta priorité : niveau ' + n + ', pas encore confirmée par le panneau' }
+    prio: { cls: ' cp-tag-prio', titre: n => 'Ta priorité : monter au niveau ' + n + '. Clic droit pour la changer.' },
+    attente: { cls: ' cp-tag-attente', titre: n => 'Ta priorité : niveau ' + n + ', pas encore confirmée par le panneau. Clic droit pour la changer.' }
   };
 
   let tuileVue = '';

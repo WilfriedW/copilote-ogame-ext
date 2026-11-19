@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.23';
+const APP_VERSION = '1.53.24';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -366,7 +366,7 @@ function prioHtml(plan){
   }), at.map(d => {
     /* nom est du texte lu dans le DOM du jeu : il passe par esc, comme tout ce qui vient de là. */
     const quoi = d.lvl === 0 ? 'Retrait demandé' : `Niveau ${d.lvl} demandé`;
-    return li('En attente', esc(d.nom || `Case ${d.tech}`), `${quoi}, mais aucune de tes planètes relevées ne porte cette case (une lune, une colonie jamais parcourue ?). Ouvre cette planète dans le jeu : la demande sera placée alors, sinon elle s'efface dans ${dur((d.at + PRIO_ATTENTE - Date.now())/1000)}.`, prioRef('ask', d.gid, d.tech));
+    return li('En attente', esc(d.nom || `Case ${d.tech}`), `${quoi}, mais aucune de tes planètes relevées ne porte cette case. Si c'est une colonie jamais parcourue, ouvre-la dans le jeu : la demande sera placée alors. Si c'est une lune, le panneau n'en gère pas : la demande n'aboutira pas. Dans les deux cas elle s'efface dans ${dur((d.at + PRIO_ATTENTE - Date.now())/1000)}.`, prioRef('ask', d.gid, d.tech));
   }));
   return `<div class="card"><h2>Tes priorités</h2><ul class="advice prios">${lignes.join('')}</ul></div>`;
 }
@@ -4278,6 +4278,8 @@ function bind(){
        champ dit ce que la priorité est devenue — vide si elle a été retirée. */
     el.value = prioLvl(kind, el.dataset.pid, el.dataset.prio);
     save(); refresh();
+    // refresh() sur Empire ne publie pas le plan : la tuile ne saurait rien de ce qu'on vient de poser
+    publieLePlan();
   }));
   view.querySelectorAll('input[data-t]').forEach(el=>el.addEventListener('input',()=>{ S.tech[el.dataset.t]=Math.max(0,parseInt(el.value)||0); changed(); }));
   view.querySelectorAll('[data-set]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
@@ -4474,7 +4476,9 @@ view.addEventListener('click', e=>{
   if(rmT){ S.timers = S.timers.filter(t=>t.id!==rmT.dataset.tmrm); save(); stopFlash(); renderTimers(); }
 });
 setInterval(tickTimers, 1000);
-setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); else publieLePlan(); }, 30000);
+/* publieLePlan est sans effet sur Aujourd'hui, qui se publie en se dessinant ;
+   sur Empire, REFRESH.empire ne publie rien : sans cet appel la tuile resterait muette. */
+setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); publieLePlan(); }, 30000);
 /** Recalcule le plan du jour pour la page du jeu, sans rien afficher.
     `today` le publie en se dessinant ; ailleurs, c'est à nous de le faire.
     Le dessin qui suit la publication écrit dans des éléments de l'onglet
@@ -4596,6 +4600,8 @@ function applyGame(g){
   const a = document.activeElement;
   const typing = a && view.contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName);
   typing ? refresh() : render();
+  // render() ne publie le plan que sur Aujourd'hui : une demande placée ici resterait muette sur la tuile
+  publieLePlan();
 }
 render();
 /* Et à l'ouverture du panneau : le réglage peut avoir été posé avant que la

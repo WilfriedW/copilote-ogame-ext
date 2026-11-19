@@ -6316,6 +6316,29 @@ t('accueillir une demande republie le plan, même hors de l\'onglet Aujourd\'hui
   assert.equal(skin.prio['33701'][31], 10, 'avec la priorité qui vient d\'être posée');
 });
 
+t('une demande en attente placée par un relevé republie le plan, même sur l\'onglet Empire', () => {
+  const g = app(s => { s.__tab = 'empire'; }, SOIR, null, true);
+  g.S.prioAsk = [D()];
+  assert.equal((((g.stored().skin || {}).prio) || {})['33701'], undefined);
+  g.applyGame({ planets: { '33701': { coords: '1:142:8', b: { lab: 5 } } }, order: ['33701'] });
+  assert.equal(g.stored().skin.prio['33701'][31], 10, 'la tuile voit la demande enfin placée');
+});
+
+t('le champ du volet Empire republie le plan après avoir posé', () => {
+  /* Le harnais n'a pas de DOM qui déclenche l'écouteur : on épingle la source,
+     comme pour le test voisin. REFRESH.empire ne publie rien. */
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const i = src.indexOf("querySelectorAll('input[data-prio]')");
+  const corps = src.slice(i, src.indexOf('\n  }));', i));
+  assert.match(corps, /save\(\); refresh\(\);[\s\S]*publieLePlan\(\);/);
+});
+
+t('la minuterie de 30 s republie le plan aussi sur Empire', () => {
+  /* setInterval est neutralisé dans le harnais : on épingle la source. */
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  assert.match(src, /REFRESH\[tab\]\(\);\s*publieLePlan\(\);\s*\}, 30000\)/);
+});
+
 t('le changement que provoque l\'effacement lui-même ne rejoue rien', () => {
   const g = app(G);
   g.fire({prioAsk: {newValue: [D()]}});
