@@ -192,6 +192,20 @@ prioAsk = [ { gid: '33701234', tech: 31, nom: 'Laboratoire de recherche',
               lvl: 10, at: 1763... }, … ]
 ```
 
+**`lvl: 0` veut dire « retire cette priorité ».** La page décide de l'intention
+là où le joueur l'a formée : champ vidé, ou niveau tapé au niveau courant ou
+au-dessous — elle envoie `0`. Sans cela, le panneau devrait *deviner* en
+comparant au niveau courant, et il ne saurait pas distinguer « a demandé
+quelque chose que le monde a depuis dépassé » de « n'a rien demandé, exprès ».
+Une demande gardée le temps qu'une planète soit relevée se retournerait alors
+en retrait : le labo finit de monter à 6 pendant l'attente, et un « monte à 6 »
+devenu « 6 ≤ 6 » effacerait la priorité que le joueur avait posée à la main.
+
+Le panneau lit donc une intention au lieu de l'inférer : `0` retire,
+au-dessus du niveau courant pose, et entre les deux la demande est
+**satisfaite** — on la jette, sans ambiguïté et sans rien dire, puisque le monde
+a déjà donné au joueur ce qu'il demandait.
+
 Une **liste**, pas un objet : le panneau peut être fermé, et trois clics droits
 de suite ne doivent pas s'écraser l'un l'autre. Le `nom` voyage pour que le
 panneau puisse nommer une demande qu'il ne sait pas placer.

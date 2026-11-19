@@ -632,6 +632,8 @@ La tuile est retenue si elle a un niveau courant lisible **et** si son identifia
 
 Posé sur la tuile, prérempli (priorité déjà connue, sinon niveau + 1), contenu sélectionné, focus dedans. Entrée valide, Échap et la perte du focus annulent. Valider écrit dans `prioAsk` : lire la liste, remplacer l'entrée de même `gid`+`tech` s'il y en a une, sinon ajouter.
 
+**Le champ vidé, ou un niveau au niveau courant ou au-dessous, envoie `lvl: 0`** — « retire cette priorité ». C'est la page qui tranche, parce que c'est là que le joueur a formé l'intention ; le panneau ne devine pas. Deux tests : un champ vidé envoie `0`, et un niveau au niveau courant envoie `0`.
+
 - [ ] **Step 6 : lancer les tests** — Run: `node test/run.js`, Expected: tout passe.
 
 - [ ] **Step 7 : valider par mutation**
