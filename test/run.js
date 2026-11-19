@@ -6190,6 +6190,12 @@ t('une clé de planète hostile ne devient pas une clé du canal des priorités'
   assert.equal(h[31], undefined);
 });
 
+t('deux priorités sur la même tuile : la première posée est publiée, comme le plan la sert', () => {
+  const g = app(s => { s.planets[0].gid = '33701'; });
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:8}, {kind:'b', pid:'mere', k:'lab', lvl:10}];
+  assert.deepEqual(g.prioHints(), {'33701': {31: 8}});
+});
+
 t('gameSkin porte le canal des priorités', () => {
   const g = app(s => { s.planets[0].gid = '33701'; });
   g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}];

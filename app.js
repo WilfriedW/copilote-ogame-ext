@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.8';
+const APP_VERSION = '1.53.9';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -643,8 +643,11 @@ function prioHints(){
   const put = (pid, tuile, lvl) => {
     const p = planetById(pid);
     // même garde que tourData : sert de clé d'objet, « __proto__ » n'est jamais une planète du jeu
+    // le saut est voulu : une clé sans tuile du jeu ne doit jamais publier un identifiant bancal
     if(!p || !tuile || !/^\d+$/.test(String(p.gid || ''))) return;
-    (out[p.gid] = out[p.gid] || {})[tuile] = lvl;
+    const l = out[p.gid] = out[p.gid] || {};
+    // la première posée gagne : c'est celle que le plan sert, la pastille doit montrer la même
+    if(!(tuile in l)) l[tuile] = lvl;
   };
   for(const e of prios()) put(e.pid, e.kind === 'b' ? BUILD_ID[e.k] : TECH_ID[e.k], e.lvl);
   for(const e of priosLf()) put(e.pid, e.k, e.lvl);
