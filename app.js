@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.9';
+const APP_VERSION = '1.53.10';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -88,7 +88,7 @@ function sample(){
     ui:{tool:'colony', fold:{}},
     day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false},
     lf:{found:['humans','rocktal']},
-    centre:null, raid:null, raids:{}, prio:[],
+    centre:null, raid:null, raids:{}, prio:[], prioAsk:[],
     daily:{done:{}, no:{}},
     colo:{fromId:null, objective:'balanced', bonus:0, target:'', kit:'std', tr:'sc', built:false, fields:'', fpos:''},
   };
@@ -121,6 +121,7 @@ S.ui = Object.assign(sample().ui, S.ui);
 S.lf = Object.assign(sample().lf, S.lf);
 S.raids = S.raids || {};
 S.prio = Array.isArray(S.prio) ? S.prio : [];
+S.prioAsk = Array.isArray(S.prioAsk) ? S.prioAsk : [];
 migratePlanetIds();
 S.daily = Object.assign(sample().daily, S.daily);
 /* Une sauvegarde perdue en silence est pire qu'une erreur : l'écran montre la
@@ -207,6 +208,42 @@ function prioClean(){
   S.prio = S.prio.map(e => e && par.get(clef(e))).filter(Boolean)
     .map(x => x.kind === 't' ? {kind:'t', k:x.k, lvl:x.lvl} : x);
   save();
+}
+
+/* La page du jeu ne peut pas écrire S.prio : elle demande, en ajoutant à une
+   liste du stockage, et le panneau — seul écrivain — la vide ici. La liste est
+   une file : le panneau peut être fermé pendant que le joueur pose trois
+   priorités de suite.
+   Une demande dont la planète n'est pas encore relevée (une lune, une colonie
+   jamais parcourue) n'est jamais jetée : la rendre, c'est la garder, et la
+   garder nommée est ce qui évite de perdre en silence ce que le joueur a
+   voulu. Seul le temps l'emporte : au-delà de 24 h, plus rien ne la réclamera.
+   Le gid est une valeur de frontière : traduit en id local ici, jamais gardé. */
+const PRIO_ATTENTE = 24*3600*1000;
+function prioDrain(liste){
+  const gardees = [];
+  for(const d of (Array.isArray(liste) ? liste : [])){
+    if(!d || typeof d !== 'object') continue;
+    const gid = String(d.gid), tech = String(d.tech), lvl = d.lvl;
+    // « __proto__ » & co ne sont pas des suites de chiffres : jamais une clé
+    if(!/^\d+$/.test(gid) || !/^\d+$/.test(tech) || !Number.isInteger(lvl) || lvl <= 0) continue;
+    const id = +tech;
+    if(Object.prototype.hasOwnProperty.call(OG_TECH, id)){ prioPose('t', null, OG_TECH[id], lvl); continue; }
+    const kind = Object.prototype.hasOwnProperty.call(OG_BUILD, id) ? 'b' : id >= 11000 ? 'lf' : null;
+    if(!kind) continue; // 33 (Terraformeur) a un niveau dans le jeu, pas dans le moteur
+    const p = S.planets.find(x => x.gid != null && String(x.gid) === gid);
+    if(p){ prioPose(kind, p.id, kind === 'b' ? OG_BUILD[id] : id, lvl); continue; }
+    const at = Number.isFinite(d.at) ? d.at : Date.now();
+    if(Date.now() - at <= PRIO_ATTENTE) gardees.push({gid, tech: id, nom: typeof d.nom === 'string' ? d.nom : '', lvl, at});
+  }
+  return gardees;
+}
+/* Les demandes qui attendent leur planète, pour le bloc des priorités. */
+function prioDemandes(){ return Array.isArray(S.prioAsk) ? S.prioAsk : []; }
+/* Ce qui était gardé repasse avec ce qui arrive : une planète peut avoir été
+   relevée entre-temps. */
+function prioRecoit(neuves){
+  S.prioAsk = prioDrain(prioDemandes().concat(Array.isArray(neuves) ? neuves : []));
 }
 
 /* Une entrée se reconnaît à ce qu'elle vise : le bâtiment sur sa planète, ou la
@@ -4490,6 +4527,7 @@ function applyGame(g){
   }
   S.sample = false;
   S.syncAt = g.at || Date.now();
+  prioRecoit(); // une planète vient peut-être d'être relevée
   save();
   const a = document.activeElement;
   const typing = a && view.contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName);
@@ -4507,7 +4545,19 @@ pushLook();
    l'onglet ouvert. */
 publieLePlan();
 if(window.__game) applyGame(window.__game);
-chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ API = ch.api.newValue; if(tab==='tools' && S.ui.tool==='explore') render(); } });
+/* Demandes déposées pendant que le panneau était fermé. boot.js ne transmet que
+   les clés « ls: » et game/api : sans lui, la clé resterait dans le stockage. */
+prioAccueille(window.__prioAsk);
+/* Appliquer, puis effacer la clé, sauvegarder, redessiner : la page ré-ajoute à
+   une clé vide, et une demande rejouée poserait deux fois. */
+function prioAccueille(liste){
+  if(!Array.isArray(liste) || !liste.length) return;
+  prioRecoit(liste);
+  try{ chrome.storage.local.remove('prioAsk'); }catch(e){}
+  save();
+  render();
+}
+chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioAsk) prioAccueille(ch.prioAsk.newValue); if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ API = ch.api.newValue; if(tab==='tools' && S.ui.tool==='explore') render(); } });
 
 /* ---------- one alert, one acknowledgment ---------- */
 /** In the extension, every alert goes through the background so a single "OK" clears them all. */

@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -6201,6 +6201,96 @@ t('gameSkin porte le canal des priorités', () => {
   g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}];
   assert.deepEqual(g.gameSkin([], [], []).prio, {'33701': {31: 10}});
   assert.deepEqual(g.gameSkin([], [], []).hints, {}, 'hints ne porte pas la priorité');
+});
+
+/* ---------- le panneau reçoit les demandes de la page du jeu ---------- */
+const D = (o) => Object.assign({gid:'33701', tech:31, nom:'Laboratoire', lvl:10, at:SOIR}, o);
+const G = s => { s.planets[0].gid = '33701'; };
+
+t('une demande devient une priorité de bâtiment', () => {
+  const g = app(G);
+  assert.deepEqual(g.prioDrain([D()]), [], 'rien ne reste en attente');
+  assert.deepEqual(g.prios(), [{kind:'b', pid:'mere', k:'lab', lvl:10}]);
+});
+
+t('une demande de recherche n\'a pas besoin de planète connue', () => {
+  const g = app(G);
+  g.prioDrain([D({gid:'99999', tech:122, nom:'Plasma', lvl:12})]);
+  assert.deepEqual(g.prios(), [{kind:'t', pid:'mere', k:'plasma', lvl:12}]);
+});
+
+t('une demande de forme de vie garde son identifiant de tuile', () => {
+  const g = app(s => { G(s); s.planets[0].lf = {11101:{lvl:1, state:'ok'}}; });
+  g.prioDrain([D({tech:11101, nom:'Habitation', lvl:4})]);
+  assert.deepEqual(g.priosLf(), [{pid:'mere', k:11101, lvl:4}]);
+});
+
+t('une demande dont la planète est inconnue attend, et se laisse nommer', () => {
+  const g = app(G);
+  const reste = g.prioDrain([D({gid:'99999', nom:'Usine de robots', tech:14})]);
+  assert.equal(reste.length, 1, 'gardée');
+  assert.equal(reste[0].nom, 'Usine de robots', 'et nommable');
+  assert.deepEqual(g.prios(), [], 'rien n\'est posé');
+});
+
+t('une demande gardée se pose dès que sa planète est relevée', () => {
+  const g = app();
+  const reste = g.prioDrain([D()]);
+  assert.equal(reste.length, 1);
+  g.S.planets[0].gid = '33701';
+  assert.deepEqual(g.prioDrain(reste), []);
+  assert.deepEqual(g.prios(), [{kind:'b', pid:'mere', k:'lab', lvl:10}]);
+});
+
+t('une demande gardée depuis plus de 24 h disparaît, une récente reste', () => {
+  const g = app();
+  assert.deepEqual(g.prioDrain([D({gid:'99999', at: SOIR - 25*3600*1000})]), []);
+  assert.equal(g.prioDrain([D({gid:'99999', at: SOIR - 23*3600*1000})]).length, 1);
+});
+
+t('la liste gardée vit dans S : vide à neuf et sur un ancien état, rejouée au relevé', () => {
+  const g = app(s => { delete s.prioAsk; });
+  assert.deepEqual(g.prioDemandes(), []);
+  assert.deepEqual(g.S.prioAsk, []);
+  g.S.prioAsk = g.prioDrain([D()]);
+  assert.equal(g.prioDemandes().length, 1);
+  g.applyGame({planets:{'33701':{name:'Mère', coords:'1:142:8'}}, order:['33701']});
+  assert.deepEqual(g.prioDemandes(), [], 'le relevé la place');
+  assert.deepEqual(g.prios().map(x => x.k), ['lab']);
+});
+
+t('une demande malformée ne pose rien et ne lève pas', () => {
+  const g = app(G);
+  const sales = [null, undefined, 7, 'x', [], {}, D({tech:null}), D({lvl:'dix'}), D({lvl:0}), D({lvl:2.5}), D({lvl:10.5}), D({lvl:'10'}), D({lvl:-3}), D({tech:'0x2B4D'}), D({tech:'11101abc'}),
+    D({lvl:undefined}), D({gid:undefined}), D({gid:'__proto__'}), D({gid:'constructor'}), D({gid:'33701x'}),
+    D({tech:'__proto__'}), D({tech:'constructor'}), D({tech:10999}), D({tech:50}), D({tech:0}), D({tech:33}), D({tech:105}), D({tech:125}),
+    D({gid:'__proto__', tech:122}), D({gid:'__proto__', tech:11101})];
+  // une à une : une entrée posée serait sinon retirée par la suivante, et le défaut passerait inaperçu
+  for(const s of sales) assert.deepEqual(g.prioDrain([s]), [], 'jetée : ' + JSON.stringify(s)) || assert.deepEqual(g.S.prio, [], 'rien posé pour ' + JSON.stringify(s));
+  const reste = g.prioDrain(sales);
+  assert.equal(reste.length, 0, 'rien de ces entrées n\'est digne d\'être gardée');
+  assert.deepEqual(g.prios(), []);
+  assert.deepEqual(g.priosLf(), []);
+  assert.deepEqual(g.S.prio, [], 'aucune priorité posée');
+  // Object.keys est aveugle : « out.__proto__ = … » ne crée aucune clé propre
+  for(const k of ['31', '122', '11101', 'lab', 'lvl', 'gid', 'k']) assert.equal(Object.prototype[k], undefined, 'Object.prototype.' + k);
+  assert.equal(({})[31], undefined);
+  assert.equal(({}).lvl, undefined);
+});
+
+t('deux demandes sur la même tuile n\'en font qu\'une, la dernière', () => {
+  const g = app(G);
+  g.prioDrain([D({lvl:9, at:1}), D({lvl:12, at:2})]);
+  assert.deepEqual(g.prios(), [{kind:'b', pid:'mere', k:'lab', lvl:12}]);
+});
+
+t('une demande rejouée avec la file gardée ne double rien', () => {
+  const g = app(G);
+  g.S.prioAsk = g.prioDrain([D({gid:'99999'})]);
+  g.prioDrain([D(), D({lvl:12})]);
+  g.prioDrain(g.prioDemandes());
+  assert.equal(g.prios().length, 1);
+  assert.equal(g.prioDemandes().length, 1);
 });
 
 if (failures.length) {
