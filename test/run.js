@@ -19,12 +19,12 @@ const SOIR = new Date(2026, 10, 8, 22, 30, 0).getTime();
 const REVEIL = new Date(2026, 10, 9, 7, 0, 0).getTime();
 
 /** Charge l'application avec un état modifié à la volée. */
-function app(modifier, now, api, ext) {
+function app(modifier, now, api, ext, prioAsk) {
   const s = fixtureState();
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes'], api, ext, prioAsk);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -6291,6 +6291,61 @@ t('une demande rejouée avec la file gardée ne double rien', () => {
   g.prioDrain(g.prioDemandes());
   assert.equal(g.prios().length, 1);
   assert.equal(g.prioDemandes().length, 1);
+});
+
+/* ---------- le chemin que la demande parcourt : stockage -> écouteur -> S.prio ---------- */
+t('un changement de stockage prioAsk pose la priorité puis efface la clé', () => {
+  const g = app(G);
+  g.fire({prioAsk: {newValue: [D()]}});
+  assert.deepEqual(g.prios(), [{kind:'b', pid:'mere', k:'lab', lvl:10}]);
+  assert.deepEqual(g.removed(), ['prioAsk'], 'clé effacée');
+});
+
+t('le changement que provoque l\'effacement lui-même ne rejoue rien', () => {
+  const g = app(G);
+  g.fire({prioAsk: {newValue: [D()]}});
+  g.fire({prioAsk: {oldValue: [D()]}});          // newValue absent : c'est le remove()
+  assert.equal(g.prios().length, 1);
+  assert.deepEqual(g.removed(), ['prioAsk'], 'effacée une seule fois');
+});
+
+t('une demande dont la planète est inconnue, livrée par l\'écouteur, est gardée dans S', () => {
+  const g = app(G);
+  g.fire({prioAsk: {newValue: [D({gid:'99999', nom:'Lune'})]}});
+  assert.deepEqual(g.prios(), []);
+  assert.equal(g.prioDemandes()[0].nom, 'Lune');
+});
+
+t('au démarrage, une demande déposée panneau fermé est drainée', () => {
+  const g = app(G, null, null, false, [D({lvl:7})]);
+  assert.deepEqual(g.prios(), [{kind:'b', pid:'mere', k:'lab', lvl:7}]);
+  assert.deepEqual(g.removed(), ['prioAsk']);
+});
+
+t('au démarrage sans demande, rien n\'est effacé ni posé', () => {
+  const g = app(G);
+  assert.deepEqual(g.removed(), []);
+  assert.deepEqual(g.S.prio, []);
+});
+
+t('un changement d\'une autre clé ne touche pas aux priorités', () => {
+  const g = app(G);
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}];
+  g.fire({api: {newValue: null}});
+  g.fire({pendingAlerts: {newValue: []}});
+  g.fire({prioAsk: {newValue: [D()]}}, 'sync');   // autre zone de stockage
+  assert.deepEqual(g.S.prio, [{kind:'b', pid:'mere', k:'lab', lvl:10}]);
+  assert.deepEqual(g.removed(), []);
+});
+
+t('boot.js transmet prioAsk à app.js, clé sans préfixe ls:', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'boot.js'), 'utf8');
+  const win = {}, ask = [D()];
+  const chrome = {storage: {local: {get(k, cb) { cb({'ls:x': '1', prioAsk: ask, game: null}); }, set() { return Promise.resolve(); }}}};
+  const document = {createElement: () => ({}), body: {appendChild() {}}};
+  new Function('window', 'chrome', 'document', src)(win, chrome, document);
+  assert.deepEqual(win.__prioAsk, ask);
+  assert.equal(win.__mem.x, '1');
 });
 
 if (failures.length) {
