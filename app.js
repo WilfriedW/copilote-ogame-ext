@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.1';
+const APP_VERSION = '1.53.2';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -170,6 +170,24 @@ function prios(){
   }
   return out;
 }
+/* Les cases de forme de vie ont leur propre lecture, et prios() ne les rend
+   jamais : la boucle des objectifs lit T[pr.k].n — T[11101] n'existe pas, elle
+   lèverait — et réserve la planète à la première priorité posée, toutes espèces
+   confondues : une case de forme de vie volerait son tour à un Labo 10 posé
+   après elle, qui attendrait alors un tour qui ne vient jamais.
+   Une case absente du relevé compte pour 0 et la priorité reste : le joueur
+   pose depuis la page de la forme de vie, et sa demande peut passer avant que
+   le relevé suivant n'arrive. L'écarter en silence serait la pire issue. */
+function priosLf(){
+  const out = [];
+  for(const e of (Array.isArray(S.prio) ? S.prio : [])){
+    if(!e || e.kind !== 'lf' || !Number.isInteger(e.lvl) || e.lvl <= 0) continue;
+    if(!Number.isInteger(e.k) || e.k < 11000) continue;
+    const p = planetById(e.pid);
+    if(p && e.lvl > (((p.lf || {})[e.k] || {}).lvl || 0)) out.push({pid:p.id, k:e.k, lvl:e.lvl});
+  }
+  return out;
+}
 /* La première posée sur la planète est celle qui agit ; les suivantes
    attendent leur tour, dans l'ordre où le joueur les a posées. */
 function prioOf(pid){ return prios().find(x => x.pid === pid) || null; }
@@ -180,9 +198,14 @@ function prioClean(){
      recherche n'appartient à aucune planète, et un empire vidé (import tronqué)
      ne doit pas emporter ce que le joueur a posé. Pas d'empire, rien à compacter. */
   if(!S.planets.length) return;
-  const vivantes = prios();
+  const vivantes = prios().concat(priosLf().map(x => ({kind:'lf', pid:x.pid, k:x.k, lvl:x.lvl})));
   if(vivantes.length === S.prio.length) return;
-  S.prio = vivantes.map(x => x.kind === 't' ? {kind:'t', k:x.k, lvl:x.lvl} : x);
+  /* prios() et priosLf() sont deux files : on les remet dans l'ordre de pose
+     d'origine, qui seul arbitre la précédence. */
+  const clef = x => x.kind + ':' + (x.kind === 't' ? '' : x.pid) + ':' + x.k;
+  const par = new Map(vivantes.map(x => [clef(x), x]));
+  S.prio = S.prio.map(e => e && par.get(clef(e))).filter(Boolean)
+    .map(x => x.kind === 't' ? {kind:'t', k:x.k, lvl:x.lvl} : x);
   save();
 }
 
@@ -192,7 +215,7 @@ function prioIdx(kind, pid, k){
   return (S.prio || []).findIndex(e => e && e.kind === kind && e.k === k && (kind === 't' || e.pid === pid));
 }
 function prioLvl(kind, pid, k){
-  const e = prios().find(x => x.kind === kind && x.k === k && (kind === 't' || x.pid === pid));
+  const e = (kind === 'lf' ? priosLf().map(x => ({kind:'lf', pid:x.pid, k:x.k, lvl:x.lvl})) : prios()).find(x => x.kind === kind && x.k === k && (kind === 't' || x.pid === pid));
   return e ? e.lvl : '';
 }
 /* Le joueur écrit un niveau visé. L'ordre de pose arbitre la précédence : une
@@ -201,7 +224,9 @@ function prioLvl(kind, pid, k){
    « viser » ce qu'on a ne demande rien au plan. */
 function prioPose(kind, pid, k, raw){
   const lvl = parseInt(raw), i = prioIdx(kind, pid, k);
-  const actuel = kind === 't' ? (S.tech[k] || 0) : ((planetById(pid) || {b:{}}).b[k] || 0);
+  const actuel = kind === 't' ? (S.tech[k] || 0)
+    : kind === 'lf' ? (((planetById(pid) || {lf:{}}).lf || {})[k] || {}).lvl || 0
+    : ((planetById(pid) || {b:{}}).b[k] || 0);
   if(!(lvl > actuel)){ if(i >= 0) S.prio.splice(i, 1); return; }
   if(i >= 0) S.prio[i].lvl = lvl;
   else S.prio.push(kind === 't' ? {kind, k, lvl} : {kind, pid, k, lvl});

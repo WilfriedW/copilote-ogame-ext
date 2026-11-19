@@ -24,7 +24,7 @@ function app(modifier, now, api, ext) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf'], api, ext);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -5192,6 +5192,62 @@ t('un empire vide n\'efface pas les recherches que le joueur a posées', () => {
   g.S.planets = [];
   g.prioClean();
   assert.deepEqual(g.S.prio, [{kind:'t', k:'plasma', lvl:4}]);
+});
+
+/* Les cases de forme de vie : une file à part, que prios() ne voit jamais. */
+t('priosLf rend les cases de forme de vie, prios ne les voit pas', () => {
+  const g = app(s => { s.planets[0].lf = {11101:{lvl:3, state:'ok'}}; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:5}, {kind:'b', pid:'mere', k:'lab', lvl:10}];
+  assert.deepEqual(g.priosLf(), [{pid:'mere', k:11101, lvl:5}]);
+  assert.deepEqual(g.prios().map(x=>x.k), ['lab'], 'prios() ignore lf');
+});
+
+t('une priorité lf atteinte n\'existe plus', () => {
+  const g = app(s => { s.planets[0].lf = {11101:{lvl:5, state:'ok'}}; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:5}];
+  assert.deepEqual(g.priosLf(), []);
+});
+
+t('une priorité lf sur une case que le relevé ignore reste vivante, à partir de 0', () => {
+  const g = app();                       // p.lf absent : le relevé n'est pas encore passé
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:5}];
+  assert.deepEqual(g.priosLf(), [{pid:'mere', k:11101, lvl:5}]);
+});
+
+t('une priorité lf mal formée ne compte pas', () => {
+  const g = app();
+  g.S.prio = [{kind:'lf', pid:'mere', k:'11101', lvl:5}, {kind:'lf', pid:'mere', k:'constructor', lvl:5},
+    {kind:'lf', pid:'mere', k:11101, lvl:0}, {kind:'lf', pid:'absente', k:11101, lvl:5}];
+  assert.deepEqual(g.priosLf(), []);
+});
+
+t('une priorité lf meurt avec sa planète oubliée', () => {
+  const g = app(s => { s.planets[0].lf = {11101:{lvl:1, state:'ok'}}; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:5}];
+  g.forgetPlanet('mere');
+  assert.deepEqual(g.priosLf(), []);
+});
+
+t('prioClean garde les lf, dans l\'ordre de pose, et ne réécrit pas pour rien', () => {
+  const g = app(s => { s.planets[0].lf = {11101:{lvl:1, state:'ok'}}; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:5}, {kind:'b', pid:'mere', k:'lab', lvl:10}];
+  const avant = JSON.stringify(g.S.prio);
+  g.prioClean();
+  assert.equal(JSON.stringify(g.S.prio), avant, 'rien ne tombe, donc rien ne se réécrit');
+  g.S.prio.push({kind:'b', pid:'mere', k:'metal', lvl:1});   // morte : la mère est au métal 14
+  g.prioClean();
+  assert.deepEqual(g.S.prio, JSON.parse(avant), 'la morte tombe, les deux vivantes restent, dans leur ordre');
+});
+
+t('prioPose et prioLvl savent compter en lf', () => {
+  const g = app(s => { s.planets[0].lf = {11101:{lvl:3, state:'ok'}}; });
+  g.prioPose('lf', 'mere', 11101, '5');
+  assert.equal(g.prioLvl('lf', 'mere', 11101), 5);
+  g.prioPose('lf', 'mere', 11101, '3');          // au niveau actuel : retire
+  assert.equal(g.prioLvl('lf', 'mere', 11101), '');
+  assert.equal(g.S.prio.length, 0, 'retirée du stockage, pas seulement masquée par priosLf');
+  g.prioPose('lf', 'mere', 11102, '2');          // case que le relevé ignore : pose depuis 0
+  assert.equal(g.prioLvl('lf', 'mere', 11102), 2);
 });
 
 /** Une priorité de labo 10 sur la mère, qui est au labo 5 et n'a aucune raison
