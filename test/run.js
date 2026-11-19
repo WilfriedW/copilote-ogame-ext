@@ -5233,8 +5233,12 @@ t('prioPose range la tuile en nombre : une chaîne du DOM est retrouvée', () =>
   const g = app();
   g.prioPose('lf', 'mere', '11101', '5');
   assert.equal(g.prioLvl('lf', 'mere', 11101), 5);
-  g.prioPose('lf', 'mere', 'abc', '5');          // pas une tuile : rien ne se pose
-  assert.equal(g.S.prio.length, 1);
+  for(const mauvais of ['abc', '', null, [], undefined, '0x2B4D', '11101abc', 11101.5, '101', 101]){
+    g.prioPose('lf', 'mere', mauvais, '5');      // pas une tuile : rien ne se pose
+    assert.equal(g.S.prio.length, 1, 'rien posé pour ' + JSON.stringify(mauvais));
+  }
+  g.prioPose('lf', 'mere', 11102, '2');          // un nombre pose aussi
+  assert.equal(g.prioLvl('lf', 'mere', 11102), 2);
 });
 
 t('prioClean garde les lf, dans l\'ordre de pose, et ne réécrit pas pour rien', () => {

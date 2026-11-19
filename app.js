@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.3';
+const APP_VERSION = '1.53.4';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -226,7 +226,10 @@ function prioPose(kind, pid, k, raw){
   /* Une tuile se lit d'un attribut du DOM, donc en chaîne : stockée telle quelle,
      priosLf() — qui exige un entier — ne la retrouverait jamais et la priorité
      s'évanouirait sans un mot. On convertit ici, une fois, pour tous les appelants. */
-  if(kind === 'lf'){ k = Number(k); if(!Number.isInteger(k)) return; }
+  /* Le motif et non Number() seul : '', null et [] valent 0, et '0x2B4D' vaut
+     11085 — une tuile crédible mais fausse, que le plan servirait. Même borne que
+     priosLf() : on ne range que ce que l'accesseur saura relire. */
+  if(kind === 'lf'){ if(!/^\d+$/.test(String(k)) || +k < 11000) return; k = +k; }
   const lvl = parseInt(raw), i = prioIdx(kind, pid, k);
   const actuel = kind === 't' ? (S.tech[k] || 0)
     : kind === 'lf' ? (((planetById(pid) || {lf:{}}).lf || {})[k] || {}).lvl || 0
