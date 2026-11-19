@@ -3902,6 +3902,95 @@ t('la case qu\'on vient d\'ouvrir ne verrouille plus le classement', () => {
   assert.deepEqual(c.map(x => x.src), ['estimé', 'lu']);
 });
 
+/* ---------- une priorité de forme de vie prend la tête de sa file ---------- */
+
+/* Une case lue : `next` est le niveau que le prix vise, sinon lfCost ne la
+   dit pas chiffrée. */
+const lfCase = (lvl, cost, over) => Object.assign({lvl, next: lvl + 1, state: 'ok', secs: 600, cost}, over);
+
+t('une case priorisée passe devant une case plus chère à produire', () => {
+  const g = app(s => { s.planets[0].lf = {
+    11101: lfCase(1, [50000, 0, 0]),
+    11102: lfCase(1, [1000, 0, 0], {eff: 0}) }; });
+  assert.equal(g.lfCandidates(g.S.planets[0], 'lfbuilding')[0].id, 11102, 'sans priorité, la productrice');
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:2}];
+  const l = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.equal(l[0].id, 11101, 'avec priorité, la tienne');
+  assert.match(l[0].why, /priorité/i, 'et elle dit pourquoi');
+  assert.equal(l[1].id, 11102, 'la productrice reste, juste derrière');
+  assert.match(l[1].why, /production de métal/, 'et garde sa propre raison');
+});
+
+t('une case priorisée qui produit le dit dans sa raison', () => {
+  const g = app(s => { s.planets[0].lf = { 11102: lfCase(1, [1000, 0, 0], {eff: 0}) }; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11102, lvl:2}];
+  const w = g.lfCandidates(g.S.planets[0], 'lfbuilding')[0].why;
+  assert.match(w, /priorité/i);
+  assert.match(w, /production de métal/, 'ce que la case fait');
+});
+
+t('une case priorisée pas encore chiffrée ne prend pas la tête', () => {
+  const g = app(s => { s.planets[0].lf = {
+    11101: {lvl:1, state:'ok'},                                  // ni prix ni durée
+    11102: lfCase(1, [1000, 0, 0]) }; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:2}];
+  const l = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.equal(l.length, 1, 'une case sans prix n\'est pas un candidat, priorisée ou non');
+  assert.equal(l[0].id, 11102);
+  assert.ok(!/priorité/i.test(l[0].why), 'et la suivante ne se prétend pas choisie');
+});
+
+t('une case priorisée verrouillée ne prend pas la tête', () => {
+  const g = app(s => { s.planets[0].lf = {
+    11101: lfCase(0, [1000, 0, 0], {state:'locked'}),
+    11102: lfCase(1, [1000, 0, 0]) }; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:1}];
+  const l = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.equal(l.length, 1);
+  assert.equal(l[0].id, 11102);
+});
+
+t('une priorité dans l\'autre file ne dérange pas celle-ci', () => {
+  const g = app(s => { s.planets[0].lf = {
+    11101: lfCase(1, [1000, 0, 0]),
+    11102: lfCase(1, [500, 0, 0]),
+    11201: lfCase(1, [1000, 0, 0]) }; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11201, lvl:2}];   // file des recherches
+  const l = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.equal(l[0].id, 11102, 'le prix tranche encore');
+  assert.ok(!l.some(c => /priorité/i.test(c.why)), 'aucune ne se dit choisie');
+  assert.equal(g.lfCandidates(g.S.planets[0], 'lfresearch')[0].id, 11201);
+});
+
+t('la priorité d\'une autre planète ne déplace rien ici', () => {
+  const g = app(s => {
+    s.planets[0].lf = {11101: lfCase(1, [9500, 0, 0]), 11102: lfCase(1, [1000, 0, 0])};
+    s.planets[1].lf = {11101: lfCase(1, [50000, 0, 0])}; });
+  g.S.prio = [{kind:'lf', pid:g.S.planets[1].id, k:11101, lvl:2}];
+  assert.equal(g.lfCandidates(g.S.planets[0], 'lfbuilding')[0].id, 11102);
+  assert.equal(g.lfCandidates(g.S.planets[1], 'lfbuilding')[0].id, 11101, 'et elle agit chez elle');
+});
+
+t('les mines ne ralentissent pas pour une case priorisée en attente', () => {
+  /* Sans priorité, la case bon marché part en premier ; avec, la chère attend
+     en tête dès la première session et pose sa réserve molle. Cette réserve n'entre pas dans le
+     chemin des bâtiments : le plan des bâtiments est le même dans les deux cas.
+     Le stock est calé près du prix : la réserve molle ne retient que le stock
+     d'aujourd'hui, et un prix hors de portée (eta infinie) n'en pose aucune. */
+  const lf = s => { s.day.lf = 'first'; s.planets[1].stock.m = 9400;
+    s.planets[1].lf = {11101: lfCase(1, [9500, 0, 0]), 11102: lfCase(1, [1000, 0, 0])}; };
+  const bat = g => g.simulateDay().sessions.map(x => x.acts.filter(a => a.kind === 'b').map(a => [a.p, a.k, a.lvl]));
+  const sans = app(lf);
+  const avec = app(lf);
+  avec.S.prio = [{kind:'lf', pid:'colo', k:11101, lvl:2}];
+  assert.equal(avec.lfCandidates(avec.S.planets[1], 'lfbuilding')[0].id, 11101);
+  const att = g => g.simulateDay().sessions.some(x => (x.waits || []).some(w => w.kind === 'lf'));
+  assert.ok(att(avec), 'avec, la chère attend en tête, avant les bâtiments');
+  const ref = bat(sans);
+  assert.ok(ref.flat().length > 0, 'le plan de référence pose des bâtiments');
+  assert.deepEqual(bat(avec), ref, 'les mêmes bâtiments, aux mêmes sessions');
+});
+
 /* Relevé sur le panneau de détail du jeu, case Technique de catalyse. */
 const CATALYSE = 'Chaque avancée de la technique de catalyse augmente la production '
   + 'de deutérium sur toutes les planètes.';

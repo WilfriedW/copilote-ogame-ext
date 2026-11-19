@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.4';
+const APP_VERSION = '1.53.5';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -573,8 +573,24 @@ function lfCandidates(p, queue){
   const n = out.length, u = libres.length - n;
   const reste = (u ? ` ${u} case${u>1?'s':''} pas encore chiffrée${u>1?'s':''}, non comparée${u>1?'s':''} : ouvre-${u>1?'les':'la'} dans le jeu.` : '');
   const moinsChere = `La moins chère des ${n} case${n>1?'s':''} chiffrée${n>1?'s':''} de cette file.`;
-  return out.map(c => Object.assign(c, {why: (c.eff === null ? moinsChere
+  const liste = out.map(c => Object.assign(c, {why: (c.eff === null ? moinsChere
     : `Augmente la production de ${LF_RES_NOM[c.eff]} sur toutes les planètes : elle passe devant les cases qui ne produisent rien.`) + reste}));
+  /* La case que le joueur a choisie prend la tête, mais seulement si elle est
+     déjà dans la liste : sans prix lu ni durée, ou verrouillée, elle n'est pas
+     candidate, priorité ou non. Ce que « en tête » coûte : l'appelant ne lit
+     que lfCandidates(p, q)[0], donc une case plus chère que ce que le prix
+     aurait choisi fait attendre toute la file jusqu'à ce qu'elle soit payable,
+     et l'attente pose une réserve molle. C'est voulu : retomber sur la
+     suivante rendrait la priorité inerte dans le cas qui l'a motivée, une
+     habitation chère contre un bâtiment de nourriture bon marché, où le prix
+     gagnerait toujours. Les mines n'en pâtissent pas : leur chemin ne compte
+     pas la réserve molle. */
+  const voulue = priosLf().find(x => x.pid === p.id && liste.some(c => c.id === x.k));
+  if(!voulue) return liste;
+  const tete = liste.find(c => c.id === voulue.k);
+  const fait = tete.eff === null ? '' : ` Elle augmente la production de ${LF_RES_NOM[tete.eff]} sur toutes les planètes.`;
+  tete.why = 'Tu l\'as mise en priorité.' + fait + reste;
+  return [tete].concat(liste.filter(c => c !== tete));
 }
 /* Identifiants de tuile du jeu, dans l'autre sens : le plan raisonne en clés
    (« metal »), la page du jeu en numéros (« 1 »). */
