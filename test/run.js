@@ -6604,6 +6604,183 @@ t('le réglage des formes de vie est localisé, et la demande dit son délai', (
   assert.match(a.prioHtml(a.simulateDay()), /s'efface dans 23h 00m/);
 });
 
+/* ---------- le clic droit sur une tuile ---------- */
+
+/* Une page de ressources à une tuile : la Mine de métal au niveau 14. `niveaux`
+   dit ce que le jeu écrit dans la case ; le nom vient de son étiquette. */
+const SUR_MINE = { search: '?page=ingame&component=supplies', planetId: '33701', tiles: [1],
+  niveaux: { 1: 14 }, noms: { 1: 'Mine de métal' } };
+
+t('un clic droit sur une tuile à niveau demande une priorité', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '20');
+  const l = p.ecrit().prioAsk;
+  assert.equal(l.length, 1);
+  assert.deepEqual(l[0], { gid: '33701', tech: 1, nom: 'Mine de métal', lvl: 20, at: l[0].at });
+  assert.ok(l[0].at > 0, 'la demande est datée');
+  assert.ok(p.menuEmpeche, 'le menu du navigateur ne s\'ouvre pas sur une tuile traitée');
+});
+
+t('le champ s\'ouvre prérempli au niveau suivant, contenu choisi, focus dedans', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, undefined, { laisse: true });
+  assert.equal(p.champ.value, '15');
+  assert.ok(p.champ.selectionne, 'le contenu est sélectionné');
+  assert.ok(p.champ.focus_, 'le focus est dedans');
+});
+
+t('Entrée sans rien taper valide ce qui est prérempli', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1);
+  assert.equal(p.ecrit().prioAsk[0].lvl, 15);
+});
+
+t('une priorité déjà posée préremplit son niveau, pas le suivant', () => {
+  const p = runPage({ ...SUR_MINE, skin: { prio: { 33701: { 1: 20 } } } });
+  p.clicDroit(1, undefined, { laisse: true });
+  assert.equal(p.champ.value, '20');
+});
+
+t('une tuile qui se compte ne reçoit pas de priorité, et le dit', () => {
+  const p = runPage({ search: '?page=ingame&component=shipyard', planetId: '33701', tiles: [212],
+    niveaux: { 212: { nombre: 7 } } });
+  p.clicDroit(212, '20');
+  assert.equal(p.ecrit().prioAsk, undefined, 'rien n\'est demandé');
+  assert.ok(!p.menuEmpeche, 'le menu du navigateur reste disponible');
+  assert.match(p.refus, /niveau/i, 'la tuile dit pourquoi');
+  assert.equal(p.champ, null, 'aucun champ');
+});
+
+t('une case de recherche de forme de vie, sans niveau, est refusée pour ce motif', () => {
+  const p = runPage({ search: '?page=ingame&component=lfresearch', planetId: '33701', tiles: [12101] });
+  p.clicDroit(12101, '3');
+  assert.equal(p.ecrit().prioAsk, undefined);
+  assert.ok(!p.menuEmpeche);
+  assert.match(p.refus, /niveau/i);
+});
+
+t('une tuile à niveau que le copilote ne modélise pas est refusée dans la page', () => {
+  for (const id of [33, 34, 36, 44]) {   // Terraformeur, Dépôt, Dock spatial, Silo
+    const p = runPage({ search: '?page=ingame&component=facilities', planetId: '33701', tiles: [id],
+      niveaux: { [id]: 2 } });
+    p.clicDroit(id, '5');
+    assert.equal(p.ecrit().prioAsk, undefined, 'tuile ' + id);
+    assert.ok(!p.menuEmpeche, 'tuile ' + id + ' : le menu du navigateur reste');
+    assert.match(p.refus, /copilote/i, 'tuile ' + id);
+    assert.doesNotMatch(p.refus, /niveau/i, 'le motif n\'est pas celui du niveau');
+  }
+});
+
+t('les tuiles modélisées sont toutes acceptées : tous les bâtiments, toutes les recherches, les formes de vie', () => {
+  const { OG_BUILD, OG_TECH } = new Function(require('fs').readFileSync(require('path').join(__dirname, '..', 'ids.js'), 'utf8')
+    + '; return { OG_BUILD, OG_TECH };')();
+  const ids = [...Object.keys(OG_BUILD), ...Object.keys(OG_TECH), 11101, 12345];
+  for (const id of ids) {
+    const p = runPage({ search: '?page=ingame&component=supplies', planetId: '33701', tiles: [id],
+      niveaux: { [id]: 3 } });
+    p.clicDroit(id, '9');
+    assert.equal(p.ecrit().prioAsk[0].lvl, 9, 'tuile ' + id);
+  }
+});
+
+t('Échap n\'écrit rien, et le champ part', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '20', { echap: true });
+  assert.equal(p.ecrit().prioAsk, undefined);
+  assert.equal(p.champ, null);
+});
+
+t('perdre le focus n\'écrit rien non plus', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '20', { perdFocus: true });
+  assert.equal(p.ecrit().prioAsk, undefined);
+  assert.equal(p.champ, null);
+});
+
+t('un clic droit ailleurs que sur une tuile laisse le menu du navigateur', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroitAilleurs();
+  assert.ok(!p.menuEmpeche);
+  assert.equal(p.ecrit().prioAsk, undefined);
+});
+
+t('deux clics droits sur la même tuile n\'empilent qu\'une demande', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '18'); p.clicDroit(1, '20');
+  assert.equal(p.ecrit().prioAsk.length, 1);
+  assert.equal(p.ecrit().prioAsk[0].lvl, 20);
+});
+
+t('des tuiles différentes s\'ajoutent à la liste au lieu de s\'écraser', () => {
+  const p = runPage({ ...SUR_MINE, tiles: [1, 2], niveaux: { 1: 14, 2: 9 } });
+  p.clicDroit(1, '20'); p.clicDroit(2, '12');
+  assert.deepEqual(p.ecrit().prioAsk.map(d => [d.tech, d.lvl]), [[1, 20], [2, 12]]);
+});
+
+t('un clic droit avant que le panneau ait publié quoi que ce soit marche quand même', () => {
+  const p = runPage({ ...SUR_MINE, skin: null });
+  p.clicDroit(1);
+  assert.equal(p.ecrit().prioAsk[0].lvl, 15);
+});
+
+t('un champ vidé demande le retrait', () => {
+  const p = runPage({ ...SUR_MINE, skin: { prio: { 33701: { 1: 20 } } } });
+  p.clicDroit(1, '');
+  assert.equal(p.ecrit().prioAsk[0].lvl, 0);
+});
+
+t('un niveau déjà atteint demande le retrait, il ne pose pas', () => {
+  for (const saisie of ['14', '3']) {
+    const p = runPage({ ...SUR_MINE });
+    p.clicDroit(1, saisie);
+    assert.equal(p.ecrit().prioAsk[0].lvl, 0, 'saisi : ' + saisie);
+  }
+});
+
+t('un retrait sur une tuile sans priorité part quand même', () => {
+  const p = runPage({ ...SUR_MINE, skin: {} });
+  p.clicDroit(1, '');
+  assert.equal(p.ecrit().prioAsk[0].lvl, 0, 'le panneau en fera un non-événement');
+});
+
+t('un niveau juste au-dessus du courant pose', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '15');
+  assert.equal(p.ecrit().prioAsk[0].lvl, 15);
+});
+
+t('une saisie qui n\'est pas un nombre ne part pas, et ne vaut pas un retrait', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '12abc');
+  assert.equal(p.ecrit().prioAsk, undefined);
+  assert.match(p.refus, /nombre/i, 'la tuile dit ce qui ne va pas');
+  assert.ok(p.champ, 'le champ reste, pour corriger');
+});
+
+t('sans planète lue sur la page, la tuile le dit et ne vole pas le menu', () => {
+  const p = runPage({ ...SUR_MINE, planetId: '' });
+  p.clicDroit(1, '20');
+  assert.equal(p.ecrit().prioAsk, undefined);
+  assert.ok(!p.menuEmpeche);
+  assert.match(p.refus, /planète/i);
+});
+
+t('la demande part avec l\'identifiant de planète du jeu, pour une recherche aussi', () => {
+  const p = runPage({ search: '?page=ingame&component=research', planetId: '33701', tiles: [124],
+    niveaux: { 124: 5 }, noms: { 124: 'Astrophysique' } });
+  p.clicDroit(124, '8');
+  assert.deepEqual(p.ecrit().prioAsk.map(d => [d.gid, d.tech, d.nom, d.lvl]), [['33701', 124, 'Astrophysique', 8]]);
+});
+
+t('la carte de la peau reçoit le même geste que la tuile du jeu', () => {
+  const p = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true } });
+  assert.ok(p.peau.posee, 'la peau est posée');
+  p.clicDroit(1, '20', { carte: true });
+  assert.equal(p.ecrit().prioAsk[0].lvl, 20);
+  assert.equal(p.ecrit().prioAsk[0].tech, 1);
+  assert.ok(p.menuEmpeche);
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

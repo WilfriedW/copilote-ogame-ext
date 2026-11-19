@@ -278,7 +278,7 @@
   /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On
      n'ajoute qu'une classe et une étiquette inerte : rien n'est cliqué, rien
      n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
-  let hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {}, noshop = false, large = false, peau = false, clair = false, colonne = [], teintes = {};
+  let prio = {}, hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {}, noshop = false, large = false, peau = false, clair = false, colonne = [], teintes = {};
   /* Chaque règle vise un bloc nommé, repéré sur la page, et ne fait que le
      masquer. Elles ne s'appliquent que si le joueur a coché « Épurer », et
      décocher les retire toutes d'un coup. */
@@ -1393,27 +1393,7 @@ width:auto !important;max-width:none !important;background-image:none !important
     document.documentElement.classList.toggle('copilote-clair', clair);
     /* Le contenu du jeu ne part hors de l'écran que là où on le remplace. */
     document.documentElement.classList.toggle('copilote-peau-grille', grille);
-    const want = hints[meta('planet-id')] || {};
-    const cases = tuiles.map(li => {
-      const id = +li.dataset.technology;
-      /* Une case se compte ou se monte : un satellite et une foreuse ont un
-         nombre, une mine a un niveau. Le jeu les écrit dans deux balises. */
-      const niveau = li.querySelector('.level[data-value]');
-      const compte = niveau ? null : li.querySelector('.amount[data-value]');
-      const niv = niveau || compte;
-      /* Le nom vient du jeu d'abord : il le met dans l'étiquette de sa case,
-         dans la langue du joueur, et il nomme ce que notre table ignore —
-         les formes de vie en ont des dizaines. Notre table ne sert que de
-         secours. Le jeu écrit « Mine de métal (niveau 14) » : le niveau est
-         déjà dans la carte, on ne le redit pas. */
-      const dit = clean(String(li.getAttribute('aria-label') || '').split('(')[0]);
-      /* Le jeu marque la case en chantier, et y met le niveau visé : c'est
-         là que se lit ce qui monte, et jusqu'où. */
-      const actif = li.dataset.status === 'active';
-      const vise = clean((li.querySelector('.targetlevel') || {}).textContent);
-      return { id, nom: dit || OG_NAMES[id] || ('Tech ' + id), compte: !!compte, actif, vise,
-        niv: niv ? +niv.dataset.value || 0 : null, cible: want[id], li };
-    });
+    const cases = tuiles.map(lireTuile);
     const lignes = ((band || {}).pages || {})[comp] || [];
     // Tant que rien ne change, on ne repose rien : la page clignoterait.
     const cle = JSON.stringify([comp, grille, cases.map(c => [c.id, c.niv, c.cible, c.actif]),
@@ -1485,6 +1465,9 @@ width:auto !important;max-width:none !important;background-image:none !important
       for (const c of g.cases) {
       const carte = grille.appendChild(document.createElement('div'));
       carte.className = 'cp-case';
+      /* Le clic droit retrouve sa tuile par ce numéro : la carte est posée hors
+         des listes du jeu, `closest('li.technology')` ne l'atteindrait jamais. */
+      carte.dataset.technology = String(c.id);
       const b = carte.appendChild(document.createElement('button'));
       b.className = 'cp-ouvrir';
       b.type = 'button';
@@ -1867,6 +1850,31 @@ width:auto !important;max-width:none !important;background-image:none !important
   /* La tuile cliquée à la main : c'est la première planète d'une tournée, celle
      où le joueur décide ce qu'il fait le tour. Le jeu ne recharge rien en
      ouvrant une tuile, donc l'URL ne le dit pas — seul le clic le dit. */
+  /* Ce que dit une tuile du jeu : son numéro, son nom, son niveau ou son nombre.
+     Le clic droit la relit au moment du geste, la peau à chaque dessin : une
+     seule lecture, pour que les deux disent la même chose. */
+  function lireTuile(li) {
+    const want = hints[meta('planet-id')] || {};
+    const id = +li.dataset.technology;
+    /* Une case se compte ou se monte : un satellite et une foreuse ont un
+       nombre, une mine a un niveau. Le jeu les écrit dans deux balises. */
+    const niveau = li.querySelector('.level[data-value]');
+    const compte = niveau ? null : li.querySelector('.amount[data-value]');
+    const niv = niveau || compte;
+    /* Le nom vient du jeu d'abord : il le met dans l'étiquette de sa case,
+       dans la langue du joueur, et il nomme ce que notre table ignore —
+       les formes de vie en ont des dizaines. Notre table ne sert que de
+       secours. Le jeu écrit « Mine de métal (niveau 14) » : le niveau est
+       déjà dans la carte, on ne le redit pas. */
+    const dit = clean(String(li.getAttribute('aria-label') || '').split('(')[0]);
+    /* Le jeu marque la case en chantier, et y met le niveau visé : c'est
+       là que se lit ce qui monte, et jusqu'où. */
+    const actif = li.dataset.status === 'active';
+    const vise = clean((li.querySelector('.targetlevel') || {}).textContent);
+    return { id, nom: dit || OG_NAMES[id] || ('Tech ' + id), compte: !!compte, actif, vise,
+      niv: niv ? +niv.dataset.value || 0 : null, cible: want[id], li };
+  }
+
   let tuileVue = '';
 
   /* Sans tuile ouverte, la tournée part de ce que le copilote conseille ici :
@@ -2062,6 +2070,12 @@ li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-
 .copilote-tag{position:absolute;top:3px;right:3px;z-index:5;pointer-events:none;max-width:calc(100% - 6px);
 overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
 border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+/* Le champ du clic droit et son refus : posés sur la tuile, retirés après. */
+.cp-prio-hote{position:relative !important}
+.cp-prio-champ,.cp-prio-refus{position:absolute;left:2px;right:2px;bottom:2px;z-index:50;box-sizing:border-box;
+margin:0;padding:3px 5px;border-radius:3px;font:12px/1.3 Arial,sans-serif}
+.cp-prio-champ{border:1px solid #6f9fff;background:#0c1120;color:#e8eefc}
+.cp-prio-refus{border:1px solid #6f9fff;background:#0c1120;color:#e8eefc;pointer-events:none}
 .copilote-eta{position:relative;z-index:2;margin:8px 0;padding:8px 10px;white-space:pre-line;
 border:1px solid rgba(138,169,255,.45);border-left:3px solid #8aa9ff;border-radius:4px;
 background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55);
@@ -2196,6 +2210,7 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
   try {
     const take = skin => {
       hints = (skin && skin.hints) || {};
+      prio = (skin && skin.prio) || {};
       rates = (skin && skin.rates) || {};
       donors = (skin && skin.donors) || {};
       cargo = (skin && skin.cargo) || null;
@@ -2239,10 +2254,111 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
      bout de champ, et un écouteur par tuile mourrait avec elle. Écouter n'est
      pas cliquer — rien n'est écrit dans la page. */
   document.addEventListener('click', e => {
+    effaceRefus();
     const li = e.target && e.target.closest && e.target.closest('li.technology[data-technology]');
     if (!li) return;
     tuileVue = li.dataset.technology || '';
     paint();
+  });
+
+  /* Le clic droit sur une tuile pose une priorité. Même délégation que le clic :
+     le jeu refait ses listes, un écouteur par tuile mourrait avec elles.
+     Deux tuiles possibles : celle du jeu, et la carte de notre peau, qui n'est
+     jamais dans une `li.technology` — la carte renvoie à la tuile du jeu, seule
+     à dire le niveau. Hors de l'une et de l'autre, l'événement n'est pas touché :
+     le menu du navigateur reste l'outil du joueur. */
+  let refusEl = null, fermeChamp = null;
+  const effaceRefus = () => { if (refusEl) refusEl.remove(); refusEl = null; };
+  const refuse = (hote, txt) => {
+    effaceRefus();
+    refusEl = document.createElement('span');
+    refusEl.className = 'cp-prio-refus';
+    refusEl.textContent = txt;
+    hote.appendChild(refusEl);
+  };
+  /* La demande se range à la suite de celles déjà là : le panneau peut être
+     fermé, et trois clics droits de suite ne doivent pas s'écraser. Lire puis
+     écrire est asynchrone : on file les demandes, sans quoi deux écritures
+     proches liraient la même liste et la première se perdrait. */
+  const aEcrire = [];
+  let ecrit = false;
+  function videAsk() {
+    const e = aEcrire.shift();
+    if (!e) { ecrit = false; return; }
+    ecrit = true;
+    try {
+      chrome.storage.local.get('prioAsk', v => {
+        const l = (Array.isArray(v && v.prioAsk) ? v.prioAsk : [])
+          .filter(x => !(x && String(x.gid) === String(e.gid) && String(x.tech) === String(e.tech)));
+        l.push(e);
+        chrome.storage.local.set({ prioAsk: l }, videAsk);
+      });
+    } catch (err) { ecrit = false; }
+  }
+  function poseChamp(hote, t, gid) {
+    effaceRefus();
+    if (fermeChamp) fermeChamp();
+    const connue = (prio[gid] || {})[t.id];
+    const champ = document.createElement('input');
+    champ.className = 'cp-prio-champ';
+    champ.type = 'text';
+    champ.setAttribute('inputmode', 'numeric');
+    champ.setAttribute('aria-label', 'Niveau visé pour ' + t.nom);
+    champ.value = String(connue != null ? connue : t.niv + 1);
+    hote.classList.add('cp-prio-hote');
+    hote.appendChild(champ);
+    let fini = false;
+    const ferme = () => { if (fini) return; fini = true; champ.remove(); hote.classList.remove('cp-prio-hote'); fermeChamp = null; };
+    fermeChamp = ferme;
+    champ.addEventListener('click', e => e.stopPropagation());
+    champ.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Escape') { ferme(); return; }
+      if (e.key !== 'Enter') return;
+      const raw = champ.value.trim();
+      /* Un champ vidé ne dit pas la même chose qu'une faute de frappe : le
+         premier retire, la seconde se corrige. Le jeu lit en chaîne, et
+         `parseInt('12abc')` ferait 12. */
+      if (!/^\d*$/.test(raw)) { refuse(hote, 'Un nombre entier, ou rien pour retirer.'); return; }
+      /* L'intention se tranche ici, là où le joueur l'a formée : au niveau déjà
+         atteint ou au-dessous, c'est un retrait (0) ; le panneau ne le devine pas.
+         Un champ vidé vaut Number('') = 0, donc tombe dans ce cas sans branche à lui. */
+      const lvl = +raw <= t.niv ? 0 : +raw;
+      ferme();
+      aEcrire.push({ gid, tech: t.id, nom: t.nom, lvl, at: Date.now() });
+      if (!ecrit) videAsk();
+    });
+    champ.addEventListener('blur', ferme);
+    champ.focus();
+    champ.select();
+  }
+  document.addEventListener('contextmenu', e => {
+    const cible = e.target;
+    if (!cible || !cible.closest) return;
+    if (cible.classList && cible.classList.contains('cp-prio-champ')) return;
+    effaceRefus();
+    let hote = cible.closest('li.technology[data-technology]'), li = hote;
+    if (!hote) {
+      hote = cible.closest('.cp-case[data-technology]');
+      if (hote) li = document.querySelector('li.technology[data-technology="' + hote.dataset.technology + '"]');
+    }
+    if (!hote || !li) return;
+    const t = lireTuile(li);
+    /* Deux refus, et la tuile dit lequel : le jeu donne un niveau à des cases
+       que le moteur ne modélise pas (Terraformeur, Dock spatial, Silo), et n'en
+       donne pas à celles qui se comptent ni aux recherches de forme de vie.
+       Le menu du navigateur n'est volé qu'à une tuile qu'on traite. */
+    /* `niv` lit aussi le nombre d'un satellite : c'est `compte` qui dit qu'il ne se monte pas. */
+    if (t.compte || t.niv == null) { refuse(hote, 'Pas de priorité ici : cette case n\'a pas de niveau.'); return; }
+    if (!(OG_BUILD[t.id] || OG_TECH[t.id] || t.id >= 11000)) {
+      refuse(hote, 'Le copilote ne gère pas encore cette technologie.'); return;
+    }
+    /* Sans planète lue, le panneau jetterait la demande — même une recherche,
+       qui n'en a pas besoin : il la range par `gid`. On le dit sur place. */
+    const gid = meta('planet-id');
+    if (!gid) { refuse(hote, 'Planète introuvable sur cette page.'); return; }
+    e.preventDefault();
+    poseChamp(hote, t, gid);
   });
 
   /* L'arrivée d'un script neuf. Il s'annonce avant de peindre, et celui qui
