@@ -3929,6 +3929,15 @@ t('une case priorisée qui produit le dit dans sa raison', () => {
   assert.match(w, /production de métal/, 'ce que la case fait');
 });
 
+t('deux priorités dans la même file : la première posée agit', () => {
+  const g = app(s => { s.planets[0].lf = {
+    11101: lfCase(1, [50000, 0, 0]), 11102: lfCase(1, [1000, 0, 0]), 11103: lfCase(1, [90000, 0, 0]) }; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11103, lvl:2}, {kind:'lf', pid:'mere', k:11101, lvl:2}];
+  const l = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.equal(l[0].id, 11103, 'la première posée, même la plus chère');
+  assert.equal(l.filter(c => /priorité/i.test(c.why)).length, 1, 'une seule se dit choisie');
+});
+
 t('une case priorisée pas encore chiffrée ne prend pas la tête', () => {
   const g = app(s => { s.planets[0].lf = {
     11101: {lvl:1, state:'ok'},                                  // ni prix ni durée
@@ -3984,7 +3993,8 @@ t('les mines ne ralentissent pas pour une case priorisée en attente', () => {
   const avec = app(lf);
   avec.S.prio = [{kind:'lf', pid:'colo', k:11101, lvl:2}];
   assert.equal(avec.lfCandidates(avec.S.planets[1], 'lfbuilding')[0].id, 11101);
-  const att = g => g.simulateDay().sessions.some(x => (x.waits || []).some(w => w.kind === 'lf'));
+  const att = g => (g.simulateDay().sessions[0].waits || []).some(w => w.kind === 'lf');
+  assert.ok(!att(sans), 'sans priorité, la bon marché part : rien n\'attend en première session');
   assert.ok(att(avec), 'avec, la chère attend en tête, avant les bâtiments');
   const ref = bat(sans);
   assert.ok(ref.flat().length > 0, 'le plan de référence pose des bâtiments');

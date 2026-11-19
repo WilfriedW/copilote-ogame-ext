@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.5';
+const APP_VERSION = '1.53.6';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -553,6 +553,8 @@ const LF_RES_NOM = ['métal', 'cristal', 'deutérium'];
  * en chiffrer le prochain niveau, lu ou estimé (`src`), avec une durée connue :
  * sans cela, on ne sait pas quand elle sera payable. À prix égal, le prix lu
  * passe devant l'estimé.
+ * Une case que le joueur a mise en priorité prend la tête de sa file, à condition
+ * d'être chiffrable et non verrouillée ; la première posée sur la planète agit.
  * @param {object} p planète simulée
  * @param {string} queue lfbuilding | lfresearch
  * @returns {object[]} candidats triés
@@ -585,6 +587,9 @@ function lfCandidates(p, queue){
      habitation chère contre un bâtiment de nourriture bon marché, où le prix
      gagnerait toujours. Les mines n'en pâtissent pas : leur chemin ne compte
      pas la réserve molle. */
+  /* Si la première posée n'est pas candidate (le plus souvent : pas encore
+     chiffrée), la suivante de la même file passe : servir une priorité qu'on
+     sait chiffrer vaut mieux que ne rien faire. */
   const voulue = priosLf().find(x => x.pid === p.id && liste.some(c => c.id === x.k));
   if(!voulue) return liste;
   const tete = liste.find(c => c.id === voulue.k);
