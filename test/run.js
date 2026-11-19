@@ -19,12 +19,12 @@ const SOIR = new Date(2026, 10, 8, 22, 30, 0).getTime();
 const REVEIL = new Date(2026, 10, 9, 7, 0, 0).getTime();
 
 /** Charge l'application avec un état modifié à la volée. */
-function app(modifier, now, api, ext) {
+function app(modifier, now, api, ext, prioAsk) {
   const s = fixtureState();
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl'], api, ext);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'view', 'bind'], api, ext, prioAsk);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -3902,6 +3902,109 @@ t('la case qu\'on vient d\'ouvrir ne verrouille plus le classement', () => {
   assert.deepEqual(c.map(x => x.src), ['estimé', 'lu']);
 });
 
+/* ---------- une priorité de forme de vie prend la tête de sa file ---------- */
+
+/* Une case lue : `next` est le niveau que le prix vise, sinon lfCost ne la
+   dit pas chiffrée. */
+const lfCase = (lvl, cost, over) => Object.assign({lvl, next: lvl + 1, state: 'ok', secs: 600, cost}, over);
+
+t('une case priorisée passe devant une case plus chère à produire', () => {
+  const g = app(s => { s.planets[0].lf = {
+    11101: lfCase(1, [50000, 0, 0]),
+    11102: lfCase(1, [1000, 0, 0], {eff: 0}) }; });
+  assert.equal(g.lfCandidates(g.S.planets[0], 'lfbuilding')[0].id, 11102, 'sans priorité, la productrice');
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:2}];
+  const l = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.equal(l[0].id, 11101, 'avec priorité, la tienne');
+  assert.match(l[0].why, /priorité/i, 'et elle dit pourquoi');
+  assert.equal(l[1].id, 11102, 'la productrice reste, juste derrière');
+  assert.match(l[1].why, /production de métal/, 'et garde sa propre raison');
+});
+
+t('une case priorisée qui produit le dit dans sa raison', () => {
+  const g = app(s => { s.planets[0].lf = { 11102: lfCase(1, [1000, 0, 0], {eff: 0}) }; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11102, lvl:2}];
+  const w = g.lfCandidates(g.S.planets[0], 'lfbuilding')[0].why;
+  assert.match(w, /priorité/i);
+  assert.match(w, /production de métal/, 'ce que la case fait');
+});
+
+t('deux priorités dans la même file : la première posée agit', () => {
+  const g = app(s => { s.planets[0].lf = {
+    11101: lfCase(1, [50000, 0, 0]), 11102: lfCase(1, [90000, 0, 0]), 11103: lfCase(1, [1000, 0, 0]) }; });
+  /* La première posée porte l'identifiant du milieu : aucun tri par k, croissant
+     ou décroissant, ne retombe sur elle par hasard. */
+  g.S.prio = [{kind:'lf', pid:'mere', k:11102, lvl:2}, {kind:'lf', pid:'mere', k:11101, lvl:2}, {kind:'lf', pid:'mere', k:11103, lvl:2}];
+  const l = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.equal(l[0].id, 11102, 'la première posée, même la plus chère');
+  assert.equal(l.filter(c => /priorité/i.test(c.why)).length, 1, 'une seule se dit choisie');
+});
+
+t('une case priorisée pas encore chiffrée ne prend pas la tête', () => {
+  const g = app(s => { s.planets[0].lf = {
+    11101: {lvl:1, state:'ok'},                                  // ni prix ni durée
+    11102: lfCase(1, [1000, 0, 0]) }; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:2}];
+  const l = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.equal(l.length, 1, 'une case sans prix n\'est pas un candidat, priorisée ou non');
+  assert.equal(l[0].id, 11102);
+  assert.ok(!/priorité/i.test(l[0].why), 'et la suivante ne se prétend pas choisie');
+});
+
+t('une case priorisée verrouillée ne prend pas la tête', () => {
+  const g = app(s => { s.planets[0].lf = {
+    11101: lfCase(0, [1000, 0, 0], {state:'locked'}),
+    11102: lfCase(1, [1000, 0, 0]) }; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:1}];
+  const l = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.equal(l.length, 1);
+  assert.equal(l[0].id, 11102);
+});
+
+t('une priorité dans l\'autre file ne dérange pas celle-ci', () => {
+  const g = app(s => { s.planets[0].lf = {
+    11101: lfCase(1, [1000, 0, 0]),
+    11102: lfCase(1, [500, 0, 0]),
+    11201: lfCase(1, [1000, 0, 0]) }; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11201, lvl:2}];   // file des recherches
+  const l = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.equal(l[0].id, 11102, 'le prix tranche encore');
+  assert.ok(!l.some(c => /priorité/i.test(c.why)), 'aucune ne se dit choisie');
+  assert.equal(g.lfCandidates(g.S.planets[0], 'lfresearch')[0].id, 11201);
+});
+
+t('la priorité d\'une autre planète ne déplace rien ici', () => {
+  const g = app(s => {
+    s.planets[0].lf = {11101: lfCase(1, [9500, 0, 0]), 11102: lfCase(1, [1000, 0, 0])};
+    s.planets[1].lf = {11101: lfCase(1, [50000, 0, 0])}; });
+  g.S.prio = [{kind:'lf', pid:g.S.planets[1].id, k:11101, lvl:2}];
+  assert.equal(g.lfCandidates(g.S.planets[0], 'lfbuilding')[0].id, 11102);
+  assert.equal(g.lfCandidates(g.S.planets[1], 'lfbuilding')[0].id, 11101, 'et elle agit chez elle');
+});
+
+t('les mines ne ralentissent pas pour une case priorisée en attente', () => {
+  /* Sans priorité, la case bon marché part en premier ; avec, la chère attend
+     en tête dès la première session et pose sa réserve molle. Cette réserve n'entre pas dans le
+     chemin des bâtiments : le plan des bâtiments est le même dans les deux cas.
+     Le stock est calé près du prix : la réserve molle ne retient que le stock
+     d'aujourd'hui, et un prix hors de portée (eta infinie) n'en pose aucune. */
+  const lf = s => { s.day.lf = 'first'; s.planets[1].stock.m = 9400;
+    s.planets[1].lf = {11101: lfCase(1, [9500, 0, 0]), 11102: lfCase(1, [1000, 0, 0])}; };
+  const bat = g => g.simulateDay().sessions.map(x => x.acts.filter(a => a.kind === 'b').map(a => [a.p, a.k, a.lvl]));
+  const sans = app(lf);
+  const avec = app(lf);
+  avec.S.prio = [{kind:'lf', pid:'colo', k:11101, lvl:2}];
+  assert.equal(avec.lfCandidates(avec.S.planets[1], 'lfbuilding')[0].id, 11101);
+  /* Session 0 seulement : sur la journée entière la référence attend aussi (la bon
+     marché construite, la chère devient candidate), donc rien n'y distinguerait. */
+  const att = g => (g.simulateDay().sessions[0].waits || []).some(w => w.kind === 'lf');
+  assert.ok(!att(sans), 'sans priorité, la bon marché part : rien n\'attend en première session');
+  assert.ok(att(avec), 'avec, la chère attend en tête, avant les bâtiments');
+  const ref = bat(sans);
+  assert.ok(ref.flat().length > 0, 'le plan de référence pose des bâtiments');
+  assert.deepEqual(bat(avec), ref, 'les mêmes bâtiments, aux mêmes sessions');
+});
+
 /* Relevé sur le panneau de détail du jeu, case Technique de catalyse. */
 const CATALYSE = 'Chaque avancée de la technique de catalyse augmente la production '
   + 'de deutérium sur toutes les planètes.';
@@ -5194,6 +5297,75 @@ t('un empire vide n\'efface pas les recherches que le joueur a posées', () => {
   assert.deepEqual(g.S.prio, [{kind:'t', k:'plasma', lvl:4}]);
 });
 
+/* Les cases de forme de vie : une file à part, que prios() ne voit jamais. */
+t('priosLf rend les cases de forme de vie, prios ne les voit pas', () => {
+  const g = app(s => { s.planets[0].lf = {11101:{lvl:3, state:'ok'}}; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:5}, {kind:'b', pid:'mere', k:'lab', lvl:10}];
+  assert.deepEqual(g.priosLf(), [{pid:'mere', k:11101, lvl:5}]);
+  assert.deepEqual(g.prios().map(x=>x.k), ['lab'], 'prios() ignore lf');
+});
+
+t('une priorité lf atteinte n\'existe plus', () => {
+  const g = app(s => { s.planets[0].lf = {11101:{lvl:5, state:'ok'}}; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:5}];
+  assert.deepEqual(g.priosLf(), []);
+});
+
+t('une priorité lf sur une case que le relevé ignore reste vivante, à partir de 0', () => {
+  const g = app();                       // p.lf absent : le relevé n'est pas encore passé
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:5}];
+  assert.deepEqual(g.priosLf(), [{pid:'mere', k:11101, lvl:5}]);
+});
+
+t('une priorité lf mal formée ne compte pas', () => {
+  const g = app();
+  g.S.prio = [{kind:'lf', pid:'mere', k:'11101', lvl:5}, {kind:'lf', pid:'mere', k:'constructor', lvl:5},
+    {kind:'lf', pid:'mere', k:101, lvl:5}, {kind:'lf', pid:'mere', k:11101, lvl:5.5},
+    {kind:'lf', pid:'mere', k:11101, lvl:0}, {kind:'lf', pid:'absente', k:11101, lvl:5}];
+  assert.deepEqual(g.priosLf(), []);
+});
+
+t('une priorité lf meurt avec sa planète oubliée', () => {
+  const g = app(s => { s.planets[0].lf = {11101:{lvl:1, state:'ok'}}; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:5}];
+  g.forgetPlanet('mere');
+  assert.deepEqual(g.priosLf(), []);
+});
+
+t('prioPose range la tuile en nombre : une chaîne du DOM est retrouvée', () => {
+  const g = app();
+  g.prioPose('lf', 'mere', '11101', '5');
+  assert.equal(g.prioLvl('lf', 'mere', 11101), 5);
+  for(const mauvais of ['abc', '', null, [], undefined, '0x2B4D', '11101abc', 11101.5, '101', 101]){
+    g.prioPose('lf', 'mere', mauvais, '5');      // pas une tuile : rien ne se pose
+    assert.equal(g.S.prio.length, 1, 'rien posé pour ' + JSON.stringify(mauvais));
+  }
+  g.prioPose('lf', 'mere', 11102, '2');          // un nombre pose aussi
+  assert.equal(g.prioLvl('lf', 'mere', 11102), 2);
+});
+
+t('prioClean garde les lf, dans l\'ordre de pose, et ne réécrit pas pour rien', () => {
+  const g = app(s => { s.planets[0].lf = {11101:{lvl:1, state:'ok'}}; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:5}, {kind:'b', pid:'mere', k:'lab', lvl:10}];
+  const avant = JSON.stringify(g.S.prio);
+  g.prioClean();
+  assert.equal(JSON.stringify(g.S.prio), avant, 'rien ne tombe, donc rien ne se réécrit');
+  g.S.prio.push({kind:'b', pid:'mere', k:'metal', lvl:1});   // morte : la mère est au métal 14
+  g.prioClean();
+  assert.deepEqual(g.S.prio, JSON.parse(avant), 'la morte tombe, les deux vivantes restent, dans leur ordre');
+});
+
+t('prioPose et prioLvl savent compter en lf', () => {
+  const g = app(s => { s.planets[0].lf = {11101:{lvl:3, state:'ok'}}; });
+  g.prioPose('lf', 'mere', 11101, '5');
+  assert.equal(g.prioLvl('lf', 'mere', 11101), 5);
+  g.prioPose('lf', 'mere', 11101, '3');          // au niveau actuel : retire
+  assert.equal(g.prioLvl('lf', 'mere', 11101), '');
+  assert.equal(g.S.prio.length, 0, 'retirée du stockage, pas seulement masquée par priosLf');
+  g.prioPose('lf', 'mere', 11102, '2');          // case que le relevé ignore : pose depuis 0
+  assert.equal(g.prioLvl('lf', 'mere', 11102), 2);
+});
+
 /** Une priorité de labo 10 sur la mère, qui est au labo 5 et n'a aucune raison
     de monter son labo aujourd'hui. */
 const prioLabo = s => { s.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}]; };
@@ -5768,8 +5940,9 @@ t('le bloc nomme la planète, la cible et celle qui attend son tour', () => {
   assert.match(h, /Planète mère/);
   assert.match(h, /Labo 10/);
   assert.match(h, /attend son tour/);
-  assert.match(h, /data-prio-del="0"/);
-  assert.match(h, /data-prio-del="1"/);
+  // Le bouton porte l'espèce et l'identité de sa ligne, plus un rang.
+  assert.match(h, /data-prio-del="b\|mere\|lab"/);
+  assert.match(h, /data-prio-del="b\|mere\|metal"/);
 });
 
 t('une seule attend son tour : celle qui agit dit ce que le plan en fait', () => {
@@ -5947,23 +6120,23 @@ t('le champ de niveau visé ne redessine pas la vue', () => {
   assert.match(corps, /el\.value = prioLvl\(/);
 });
 
-t('retirer par rang enlève la bonne entrée', () => {
+t('retirer par référence enlève la bonne entrée', () => {
   const g = app(prio2);
-  g.prioRetire(1);
+  g.prioRetire('b|mere|metal');
   assert.deepEqual(g.S.prio.map(x => x.k), ['lab']);
 });
 
-t('le rang du bouton est celui du bloc même quand une entrée morte le précède', () => {
+t('la référence du bouton désigne sa ligne même quand une entrée morte la précède', () => {
   /* Le labo atteint son niveau en cours de session : prios() l'écarte, mais
-     S.prio ne se compacte qu'au rendu suivant. Le bouton du bloc compte dans
-     prios() ; retirer « 0 » doit retirer la mine, pas l'entrée morte. */
+     S.prio ne se compacte qu'au rendu suivant. Le premier bouton du bloc doit
+     retirer la mine, pas l'entrée morte qui la précède dans S.prio. */
   /* Posée après le chargement : le rendu de départ compacte S.prio et
      emporterait l'entrée morte avant que le test ne la voie. */
   const g = app(s => { s.prio = [
     {kind:'b', pid:'mere', k:'metal', lvl:20},
     {kind:'b', pid:'mere', k:'crystal', lvl:20}]; });
   g.S.prio.unshift({kind:'b', pid:'mere', k:'lab', lvl:4});
-  g.prioRetire(0);
+  g.prioRetire(/data-prio-del="([^"]+)"/.exec(g.prioHtml(g.simulateDay()))[1]);
   assert.deepEqual(g.S.prio.map(x => x.k), ['lab', 'crystal']);
 });
 
@@ -5974,6 +6147,936 @@ t('le champ de niveau visé écoute change, jamais input', () => {
   const m = src.match(/querySelectorAll\('input\[data-prio\]'\)\.forEach\(el=>el\.addEventListener\('(\w+)'/);
   assert.ok(m, 'le champ est branché');
   assert.equal(m[1], 'change');
+});
+
+/* ---------- le canal des priorités vers la page du jeu ---------- */
+t('prioHints publie ce que le joueur a posé, pas ce que le plan fait', () => {
+  const g = app(s => { s.planets[0].gid = '33701'; });
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}];
+  assert.deepEqual(g.prioHints(), {'33701': {31: 10}});
+  assert.deepEqual(g.planHints([]), {}, 'planHints reste ce qu\'il était');
+});
+
+t('une priorité de recherche se montre sur la planète du labo, pas sur une autre', () => {
+  const g = app(s => { s.planets[0].gid = '33701'; s.planets[1].gid = '33702'; });
+  g.S.prio = [{kind:'t', k:'plasma', lvl:12}];
+  assert.equal(g.labPlanet().id, 'mere', 'le labo de l\'échantillon est la mère');
+  assert.deepEqual(g.prioHints(), {'33701': {122: 12}});
+  g.S.centre = 'colo';
+  assert.equal(g.labPlanet().id, 'colo');
+  assert.deepEqual(g.prioHints(), {'33702': {122: 12}}, 'le centre déplacé, la pastille suit');
+});
+
+t('une priorité lf se montre sur sa planète, par son identifiant de tuile', () => {
+  const g = app(s => { s.planets[0].gid = '33701'; s.planets[0].lf = {11101:{lvl:1, state:'ok'}}; });
+  g.S.prio = [{kind:'lf', pid:'mere', k:11101, lvl:4}];
+  assert.deepEqual(g.prioHints(), {'33701': {11101: 4}});
+});
+
+t('une planète que le jeu n\'a pas nommée ne publie rien', () => {
+  const g = app(s => { s.planets[0].gid = null; });
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}, {kind:'lf', pid:'mere', k:11101, lvl:4}];
+  assert.deepEqual(g.prioHints(), {});
+});
+
+t('une clé de planète hostile ne devient pas une clé du canal des priorités', () => {
+  const g = app(s => { s.planets[0].gid = '__proto__'; s.planets[1].gid = '33702'; });
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}, {kind:'lf', pid:'mere', k:11101, lvl:4},
+    {kind:'b', pid:'colo', k:'lab', lvl:3}];
+  const h = g.prioHints();
+  assert.deepEqual(Object.keys(h), ['33702']);
+  // sans garde, « __proto__ » n'ajoute aucune clé : il écrit dans le prototype
+  assert.equal(Object.getPrototypeOf(h)[31], undefined);
+  assert.equal(Object.getPrototypeOf(h)[11101], undefined);
+  assert.equal(h[31], undefined);
+});
+
+t('deux priorités sur la même tuile : la première posée est publiée, comme le plan la sert', () => {
+  const g = app(s => { s.planets[0].gid = '33701'; });
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:8}, {kind:'b', pid:'mere', k:'lab', lvl:10}];
+  assert.deepEqual(g.prioHints(), {'33701': {31: 8}});
+});
+
+t('gameSkin porte le canal des priorités', () => {
+  const g = app(s => { s.planets[0].gid = '33701'; });
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}];
+  assert.deepEqual(g.gameSkin([], [], []).prio, {'33701': {31: 10}});
+  assert.deepEqual(g.gameSkin([], [], []).hints, {}, 'hints ne porte pas la priorité');
+});
+
+/* ---------- le panneau reçoit les demandes de la page du jeu ---------- */
+const D = (o) => Object.assign({gid:'33701', tech:31, nom:'Laboratoire', lvl:10, at:SOIR}, o);
+const G = s => { s.planets[0].gid = '33701'; };
+
+t('une demande devient une priorité de bâtiment', () => {
+  const g = app(G);
+  assert.deepEqual(g.prioDrain([D()]), [], 'rien ne reste en attente');
+  assert.deepEqual(g.prios(), [{kind:'b', pid:'mere', k:'lab', lvl:10}]);
+});
+
+t('une demande de recherche n\'a pas besoin de planète connue', () => {
+  const g = app(G);
+  g.prioDrain([D({gid:'99999', tech:122, nom:'Plasma', lvl:12})]);
+  assert.deepEqual(g.prios(), [{kind:'t', pid:'mere', k:'plasma', lvl:12}]);
+});
+
+t('une demande de forme de vie garde son identifiant de tuile', () => {
+  const g = app(s => { G(s); s.planets[0].lf = {11101:{lvl:1, state:'ok'}}; });
+  g.prioDrain([D({tech:11101, nom:'Habitation', lvl:4})]);
+  assert.deepEqual(g.priosLf(), [{pid:'mere', k:11101, lvl:4}]);
+});
+
+t('une demande dont la planète est inconnue attend, et se laisse nommer', () => {
+  const g = app(G);
+  const reste = g.prioDrain([D({gid:'99999', nom:'Usine de robots', tech:14})]);
+  assert.equal(reste.length, 1, 'gardée');
+  assert.equal(reste[0].nom, 'Usine de robots', 'et nommable');
+  assert.deepEqual(g.prios(), [], 'rien n\'est posé');
+});
+
+t('une demande gardée se pose dès que sa planète est relevée', () => {
+  const g = app();
+  const reste = g.prioDrain([D()]);
+  assert.equal(reste.length, 1);
+  g.S.planets[0].gid = '33701';
+  assert.deepEqual(g.prioDrain(reste), []);
+  assert.deepEqual(g.prios(), [{kind:'b', pid:'mere', k:'lab', lvl:10}]);
+});
+
+t('une demande gardée depuis plus de 24 h disparaît, une récente reste', () => {
+  const g = app();
+  assert.deepEqual(g.prioDrain([D({gid:'99999', at: SOIR - 25*3600*1000})]), []);
+  assert.equal(g.prioDrain([D({gid:'99999', at: SOIR - 23*3600*1000})]).length, 1);
+});
+
+t('la liste gardée vit dans S : vide à neuf et sur un ancien état, rejouée au relevé', () => {
+  const g = app(s => { delete s.prioAsk; });
+  assert.deepEqual(g.prioDemandes(), []);
+  assert.deepEqual(g.S.prioAsk, []);
+  g.S.prioAsk = g.prioDrain([D()]);
+  assert.equal(g.prioDemandes().length, 1);
+  g.applyGame({planets:{'33701':{name:'Mère', coords:'1:142:8'}}, order:['33701']});
+  assert.deepEqual(g.prioDemandes(), [], 'le relevé la place');
+  assert.deepEqual(g.prios().map(x => x.k), ['lab']);
+});
+
+t('une demande malformée ne pose rien et ne lève pas', () => {
+  const g = app(G);
+  const sales = [null, undefined, 7, 'x', [], {}, D({tech:null}), D({lvl:'dix'}), D({lvl:2.5}), D({lvl:10.5}), D({lvl:'10'}), D({lvl:-3}), D({tech:'0x2B4D'}), D({tech:'11101abc'}),
+    D({lvl:undefined}), D({gid:undefined}), D({gid:'__proto__'}), D({gid:'constructor'}), D({gid:'33701x'}),
+    D({tech:'__proto__'}), D({tech:'constructor'}), D({tech:10999}), D({tech:50}), D({tech:0}), D({tech:33}), D({tech:105}), D({tech:125}),
+    D({gid:'__proto__', tech:122}), D({gid:'__proto__', tech:11101})];
+  // une à une : une entrée posée serait sinon retirée par la suivante, et le défaut passerait inaperçu
+  for(const s of sales) {
+    assert.deepEqual(g.prioDrain([s]), [], 'jetée : ' + JSON.stringify(s));
+    assert.deepEqual(g.S.prio, [], 'rien posé pour ' + JSON.stringify(s));
+  }
+  const reste = g.prioDrain(sales);
+  assert.equal(reste.length, 0, 'rien de ces entrées n\'est digne d\'être gardée');
+  assert.deepEqual(g.prios(), []);
+  assert.deepEqual(g.priosLf(), []);
+  assert.deepEqual(g.S.prio, [], 'aucune priorité posée');
+  // Object.keys est aveugle : « out.__proto__ = … » ne crée aucune clé propre
+  for(const k of ['31', '122', '11101', 'lab', 'lvl', 'gid', 'k']) assert.equal(Object.prototype[k], undefined, 'Object.prototype.' + k);
+  assert.equal(({})[31], undefined);
+  assert.equal(({}).lvl, undefined);
+});
+
+t('deux demandes sur la même tuile n\'en font qu\'une, la dernière', () => {
+  const g = app(G);
+  g.prioDrain([D({lvl:9, at:1}), D({lvl:12, at:2})]);
+  assert.deepEqual(g.prios(), [{kind:'b', pid:'mere', k:'lab', lvl:12}]);
+});
+
+t('une demande rejouée avec la file gardée ne double rien', () => {
+  const g = app(G);
+  g.S.prioAsk = g.prioDrain([D({gid:'99999'})]);
+  g.prioDrain([D(), D({lvl:12})]);
+  g.prioDrain(g.prioDemandes());
+  assert.equal(g.prios().length, 1);
+  assert.equal(g.prioDemandes().length, 1);
+});
+
+/* ---------- le chemin que la demande parcourt : stockage -> écouteur -> S.prio ---------- */
+t('un changement de stockage prioAsk pose la priorité puis efface la clé', () => {
+  const g = app(G);
+  g.fire({prioAsk: {newValue: [D()]}});
+  assert.deepEqual(g.prios(), [{kind:'b', pid:'mere', k:'lab', lvl:10}]);
+  assert.deepEqual(g.removed(), ['prioAsk'], 'clé effacée');
+  assert.deepEqual(g.saved().prio, [{kind:'b', pid:'mere', k:'lab', lvl:10}], 'et sauvegardée : plus de copie côté page');
+});
+
+t('accueillir une demande republie le plan, même hors de l\'onglet Aujourd\'hui', () => {
+  // l'onglet Empire : son rafraîchissement ne publie pas le plan, c'est le cas qui rendait la tuile muette
+  const g = app(s => { G(s); s.__tab = 'empire'; }, SOIR, null, true);
+  assert.equal((((g.stored().skin || {}).prio) || {})['33701'], undefined, 'pas de priorité publiée avant la demande');
+  g.fire({prioAsk: {newValue: [D()]}});
+  const skin = g.stored().skin;
+  assert.ok(skin, 'la peau a été publiée');
+  assert.equal(skin.prio['33701'][31], 10, 'avec la priorité qui vient d\'être posée');
+});
+
+t('une demande en attente placée par un relevé republie le plan, même sur l\'onglet Empire', () => {
+  const g = app(s => { s.__tab = 'empire'; }, SOIR, null, true);
+  g.S.prioAsk = [D()];
+  assert.equal((((g.stored().skin || {}).prio) || {})['33701'], undefined);
+  g.applyGame({ planets: { '33701': { coords: '1:142:8', b: { lab: 5 } } }, order: ['33701'] });
+  assert.equal(g.stored().skin.prio['33701'][31], 10, 'la tuile voit la demande enfin placée');
+});
+
+t('le champ du volet Empire republie le plan après avoir posé', () => {
+  /* On nomme view et bind pour attraper l'écouteur « change » du champ, puis on
+     le déclenche : c'est le comportement qui est vérifié, pas la présence d'une
+     ligne — REFRESH.empire ne publie rien, seul publieLePlan() après save() le fait. */
+  const g = app(s => { G(s); s.__tab = 'empire'; }, SOIR, null, true);
+  let change;
+  const champ = { dataset: { pid: 'mere', prio: 'lab' }, value: '10', addEventListener: (ev, fn) => { if (ev === 'change') change = fn; } };
+  g.view.querySelectorAll = sel => (sel === 'input[data-prio]' ? [champ] : []);
+  g.bind();
+  assert.ok(change, 'le champ écoute « change »');
+  assert.equal((((g.stored().skin || {}).prio) || {})['33701'], undefined, 'rien de publié avant la saisie');
+  change();
+  assert.deepEqual(g.stored().skin.prio['33701'], { 31: 10 }, 'la tuile voit la priorité posée');
+});
+
+t('la minuterie de 30 s republie le plan aussi sur Empire', () => {
+  /* setInterval est neutralisé dans le harnais : on épingle la source. */
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  assert.match(src, /REFRESH\[tab\]\(\);\s*publieLePlan\(\);\s*\}, 30000\)/);
+});
+
+t('le changement que provoque l\'effacement lui-même ne rejoue rien', () => {
+  const g = app(G);
+  g.fire({prioAsk: {newValue: [D()]}});
+  g.fire({prioAsk: {oldValue: [D()]}});          // newValue absent : c'est le remove()
+  assert.equal(g.prios().length, 1);
+  assert.deepEqual(g.removed(), ['prioAsk'], 'effacée une seule fois');
+});
+
+t('une demande dont la planète est inconnue, livrée par l\'écouteur, est gardée dans S', () => {
+  const g = app(G);
+  g.fire({prioAsk: {newValue: [D({gid:'99999', nom:'Lune'})]}});
+  assert.deepEqual(g.prios(), []);
+  assert.equal(g.prioDemandes()[0].nom, 'Lune');
+});
+
+t('au démarrage, une demande déposée panneau fermé est drainée', () => {
+  const g = app(G, null, null, false, [D({lvl:7})]);
+  assert.deepEqual(g.prios(), [{kind:'b', pid:'mere', k:'lab', lvl:7}]);
+  assert.deepEqual(g.removed(), ['prioAsk']);
+});
+
+t('au démarrage sans demande, rien n\'est effacé ni posé', () => {
+  const g = app(G);
+  assert.deepEqual(g.removed(), []);
+  assert.deepEqual(g.S.prio, []);
+});
+
+t('un changement d\'une autre clé ne touche pas aux priorités', () => {
+  const g = app(G);
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}];
+  g.fire({api: {newValue: null}});
+  g.fire({pendingAlerts: {newValue: []}});
+  g.fire({prioAsk: {newValue: [D()]}}, 'sync');   // autre zone de stockage
+  assert.deepEqual(g.S.prio, [{kind:'b', pid:'mere', k:'lab', lvl:10}]);
+  assert.deepEqual(g.removed(), []);
+});
+
+t('boot.js transmet prioAsk à app.js, clé sans préfixe ls:', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'boot.js'), 'utf8');
+  const win = {}, ask = [D()];
+  const chrome = {storage: {local: {get(k, cb) { cb({'ls:x': '1', prioAsk: ask, game: null}); }, set() { return Promise.resolve(); }}}};
+  const document = {createElement: () => ({}), body: {appendChild() {}}};
+  new Function('window', 'chrome', 'document', src)(win, chrome, document);
+  assert.deepEqual(win.__prioAsk, ask);
+  assert.equal(win.__mem.x, '1');
+});
+
+/* ---------- une demande gardée ne devient jamais une suppression ---------- */
+/* ---------- lvl 0 retire ; une demande satisfaite est abandonnée, jamais lue comme un retrait ---------- */
+const TUILES = [['b', 31, {kind:'b', pid:'mere', k:'lab', lvl:20}], ['t', 122, {kind:'t', k:'plasma', lvl:20}],
+  ['lf', 11101, {kind:'lf', pid:'mere', k:11101, lvl:20}]];
+const base = s => { G(s); s.planets[0].lf = {11101:{lvl:2, state:'ok'}}; s.tech.plasma = 4; };  // lab 5, plasma 4, 11101 à 2
+const courant = {31: 5, 122: 4, 11101: 2};
+
+t('lvl 0, fraîche, retire la priorité (b, t, lf)', () => {
+  for(const [, tech, pose] of TUILES){
+    const g = app(base);
+    g.S.prio = [Object.assign({}, pose)];
+    g.prioDrain([D({tech, lvl:0})]);
+    assert.deepEqual(g.S.prio, [], 'retirée pour la tuile ' + tech);
+  }
+});
+
+t('lvl 0, gardée faute de planète, retire au rejeu une fois la planète relevée', () => {
+  for(const [kind, tech, pose] of TUILES.filter(x => x[0] !== 't')){
+    const g = app(base);
+    g.S.prio = [Object.assign({}, pose)];
+    g.S.prioAsk = g.prioDrain([D({gid:'55555', tech, lvl:0})]);
+    assert.equal(g.prioDemandes().length, 1, 'gardée : ' + kind);
+    assert.equal(g.S.prio.length, 1, 'et rien n\'est retiré tant que la planète manque');
+    g.applyGame({planets:{'55555':{name:'Mère', coords:'1:142:8'}}, order:['55555']});
+    assert.deepEqual(g.S.prio, [], 'retirée au rejeu : ' + kind);
+    assert.deepEqual(g.prioDemandes(), []);
+  }
+});
+
+t('une demande satisfaite est abandonnée, fraîche ou rejouée, et ne touche à rien (b, t, lf)', () => {
+  for(const [, tech, pose] of TUILES){
+    const g = app(base);
+    g.S.prio = [Object.assign({}, pose)];
+    for(const lvl of [courant[tech], courant[tech] - 1].filter(x => x > 0)){
+      assert.deepEqual(g.prioDrain([D({tech, lvl})]), [], 'fraîche, abandonnée');
+      assert.deepEqual(g.S.prio, [pose], 'et la priorité posée à la main reste : ' + tech + ' lvl ' + lvl);
+    }
+    // gardée, puis rattrapée par le niveau pendant l'attente
+    g.S.prioAsk = [D({tech, lvl:courant[tech]})];
+    g.applyGame({planets:{'33701':{name:'Mère', coords:'1:142:8'}}, order:['33701']});
+    assert.deepEqual(g.S.prio, [pose], 'rejouée, elle ne retire rien : ' + tech);
+    assert.deepEqual(g.prioDemandes(), [], 'et n\'est pas gardée plus longtemps');
+  }
+});
+
+t('un niveau fraîchement relevé n\'a plus à être demandé : la demande au-dessus du courant pose', () => {
+  const g = app(base);
+  g.prioDrain([D({tech:31, lvl:6})]);
+  assert.deepEqual(g.S.prio, [{kind:'b', pid:'mere', k:'lab', lvl:6}]);
+});
+
+t('les demandes gardées sur la même tuile se réduisent à la dernière', () => {
+  const g = app();
+  const reste = g.prioDrain([D({lvl:6, at:SOIR}), D({lvl:8, at:SOIR}), D({lvl:9, at:SOIR, tech:14})]);
+  assert.equal(reste.length, 2);
+  assert.equal(reste.find(x => x.tech === 31).lvl, 8);
+  g.S.prioAsk = reste;
+  g.fire({prioAsk: {newValue: [D({lvl:12})]}});
+  assert.equal(g.prioDemandes().filter(x => x.tech === 31).length, 1);
+  assert.equal(g.prioDemandes().find(x => x.tech === 31).lvl, 12, 'la plus récente');
+});
+
+t('une demande sans at utilisable est gardée, non expirée', () => {
+  const g = app();
+  for(const at of [undefined, NaN, 'hier', null, SOIR + 3600e3]){
+    const reste = g.prioDrain([D({at})]);
+    assert.equal(reste.length, 1, 'gardée pour at = ' + String(at));
+  }
+});
+
+t('un nom démesuré est borné avant d\'entrer dans l\'état', () => {
+  const g = app();
+  assert.equal(g.prioDrain([D({nom:'x'.repeat(5000)})])[0].nom.length, 80);
+});
+
+/* ---------- le bloc dit aussi les formes de vie et les demandes en attente ---------- */
+
+/* Une case lue : `next` est le niveau que le prix vise, sinon lfCost ne la dit
+   pas chiffrée (lfCase, plus haut, la construit). */
+const lfBloc = (cases, mode) => { const g = app(s => { s.planets[0].lf = cases; }); if(mode) g.S.day.lf = mode; return g; };
+const lfHtml = (g, prio) => { g.S.prio = prio; return g.prioHtml(g.simulateDay()); };
+const lf11101 = [{kind:'lf', pid:'mere', k:11101, lvl:4}];
+
+t('le bloc nomme une priorité de forme de vie, avec le nom du jeu', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})});
+  assert.match(lfHtml(g, lf11101), /Habitation 4/);
+});
+
+t('une priorité lf pas encore chiffrée dit quoi faire', () => {
+  const g = lfBloc({11101: {lvl:1, state:'ok', name:'Habitation'}});
+  assert.match(lfHtml(g, lf11101), /ouvre-la dans le jeu/i);
+});
+
+t('une priorité lf verrouillée le dit', () => {
+  const g = lfBloc({11101: {lvl:0, state:'locked', name:'Habitation'}});
+  assert.match(lfHtml(g, [{kind:'lf', pid:'mere', k:11101, lvl:1}]), /prérequis/i);
+});
+
+t('une priorité lf absente du relevé le dit, et n\'est pas « pas chiffrée »', () => {
+  const h = lfHtml(lfBloc({}), lf11101);
+  assert.match(h, /jamais vu cette case/);
+  assert.doesNotMatch(h, /Pas encore chiffrée/);
+  assert.match(h, /<span class="what">[^<]+ 4<\/span>/, 'la ligne existe, avec un nom de repli');
+});
+
+t('une priorité lf en tête de sa file le dit, et nomme le réglage', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})}, 'first');
+  const h = lfHtml(g, lf11101);
+  assert.match(h, /En tête de sa file/);
+  assert.match(h, /Avant tout le reste/);
+});
+
+t('une priorité lf que le réglage fait passer après les bâtiments nomme ce réglage', () => {
+  const g = lfBloc({11101: lfCase(1, [9e9, 0, 0], {name:'Habitation'})});
+  g.S.day.lf = 'after';
+  assert.match(lfHtml(g, lf11101), /après les bâtiments/i);
+});
+
+t('une priorité lf qui attend le tour d\'une autre de sa file le dit', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'}), 11102: lfCase(1, [10, 0, 0], {name:'Cuisine'})}, 'first');
+  const h = lfHtml(g, [{kind:'lf', pid:'mere', k:11101, lvl:4}, {kind:'lf', pid:'mere', k:11102, lvl:4}]);
+  assert.equal((h.match(/Attend son tour dans sa file/g) || []).length, 1);
+  assert.match(h.split('</li>')[1], /Cuisine 4[\s\S]*Attend son tour/, 'la seconde attend');
+  assert.match(h.split('</li>')[1], /Avant tout le reste/, 'et nomme le réglage');
+});
+
+t('formes de vie réglées sur « Ne pas s\'en occuper » : la ligne le dit', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})}, 'off');
+  assert.match(lfHtml(g, lf11101), /Ne pas s'en occuper[^<]*n'y touche pas/);
+});
+
+// Review Focus 1, côté visible
+t('une demande que le panneau n\'a pas su placer se voit', () => {
+  const g = app();
+  g.S.prioAsk = g.prioDrain([{gid:'99999', tech:14, nom:'Usine de robots', lvl:8, at:Date.now()}]);
+  const h = g.prioHtml(g.simulateDay());
+  assert.match(h, /Usine de robots/);
+  assert.match(h, /aucune de tes planètes/i, 'et dit ce qui manque');
+});
+
+/* Ce que esc() produit, écrit en dur : « absent du HTML brut » passerait aussi
+   contre un esc() à moitié fait, ou contre une ligne qui ne rendrait plus le nom. */
+const HOSTILE = '<script>alert("x")</script><img src=x onerror=alert(1)>&';
+const HOSTILE_ESC = '&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;&amp;';
+
+t('le nom d\'une demande, lu dans le jeu, est échappé en entier', () => {
+  const g = app();
+  g.S.prioAsk = g.prioDrain([{gid:'99999', tech:14, nom:HOSTILE, lvl:8, at:Date.now()}]);
+  const h = g.prioHtml(g.simulateDay());
+  assert.ok(h.includes(`<span class="what">${HOSTILE_ESC}</span>`), h);
+  assert.ok(!h.includes('<script') && !h.includes('<img') && !h.includes('"x"'), 'rien de brut');
+});
+
+t('le nom d\'une planète est échappé dans le bloc (bâtiment et forme de vie)', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})});
+  g.S.planets[0].name = HOSTILE;
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10}, {kind:'lf', pid:'mere', k:11101, lvl:4}];
+  const h = g.prioHtml(g.simulateDay());
+  assert.equal(h.split(`<span class="pill">${HOSTILE_ESC}</span>`).length, 3, 'les deux lignes');
+  assert.ok(!h.includes('<script') && !h.includes('<img'));
+});
+
+t('le nom d\'une case de forme de vie lu dans le jeu est échappé', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:HOSTILE})});
+  const h = lfHtml(g, lf11101);
+  assert.ok(h.includes(`<span class="what">${HOSTILE_ESC} 4</span>`), h);
+  assert.ok(!h.includes('<script') && !h.includes('<img'));
+});
+
+t('une demande de retrait en attente se dit retrait', () => {
+  const g = app();
+  g.S.prioAsk = g.prioDrain([{gid:'99999', tech:14, nom:'Usine de robots', lvl:0, at:Date.now()}]);
+  assert.match(g.prioHtml(g.simulateDay()), /Retrait demandé/);
+});
+
+t('Retirer enlève la bonne ligne, quelle que soit son espèce', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})});
+  g.S.prio = [{kind:'b', pid:'mere', k:'lab', lvl:10},
+              {kind:'lf', pid:'mere', k:11101, lvl:4},
+              {kind:'t', k:'plasma', lvl:12}];
+  g.S.prioAsk = g.prioDrain([{gid:'99999', tech:14, nom:'Usine de robots', lvl:8, at:Date.now()}]);
+  // Les références que le bloc pose sur ses boutons, relues telles quelles.
+  const refs = () => [...g.prioHtml(g.simulateDay()).matchAll(/data-prio-del="([^"]+)"/g)].map(m => m[1]);
+  assert.equal(refs().length, 4, 'quatre lignes, quatre boutons');
+  // l'ordre du bloc : bâtiments et recherches (prios), puis formes de vie, puis demandes
+  const [b, t4, l, ask] = refs();
+  g.prioRetire(l);
+  assert.deepEqual(g.priosLf(), [], 'la lf est partie');
+  assert.equal(g.prios().length, 2, 'les deux autres priorités sont intactes');
+  g.prioRetire(ask);
+  assert.deepEqual(g.prioDemandes(), [], 'la demande est partie');
+  assert.equal(g.prios().length, 2, 'et rien d\'autre n\'a bougé');
+  g.prioRetire(t4);
+  assert.deepEqual(g.prios().map(x => x.k), ['lab'], 'la recherche part, le bâtiment reste');
+  g.prioRetire(b);
+  assert.equal(g.prios().length, 0);
+});
+
+t('une référence périmée ou étrangère ne retire rien', () => {
+  const g = app(prio2);
+  g.prioRetire('lf|mere|11101'); g.prioRetire('ask|1|2'); g.prioRetire('n\'importe quoi'); g.prioRetire(0);
+  assert.equal(g.S.prio.length, 2);
+});
+
+t('le bloc vide nomme le clic droit avant le volet Empire', () => {
+  const h = app().prioHtml(app().simulateDay());
+  assert.ok(h.indexOf('clic droit') >= 0, 'le clic droit est nommé');
+  assert.ok(h.indexOf('clic droit') < h.indexOf('Empire'), 'et il vient avant');
+});
+
+t('le gestionnaire de clic passe la référence telle quelle, sans « + »', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  assert.match(src, /prioRetire\(pd\.dataset\.prioDel\)/);
+});
+
+t('une demande en attente seule suffit à remplir le bloc', () => {
+  const g = app();
+  g.S.prioAsk = g.prioDrain([{gid:'99999', tech:14, nom:'Usine de robots', lvl:8, at:Date.now()}]);
+  assert.doesNotMatch(g.prioHtml(g.simulateDay()), /Aucune pour l'instant/);
+});
+
+t('une file de forme de vie occupée ne laisse pas dire « servie »', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})}, 'first');
+  g.S.timers = [{id:'l1', game:true, kind:'x', k:'other', queue:'lfbuilding', pid:'mere', end:SOIR + 20*3600e3, done:false}];
+  const h = lfHtml(g, lf11101);
+  assert.match(h, /file de forme de vie est occupée/);
+  assert.match(h, /dans 20h 00m/, 'et dit quand');
+  assert.doesNotMatch(h, /En tête de sa file|sert avant tout/);
+  g.S.timers[0].pid = 'colo';
+  assert.match(lfHtml(g, lf11101), /En tête de sa file/, 'le chantier d\'une autre planète ne la gêne pas');
+  g.S.timers[0].pid = 'mere'; g.S.timers[0].done = true;
+  assert.match(lfHtml(g, lf11101), /En tête de sa file/, 'un chantier fini non plus');
+  g.S.timers[0].done = false;
+  g.S.timers[0].queue = 'lfresearch';
+  assert.match(lfHtml(g, lf11101), /En tête de sa file/, 'une autre file ne la gêne pas');
+});
+
+t('une référence mal encodée ne lève pas et ne retire rien', () => {
+  const g = app(prio2);
+  g.prioRetire('b|%|lab'); g.prioRetire('lf|%E0%A4%A|1');
+  assert.equal(g.S.prio.length, 2);
+});
+
+t('le réglage des formes de vie est localisé, et la demande dit son délai', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})}, 'off');
+  assert.match(lfHtml(g, lf11101), /Réglages › Plan du jour/);
+  const a = app();
+  a.S.prioAsk = [{gid:'99999', tech:14, nom:'Usine de robots', lvl:8, at:SOIR - 3600e3}];
+  assert.match(a.prioHtml(a.simulateDay()), /s'efface dans 23h 00m/);
+});
+
+/* ---------- le clic droit sur une tuile ---------- */
+
+/* Une page de ressources à une tuile : la Mine de métal au niveau 14. `niveaux`
+   dit ce que le jeu écrit dans la case ; le nom vient de son étiquette. */
+const SUR_MINE = { search: '?page=ingame&component=supplies', planetId: '33701', tiles: [1],
+  niveaux: { 1: 14 }, noms: { 1: 'Mine de métal' } };
+
+t('un clic droit sur une tuile à niveau demande une priorité', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '20');
+  const l = p.ecrit().prioAsk;
+  assert.equal(l.length, 1);
+  assert.deepEqual(l[0], { gid: '33701', tech: 1, nom: 'Mine de métal', lvl: 20, at: l[0].at });
+  assert.ok(l[0].at > 0, 'la demande est datée');
+  assert.ok(p.menuEmpeche, 'le menu du navigateur ne s\'ouvre pas sur une tuile traitée');
+});
+
+t('le champ s\'ouvre prérempli au niveau suivant, contenu choisi, focus dedans', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, undefined, { laisse: true });
+  assert.equal(p.champ.value, '15');
+  assert.ok(p.champ.selectionne, 'le contenu est sélectionné');
+  assert.ok(p.champ.focus_, 'le focus est dedans');
+});
+
+t('Entrée sans rien taper valide ce qui est prérempli', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1);
+  assert.equal(p.ecrit().prioAsk[0].lvl, 15);
+});
+
+t('une priorité déjà posée préremplit son niveau, pas le suivant', () => {
+  const p = runPage({ ...SUR_MINE, skin: { prio: { 33701: { 1: 20 } } } });
+  p.clicDroit(1, undefined, { laisse: true });
+  assert.equal(p.champ.value, '20');
+});
+
+t('une tuile qui se compte ne reçoit pas de priorité, et le dit', () => {
+  const p = runPage({ search: '?page=ingame&component=shipyard', planetId: '33701', tiles: [212],
+    niveaux: { 212: { nombre: 7 } } });
+  p.clicDroit(212, '20');
+  assert.equal(p.ecrit().prioAsk, undefined, 'rien n\'est demandé');
+  assert.ok(!p.menuEmpeche, 'le menu du navigateur reste disponible');
+  assert.match(p.refus, /niveau/i, 'la tuile dit pourquoi');
+  assert.equal(p.champ, null, 'aucun champ');
+});
+
+t('une case de recherche de forme de vie, sans niveau, est refusée pour ce motif', () => {
+  const p = runPage({ search: '?page=ingame&component=lfresearch', planetId: '33701', tiles: [12101] });
+  p.clicDroit(12101, '3');
+  assert.equal(p.ecrit().prioAsk, undefined);
+  assert.ok(!p.menuEmpeche);
+  assert.match(p.refus, /niveau/i);
+});
+
+t('une tuile à niveau que le copilote ne modélise pas est refusée dans la page', () => {
+  for (const id of [33, 34, 36, 44]) {   // Terraformeur, Dépôt, Dock spatial, Silo
+    const p = runPage({ search: '?page=ingame&component=facilities', planetId: '33701', tiles: [id],
+      niveaux: { [id]: 2 } });
+    p.clicDroit(id, '5');
+    assert.equal(p.ecrit().prioAsk, undefined, 'tuile ' + id);
+    assert.ok(!p.menuEmpeche, 'tuile ' + id + ' : le menu du navigateur reste');
+    assert.match(p.refus, /copilote/i, 'tuile ' + id);
+    assert.doesNotMatch(p.refus, /niveau/i, 'le motif n\'est pas celui du niveau');
+  }
+});
+
+t('les tuiles modélisées sont toutes acceptées : tous les bâtiments, toutes les recherches, les formes de vie', () => {
+  const { OG_BUILD, OG_TECH } = new Function(require('fs').readFileSync(require('path').join(__dirname, '..', 'ids.js'), 'utf8')
+    + '; return { OG_BUILD, OG_TECH };')();
+  const ids = [...Object.keys(OG_BUILD), ...Object.keys(OG_TECH), 11101, 12345];
+  for (const id of ids) {
+    const p = runPage({ search: '?page=ingame&component=supplies', planetId: '33701', tiles: [id],
+      niveaux: { [id]: 3 } });
+    p.clicDroit(id, '9');
+    assert.equal(p.ecrit().prioAsk[0].lvl, 9, 'tuile ' + id);
+  }
+});
+
+t('Échap n\'écrit rien, et le champ part', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '20', { echap: true });
+  assert.equal(p.ecrit().prioAsk, undefined);
+  assert.equal(p.champ, null);
+});
+
+t('perdre le focus n\'écrit rien non plus', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '20', { perdFocus: true });
+  assert.equal(p.ecrit().prioAsk, undefined);
+  assert.equal(p.champ, null);
+});
+
+t('un clic droit ailleurs que sur une tuile laisse le menu du navigateur', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroitAilleurs();
+  assert.ok(!p.menuEmpeche);
+  assert.equal(p.ecrit().prioAsk, undefined);
+});
+
+t('deux clics droits sur la même tuile n\'empilent qu\'une demande', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '18'); p.clicDroit(1, '20');
+  assert.equal(p.ecrit().prioAsk.length, 1);
+  assert.equal(p.ecrit().prioAsk[0].lvl, 20);
+});
+
+t('des tuiles différentes s\'ajoutent à la liste au lieu de s\'écraser', () => {
+  const p = runPage({ ...SUR_MINE, tiles: [1, 2], niveaux: { 1: 14, 2: 9 } });
+  p.clicDroit(1, '20'); p.clicDroit(2, '12');
+  assert.deepEqual(p.ecrit().prioAsk.map(d => [d.tech, d.lvl]), [[1, 20], [2, 12]]);
+});
+
+t('un clic droit avant que le panneau ait publié quoi que ce soit marche quand même', () => {
+  const p = runPage({ ...SUR_MINE, skin: null });
+  p.clicDroit(1);
+  assert.equal(p.ecrit().prioAsk[0].lvl, 15);
+});
+
+t('un champ vidé demande le retrait', () => {
+  const p = runPage({ ...SUR_MINE, skin: { prio: { 33701: { 1: 20 } } } });
+  p.clicDroit(1, '');
+  assert.equal(p.ecrit().prioAsk[0].lvl, 0);
+});
+
+t('un niveau déjà atteint demande le retrait, il ne pose pas', () => {
+  for (const saisie of ['14', '3']) {
+    const p = runPage({ ...SUR_MINE });
+    p.clicDroit(1, saisie);
+    assert.equal(p.ecrit().prioAsk[0].lvl, 0, 'saisi : ' + saisie);
+  }
+});
+
+t('un retrait sur une tuile sans priorité part quand même', () => {
+  const p = runPage({ ...SUR_MINE, skin: {} });
+  p.clicDroit(1, '');
+  assert.equal(p.ecrit().prioAsk[0].lvl, 0, 'le panneau en fera un non-événement');
+});
+
+t('un niveau juste au-dessus du courant pose', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '15');
+  assert.equal(p.ecrit().prioAsk[0].lvl, 15);
+});
+
+t('une saisie qui n\'est pas un nombre ne part pas, et ne vaut pas un retrait', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '12abc');
+  assert.equal(p.ecrit().prioAsk, undefined);
+  assert.match(p.refus, /nombre/i, 'la tuile dit ce qui ne va pas');
+  assert.ok(p.champ, 'le champ reste, pour corriger');
+});
+
+t('sans planète lue sur la page, la tuile le dit et ne vole pas le menu', () => {
+  const p = runPage({ ...SUR_MINE, planetId: '' });
+  p.clicDroit(1, '20');
+  assert.equal(p.ecrit().prioAsk, undefined);
+  assert.ok(!p.menuEmpeche);
+  assert.match(p.refus, /planète/i);
+});
+
+t('la demande part avec l\'identifiant de planète du jeu, pour une recherche aussi', () => {
+  const p = runPage({ search: '?page=ingame&component=research', planetId: '33701', tiles: [124],
+    niveaux: { 124: 5 }, noms: { 124: 'Astrophysique' } });
+  p.clicDroit(124, '8');
+  assert.deepEqual(p.ecrit().prioAsk.map(d => [d.gid, d.tech, d.nom, d.lvl]), [['33701', 124, 'Astrophysique', 8]]);
+});
+
+t('la carte de la peau reçoit le même geste que la tuile du jeu', () => {
+  const p = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true } });
+  assert.ok(p.peau.posee, 'la peau est posée');
+  p.clicDroit(1, '20', { carte: true });
+  assert.equal(p.ecrit().prioAsk[0].lvl, 20);
+  assert.equal(p.ecrit().prioAsk[0].tech, 1);
+  assert.ok(p.menuEmpeche);
+});
+
+/* ---------- le clic droit : ce que la revue a repris ---------- */
+
+t('un clic droit tombé sur un descendant de la tuile ou de la carte est résolu par délégation', () => {
+  const p = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true } });
+  p.clicDroit(1, '20', { dessus: true });
+  assert.equal(p.ecrit().prioAsk[0].lvl, 20, 'tuile du jeu');
+  const q = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true } });
+  q.clicDroit(1, '21', { carte: true, dessus: true });
+  assert.equal(q.ecrit().prioAsk[0].lvl, 21, 'carte de la peau');
+});
+
+t('une écriture qui échoue le dit sur la tuile, au lieu de se taire', () => {
+  for (const casse of ['get', 'lastError']) {
+    const log = console.error; console.error = () => {};
+    let p;
+    try { p = runPage({ ...SUR_MINE, stockageCasse: casse }); p.clicDroit(1, '20'); }
+    finally { console.error = log; }
+    assert.match(p.refus, /pas enregistré/i, casse);
+    assert.equal(p.champ, null, casse + ' : le champ est fermé');
+  }
+});
+
+t('le champ et le refus ne se recouvrent pas : la faute de frappe se corrige sous le message', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '12abc');
+  assert.ok(p.champ && p.refus);
+  // la règle propre au refus, après la règle partagée : il passe en haut, le champ reste en bas
+  const refus = p.styleTxt.match(/\n\.cp-prio-refus\{[^}]*\}/)[0];
+  assert.match(refus, /top:2px/);
+  assert.match(refus, /bottom:auto/);
+});
+
+t('une faute corrigée puis validée ne laisse pas son reproche sur la tuile', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '12abc');
+  const champ = p.champ;
+  champ.value = '20';
+  champ.ecoutes.keydown.forEach(fn => fn({ key: 'Enter', isTrusted: true, preventDefault() {}, stopPropagation() {} }));
+  assert.equal(p.ecrit().prioAsk[0].lvl, 20);
+  assert.equal(p.refus, null, 'plus de message');
+});
+
+t('la demande que la page vient de poster gagne sur le préremplissage', () => {
+  // planète jamais relevée : le panneau n'a rien placé, `prio` est vide
+  const p = runPage({ ...SUR_MINE, skin: {} });
+  p.clicDroit(1, '20');
+  p.clicDroit(1, undefined, { laisse: true });
+  assert.equal(p.champ.value, '20', 'pas niveau + 1');
+});
+
+t('une demande de retrait posée l\'emporte sur la priorité du panneau', () => {
+  const p = runPage({ ...SUR_MINE, skin: { prio: { 33701: { 1: 20 } } } });
+  p.clicDroit(1, '');
+  p.clicDroit(1, undefined, { laisse: true });
+  assert.equal(p.champ.value, '15', 'plus de cible : niveau + 1');
+});
+
+t('Entrée perd son action par défaut : un formulaire autour de la tuile ne part pas', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '20');
+  assert.ok(p.toucheEmpechee);
+});
+
+t('un clic droit fabriqué par un script de la page n\'ouvre rien', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '20', { fabrique: true });
+  assert.equal(p.champ, null);
+  assert.ok(!p.menuEmpeche);
+  assert.equal(p.ecrit().prioAsk, undefined);
+});
+
+t('une touche Entrée fabriquée ne valide pas', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '20', { synthese: true });
+  assert.equal(p.ecrit().prioAsk, undefined);
+  assert.ok(p.champ, 'le champ reste ouvert');
+});
+
+t('un attribut de carte qui n\'est pas un entier ne lève rien et laisse le menu', () => {
+  const p = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true } });
+  p.clicDroit(1, undefined, { carte: true, laisse: true });
+  // on ne peut pas réécrire la carte ici : on en fabrique une, posée dans le panneau
+  assert.doesNotThrow(() => p.clicDroitCarteForgee('1"] , [x'));
+  assert.ok(!p.menuEmpeche);
+});
+
+/* ---------- les deux marquages sur la tuile ---------- */
+
+/* Deux tuiles de ressources : la 1 à 14, la 2 à 9. */
+const DEUX = { search: '?page=ingame&component=supplies', planetId: '33701', tiles: [1, 2],
+  niveaux: { 1: 14, 2: 9 }, noms: { 1: 'Mine de métal', 2: 'Mine de cristal' } };
+
+t('ta priorité se marque autrement que la cible du plan', () => {
+  const p = runPage({ ...DEUX, skin: { hints: { 33701: { 2: 10 } }, prio: { 33701: { 1: 20 } } } });
+  const a = p.tuile(1), b = p.tuile(2);
+  assert.match(a.pastille, /20/);  assert.match(a.infobulle, /ta priorité/i);
+  assert.match(b.pastille, /10/);  assert.ok(!/ta priorité/i.test(b.infobulle));
+  assert.notEqual(a.classe, b.classe, 'deux teintes, pas une');
+  assert.ok(a.marquee && b.marquee);
+});
+
+t('sur la même tuile, la priorité passe devant la cible du plan', () => {
+  const p = runPage({ ...DEUX, skin: { hints: { 33701: { 1: 15 } }, prio: { 33701: { 1: 20 } } } });
+  assert.match(p.tuile(1).pastille, /20/);
+  assert.match(p.tuile(1).infobulle, /ta priorité/i);
+  const q = runPage({ ...DEUX, skin: { ...BANDE, peau: true, hints: { 33701: { 1: 15 } }, prio: { 33701: { 1: 20 } } } });
+  assert.match(q.carte(1).pastille, /20/, 'la carte dit la même chose');
+});
+
+t('une demande pas encore confirmée se voit, et se dit non confirmée', () => {
+  const p = runPage({ ...DEUX, skin: {} });
+  p.clicDroit(1, '20');
+  assert.match(p.tuile(1).pastille, /20/);
+  assert.match(p.tuile(1).infobulle, /pas encore|en attente/i);
+  assert.notEqual(p.tuile(1).classe, runPage({ ...DEUX, skin: { prio: { 33701: { 1: 20 } } } }).tuile(1).classe,
+    'ni la teinte de la priorité confirmée');
+});
+
+t('la priorité disparaît de la tuile quand le panneau la retire', () => {
+  const p = runPage({ ...DEUX, skin: { prio: { 33701: { 1: 20 } } } });
+  assert.match(p.tuile(1).pastille, /20/);
+  p.majSkin({ prio: {} });
+  assert.equal(p.tuile(1).pastille, null);
+  assert.ok(!p.tuile(1).marquee, 'et la tuile n\'est plus entourée');
+});
+
+t('la pastille n\'est pas reposée quand rien n\'a changé : le jeu n\'est pas remué', () => {
+  // retirer puis reposer le nœud ferait sonner l'observateur, qui repeindrait, sans fin
+  for (const skin of [{ prio: { 33701: { 1: 20 } } }, { hints: { 33701: { 1: 15 } } }]) {
+    const p = runPage({ ...DEUX, skin });
+    const n = p.tuile(1).noeud;
+    assert.ok(n);
+    p.secousse();
+    assert.equal(p.tuile(1).noeud, n);
+  }
+});
+
+t('une demande dont la tuile n\'est pas un entier ne touche aucun sélecteur', () => {
+  const p = runPage({ ...DEUX, skin: {}, askAvant: [{ gid: '33701', tech: '1"] , [x', lvl: 9, at: 1 }] });
+  assert.equal(p.tuile(1).pastille, null);
+});
+
+t('la pastille « pas payable » garde une couleur lisible sur son fond', () => {
+  const p = runPage({ ...DEUX, skin: {} });
+  for (const e of ['lancé', 'pas payable']) {
+    const r = p.styleTxt.match(new RegExp('cp-cible\\[data-etat="' + e + '"\\]\\{[^}]*\\}'))[0];
+    assert.match(r, /color:var\(--cp-creux\)/, e);
+  }
+});
+
+t('une écriture refusée ne fait pas sonner onChanged : pas de pastille en attente', () => {
+  const log = console.error; console.error = () => {};
+  let p;
+  try { p = runPage({ ...DEUX, skin: {}, stockageCasse: 'lastError' }); p.clicDroit(1, '20'); }
+  finally { console.error = log; }
+  assert.equal(p.tuile(1).pastille, null);
+});
+
+t('une priorité marquée reste après une secousse de la page', () => {
+  const p = runPage({ ...DEUX, skin: { prio: { 33701: { 1: 20 } } } });
+  p.secousse();
+  assert.match(p.tuile(1).pastille, /20/);
+});
+
+t('la peau marque aussi la priorité, et répond au clic droit', () => {
+  const p = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true, prio: { 33701: { 1: 20 } } } });
+  assert.match(p.carte(1).pastille, /20/);
+  assert.match(p.carte(1).infobulle, /ta priorité/i);
+  p.clicDroit(1, '25', { carte: true });
+  assert.equal(p.ecrit().prioAsk[0].lvl, 25, 'le second sélecteur sert ici');
+});
+
+t('la carte distingue le plan, la priorité et la demande en attente', () => {
+  const plan = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true, hints: { 33701: { 1: 15 } } } }).carte(1);
+  const prio = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true, prio: { 33701: { 1: 15 } } } }).carte(1);
+  const q = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true } });
+  q.clicDroit(1, '15', { carte: true });
+  const attente = q.carte(1);
+  assert.equal(new Set([plan.classe, prio.classe, attente.classe]).size, 3, 'trois teintes');
+  assert.ok(!/ta priorité/i.test(plan.infobulle));
+  assert.match(attente.infobulle, /pas encore/i);
+});
+
+t('la source change, le niveau non : la carte se redessine', () => {
+  const p = runPage({ ...SUR_MINE, askAvant: [{ gid: '33701', tech: 1, nom: 'Mine de métal', lvl: 20, at: 1 }],
+    skin: { ...BANDE, peau: true, prio: { 33701: { 1: 20 } } } });
+  const avant = p.carte(1);
+  assert.match(avant.infobulle, /pas encore/i);
+  p.majAsk(undefined);                       // le panneau a repris la demande
+  const apres = p.carte(1);
+  assert.equal(apres.pastille, avant.pastille, 'même « → 20 »');
+  assert.ok(!/pas encore/i.test(apres.infobulle), 'mais plus en attente');
+  assert.match(apres.infobulle, /ta priorité/i);
+});
+
+t('une demande de retrait ne fait pas une cible à 0', () => {
+  const p = runPage({ ...DEUX, skin: { prio: { 33701: { 1: 20 } } } });
+  p.clicDroit(1, '');
+  assert.equal(p.tuile(1).pastille, null, 'plus de cible, pas « → 0 »');
+  const q = runPage({ ...DEUX, skin: { hints: { 33701: { 1: 15 } }, prio: { 33701: { 1: 20 } } } });
+  q.clicDroit(1, '');
+  assert.match(q.tuile(1).pastille, /15/, 'la tuile retombe sur le plan');
+  assert.ok(!/ta priorité/i.test(q.tuile(1).infobulle));
+});
+
+t('une peau publiée avant les priorités n\'a pas de clé prio : la tuile montre le plan', () => {
+  const p = runPage({ ...DEUX, skin: { hints: { 33701: { 2: 10 } } } });
+  assert.match(p.tuile(2).pastille, /10/);
+  assert.equal(p.tuile(1).pastille, null);
+  const q = runPage({ ...DEUX, skin: { ...BANDE, peau: true, hints: { 33701: { 2: 10 } } } });
+  assert.match(q.carte(2).pastille, /10/);
+});
+
+t('la pastille suit le niveau quand la cible change sans que la tuile cesse d\'être marquée', () => {
+  const p = runPage({ ...DEUX, skin: { hints: { 33701: { 2: 10 } } } });
+  p.majSkin({ hints: { 33701: { 2: 12 } } });
+  assert.match(p.tuile(2).pastille, /12/);
+  p.majSkin({ hints: { 33701: { 2: 12 } }, prio: { 33701: { 2: 12 } } });
+  assert.match(p.tuile(2).infobulle, /ta priorité/i, 'même niveau, autre source');
+});
+
+/* Le vrai `get` est asynchrone, et la peinture ne l'est pas : ces tests le
+   rendent asynchrone, sinon un lecteur qui l'attendrait passerait quand même. */
+t('le miroir s\'amorce par un get qui répond tard, et la page se repeint à ce moment', () => {
+  const p = runPage({ ...DEUX, getDiffere: true, skin: {},
+    askAvant: [{ gid: '33701', tech: 1, nom: 'Mine de métal', lvl: 20, at: 1 }] });
+  assert.equal(p.tuile(1).pastille, null, 'rien tant que le stockage n\'a pas répondu');
+  p.livre();
+  assert.match(p.tuile(1).pastille, /20/);
+  assert.match(p.tuile(1).infobulle, /pas encore/i);
+});
+
+t('un changement arrivé avant la réponse tardive du get n\'est pas défait par elle', () => {
+  const p = runPage({ ...DEUX, getDiffere: true, skin: {},
+    askAvant: [{ gid: '33701', tech: 1, nom: 'Mine de métal', lvl: 20, at: 1 }] });
+  p.majAsk([{ gid: '33701', tech: 2, nom: 'Mine de cristal', lvl: 12, at: 2 }]);
+  p.livre();                                   // la réponse porte l'état d'avant
+  assert.match(p.tuile(2).pastille, /12/);
+  assert.equal(p.tuile(1).pastille, null, 'l\'ancienne lecture n\'écrase pas le plus récent');
+});
+
+t('onChanged met le miroir à jour, et la clé vidée retire la demande', () => {
+  const p = runPage({ ...DEUX, getDiffere: true, skin: {} });
+  p.livre();
+  p.majAsk([{ gid: '33701', tech: 1, nom: 'Mine de métal', lvl: 20, at: 1 }]);
+  assert.match(p.tuile(1).pastille, /20/);
+  p.majAsk(undefined);                         // newValue absent : c'est le remove() du panneau
+  assert.equal(p.tuile(1).pastille, null);
+  assert.ok(!p.tuile(1).marquee);
+});
+
+t('un stockage qui lève au chargement ne casse ni la page ni le plan', () => {
+  const log = console.error; console.error = () => {};
+  let p;
+  try { p = runPage({ ...DEUX, stockageCasse: 'get', skin: { hints: { 33701: { 2: 10 } } } }); }
+  finally { console.error = log; }
+  assert.match(p.tuile(2).pastille, /10/);
 });
 
 if (failures.length) {

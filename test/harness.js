@@ -29,8 +29,11 @@ function fakeEl() {
  * @param {string[]} want noms des symboles d'app.js à récupérer
  * @returns {object} les symboles demandés
  */
-function loadApp(state, nowMs, want, api, ext) {
+function loadApp(state, nowMs, want, api, ext, prioAsk) {
+  // l'onglet où le panneau se trouve à l'ouverture : il le relit dans le stockage de page
+  const tab = state.__tab; delete state.__tab;
   const store = { 'ogame-copilot-v1': JSON.stringify(state) };
+  if (tab) store['ogame-copilot-v1-tab'] = tab;
   const LS = {
     getItem: k => (k in store ? store[k] : null),
     setItem: (k, v) => { store[k] = v; }
@@ -55,17 +58,20 @@ function loadApp(state, nowMs, want, api, ext) {
 
   // ce que le panneau publie pour le script de page, pour pouvoir le relire
   const written = {};
+  const removed = [];
+  const listeners = [];
   const chrome = {
     storage: {
-      local: { get(k, cb) { if (cb) cb({}); }, set(v) { Object.assign(written, v); } },
-      onChanged: { addListener() {} }
+      local: { get(k, cb) { if (cb) cb({}); }, set(v) { Object.assign(written, v); },
+        remove(k) { [].concat(k).forEach(x => removed.push(x)); } },
+      onChanged: { addListener(fn) { listeners.push(fn); } }
     },
     runtime: { sendMessage() {}, id: ext ? 'test-extension' : undefined }
   };
 
   // IS_EXT se lit sur window.chrome.runtime.id : seuls les tests qui veulent
   // le mode extension le demandent, les autres restent en mode page.
-  const window = { addEventListener() {}, chrome: ext ? chrome : undefined, __api: api || null, __game: null };
+  const window = { addEventListener() {}, chrome: ext ? chrome : undefined, __api: api || null, __game: null, __prioAsk: prioAsk || null };
 
   // même ordre que boot.js
   const src = ['ids.js', 'app.js']
@@ -79,6 +85,12 @@ function loadApp(state, nowMs, want, api, ext) {
   /** Ce que le rendu a écrit, par identifiant d'élément. */
   /** Ce que le panneau a écrit dans le stockage de l'extension. */
   out.stored = () => written;
+  /** L'état tel que le panneau l'a sauvegardé. */
+  out.saved = () => JSON.parse(store['ogame-copilot-v1']);
+  /** Les clés que le panneau a effacées du stockage. */
+  out.removed = () => removed;
+  /** Rejoue un changement de stockage, comme le navigateur le livre aux écouteurs. */
+  out.fire = (changes, area) => listeners.forEach(fn => fn(changes, area || 'local'));
   out.html = () => { const o = {}; for (const [k, el] of byId) o[k] = el.innerHTML || el.textContent || ''; return o; };
   return out;
 }

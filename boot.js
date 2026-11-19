@@ -14,6 +14,8 @@ chrome.storage.local.get(null, d => {
   for (const [k, v] of Object.entries(d)) if (k.startsWith('ls:')) window.__mem[k.slice(3)] = v;
   window.__game = d.game || null;
   window.__api = d.api || null;
+  // les demandes de la page du jeu ne portent pas le préfixe « ls: » : sans ceci, app.js ne les voit jamais
+  window.__prioAsk = d.prioAsk || null;
   const s = document.createElement('script');
   s.src = 'app.js';
   document.body.appendChild(s);

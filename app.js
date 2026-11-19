@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.1';
+const APP_VERSION = '1.53.25';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -88,7 +88,7 @@ function sample(){
     ui:{tool:'colony', fold:{}},
     day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false},
     lf:{found:['humans','rocktal']},
-    centre:null, raid:null, raids:{}, prio:[],
+    centre:null, raid:null, raids:{}, prio:[], prioAsk:[],
     daily:{done:{}, no:{}},
     colo:{fromId:null, objective:'balanced', bonus:0, target:'', kit:'std', tr:'sc', built:false, fields:'', fpos:''},
   };
@@ -121,6 +121,7 @@ S.ui = Object.assign(sample().ui, S.ui);
 S.lf = Object.assign(sample().lf, S.lf);
 S.raids = S.raids || {};
 S.prio = Array.isArray(S.prio) ? S.prio : [];
+S.prioAsk = Array.isArray(S.prioAsk) ? S.prioAsk : [];
 migratePlanetIds();
 S.daily = Object.assign(sample().daily, S.daily);
 /* Une sauvegarde perdue en silence est pire qu'une erreur : l'écran montre la
@@ -170,6 +171,24 @@ function prios(){
   }
   return out;
 }
+/* Les cases de forme de vie ont leur propre lecture, et prios() ne les rend
+   jamais : la boucle des objectifs lit T[pr.k].n — T[11101] n'existe pas, elle
+   lèverait — et réserve la planète à la première priorité posée, toutes espèces
+   confondues : une case de forme de vie volerait son tour à un Labo 10 posé
+   après elle, qui attendrait alors un tour qui ne vient jamais.
+   Une case absente du relevé compte pour 0 et la priorité reste : le joueur
+   pose depuis la page de la forme de vie, et sa demande peut passer avant que
+   le relevé suivant n'arrive. L'écarter en silence serait la pire issue. */
+function priosLf(){
+  const out = [];
+  for(const e of (Array.isArray(S.prio) ? S.prio : [])){
+    if(!e || e.kind !== 'lf' || !Number.isInteger(e.lvl) || e.lvl <= 0) continue;
+    if(!Number.isInteger(e.k) || e.k < 11000) continue;
+    const p = planetById(e.pid);
+    if(p && e.lvl > (((p.lf || {})[e.k] || {}).lvl || 0)) out.push({pid:p.id, k:e.k, lvl:e.lvl});
+  }
+  return out;
+}
 /* La première posée sur la planète est celle qui agit ; les suivantes
    attendent leur tour, dans l'ordre où le joueur les a posées. */
 function prioOf(pid){ return prios().find(x => x.pid === pid) || null; }
@@ -180,10 +199,65 @@ function prioClean(){
      recherche n'appartient à aucune planète, et un empire vidé (import tronqué)
      ne doit pas emporter ce que le joueur a posé. Pas d'empire, rien à compacter. */
   if(!S.planets.length) return;
-  const vivantes = prios();
+  const vivantes = prios().concat(priosLf().map(x => ({kind:'lf', pid:x.pid, k:x.k, lvl:x.lvl})));
   if(vivantes.length === S.prio.length) return;
-  S.prio = vivantes.map(x => x.kind === 't' ? {kind:'t', k:x.k, lvl:x.lvl} : x);
+  /* prios() et priosLf() sont deux files : on les remet dans l'ordre de pose
+     d'origine, qui seul arbitre la précédence. */
+  const clef = x => x.kind + ':' + (x.kind === 't' ? '' : x.pid) + ':' + x.k;
+  const par = new Map(vivantes.map(x => [clef(x), x]));
+  S.prio = S.prio.map(e => e && par.get(clef(e))).filter(Boolean)
+    .map(x => x.kind === 't' ? {kind:'t', k:x.k, lvl:x.lvl} : x);
   save();
+}
+
+/* La page du jeu ne peut pas écrire S.prio : elle demande, en ajoutant à une
+   liste du stockage, et le panneau — seul écrivain — la vide ici. La liste est
+   une file : le panneau peut être fermé pendant que le joueur pose trois
+   priorités de suite.
+   Une demande dont la planète n'est pas encore relevée (une lune, une colonie
+   jamais parcourue) n'est jamais jetée : la rendre, c'est la garder, et la
+   garder nommée est ce qui évite de perdre en silence ce que le joueur a
+   voulu. Seul le temps l'emporte : au-delà de 24 h, plus rien ne la réclamera.
+   Le gid est une valeur de frontière : traduit en id local ici, jamais gardé. */
+const PRIO_ATTENTE = 24*3600*1000;
+/* Le niveau 0 est un ordre : « retire cette priorité ». C'est la page, là où le
+   joueur a formé son intention (champ vidé, ou niveau saisi au courant ou
+   au-dessous), qui l'envoie : le panneau lit une intention, il ne la déduit pas
+   d'une comparaison de niveaux. Un retrait reste un retrait à quelque moment
+   qu'on l'applique, y compris rejoué après avoir attendu sa planète.
+   Un niveau positif qui n'est plus au-dessus du courant est une demande
+   satisfaite : le jeu a donné ce qu'elle voulait, on l'abandonne sans rien
+   toucher — la lire comme un retrait effacerait ce que le joueur a posé. */
+function prioDrain(liste){
+  const gardees = new Map();
+  for(const d of (Array.isArray(liste) ? liste : [])){
+    if(!d || typeof d !== 'object') continue;
+    const gid = String(d.gid), tech = String(d.tech), lvl = d.lvl;
+    // « __proto__ » & co ne sont pas des suites de chiffres : jamais une clé
+    if(!/^\d+$/.test(gid) || !/^\d+$/.test(tech) || !Number.isInteger(lvl) || lvl < 0) continue;
+    const id = +tech;
+    const pose = (kind, pid, k) => { if(lvl === 0 || lvl > prioActuel(kind, pid, k)) prioPose(kind, pid, k, lvl); };
+    if(Object.prototype.hasOwnProperty.call(OG_TECH, id)){ pose('t', null, OG_TECH[id]); continue; }
+    const kind = Object.prototype.hasOwnProperty.call(OG_BUILD, id) ? 'b' : id >= 11000 ? 'lf' : null;
+    if(!kind) continue; // 33 (Terraformeur) a un niveau dans le jeu, pas dans le moteur
+    const p = S.planets.find(x => x.gid != null && String(x.gid) === gid);
+    if(p){ pose(kind, p.id, kind === 'b' ? OG_BUILD[id] : id); continue; }
+    const at = Number.isFinite(d.at) ? d.at : Date.now();
+    if(Date.now() - at > PRIO_ATTENTE) continue;
+    // une seule par tuile, la dernière : même règle que pour une demande placée, que prioPose écrase sur place
+    const clef = gid + ':' + id;
+    gardees.delete(clef);
+    gardees.set(clef, {gid, tech: id, nom: typeof d.nom === 'string' ? d.nom.slice(0, 80) : '', lvl, at});
+  }
+  return [...gardees.values()];
+}
+/* Les demandes qui attendent leur planète, pour le bloc des priorités. */
+function prioDemandes(){ return Array.isArray(S.prioAsk) ? S.prioAsk : []; }
+/* Ce qui était gardé repasse avec ce qui arrive : une planète peut avoir été
+   relevée entre-temps. */
+function prioRecoit(neuves){
+  // les gardées d'abord, les fraîches ensuite : sur une même tuile, la dernière demandée l'emporte
+  S.prioAsk = prioDrain(prioDemandes().concat(Array.isArray(neuves) ? neuves : []));
 }
 
 /* Une entrée se reconnaît à ce qu'elle vise : le bâtiment sur sa planète, ou la
@@ -192,26 +266,76 @@ function prioIdx(kind, pid, k){
   return (S.prio || []).findIndex(e => e && e.kind === kind && e.k === k && (kind === 't' || e.pid === pid));
 }
 function prioLvl(kind, pid, k){
-  const e = prios().find(x => x.kind === kind && x.k === k && (kind === 't' || x.pid === pid));
+  const e = (kind === 'lf' ? priosLf().map(x => ({kind:'lf', pid:x.pid, k:x.k, lvl:x.lvl})) : prios()).find(x => x.kind === kind && x.k === k && (kind === 't' || x.pid === pid));
   return e ? e.lvl : '';
 }
 /* Le joueur écrit un niveau visé. L'ordre de pose arbitre la précédence : une
    correction met donc l'entrée à jour sur place, et seule une priorité neuve
    prend la fin de la liste. Un champ vidé, ou un niveau déjà atteint, retire :
    « viser » ce qu'on a ne demande rien au plan. */
+function prioActuel(kind, pid, k){
+  return kind === 't' ? (S.tech[k] || 0)
+    : kind === 'lf' ? (((planetById(pid) || {lf:{}}).lf || {})[k] || {}).lvl || 0
+    : ((planetById(pid) || {b:{}}).b[k] || 0);
+}
 function prioPose(kind, pid, k, raw){
+  /* Une tuile se lit d'un attribut du DOM, donc en chaîne : stockée telle quelle,
+     priosLf() — qui exige un entier — ne la retrouverait jamais et la priorité
+     s'évanouirait sans un mot. On convertit ici, une fois, pour tous les appelants. */
+  /* Le motif et non Number() seul : '', null et [] valent 0, et '0x2B4D' vaut
+     11085 — une tuile crédible mais fausse, que le plan servirait. Même borne que
+     priosLf() : on ne range que ce que l'accesseur saura relire. */
+  if(kind === 'lf'){ if(!/^\d+$/.test(String(k)) || +k < 11000) return; k = +k; }
   const lvl = parseInt(raw), i = prioIdx(kind, pid, k);
-  const actuel = kind === 't' ? (S.tech[k] || 0) : ((planetById(pid) || {b:{}}).b[k] || 0);
+  const actuel = prioActuel(kind, pid, k);
   if(!(lvl > actuel)){ if(i >= 0) S.prio.splice(i, 1); return; }
   if(i >= 0) S.prio[i].lvl = lvl;
   else S.prio.push(kind === 't' ? {kind, k, lvl} : {kind, pid, k, lvl});
 }
-/* Le rang du bouton est celui de prios(), pas celui de S.prio : une entrée
-   accomplie en cours de session y reste jusqu'au rendu suivant. */
-function prioRetire(rang){
-  const e = prios()[rang];
-  const i = e ? prioIdx(e.kind, e.pid, e.k) : -1;
+/* Chaque ligne du bloc porte sa propre référence — espèce et identité —, jamais
+   un rang : le bloc mêle trois listes (prios, priosLf, demandes gardées), et un
+   rang de l'une désignerait n'importe quoi dans l'autre. Les morceaux passent
+   par encodeURIComponent : la référence voyage dans un attribut HTML, et un
+   identifiant venu du jeu ne doit pas pouvoir y casser un guillemet. */
+const prioRef = (...parts) => parts.map(x => encodeURIComponent(String(x == null ? '' : x))).join('|');
+function prioRetire(ref){
+  /* Une référence mal encodée lève URIError, et ce qui lève dans le gestionnaire
+     de clic le tue sans un mot : ni save() ni render(). On ne retire rien. */
+  let kind, a, b;
+  try{ [kind, a, b] = String(ref).split('|').map(decodeURIComponent); }catch(e){ return; }
+  if(kind === 'ask'){
+    const i = prioDemandes().findIndex(d => String(d.gid) === a && String(d.tech) === b);
+    if(i >= 0) S.prioAsk.splice(i, 1);
+    return;
+  }
+  const i = kind === 't' ? prioIdx('t', null, a) : kind === 'lf' ? prioIdx('lf', a, +b) : kind === 'b' ? prioIdx('b', a, b) : -1;
   if(i >= 0) S.prio.splice(i, 1);
+}
+/* Ce qu'une ligne de forme de vie dit d'elle-même. Cinq états, et aucun ne se
+   confond avec un autre : le relevé n'a jamais vu la case (le joueur a posé
+   avant que la page de sa forme de vie soit parcourue), elle est verrouillée,
+   elle n'est pas encore chiffrée (état normal juste après la pose : le prix ne
+   vient qu'en ouvrant la case dans le jeu), elle est en tête de sa file, ou
+   elle attend son tour. Dans les deux derniers, le réglage des formes de vie
+   est nommé : c'est lui qui décide du moment, et le taire laisserait croire
+   à une priorité ignorée. */
+function prioLfEtat(p, x, nuit){
+  const v = (p.lf || {})[x.k];
+  if(!v) return 'Le relevé n\'a jamais vu cette case : ouvre la page de ta forme de vie dans le jeu pour qu\'elle apparaisse.';
+  if(v.state === 'locked') return 'Verrouillée : un prérequis manque dans le jeu.';
+  const l = lfCandidates(p, lfQueue(x.k));
+  if(!l.some(c => c.id === x.k)) return 'Pas encore chiffrée : ouvre-la dans le jeu pour que le plan connaisse son prix.';
+  if(nuit) return '';
+  const reglage = `Formes de vie : « ${LF_MODE[lfMode()]} », à changer dans Réglages › Plan du jour`;
+  if(lfMode() === 'off') return `${reglage} — le plan n'y touche pas.`;
+  /* Le planificateur saute une file de forme de vie tant qu'un chantier y
+     tourne (même lecture que simulateDay : minuteur de jeu 'x', file, pas fini) :
+     annoncer « servie » par-dessus serait promettre ce qu'il ne fait pas. */
+  const fin = (S.timers || []).reduce((m, t) => t.kind === 'x' && t.queue === lfQueue(x.k) && t.pid === p.id && !t.done && t.end > Date.now() ? Math.max(m, t.end) : m, 0);
+  if(fin) return `Sa file de forme de vie est occupée : le plan la lancera quand le chantier en cours finira, dans ${dur((fin - Date.now())/1000)}. ${reglage}.`;
+  if(l[0].id !== x.k) return `Attend son tour dans sa file : une case posée avant elle passe d'abord. ${reglage}.`;
+  return lfMode() === 'first' ? `En tête de sa file : le plan la sert avant tout le reste. ${reglage}.`
+    : `En tête de sa file, mais le réglage la fait passer après les bâtiments. ${reglage}.`;
 }
 /* L'état d'une ligne est celui que le plan lui a donné à la première session,
    jamais son rang dans la liste : une priorité que rien ne sert — labo
@@ -225,16 +349,25 @@ function prioRetire(rang){
    où aller coûte trois lignes ; un joueur qui ne trouve pas le champ ne pose
    jamais rien, et tout le reste de ce travail ne sert à personne. */
 function prioHtml(plan){
-  const l = prios();
-  if(!l.length) return `<div class="card"><h2>Tes priorités</h2><p class="note" style="margin:0">Aucune pour l'instant. Dans <b>Empire</b>, déplie les niveaux d'une planète — ou les recherches — et écris le niveau que tu vises dans le petit champ <b>→</b>, à droite du niveau actuel. Le plan épargnera pour l'atteindre, et le dira sur ses cartes.</p></div>`;
+  const l = prios(), lf = priosLf(), at = prioDemandes();
+  if(!l.length && !lf.length && !at.length) return `<div class="card"><h2>Tes priorités</h2><p class="note" style="margin:0">Aucune pour l'instant. Dans le jeu, fais un <b>clic droit</b> sur la case d'un bâtiment, d'une recherche ou d'une forme de vie : elle devient une priorité, et le plan la sert. Ici, dans <b>Empire</b>, déplie les niveaux d'une planète — ou les recherches — et écris le niveau que tu vises dans le petit champ <b>→</b>, à droite du niveau actuel. Le plan épargnera pour l'atteindre, et le dira sur ses cartes.</p></div>`;
   const nuit = !!S.day.night;
   const dits = new Map((((plan || simulateDay()).sessions[0] || {}).prio || []).map(e => [e.id, e]));
-  const lignes = l.map((x, i) => {
+  const li = (pill, what, why, ref) => `<li><span class="pill">${pill}</span><span class="what">${what}</span>${why ? `<span class="why">${esc(why)}</span>` : ''}<button class="btn sm ghost" data-prio-del="${esc(ref)}">Retirer</button></li>`;
+  const lignes = l.map(x => {
     const p = planetById(x.pid), d = dits.get(`${x.kind}:${x.pid}:${x.k}`) || {};
     const nom = x.kind === 'b' ? B_SHORT[x.k] : T[x.k].n;
     const etat = nuit ? '' : [d.etat, d.recoit ? 'Les rapatriements de l\'empire vont vers elle.' : ''].filter(Boolean).join(' ');
-    return `<li><span class="pill">${x.kind === 'b' ? esc(p.name) : 'Recherche'}</span><span class="what">${esc(nom)} ${x.lvl}</span>${etat ? `<span class="why">${esc(etat)}</span>` : ''}<button class="btn sm ghost" data-prio-del="${i}">Retirer</button></li>`;
-  });
+    return li(x.kind === 'b' ? esc(p.name) : 'Recherche', `${esc(nom)} ${x.lvl}`, etat, x.kind === 'b' ? prioRef('b', x.pid, x.k) : prioRef('t', x.k));
+  }).concat(lf.map(x => {
+    const p = planetById(x.pid), v = (p.lf || {})[x.k] || {};
+    const nom = v.nom || v.name || LF_NAMES[x.k] || `Forme de vie ${x.k}`;
+    return li(esc(p.name), `${esc(nom)} ${x.lvl}`, prioLfEtat(p, x, nuit), prioRef('lf', x.pid, x.k));
+  }), at.map(d => {
+    /* nom est du texte lu dans le DOM du jeu : il passe par esc, comme tout ce qui vient de là. */
+    const quoi = d.lvl === 0 ? 'Retrait demandé' : `Niveau ${d.lvl} demandé`;
+    return li('En attente', esc(d.nom || `Case ${d.tech}`), `${quoi}, mais aucune de tes planètes relevées ne porte cette case. Si c'est une colonie jamais parcourue, ouvre-la dans le jeu : la demande sera placée alors. Si c'est une lune, le panneau n'en gère pas : la demande n'aboutira pas. Sinon elle s'efface dans ${dur((d.at + PRIO_ATTENTE - Date.now())/1000)}.`, prioRef('ask', d.gid, d.tech));
+  }));
   return `<div class="card"><h2>Tes priorités</h2><ul class="advice prios">${lignes.join('')}</ul></div>`;
 }
 
@@ -521,6 +654,8 @@ const LF_RES_NOM = ['métal', 'cristal', 'deutérium'];
  * en chiffrer le prochain niveau, lu ou estimé (`src`), avec une durée connue :
  * sans cela, on ne sait pas quand elle sera payable. À prix égal, le prix lu
  * passe devant l'estimé.
+ * Une case que le joueur a mise en priorité prend la tête de sa file, à condition
+ * d'être chiffrable et non verrouillée ; la première posée sur la planète agit.
  * @param {object} p planète simulée
  * @param {string} queue lfbuilding | lfresearch
  * @returns {object[]} candidats triés
@@ -541,8 +676,27 @@ function lfCandidates(p, queue){
   const n = out.length, u = libres.length - n;
   const reste = (u ? ` ${u} case${u>1?'s':''} pas encore chiffrée${u>1?'s':''}, non comparée${u>1?'s':''} : ouvre-${u>1?'les':'la'} dans le jeu.` : '');
   const moinsChere = `La moins chère des ${n} case${n>1?'s':''} chiffrée${n>1?'s':''} de cette file.`;
-  return out.map(c => Object.assign(c, {why: (c.eff === null ? moinsChere
+  const liste = out.map(c => Object.assign(c, {why: (c.eff === null ? moinsChere
     : `Augmente la production de ${LF_RES_NOM[c.eff]} sur toutes les planètes : elle passe devant les cases qui ne produisent rien.`) + reste}));
+  /* La case que le joueur a choisie prend la tête, mais seulement si elle est
+     déjà dans la liste : sans prix lu ni durée, ou verrouillée, elle n'est pas
+     candidate, priorité ou non. Ce que « en tête » coûte : l'appelant ne lit
+     que lfCandidates(p, q)[0], donc une case plus chère que ce que le prix
+     aurait choisi fait attendre toute la file jusqu'à ce qu'elle soit payable,
+     et l'attente pose une réserve molle. C'est voulu : retomber sur la
+     suivante rendrait la priorité inerte dans le cas qui l'a motivée, une
+     habitation chère contre un bâtiment de nourriture bon marché, où le prix
+     gagnerait toujours. Les mines n'en pâtissent pas : leur chemin ne compte
+     pas la réserve molle. */
+  /* Si la première posée n'est pas candidate (le plus souvent : pas encore
+     chiffrée), la suivante de la même file passe : servir une priorité qu'on
+     sait chiffrer vaut mieux que ne rien faire. */
+  const voulue = priosLf().find(x => x.pid === p.id && liste.some(c => c.id === x.k));
+  if(!voulue) return liste;
+  const tete = liste.find(c => c.id === voulue.k);
+  const fait = tete.eff === null ? '' : ` Elle augmente la production de ${LF_RES_NOM[tete.eff]} sur toutes les planètes.`;
+  tete.why = 'Tu l\'as mise en priorité.' + fait + reste;
+  return [tete].concat(liste.filter(c => c !== tete));
 }
 /* Identifiants de tuile du jeu, dans l'autre sens : le plan raisonne en clés
    (« metal »), la page du jeu en numéros (« 1 »). */
@@ -572,6 +726,32 @@ function planHints(acts){
     else if(a.kind === 't') put(p, TECH_ID[a.k], a.lvl);
     else if(a.kind === 'lf') put(p, a.id, a.lvl);
   }
+  return out;
+}
+/**
+ * Ce que le joueur a posé, rangé comme `planHints` : { [planète du jeu]: { [tuile]: niveau visé } }.
+ * Ce canal existe à côté de `hints` et ne s'y réduit pas : `hints` vient des
+ * actions de la session en cours, or une priorité qui épargne sans être encore
+ * payable tombe dans les attentes, pas dans les actions — la pastille
+ * disparaîtrait et le joueur ne verrait rien de ce qu'il a déclaré. Fusionner
+ * les deux ferait de nouveau dépendre la déclaration du plan.
+ * Une recherche se montre sur la planète du labo, où l'épargne se fait ; sa
+ * priorité porte déjà ce pid (voir prios()).
+ * @returns {object} { [planetId]: { [tuileId]: niveau visé } }
+ */
+function prioHints(){
+  const out = {};
+  const put = (pid, tuile, lvl) => {
+    const p = planetById(pid);
+    // même garde que tourData : sert de clé d'objet, « __proto__ » n'est jamais une planète du jeu
+    // le saut est voulu : une clé sans tuile du jeu ne doit jamais publier un identifiant bancal
+    if(!p || !tuile || !/^\d+$/.test(String(p.gid || ''))) return;
+    const l = out[p.gid] = out[p.gid] || {};
+    // la première posée gagne : c'est celle que le plan sert, la pastille doit montrer la même
+    if(!(tuile in l)) l[tuile] = lvl;
+  };
+  for(const e of prios()) put(e.pid, e.kind === 'b' ? BUILD_ID[e.k] : TECH_ID[e.k], e.lvl);
+  for(const e of priosLf()) put(e.pid, e.k, e.lvl);
   return out;
 }
 /**
@@ -754,7 +934,7 @@ function gameSkin(acts, missions, waits){
     if(p.name) teintes[p.name] = c;
     teintes[planetRef(p)] = c;
   }
-  return {hints: planHints(acts), rates, donors: donorsOf(), tour: tourData(), teintes,
+  return {hints: planHints(acts), prio: prioHints(), rates, donors: donorsOf(), tour: tourData(), teintes,
           band: bandData(acts, missions, waits),
           colonne: colonneData(acts, missions, waits),
           cargo: [shipStats('lc').cargoEff, shipStats('sc').cargoEff],
@@ -4098,6 +4278,8 @@ function bind(){
        champ dit ce que la priorité est devenue — vide si elle a été retirée. */
     el.value = prioLvl(kind, el.dataset.pid, el.dataset.prio);
     save(); refresh();
+    // refresh() sur Empire ne publie pas le plan : la tuile ne saurait rien de ce qu'on vient de poser
+    publieLePlan();
   }));
   view.querySelectorAll('input[data-t]').forEach(el=>el.addEventListener('input',()=>{ S.tech[el.dataset.t]=Math.max(0,parseInt(el.value)||0); changed(); }));
   view.querySelectorAll('[data-set]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
@@ -4152,7 +4334,7 @@ view.addEventListener('click', e=>{
     // Fait sur un espionnage : les cibles nommées sortent de la liste pour un jour.
     if(dn.dataset.mark) dn.dataset.mark.split(',').forEach(c=>{ S.raids[c] = {at:Date.now(), probe:true}; }); save(); refresh(); toast('Bien joué'); return; }
   const no = e.target.closest('[data-no]'); if(no){ S.daily.no[no.dataset.no] = Date.now(); save(); refresh(); toast('Mis de côté'); return; }
-  const pd = e.target.closest('[data-prio-del]'); if(pd){ prioRetire(+pd.dataset.prioDel); save(); render(); return; }
+  const pd = e.target.closest('[data-prio-del]'); if(pd){ prioRetire(pd.dataset.prioDel); save(); render(); return; }
   const nc = e.target.closest('[data-noclear]'); if(nc){ S.daily.no = {}; save(); render(); toast('Cartes refusées remises'); return; }
   const sm = e.target.closest('summary[data-fold]');
   // Le repli bascule tout seul : on ne note que l'état où il va.
@@ -4294,7 +4476,9 @@ view.addEventListener('click', e=>{
   if(rmT){ S.timers = S.timers.filter(t=>t.id!==rmT.dataset.tmrm); save(); stopFlash(); renderTimers(); }
 });
 setInterval(tickTimers, 1000);
-setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); else publieLePlan(); }, 30000);
+/* publieLePlan est sans effet sur Aujourd'hui, qui se publie en se dessinant ;
+   sur Empire, REFRESH.empire ne publie rien : sans cet appel la tuile resterait muette. */
+setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); publieLePlan(); }, 30000);
 /** Recalcule le plan du jour pour la page du jeu, sans rien afficher.
     `today` le publie en se dessinant ; ailleurs, c'est à nous de le faire.
     Le dessin qui suit la publication écrit dans des éléments de l'onglet
@@ -4411,10 +4595,13 @@ function applyGame(g){
   }
   S.sample = false;
   S.syncAt = g.at || Date.now();
+  prioRecoit(); // une planète vient peut-être d'être relevée
   save();
   const a = document.activeElement;
   const typing = a && view.contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName);
   typing ? refresh() : render();
+  // render() ne publie le plan que sur Aujourd'hui : une demande placée ici resterait muette sur la tuile
+  publieLePlan();
 }
 render();
 /* Et à l'ouverture du panneau : le réglage peut avoir été posé avant que la
@@ -4428,7 +4615,21 @@ pushLook();
    l'onglet ouvert. */
 publieLePlan();
 if(window.__game) applyGame(window.__game);
-chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ API = ch.api.newValue; if(tab==='tools' && S.ui.tool==='explore') render(); } });
+/* Demandes déposées pendant que le panneau était fermé. boot.js ne transmet que
+   les clés « ls: » et game/api : sans lui, la clé resterait dans le stockage. */
+prioAccueille(window.__prioAsk);
+/* Appliquer, puis effacer la clé, sauvegarder, redessiner : la page ré-ajoute à
+   une clé vide, et une demande rejouée poserait deux fois. */
+function prioAccueille(liste){
+  if(!Array.isArray(liste) || !liste.length) return;
+  prioRecoit(liste);
+  try{ chrome.storage.local.remove('prioAsk'); }catch(e){ console.error('Copilote : clé prioAsk non effacée, le prochain démarrage rejouera ce lot', e); }
+  save();
+  render();
+  // render() ne publie le plan que sur Aujourd'hui : sans cela la tuile resterait muette
+  publieLePlan();
+}
+chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioAsk) prioAccueille(ch.prioAsk.newValue); if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ API = ch.api.newValue; if(tab==='tools' && S.ui.tool==='explore') render(); } });
 
 /* ---------- one alert, one acknowledgment ---------- */
 /** In the extension, every alert goes through the background so a single "OK" clears them all. */

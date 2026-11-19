@@ -51,6 +51,12 @@ function el(tag, attrs = {}) {
         }
         return null;
       }
+      if (sel === '.cp-case[data-technology]') {
+        for (let n = e; n; n = n.parent) {
+          if (n.className.split(' ').includes('cp-case') && n.dataset.technology != null) return n;
+        }
+        return null;
+      }
       if (sel === '#technologies') {
         for (let n = e; n; n = n.parent) if (n.id === 'technologies') return n;
         return null;
@@ -60,7 +66,10 @@ function el(tag, attrs = {}) {
     getAttribute() { return null; },
     setAttribute() {},
     /* La peau pose des boutons : un élément de page en écoute les clics. */
-    addEventListener() {}
+    addEventListener(type, fn) { (e.ecoutes[type] = e.ecoutes[type] || []).push(fn); },
+    ecoutes: {},
+    focus() { e.focus_ = true; },
+    select() { e.selectionne = true; }
   };
   return e;
 }
@@ -72,12 +81,17 @@ function el(tag, attrs = {}) {
  * @param {string} opts.planetId identifiant de planète déclaré par le jeu
  * @param {object[]} opts.costs lignes de coût du panneau de détail
  * @param {number[]} opts.stock stocks affichés [métal, cristal, deutérium]
+ * @param {object} opts.niveaux par tuile : un niveau (14), ou { nombre: 7 } pour une case qui se compte ; absente, la case n'a ni l'un ni l'autre
+ * @param {string} opts.stockageCasse 'get' : le stockage lève en lecture ; 'lastError' : l'écriture finit sur une erreur
+ * @param {object[]} opts.askAvant ce que `prioAsk` contient déjà au chargement
+ * @param {boolean} opts.getDiffere le `get('prioAsk')` ne répond qu'à `livre()` : le vrai est asynchrone
+ * @param {object} opts.noms par tuile : le nom que le jeu écrit dans son étiquette
  * @returns {object} { html, eta, dataset }
  */
 function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], details = true,
   search = '?page=ingame&component=research', tiles = [], vieuxStyle = null, intruse = false,
   casesIntruses = false, planetList = true, menuMuet = false, champsFlotte = false,
-  enChantier = null, heures = null }) {
+  enChantier = null, heures = null, niveaux = {}, noms = {}, stockageCasse = null, getDiffere = false, askAvant }) {
   const html = el('html');
   const head = el('head');
   const body = el('body');
@@ -194,8 +208,22 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
         li.querySelector = sel => sel === '[data-end]' ? fin
           : sel === '.targetlevel' ? vise : null;
       }
+      /* Le niveau ou le nombre d'une case, là où le jeu l'écrit : une balise
+         `.level` ou `.amount` qui porte la valeur. Sans entrée, la case n'a ni l'un ni l'autre. */
+      if (niveaux[id] != null) {
+        const compte = typeof niveaux[id] === 'object';
+        const n = el('span', { className: compte ? 'amount' : 'level',
+          dataset: { value: String(compte ? niveaux[id].nombre : niveaux[id]) } });
+        const avant = li.querySelector;
+        li.querySelector = sel => sel === (compte ? '.amount[data-value]' : '.level[data-value]') ? n : avant(sel);
+      }
       // le jeu étiquette ses cases, et c'est de là que vient leur nom
-      li.getAttribute = s => s === 'aria-label' ? 'Case ' + id + ' (niveau 3)' : null;
+      // la pastille que le script pose sur la tuile
+      const sansPastille = li.querySelector;
+      li.querySelector = sel => sel === '.copilote-tag'
+        ? li.children.find(c => String(c.className).split(' ').includes('copilote-tag')) || null
+        : sansPastille(sel);
+      li.getAttribute = s => s === 'aria-label' ? (noms[id] || 'Case ' + id) + ' (niveau 3)' : null;
       ul.appendChild(li);
       tuiles.push(li);
     }
@@ -248,7 +276,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     '.costs': () => costsBox,
     '.copilote-eta': () => (det ? det.children.find(c => c.className === 'copilote-eta') || null : null),
     '.costs li.resource[data-value]': () => costEls,
-    'li.technology.copilote-next': () => [],
+    'li.technology.copilote-next': () => tuiles.filter(t => t.classList.contains('copilote-next')),
     'h3': () => null,
     '.information .level[data-value]': () => null,
     '.build_duration time[datetime]': () => null,
@@ -307,11 +335,33 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     return realGet(id);
   };
 
+  const ecrit = {};
+  if (askAvant !== undefined) ecrit.prioAsk = askAvant;
+  let dernier = null;
   // Le panneau republie son envoi : on garde l'écouteur pour rejouer la scène.
   let republie = null;
+  const enAttente = [];
   const chrome = {
     storage: {
-      local: { get(k, cb) { cb({ skin }); }, set() {} },
+      /* Ce que le script écrit est gardé : un test le relit comme le ferait le
+         panneau. `prioAsk` est la seule clé que le script lise et écrive ; le
+         reste de ce qu'il lit est le relevé du panneau. */
+      local: {
+        get(k, cb) {
+          if (stockageCasse === 'get' && k === 'prioAsk') throw new Error('Extension context invalidated.');
+          // la valeur se lit à l'appel : une réponse tardive porte l'état d'alors, pas celui d'après
+          const v = k === 'prioAsk' ? (ecrit.prioAsk !== undefined ? { prioAsk: ecrit.prioAsk } : {}) : { skin };
+          const rep = () => cb(v);
+          if (getDiffere && k === 'prioAsk') enAttente.push(rep); else rep();
+        },
+        set(o, cb) {
+          Object.assign(ecrit, JSON.parse(JSON.stringify(o)));
+          // `onChanged` sonne aussi dans le contexte qui écrit
+          if ('prioAsk' in o && republie && stockageCasse !== 'lastError') republie({ prioAsk: { newValue: ecrit.prioAsk } }, 'local');
+          if (stockageCasse === 'lastError') chrome.runtime.lastError = { message: 'Extension context invalidated.' };
+          try { if (cb) cb(); } finally { delete chrome.runtime.lastError; }
+        }
+      },
       onChanged: { addListener(fn) { republie = fn; } }
     },
     runtime: { sendMessage() { return { catch() {} }; } }
@@ -448,6 +498,28 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     efface: () => { const e = det && det.children.find(c => c.className === 'copilote-eta'); if (e) e.remove(); },
     /** Le panneau republie un envoi : les chiffres bougent, la page suit. */
     majSkin: neuf => republie && republie({ skin: { newValue: neuf } }, 'local'),
+    /** Le panneau écrit ou vide `prioAsk` : sans argument, il retire la clé. */
+    majAsk: neuf => {
+      if (neuf === undefined) delete ecrit.prioAsk; else ecrit.prioAsk = neuf;
+      republie && republie({ prioAsk: neuf === undefined ? { oldValue: [] } : { newValue: neuf } }, 'local');
+    },
+    /** Le stockage répond enfin aux `get('prioAsk')` restés en l'air. */
+    livre: () => { while (enAttente.length) enAttente.shift()(); },
+    /** Ce que la tuile du jeu porte : sa pastille, son infobulle, sa teinte. */
+    tuile: id => {
+      const li = tuiles.find(t => t.dataset.technology === String(id));
+      const tag = li && li.querySelector('.copilote-tag');
+      return { pastille: tag ? tag.textContent : null, infobulle: tag ? tag.title : '',
+        classe: tag ? tag.className : '', noeud: tag, marquee: !!li && li.classList.contains('copilote-next') };
+    },
+    /** La pastille de la carte de la peau, ou null. */
+    carte: id => {
+      const panneau = principal.children.find(c => String(c.className).includes('copilote-peau-panneau'));
+      const carte = (panneau ? panneau.children.filter(c => c.className === 'cp-grille').flatMap(g => g.children) : [])
+        .find(c => c.dataset.technology === String(id));
+      const t = carte && carte.children.find(c => String(c.className).split(' ').includes('cp-cible'));
+      return { pastille: t ? t.textContent : null, infobulle: t ? t.title : '', classe: t ? t.className : '' };
+    },
     /** Une secousse de la page, comme en produit le jeu. */
     secousse: () => secousse && secousse(),
     /** Un script plus neuf arrive : recharger l'extension sans recharger la
@@ -459,6 +531,70 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
       if (!li) throw new Error('aucune tuile ' + id + ' dans cette page');
       (ecoutes.click || []).forEach(fn => fn({ target: li }));
     },
+    /** Un clic droit sur une tuile, puis ce que fait le joueur dans le champ :
+        `saisie` remplace le contenu (absente, il laisse le champ prérempli),
+        puis Entrée — ou `{ echap }`, ou `{ perdFocus }`. `{ laisse: true }` ne fait rien
+        du champ, pour le regarder ouvert. `{ dessus: true }` clique sur un descendant, `{ fabrique }` et
+        `{ synthese }` rendent le clic droit, ou la touche, non fiables. `{ carte: true }` vise la carte de la peau plutôt que la tuile du jeu. Retourne ce que le
+        script a fait de l'événement et de la tuile. */
+    clicDroit: (id, saisie, { echap = false, perdFocus = false, carte = false, laisse = false, dessus = false, fabrique = false, synthese = false } = {}) => {
+      /* La carte de notre peau, ou la tuile du jeu : le geste est le même, le
+         joueur vise celle qu'il a sous les yeux. */
+      const panneau = principal.children.find(c => String(c.className).includes('copilote-peau-panneau'));
+      const li = carte
+        ? (panneau ? panneau.children.filter(c => c.className === 'cp-grille').flatMap(g => g.children) : [])
+          .find(c => c.dataset.technology === String(id))
+        : tuiles.find(t => t.dataset.technology === String(id));
+      if (!li) throw new Error('aucune ' + (carte ? 'carte ' : 'tuile ') + id + ' dans cette page');
+      /* `dessus` : le clic tombe sur un descendant de la tuile (l'icône, le
+         nom), comme avec une vraie souris. `fabrique` : l'événement vient d'un
+         script de la page, non d'un geste du joueur. */
+      const cible = dessus ? li.appendChild(el('span')) : li;
+      const ev = { target: cible, isTrusted: !fabrique, empeche: false, preventDefault() { this.empeche = true; } };
+      (ecoutes.contextmenu || []).forEach(fn => fn(ev));
+      dernier = { ev, li };
+      const champ = li.children.find(c => c.className === 'cp-prio-champ');
+      if (!champ) return;
+      if (laisse) return;
+      if (saisie !== undefined) champ.value = saisie;
+      const touche = key => {
+        const k = { key, isTrusted: !synthese, empeche: false, preventDefault() { this.empeche = true; }, stopPropagation() {} };
+        dernier.touche = k;
+        (champ.ecoutes.keydown || []).forEach(fn => fn(k));
+      };
+      if (echap) touche('Escape');
+      else if (perdFocus) (champ.ecoutes.blur || []).forEach(fn => fn({}));
+      else touche('Enter');
+    },
+    /** Un clic droit sur une carte dont l'attribut `data-technology` a été écrit
+        par quelqu'un d'autre : du texte qui voudrait casser un sélecteur. */
+    clicDroitCarteForgee: valeur => {
+      const panneau = principal.children.find(c => String(c.className).includes('copilote-peau-panneau'));
+      const carte = el('div', { className: 'cp-case', dataset: { technology: valeur } });
+      (panneau || principal).appendChild(carte);
+      const ev = { target: carte, isTrusted: true, empeche: false, preventDefault() { this.empeche = true; } };
+      (ecoutes.contextmenu || []).forEach(fn => fn(ev));
+      dernier = { ev, li: carte };
+    },
+    /** Un clic droit sur autre chose qu'une tuile : un élément de la page, sans tuile au-dessus. */
+    clicDroitAilleurs: () => {
+      const ev = { target: el('div'), isTrusted: true, empeche: false, preventDefault() { this.empeche = true; } };
+      (ecoutes.contextmenu || []).forEach(fn => fn(ev));
+      dernier = { ev, li: null };
+    },
+    /** Le clic droit le plus récent : a-t-il pris le menu du navigateur ? */
+    get menuEmpeche() { return !!(dernier && dernier.ev.empeche); },
+    /** La touche jouée dans le champ a-t-elle perdu son action par défaut ? */
+    get toucheEmpechee() { return !!(dernier && dernier.touche && dernier.touche.empeche); },
+    /** Ce que la tuile du dernier clic droit dit pour refuser, ou null. */
+    get refus() {
+      const r = dernier && dernier.li && dernier.li.children.find(c => c.className === 'cp-prio-refus');
+      return r ? r.textContent : null;
+    },
+    /** Le champ resté sur la tuile du dernier clic droit, ou null. */
+    get champ() { return (dernier && dernier.li && dernier.li.children.find(c => c.className === 'cp-prio-champ')) || null; },
+    /** Ce que le script a écrit dans le stockage local, par clé. */
+    ecrit: () => ecrit,
     dataset: html.dataset,
     styleInjected: !!document.getElementById('copilote-style'),
     styleTxt: (document.getElementById('copilote-style') || {}).textContent || '',

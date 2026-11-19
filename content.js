@@ -278,7 +278,7 @@
   /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On
      n'ajoute qu'une classe et une étiquette inerte : rien n'est cliqué, rien
      n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
-  let hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {}, noshop = false, large = false, peau = false, clair = false, colonne = [], teintes = {};
+  let prio = {}, asks = [], hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {}, noshop = false, large = false, peau = false, clair = false, colonne = [], teintes = {};
   /* Chaque règle vise un bloc nommé, repéré sur la page, et ne fait que le
      masquer. Elles ne s'appliquent que si le joueur a coché « Épurer », et
      décocher les retire toutes d'un coup. */
@@ -975,6 +975,13 @@ border-radius:4px;display:block}
 .copilote-peau-panneau .cp-cible{position:absolute;top:6px;right:6px;border:0;border-radius:3px;
 background:var(--cp-accent);color:var(--cp-creux);font:700 11px/1.5 Arial,sans-serif;padding:1px 7px;cursor:pointer}
 .copilote-peau-panneau .cp-cible:hover{background:var(--cp-accent-vif)}
+/* ta priorité n'a pas la teinte de la cible du plan ; pas encore confirmée,
+   elle reste en creux jusqu'à ce que le panneau l'ait reprise */
+.copilote-peau-panneau .cp-cible-prio,
+.copilote-peau-panneau .cp-cible-prio:hover{background:var(--cp-attention)}
+.copilote-peau-panneau .cp-cible-attente,
+.copilote-peau-panneau .cp-cible-attente:hover{background:transparent;color:var(--cp-attention);
+box-shadow:inset 0 0 0 1px var(--cp-attention)}
 /* ce qui se compte ne se lance pas d'un clic : la pastille informe, sans
    faire croire qu'elle agit */
 .copilote-peau-panneau .cp-cible-muette,
@@ -986,8 +993,8 @@ box-shadow:inset 0 0 0 1px var(--cp-ligne);cursor:default}
 .copilote-peau-panneau .cp-cible[disabled]{background:var(--cp-ligne);color:var(--cp-doux)}
 /* ce que le clic a donné, dit sur la pastille elle-même */
 .copilote-peau-panneau .cp-cible[data-etat]::after{content:" · " attr(data-etat)}
-.copilote-peau-panneau .cp-cible[data-etat="lancé"]{background:var(--cp-bon)}
-.copilote-peau-panneau .cp-cible[data-etat="pas payable"]{background:var(--cp-attention)}
+.copilote-peau-panneau .cp-cible[data-etat="lancé"]{background:var(--cp-bon);color:var(--cp-creux)}
+.copilote-peau-panneau .cp-cible[data-etat="pas payable"]{background:var(--cp-attention);color:var(--cp-creux)}
 .copilote-peau-panneau .cp-vide{color:var(--cp-doux);font-size:12px}
 /* Le jeu donne 654 px à son panneau et l'empile en trois étages posés en
    absolu : l'enveloppe, le contenu, le panneau. Les trois reviennent dans le
@@ -1393,30 +1400,17 @@ width:auto !important;max-width:none !important;background-image:none !important
     document.documentElement.classList.toggle('copilote-clair', clair);
     /* Le contenu du jeu ne part hors de l'écran que là où on le remplace. */
     document.documentElement.classList.toggle('copilote-peau-grille', grille);
-    const want = hints[meta('planet-id')] || {};
+    const dit = marques(meta('planet-id'));
+    const want = {};
+    for (const id of Object.keys(dit)) want[id] = dit[id].lvl;
     const cases = tuiles.map(li => {
-      const id = +li.dataset.technology;
-      /* Une case se compte ou se monte : un satellite et une foreuse ont un
-         nombre, une mine a un niveau. Le jeu les écrit dans deux balises. */
-      const niveau = li.querySelector('.level[data-value]');
-      const compte = niveau ? null : li.querySelector('.amount[data-value]');
-      const niv = niveau || compte;
-      /* Le nom vient du jeu d'abord : il le met dans l'étiquette de sa case,
-         dans la langue du joueur, et il nomme ce que notre table ignore —
-         les formes de vie en ont des dizaines. Notre table ne sert que de
-         secours. Le jeu écrit « Mine de métal (niveau 14) » : le niveau est
-         déjà dans la carte, on ne le redit pas. */
-      const dit = clean(String(li.getAttribute('aria-label') || '').split('(')[0]);
-      /* Le jeu marque la case en chantier, et y met le niveau visé : c'est
-         là que se lit ce qui monte, et jusqu'où. */
-      const actif = li.dataset.status === 'active';
-      const vise = clean((li.querySelector('.targetlevel') || {}).textContent);
-      return { id, nom: dit || OG_NAMES[id] || ('Tech ' + id), compte: !!compte, actif, vise,
-        niv: niv ? +niv.dataset.value || 0 : null, cible: want[id], li };
+      const c = lireTuile(li, want);
+      c.src = (dit[c.id] || {}).src;
+      return c;
     });
     const lignes = ((band || {}).pages || {})[comp] || [];
     // Tant que rien ne change, on ne repose rien : la page clignoterait.
-    const cle = JSON.stringify([comp, grille, cases.map(c => [c.id, c.niv, c.cible, c.actif]),
+    const cle = JSON.stringify([comp, grille, cases.map(c => [c.id, c.niv, c.cible, c.src, c.actif]),
       lignes.map(l => [l.what, l.quand, l.gris]), colonne.map(l => [l.what, l.quand])]);
     if (laCle === cle && (!grille || (laPeau && laPeau.parentNode === hote))) {
       peauEtat = grille ? 'posée' : 'cadre';
@@ -1485,6 +1479,9 @@ width:auto !important;max-width:none !important;background-image:none !important
       for (const c of g.cases) {
       const carte = grille.appendChild(document.createElement('div'));
       carte.className = 'cp-case';
+      /* Le clic droit retrouve sa tuile par ce numéro : la carte est posée hors
+         des listes du jeu, `closest('li.technology')` ne l'atteindrait jamais. */
+      carte.dataset.technology = String(c.id);
       const b = carte.appendChild(document.createElement('button'));
       b.className = 'cp-ouvrir';
       b.type = 'button';
@@ -1514,11 +1511,12 @@ width:auto !important;max-width:none !important;background-image:none !important
            n'existe pas. La pastille dit alors ce que le plan veut, sans
            prétendre le lancer. */
         const t = carte.appendChild(document.createElement(c.compte ? 'span' : 'button'));
-        t.className = 'cp-cible' + (c.compte ? ' cp-cible-muette' : '');
+        t.className = 'cp-cible' + (c.compte ? ' cp-cible-muette' : '')
+          + (c.src === 'prio' || c.src === 'attente' ? ' cp-cible-' + c.src : '');
         t.textContent = '→ ' + c.cible;
         if (!c.compte) {
           t.type = 'button';
-          t.title = 'Monter au niveau ' + c.cible;
+          t.title = c.src && c.src !== 'plan' ? MARQUE[c.src].titre(c.cible) : 'Monter au niveau ' + c.cible;
           t.addEventListener('click', () => construire(c.id, c.cible, t));
         } else {
           t.title = 'Le plan en veut ' + c.cible + ' : ouvre la case pour en commander';
@@ -1867,6 +1865,55 @@ width:auto !important;max-width:none !important;background-image:none !important
   /* La tuile cliquée à la main : c'est la première planète d'une tournée, celle
      où le joueur décide ce qu'il fait le tour. Le jeu ne recharge rien en
      ouvrant une tuile, donc l'URL ne le dit pas — seul le clic le dit. */
+  /* Ce que dit une tuile du jeu : son numéro, son nom, son niveau ou son nombre.
+     Le clic droit la relit au moment du geste, la peau à chaque dessin : une
+     seule lecture, pour que les deux disent la même chose. */
+  function lireTuile(li, want) {
+    const id = +li.dataset.technology;
+    /* Une case se compte ou se monte : un satellite et une foreuse ont un
+       nombre, une mine a un niveau. Le jeu les écrit dans deux balises. */
+    const niveau = li.querySelector('.level[data-value]');
+    const compte = niveau ? null : li.querySelector('.amount[data-value]');
+    const niv = niveau || compte;
+    /* Le nom vient du jeu d'abord : il le met dans l'étiquette de sa case,
+       dans la langue du joueur, et il nomme ce que notre table ignore —
+       les formes de vie en ont des dizaines. Notre table ne sert que de
+       secours. Le jeu écrit « Mine de métal (niveau 14) » : le niveau est
+       déjà dans la carte, on ne le redit pas. */
+    const dit = clean(String(li.getAttribute('aria-label') || '').split('(')[0]);
+    /* Le jeu marque la case en chantier, et y met le niveau visé : c'est
+       là que se lit ce qui monte, et jusqu'où. */
+    const actif = li.dataset.status === 'active';
+    const vise = clean((li.querySelector('.targetlevel') || {}).textContent);
+    return { id, nom: dit || OG_NAMES[id] || ('Tech ' + id), compte: !!compte, actif, vise,
+      niv: niv ? +niv.dataset.value || 0 : null, cible: want[id], li };
+  }
+
+  /* Ce que dit une tuile de cette planète, et d'où ça vient : { id: { lvl, src } }.
+     Trois sources, la cause avant l'effet : ta demande pas encore reprise par le
+     panneau (`attente`), ta priorité (`prio`), puis ce que le plan vise
+     (`hints`) — la priorité est la raison, la cible du plan n'en est que la suite.
+     Une demande à 0 est un retrait : `prioVisee` rend alors null et la tuile
+     retombe sur le plan. Une seule union pour la tuile du jeu et pour la carte. */
+  function marques(gid) {
+    const m = {};
+    const ids = new Set([...Object.keys(hints[gid] || {}), ...Object.keys(prio[gid] || {}),
+      ...(Array.isArray(asks) ? asks : []).filter(x => x && String(x.gid) === String(gid)).map(x => String(x.tech))
+      // la valeur vient du stockage et entre dans un sélecteur : un entier, ou rien
+      .filter(id => /^\d+$/.test(id))]);
+    for (const id of ids) {
+      const v = prioVisee(gid, id, asks);
+      if (v != null) m[id] = { lvl: v, src: demandeDe(asks, gid, id) ? 'attente' : 'prio' };
+      else if ((hints[gid] || {})[id] !== undefined) m[id] = { lvl: hints[gid][id], src: 'plan' };
+    }
+    return m;
+  }
+  const MARQUE = {
+    plan: { cls: '', titre: n => 'Copilote : monter au niveau ' + n },
+    prio: { cls: ' cp-tag-prio', titre: n => 'Ta priorité : monter au niveau ' + n + '. Clic droit pour la changer.' },
+    attente: { cls: ' cp-tag-attente', titre: n => 'Ta priorité : niveau ' + n + ', pas encore confirmée par le panneau. Clic droit pour la changer.' }
+  };
+
   let tuileVue = '';
 
   /* Sans tuile ouverte, la tournée part de ce que le copilote conseille ici :
@@ -2062,6 +2109,17 @@ li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-
 .copilote-tag{position:absolute;top:3px;right:3px;z-index:5;pointer-events:none;max-width:calc(100% - 6px);
 overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
 border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+/* Deux teintes : la cible du plan est bleue, ta priorité est ambre ; ta demande
+   que le panneau n'a pas encore reprise garde l'ambre, mais en retrait : cerclée
+   et atténuée, pour qu'on la voie comme provisoire. */
+.copilote-tag.cp-tag-prio{background:#ffc95c}
+.copilote-tag.cp-tag-attente{background:#ffc95c;box-shadow:inset 0 0 0 1px #0c1120,0 1px 3px rgba(0,0,0,.5);opacity:.8}
+/* Le champ du clic droit et son refus : posés sur la tuile, retirés après. */
+.cp-prio-hote{position:relative !important}
+.cp-prio-champ,.cp-prio-refus{position:absolute;left:2px;right:2px;bottom:2px;z-index:50;box-sizing:border-box;
+margin:0;padding:3px 5px;border-radius:3px;font:12px/1.3 Arial,sans-serif}
+.cp-prio-champ{border:1px solid #6f9fff;background:#0c1120;color:#e8eefc}
+.cp-prio-refus{border:1px solid #6f9fff;background:#0c1120;color:#e8eefc;pointer-events:none;bottom:auto;top:2px}
 .copilote-eta{position:relative;z-index:2;margin:8px 0;padding:8px 10px;white-space:pre-line;
 border:1px solid rgba(138,169,255,.45);border-left:3px solid #8aa9ff;border-radius:4px;
 background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55);
@@ -2133,25 +2191,29 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
     /* La largeur se pose avant le reste : la bande et les pastilles se placent
        dans une page dont le cadre a déjà sa forme. */
     try { poseLargeur(); } catch (e) { largeEtat = 'erreur ' + String((e && e.message) || e).slice(0, 40); }
-    const want = hints[meta('planet-id')] || {};
+    const dit = marques(meta('planet-id'));
     document.querySelectorAll('li.technology.copilote-next').forEach(li => {
-      if (want[li.dataset.technology] === undefined) {
+      if (!dit[li.dataset.technology]) {
         li.classList.remove('copilote-next');
         const t = li.querySelector('.copilote-tag');
         if (t) t.remove();
       }
     });
-    for (const [tech, lvl] of Object.entries(want)) {
+    for (const [tech, m] of Object.entries(dit)) {
       const li = document.querySelector(`li.technology[data-technology="${tech}"]`);
-      if (!li || li.classList.contains('copilote-next')) continue;
+      if (!li) continue;
       li.classList.add('copilote-next');
       // Court exprès : la tuile est petite et affiche déjà son niveau courant
       // en bas. L'infobulle porte la phrase entière.
-      const tag = document.createElement('span');
-      tag.className = 'copilote-tag';
-      tag.textContent = '→ ' + lvl;
-      tag.title = 'Copilote : monter au niveau ' + lvl;
-      li.appendChild(tag);
+      let tag = li.querySelector('.copilote-tag');
+      if (!tag) { tag = document.createElement('span'); li.appendChild(tag); }
+      /* La pastille se met à jour sur place : la source ou le niveau peuvent
+         changer sans que la tuile cesse d'être marquée. N'écrire que ce qui
+         diffère, sinon la page bouge à chaque dessin et le dessin la rappelle. */
+      const v = MARQUE[m.src], txt = '→ ' + m.lvl;
+      if (tag.className !== 'copilote-tag' + v.cls) tag.className = 'copilote-tag' + v.cls;
+      if (tag.textContent !== txt) tag.textContent = txt;
+      if (tag.title !== v.titre(m.lvl)) tag.title = v.titre(m.lvl);
     }
     paintEta();
     /* Le témoin se lit après : une anomalie de la page ne doit pas emporter le
@@ -2196,6 +2258,7 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
   try {
     const take = skin => {
       hints = (skin && skin.hints) || {};
+      prio = (skin && skin.prio) || {};
       rates = (skin && skin.rates) || {};
       donors = (skin && skin.donors) || {};
       cargo = (skin && skin.cargo) || null;
@@ -2210,9 +2273,20 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
       band = (skin && skin.band) || {};
     };
     chrome.storage.local.get('skin', v => { take(v && v.skin); paint(); });
+    /* Un miroir synchrone de `prioAsk` : le dessin d'une carte ne peut pas
+       attendre un `get`, qui est asynchrone. Il s'amorce une fois, puis suit
+       `onChanged` — qui sonne aussi dans le contexte qui écrit, donc nos
+       propres demandes y arrivent sans code en plus. Le panneau vide la clé en
+       la retirant : plus de valeur, plus de demande. */
+    let askVu = false;
+    const prends = l => { asks = Array.isArray(l) ? l : []; paint(); };
     chrome.storage.onChanged.addListener((ch, area) => {
-      if (area === 'local' && ch.skin) { take(ch.skin.newValue); paint(); }
+      if (area !== 'local') return;
+      if (ch.skin) { take(ch.skin.newValue); paint(); }
+      // un changement plus neuf que l'amorce : la réponse tardive du `get` ne le défait pas
+      if (ch.prioAsk) { askVu = true; prends(ch.prioAsk.newValue); }
     });
+    try { chrome.storage.local.get('prioAsk', v => { if (!askVu) prends(v && v.prioAsk); }); } catch (e) {}
   } catch (e) {}
 
   let last = '', dirty = true;
@@ -2235,16 +2309,163 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
      ses propres comptes à rebours. Repeindre n'écrit rien quand rien n'a
      changé, donc la secousse que nous causons nous-mêmes s'arrête là.
      L'envoi du relevé, lui, reste au rythme de garde : c'est le coûteux. */
+  /* Le refus du clic droit, et le champ qui peut être ouvert : déclarés avant tout
+     écouteur qui les appelle. Le refus reste sur la tuile jusqu'au prochain clic
+     ou clic droit : il est ancré sur la tuile que le joueur vient de viser, il n'y
+     en a jamais qu'un, et un message qui s'efface seul se manque quand les yeux
+     sont sur le jeu. */
+  let refusEl = null, refusHote = null, fermeChamp = null;
+  const effaceRefus = () => {
+    if (refusEl) refusEl.remove();
+    // l'hôte garde sa position tant qu'un champ y est ouvert
+    if (refusHote && !fermeChamp) refusHote.classList.remove('cp-prio-hote');
+    refusEl = refusHote = null;
+  };
+  const refuse = (hote, txt) => {
+    effaceRefus();
+    refusEl = document.createElement('span');
+    refusEl.className = 'cp-prio-refus';
+    refusEl.textContent = txt;
+    refusHote = hote;
+    hote.classList.add('cp-prio-hote');
+    hote.appendChild(refusEl);
+  };
+
   /* Un seul écouteur, par délégation : le jeu refait sa liste de tuiles à tout
      bout de champ, et un écouteur par tuile mourrait avec elle. Écouter n'est
      pas cliquer — rien n'est écrit dans la page. */
   document.addEventListener('click', e => {
+    effaceRefus();
     const li = e.target && e.target.closest && e.target.closest('li.technology[data-technology]');
     if (!li) return;
     tuileVue = li.dataset.technology || '';
     paint();
   });
 
+  /* Le niveau visé que le joueur a déjà dit pour cette tuile : la demande que la
+     page vient de poster l'emporte, car le panneau ne l'a peut-être pas encore
+     placée (planète jamais relevée) et `prio` ne la porte pas. Une demande à 0 est
+     un retrait : il n'y a plus de cible. Pure, pour que le dessin de la carte
+     dise la même chose que le champ.
+     @returns {number|null} */
+  /* La demande postée pour cette tuile, ou undefined : une par tuile. */
+  function demandeDe(liste, gid, tech) {
+    return (Array.isArray(liste) ? liste : [])
+      .find(x => x && String(x.gid) === String(gid) && String(x.tech) === String(tech));
+  }
+  function prioVisee(gid, tech, asks) {
+    const d = demandeDe(asks, gid, tech);
+    if (d) return d.lvl > 0 ? d.lvl : null;
+    const p = (prio[gid] || {})[tech];
+    return p != null ? p : null;
+  }
+  /* Une écriture qui échoue le dit sur la tuile : le champ est déjà fermé, et
+     sans cela le joueur croirait sa priorité posée. Le cas classique est
+     l'extension rechargée, dont le contexte n'existe plus. */
+  function ecritAsk(e, hote) {
+    const echec = err => {
+      console.error('Copilote : priorité non enregistrée', err || (chrome.runtime && chrome.runtime.lastError));
+      refuse(hote, 'Pas enregistré : recharge la page.');
+    };
+    try {
+      chrome.storage.local.get('prioAsk', v => {
+        try {
+          // une demande par tuile : la nouvelle remplace l'ancienne
+          const l = (Array.isArray(v && v.prioAsk) ? v.prioAsk : [])
+            .filter(x => !(x && String(x.gid) === String(e.gid) && String(x.tech) === String(e.tech)));
+          l.push(e);
+          chrome.storage.local.set({ prioAsk: l }, () => { if (chrome.runtime.lastError) echec(); });
+        } catch (err) { echec(err); }
+      });
+    } catch (err) { echec(err); }
+  }
+  function poseChamp(hote, t, gid, asks) {
+    effaceRefus();
+    if (fermeChamp) fermeChamp();
+    const connue = prioVisee(gid, t.id, asks);
+    const champ = document.createElement('input');
+    champ.className = 'cp-prio-champ';
+    champ.type = 'text';
+    champ.setAttribute('inputmode', 'numeric');
+    champ.setAttribute('aria-label', 'Niveau visé pour ' + t.nom);
+    champ.value = String(connue != null ? connue : t.niv + 1);
+    hote.classList.add('cp-prio-hote');
+    hote.appendChild(champ);
+    let fini = false;
+    const ferme = () => {
+      if (fini) return;
+      fini = true; champ.remove(); fermeChamp = null;
+      hote.classList.remove('cp-prio-hote');
+      // la faute de frappe corrigée ne laisse pas son reproche sur la tuile
+      effaceRefus();
+    };
+    fermeChamp = ferme;
+    champ.addEventListener('click', e => e.stopPropagation());
+    champ.addEventListener('keydown', e => {
+      // un script de la page ne valide pas à la place du joueur
+      if (!e.isTrusted) return;
+      e.stopPropagation();
+      if (e.key === 'Escape') { ferme(); return; }
+      if (e.key !== 'Enter') return;
+      // dans un formulaire, Entrée enverrait la page avec la demande
+      e.preventDefault();
+      const raw = champ.value.trim();
+      /* Un champ vidé ne dit pas la même chose qu'une faute de frappe : le
+         premier retire, la seconde se corrige. Le jeu lit en chaîne, et
+         `parseInt('12abc')` ferait 12. */
+      if (!/^\d*$/.test(raw)) { refuse(hote, 'Un nombre entier, ou rien pour retirer.'); return; }
+      /* L'intention se tranche ici, là où le joueur l'a formée : au niveau déjà
+         atteint ou au-dessous, c'est un retrait (0) ; le panneau ne le devine pas.
+         Un champ vidé vaut Number('') = 0, donc tombe dans ce cas sans branche à lui. */
+      const lvl = +raw <= t.niv ? 0 : +raw;
+      ferme();
+      ecritAsk({ gid, tech: t.id, nom: t.nom, lvl, at: Date.now() }, hote);
+    });
+    champ.addEventListener('blur', ferme);
+    champ.focus();
+    champ.select();
+  }
+  /* Le clic droit sur une tuile pose une priorité. Même délégation que le clic :
+     le jeu refait ses listes, un écouteur par tuile mourrait avec elles.
+     Deux tuiles possibles : celle du jeu, et la carte de notre peau, qui n'est
+     jamais dans une `li.technology` — la carte renvoie à la tuile du jeu, seule
+     à dire le niveau. Hors de l'une et de l'autre, l'événement n'est pas touché :
+     le menu du navigateur reste l'outil du joueur. */
+  document.addEventListener('contextmenu', e => {
+    // un geste fabriqué par un script de la page n'écrit rien dans le stockage
+    if (!e.isTrusted) return;
+    const cible = e.target;
+    if (!cible || !cible.closest) return;
+    if (cible.classList && cible.classList.contains('cp-prio-champ')) return;
+    effaceRefus();
+    let hote = cible.closest('li.technology[data-technology]'), li = hote;
+    if (!hote) {
+      hote = cible.closest('.cp-case[data-technology]');
+      /* La valeur vient d'un attribut du DOM, qu'une page de joueurs peut avoir
+         écrit : elle entre dans un sélecteur, donc elle est un entier ou rien. */
+      const id = hote && hote.dataset.technology;
+      if (hote && /^\d+$/.test(id || '')) li = document.querySelector('li.technology[data-technology="' + id + '"]');
+    }
+    if (!hote || !li) return;
+    const t = lireTuile(li, hints[meta('planet-id')] || {});
+    /* Deux refus, et la tuile dit lequel : le jeu donne un niveau à des cases
+       que le moteur ne modélise pas (Terraformeur, Dock spatial, Silo), et n'en
+       donne pas à celles qui se comptent ni aux recherches de forme de vie.
+       Le menu du navigateur n'est volé qu'à une tuile qu'on traite. */
+    /* `niv` lit aussi le nombre d'un satellite : c'est `compte` qui dit qu'il ne se monte pas. */
+    if (t.compte || t.niv == null) { refuse(hote, 'Pas de priorité ici : cette case n\'a pas de niveau.'); return; }
+    if (!(OG_BUILD[t.id] || OG_TECH[t.id] || t.id >= 11000)) {
+      refuse(hote, 'Le copilote ne gère pas encore cette technologie.'); return;
+    }
+    /* Sans planète lue, le panneau jetterait la demande — même une recherche,
+       qui n'en a pas besoin : il la range par `gid`. On le dit sur place. */
+    const gid = meta('planet-id');
+    if (!gid) { refuse(hote, 'Planète introuvable sur cette page.'); return; }
+    e.preventDefault();
+    /* Les demandes déjà postées sont dans le miroir : le panneau en retire dès
+       qu'il les a placées, et le miroir suit. */
+    poseChamp(hote, t, gid, asks);
+  });
   /* L'arrivée d'un script neuf. Il s'annonce avant de peindre, et celui qui
      l'entend se retire : il enlève ce qu'il a posé et cesse de dessiner.
      Sans cela, deux bandes et deux panneaux se répondaient dans la page à

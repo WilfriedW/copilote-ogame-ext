@@ -386,8 +386,9 @@ t('une demande gardée depuis plus de 24 h disparaît', () => {
 // Review Focus 2
 t('une demande malformée ne pose rien et ne lève pas', () => {
   const g = app(s => { s.planets[0].gid = '33701'; });
-  const sales = [null, {}, D({tech:null}), D({lvl:'dix'}), D({lvl:0}), D({lvl:2.5}),
-                 D({gid:'__proto__'}), D({tech:999999}), D({tech:33})];  // 33 : Terraformeur, non modélisé
+  // NB (après coup) : `lvl:0` a quitté cette liste — il veut dire « retire ».
+  const sales = [null, {}, D({tech:null}), D({lvl:'dix'}), D({lvl:-3}), D({lvl:2.5}),
+                 D({gid:'__proto__'}), D({tech:33})];  // 33 : Terraformeur, non modélisé
   assert.deepEqual(g.prioDrain(sales).filter(x => /^\d+$/.test(String(x.gid))).length, 0);
   assert.deepEqual(g.prios(), []);
   assert.deepEqual(g.priosLf(), []);
@@ -406,7 +407,7 @@ t('deux demandes sur la même tuile n\'en font qu\'une, la dernière', () => {
 
 - [ ] **Step 3 : écrire `prioDrain(liste)` dans `app.js`**
 
-Pour chaque entrée : rejeter ce qui n'est pas un objet, ce dont `lvl` n'est pas un entier > 0, ce dont le `gid` n'est pas une suite de chiffres. Traduire `tech` : `OG_BUILD[tech]` → `prioPose('b', pid, clé, lvl)` ; `OG_TECH[tech]` → `prioPose('t', null, clé, lvl)` ; `tech >= 11000` → `prioPose('lf', pid, tech, lvl)` ; sinon jeter. Pour `b` et `lf`, le `pid` vient de la planète dont le `gid` correspond : absente, l'entrée est **rendue** (gardée), sauf si `at` a plus de 24 h.
+Pour chaque entrée : rejeter ce qui n'est pas un objet, ce dont `lvl` n'est pas un entier `>= 0`, ce dont le `gid` n'est pas une suite de chiffres. `lvl: 0` veut dire « retire » ; entre `0` et le niveau courant, la demande est satisfaite et se jette. Traduire `tech` : `OG_BUILD[tech]` → `prioPose('b', pid, clé, lvl)` ; `OG_TECH[tech]` → `prioPose('t', null, clé, lvl)` ; `tech >= 11000` → `prioPose('lf', pid, tech, lvl)` ; sinon jeter. Pour `b` et `lf`, le `pid` vient de la planète dont le `gid` correspond : absente, l'entrée est **rendue** (gardée), sauf si `at` a plus de 24 h.
 
 - [ ] **Step 4 : écrire `prioDemandes()`**
 
@@ -631,6 +632,29 @@ La tuile est retenue si elle a un niveau courant lisible **et** si son identifia
 - [ ] **Step 5 : écrire le champ**
 
 Posé sur la tuile, prérempli (priorité déjà connue, sinon niveau + 1), contenu sélectionné, focus dedans. Entrée valide, Échap et la perte du focus annulent. Valider écrit dans `prioAsk` : lire la liste, remplacer l'entrée de même `gid`+`tech` s'il y en a une, sinon ajouter.
+
+**Le champ vidé, ou un niveau au niveau courant ou au-dessous, envoie `lvl: 0`** — « retire cette priorité ». C'est la page qui tranche, parce que c'est là que le joueur a formé l'intention ; le panneau ne devine pas.
+
+```js
+t('un champ vidé demande le retrait', () => {
+  const p = page({comp:'supplies', planet:'33701', tuiles:[{id:1, niv:14}],
+                  skin:{prio:{'33701':{1:20}}}});
+  p.clicDroit(1, '');
+  assert.equal(p.ecrit().prioAsk[0].lvl, 0);
+});
+
+t('un niveau déjà atteint demande le retrait, il ne pose pas', () => {
+  const p = page({comp:'supplies', planet:'33701', tuiles:[{id:1, niv:14}]});
+  p.clicDroit(1, '14');
+  assert.equal(p.ecrit().prioAsk[0].lvl, 0);
+});
+
+t('un retrait sur une tuile sans priorité ne fait rien de mal', () => {
+  const p = page({comp:'supplies', planet:'33701', tuiles:[{id:1, niv:14}], skin:{}});
+  p.clicDroit(1, '');
+  assert.equal(p.ecrit().prioAsk[0].lvl, 0, 'la demande part quand même, le panneau en fera un non-événement');
+});
+```
 
 - [ ] **Step 6 : lancer les tests** — Run: `node test/run.js`, Expected: tout passe.
 
