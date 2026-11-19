@@ -26,6 +26,14 @@ L'épargne que le plan ouvre sur une planète, qu'elle vienne du moteur ou d'une
 priorité.
 _Éviter_ : réserve, qui est le montant, pas la raison.
 
+**demande** :
+Ce que la page envoie au panneau sur un clic droit : un niveau visé pour une
+tuile, ou son retrait. Elle devient une **priorité** quand le panneau a su la
+placer, et le panneau la retire alors ; tant qu'elle attend, la tuile la montre
+comme non confirmée. Ce que le plan en fait est un **objectif**.
+_Éviter_ : ordre, commande (une commande est ce qu'on passe au jeu pour un
+vaisseau).
+
 **nom**, **coordonnées**, **identifiant de jeu** :
 Trois choses que le jeu dit d'une planète. Chacune se lit, s'affiche et sert
 à parler au jeu ; aucune ne désigne la planète de façon sûre. Un rang dans

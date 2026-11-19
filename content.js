@@ -278,7 +278,7 @@
   /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On
      n'ajoute qu'une classe et une étiquette inerte : rien n'est cliqué, rien
      n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
-  let prio = {}, hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {}, noshop = false, large = false, peau = false, clair = false, colonne = [], teintes = {};
+  let prio = {}, asks = [], hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {}, noshop = false, large = false, peau = false, clair = false, colonne = [], teintes = {};
   /* Chaque règle vise un bloc nommé, repéré sur la page, et ne fait que le
      masquer. Elles ne s'appliquent que si le joueur a coché « Épurer », et
      décocher les retire toutes d'un coup. */
@@ -975,6 +975,13 @@ border-radius:4px;display:block}
 .copilote-peau-panneau .cp-cible{position:absolute;top:6px;right:6px;border:0;border-radius:3px;
 background:var(--cp-accent);color:var(--cp-creux);font:700 11px/1.5 Arial,sans-serif;padding:1px 7px;cursor:pointer}
 .copilote-peau-panneau .cp-cible:hover{background:var(--cp-accent-vif)}
+/* ta priorité n'a pas la teinte de la cible du plan ; pas encore confirmée,
+   elle reste en creux jusqu'à ce que le panneau l'ait reprise */
+.copilote-peau-panneau .cp-cible-prio,
+.copilote-peau-panneau .cp-cible-prio:hover{background:var(--cp-attention)}
+.copilote-peau-panneau .cp-cible-attente,
+.copilote-peau-panneau .cp-cible-attente:hover{background:transparent;color:var(--cp-attention);
+box-shadow:inset 0 0 0 1px var(--cp-attention)}
 /* ce qui se compte ne se lance pas d'un clic : la pastille informe, sans
    faire croire qu'elle agit */
 .copilote-peau-panneau .cp-cible-muette,
@@ -1393,11 +1400,17 @@ width:auto !important;max-width:none !important;background-image:none !important
     document.documentElement.classList.toggle('copilote-clair', clair);
     /* Le contenu du jeu ne part hors de l'écran que là où on le remplace. */
     document.documentElement.classList.toggle('copilote-peau-grille', grille);
-    const want = hints[meta('planet-id')] || {};
-    const cases = tuiles.map(li => lireTuile(li, want));
+    const dit = marques(meta('planet-id'));
+    const want = {};
+    for (const id of Object.keys(dit)) want[id] = dit[id].lvl;
+    const cases = tuiles.map(li => {
+      const c = lireTuile(li, want);
+      c.src = (dit[c.id] || {}).src;
+      return c;
+    });
     const lignes = ((band || {}).pages || {})[comp] || [];
     // Tant que rien ne change, on ne repose rien : la page clignoterait.
-    const cle = JSON.stringify([comp, grille, cases.map(c => [c.id, c.niv, c.cible, c.actif]),
+    const cle = JSON.stringify([comp, grille, cases.map(c => [c.id, c.niv, c.cible, c.src, c.actif]),
       lignes.map(l => [l.what, l.quand, l.gris]), colonne.map(l => [l.what, l.quand])]);
     if (laCle === cle && (!grille || (laPeau && laPeau.parentNode === hote))) {
       peauEtat = grille ? 'posée' : 'cadre';
@@ -1498,11 +1511,12 @@ width:auto !important;max-width:none !important;background-image:none !important
            n'existe pas. La pastille dit alors ce que le plan veut, sans
            prétendre le lancer. */
         const t = carte.appendChild(document.createElement(c.compte ? 'span' : 'button'));
-        t.className = 'cp-cible' + (c.compte ? ' cp-cible-muette' : '');
+        t.className = 'cp-cible' + (c.compte ? ' cp-cible-muette' : '')
+          + (c.src === 'prio' || c.src === 'attente' ? ' cp-cible-' + c.src : '');
         t.textContent = '→ ' + c.cible;
         if (!c.compte) {
           t.type = 'button';
-          t.title = 'Monter au niveau ' + c.cible;
+          t.title = c.src && c.src !== 'plan' ? MARQUE[c.src].titre(c.cible) : 'Monter au niveau ' + c.cible;
           t.addEventListener('click', () => construire(c.id, c.cible, t));
         } else {
           t.title = 'Le plan en veut ' + c.cible + ' : ouvre la case pour en commander';
@@ -1875,6 +1889,29 @@ width:auto !important;max-width:none !important;background-image:none !important
       niv: niv ? +niv.dataset.value || 0 : null, cible: want[id], li };
   }
 
+  /* Ce que dit une tuile de cette planète, et d'où ça vient : { id: { lvl, src } }.
+     Trois sources, la cause avant l'effet : ta demande pas encore reprise par le
+     panneau (`attente`), ta priorité (`prio`), puis ce que le plan vise
+     (`hints`) — la priorité est la raison, la cible du plan n'en est que la suite.
+     Une demande à 0 est un retrait : `prioVisee` rend alors null et la tuile
+     retombe sur le plan. Une seule union pour la tuile du jeu et pour la carte. */
+  function marques(gid) {
+    const m = {};
+    const ids = new Set([...Object.keys(hints[gid] || {}), ...Object.keys(prio[gid] || {}),
+      ...(Array.isArray(asks) ? asks : []).filter(x => x && String(x.gid) === String(gid)).map(x => String(x.tech))]);
+    for (const id of ids) {
+      const v = prioVisee(gid, id, asks);
+      if (v != null) m[id] = { lvl: v, src: demandeDe(asks, gid, id) ? 'attente' : 'prio' };
+      else if ((hints[gid] || {})[id] !== undefined) m[id] = { lvl: hints[gid][id], src: 'plan' };
+    }
+    return m;
+  }
+  const MARQUE = {
+    plan: { cls: '', titre: n => 'Copilote : monter au niveau ' + n },
+    prio: { cls: ' cp-tag-prio', titre: n => 'Ta priorité : monter au niveau ' + n },
+    attente: { cls: ' cp-tag-attente', titre: n => 'Ta priorité : niveau ' + n + ', pas encore confirmée par le panneau' }
+  };
+
   let tuileVue = '';
 
   /* Sans tuile ouverte, la tournée part de ce que le copilote conseille ici :
@@ -2070,6 +2107,10 @@ li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-
 .copilote-tag{position:absolute;top:3px;right:3px;z-index:5;pointer-events:none;max-width:calc(100% - 6px);
 overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
 border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+/* Deux teintes : la cible du plan est bleue, ta priorité est ambre ; ta demande
+   que le panneau n'a pas encore reprise garde l'ambre, en pointillé. */
+.copilote-tag.cp-tag-prio,.cp-tag-prio{background:#ffc95c}
+.copilote-tag.cp-tag-attente{background:#ffc95c;box-shadow:inset 0 0 0 1px #0c1120,0 1px 3px rgba(0,0,0,.5);opacity:.8}
 /* Le champ du clic droit et son refus : posés sur la tuile, retirés après. */
 .cp-prio-hote{position:relative !important}
 .cp-prio-champ,.cp-prio-refus{position:absolute;left:2px;right:2px;bottom:2px;z-index:50;box-sizing:border-box;
@@ -2147,25 +2188,29 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
     /* La largeur se pose avant le reste : la bande et les pastilles se placent
        dans une page dont le cadre a déjà sa forme. */
     try { poseLargeur(); } catch (e) { largeEtat = 'erreur ' + String((e && e.message) || e).slice(0, 40); }
-    const want = hints[meta('planet-id')] || {};
+    const dit = marques(meta('planet-id'));
     document.querySelectorAll('li.technology.copilote-next').forEach(li => {
-      if (want[li.dataset.technology] === undefined) {
+      if (!dit[li.dataset.technology]) {
         li.classList.remove('copilote-next');
         const t = li.querySelector('.copilote-tag');
         if (t) t.remove();
       }
     });
-    for (const [tech, lvl] of Object.entries(want)) {
+    for (const [tech, m] of Object.entries(dit)) {
       const li = document.querySelector(`li.technology[data-technology="${tech}"]`);
-      if (!li || li.classList.contains('copilote-next')) continue;
+      if (!li) continue;
       li.classList.add('copilote-next');
       // Court exprès : la tuile est petite et affiche déjà son niveau courant
       // en bas. L'infobulle porte la phrase entière.
-      const tag = document.createElement('span');
-      tag.className = 'copilote-tag';
-      tag.textContent = '→ ' + lvl;
-      tag.title = 'Copilote : monter au niveau ' + lvl;
-      li.appendChild(tag);
+      let tag = li.querySelector('.copilote-tag');
+      if (!tag) { tag = document.createElement('span'); li.appendChild(tag); }
+      /* La pastille se met à jour sur place : la source ou le niveau peuvent
+         changer sans que la tuile cesse d'être marquée. N'écrire que ce qui
+         diffère, sinon la page bouge à chaque dessin et le dessin la rappelle. */
+      const v = MARQUE[m.src], txt = '→ ' + m.lvl;
+      if (tag.className !== 'copilote-tag' + v.cls) tag.className = 'copilote-tag' + v.cls;
+      if (tag.textContent !== txt) tag.textContent = txt;
+      if (tag.title !== v.titre(m.lvl)) tag.title = v.titre(m.lvl);
     }
     paintEta();
     /* Le témoin se lit après : une anomalie de la page ne doit pas emporter le
@@ -2225,9 +2270,20 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
       band = (skin && skin.band) || {};
     };
     chrome.storage.local.get('skin', v => { take(v && v.skin); paint(); });
+    /* Un miroir synchrone de `prioAsk` : le dessin d'une carte ne peut pas
+       attendre un `get`, qui est asynchrone. Il s'amorce une fois, puis suit
+       `onChanged` — qui sonne aussi dans le contexte qui écrit, donc nos
+       propres demandes y arrivent sans code en plus. Le panneau vide la clé en
+       la retirant : plus de valeur, plus de demande. */
+    let askVu = false;
+    const prends = l => { asks = Array.isArray(l) ? l : []; paint(); };
     chrome.storage.onChanged.addListener((ch, area) => {
-      if (area === 'local' && ch.skin) { take(ch.skin.newValue); paint(); }
+      if (area !== 'local') return;
+      if (ch.skin) { take(ch.skin.newValue); paint(); }
+      // un changement plus neuf que l'amorce : la réponse tardive du `get` ne le défait pas
+      if (ch.prioAsk) { askVu = true; prends(ch.prioAsk.newValue); }
     });
+    try { chrome.storage.local.get('prioAsk', v => { if (!askVu) prends(v && v.prioAsk); }); } catch (e) {}
   } catch (e) {}
 
   let last = '', dirty = true;
@@ -2289,9 +2345,13 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
      un retrait : il n'y a plus de cible. Pure, pour que le dessin de la carte
      dise la même chose que le champ.
      @returns {number|null} */
-  function prioVisee(gid, tech, asks) {
-    const d = (Array.isArray(asks) ? asks : [])
+  /* La demande postée pour cette tuile, ou undefined : une par tuile. */
+  function demandeDe(liste, gid, tech) {
+    return (Array.isArray(liste) ? liste : [])
       .find(x => x && String(x.gid) === String(gid) && String(x.tech) === String(tech));
+  }
+  function prioVisee(gid, tech, asks) {
+    const d = demandeDe(asks, gid, tech);
     if (d) return d.lvl > 0 ? d.lvl : null;
     const p = (prio[gid] || {})[tech];
     return p != null ? p : null;
@@ -2399,10 +2459,9 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
     const gid = meta('planet-id');
     if (!gid) { refuse(hote, 'Planète introuvable sur cette page.'); return; }
     e.preventDefault();
-    /* Les demandes déjà postées se lisent au moment du geste : le panneau en
-       retire dès qu'il les a placées. Illisibles, le champ s'ouvre quand même. */
-    try { chrome.storage.local.get('prioAsk', v => poseChamp(hote, t, gid, v && v.prioAsk)); }
-    catch (err) { poseChamp(hote, t, gid, []); }
+    /* Les demandes déjà postées sont dans le miroir : le panneau en retire dès
+       qu'il les a placées, et le miroir suit. */
+    poseChamp(hote, t, gid, asks);
   });
   /* L'arrivée d'un script neuf. Il s'annonce avant de peindre, et celui qui
      l'entend se retire : il enlève ce qu'il a posé et cesse de dessiner.

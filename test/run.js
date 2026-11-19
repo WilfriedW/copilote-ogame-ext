@@ -6867,6 +6867,147 @@ t('un attribut de carte qui n\'est pas un entier ne lève rien et laisse le menu
   assert.ok(!p.menuEmpeche);
 });
 
+/* ---------- les deux marquages sur la tuile ---------- */
+
+/* Deux tuiles de ressources : la 1 à 14, la 2 à 9. */
+const DEUX = { search: '?page=ingame&component=supplies', planetId: '33701', tiles: [1, 2],
+  niveaux: { 1: 14, 2: 9 }, noms: { 1: 'Mine de métal', 2: 'Mine de cristal' } };
+
+t('ta priorité se marque autrement que la cible du plan', () => {
+  const p = runPage({ ...DEUX, skin: { hints: { 33701: { 2: 10 } }, prio: { 33701: { 1: 20 } } } });
+  const a = p.tuile(1), b = p.tuile(2);
+  assert.match(a.pastille, /20/);  assert.match(a.infobulle, /ta priorité/i);
+  assert.match(b.pastille, /10/);  assert.ok(!/ta priorité/i.test(b.infobulle));
+  assert.notEqual(a.classe, b.classe, 'deux teintes, pas une');
+  assert.ok(a.marquee && b.marquee);
+});
+
+t('sur la même tuile, la priorité passe devant la cible du plan', () => {
+  const p = runPage({ ...DEUX, skin: { hints: { 33701: { 1: 15 } }, prio: { 33701: { 1: 20 } } } });
+  assert.match(p.tuile(1).pastille, /20/);
+  assert.match(p.tuile(1).infobulle, /ta priorité/i);
+  const q = runPage({ ...DEUX, skin: { ...BANDE, peau: true, hints: { 33701: { 1: 15 } }, prio: { 33701: { 1: 20 } } } });
+  assert.match(q.carte(1).pastille, /20/, 'la carte dit la même chose');
+});
+
+t('une demande pas encore confirmée se voit, et se dit non confirmée', () => {
+  const p = runPage({ ...DEUX, skin: {} });
+  p.clicDroit(1, '20');
+  assert.match(p.tuile(1).pastille, /20/);
+  assert.match(p.tuile(1).infobulle, /pas encore|en attente/i);
+  assert.notEqual(p.tuile(1).classe, runPage({ ...DEUX, skin: { prio: { 33701: { 1: 20 } } } }).tuile(1).classe,
+    'ni la teinte de la priorité confirmée');
+});
+
+t('la priorité disparaît de la tuile quand le panneau la retire', () => {
+  const p = runPage({ ...DEUX, skin: { prio: { 33701: { 1: 20 } } } });
+  assert.match(p.tuile(1).pastille, /20/);
+  p.majSkin({ prio: {} });
+  assert.equal(p.tuile(1).pastille, null);
+  assert.ok(!p.tuile(1).marquee, 'et la tuile n\'est plus entourée');
+});
+
+t('une priorité marquée reste après une secousse de la page', () => {
+  const p = runPage({ ...DEUX, skin: { prio: { 33701: { 1: 20 } } } });
+  p.secousse();
+  assert.match(p.tuile(1).pastille, /20/);
+});
+
+t('la peau marque aussi la priorité, et répond au clic droit', () => {
+  const p = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true, prio: { 33701: { 1: 20 } } } });
+  assert.match(p.carte(1).pastille, /20/);
+  assert.match(p.carte(1).infobulle, /ta priorité/i);
+  p.clicDroit(1, '25', { carte: true });
+  assert.equal(p.ecrit().prioAsk[0].lvl, 25, 'le second sélecteur sert ici');
+});
+
+t('la carte distingue le plan, la priorité et la demande en attente', () => {
+  const plan = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true, hints: { 33701: { 1: 15 } } } }).carte(1);
+  const prio = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true, prio: { 33701: { 1: 15 } } } }).carte(1);
+  const q = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true } });
+  q.clicDroit(1, '15', { carte: true });
+  const attente = q.carte(1);
+  assert.equal(new Set([plan.classe, prio.classe, attente.classe]).size, 3, 'trois teintes');
+  assert.ok(!/ta priorité/i.test(plan.infobulle));
+  assert.match(attente.infobulle, /pas encore/i);
+});
+
+t('la source change, le niveau non : la carte se redessine', () => {
+  const p = runPage({ ...SUR_MINE, askAvant: [{ gid: '33701', tech: 1, nom: 'Mine de métal', lvl: 20, at: 1 }],
+    skin: { ...BANDE, peau: true, prio: { 33701: { 1: 20 } } } });
+  const avant = p.carte(1);
+  assert.match(avant.infobulle, /pas encore/i);
+  p.majAsk(undefined);                       // le panneau a repris la demande
+  const apres = p.carte(1);
+  assert.equal(apres.pastille, avant.pastille, 'même « → 20 »');
+  assert.ok(!/pas encore/i.test(apres.infobulle), 'mais plus en attente');
+  assert.match(apres.infobulle, /ta priorité/i);
+});
+
+t('une demande de retrait ne fait pas une cible à 0', () => {
+  const p = runPage({ ...DEUX, skin: { prio: { 33701: { 1: 20 } } } });
+  p.clicDroit(1, '');
+  assert.equal(p.tuile(1).pastille, null, 'plus de cible, pas « → 0 »');
+  const q = runPage({ ...DEUX, skin: { hints: { 33701: { 1: 15 } }, prio: { 33701: { 1: 20 } } } });
+  q.clicDroit(1, '');
+  assert.match(q.tuile(1).pastille, /15/, 'la tuile retombe sur le plan');
+  assert.ok(!/ta priorité/i.test(q.tuile(1).infobulle));
+});
+
+t('une peau publiée avant les priorités n\'a pas de clé prio : la tuile montre le plan', () => {
+  const p = runPage({ ...DEUX, skin: { hints: { 33701: { 2: 10 } } } });
+  assert.match(p.tuile(2).pastille, /10/);
+  assert.equal(p.tuile(1).pastille, null);
+  const q = runPage({ ...DEUX, skin: { ...BANDE, peau: true, hints: { 33701: { 2: 10 } } } });
+  assert.match(q.carte(2).pastille, /10/);
+});
+
+t('la pastille suit le niveau quand la cible change sans que la tuile cesse d\'être marquée', () => {
+  const p = runPage({ ...DEUX, skin: { hints: { 33701: { 2: 10 } } } });
+  p.majSkin({ hints: { 33701: { 2: 12 } } });
+  assert.match(p.tuile(2).pastille, /12/);
+  p.majSkin({ hints: { 33701: { 2: 12 } }, prio: { 33701: { 2: 12 } } });
+  assert.match(p.tuile(2).infobulle, /ta priorité/i, 'même niveau, autre source');
+});
+
+/* Le vrai `get` est asynchrone, et la peinture ne l'est pas : ces tests le
+   rendent asynchrone, sinon un lecteur qui l'attendrait passerait quand même. */
+t('le miroir s\'amorce par un get qui répond tard, et la page se repeint à ce moment', () => {
+  const p = runPage({ ...DEUX, getDiffere: true, skin: {},
+    askAvant: [{ gid: '33701', tech: 1, nom: 'Mine de métal', lvl: 20, at: 1 }] });
+  assert.equal(p.tuile(1).pastille, null, 'rien tant que le stockage n\'a pas répondu');
+  p.livre();
+  assert.match(p.tuile(1).pastille, /20/);
+  assert.match(p.tuile(1).infobulle, /pas encore/i);
+});
+
+t('un changement arrivé avant la réponse tardive du get n\'est pas défait par elle', () => {
+  const p = runPage({ ...DEUX, getDiffere: true, skin: {},
+    askAvant: [{ gid: '33701', tech: 1, nom: 'Mine de métal', lvl: 20, at: 1 }] });
+  p.majAsk([{ gid: '33701', tech: 2, nom: 'Mine de cristal', lvl: 12, at: 2 }]);
+  p.livre();                                   // la réponse porte l'état d'avant
+  assert.match(p.tuile(2).pastille, /12/);
+  assert.equal(p.tuile(1).pastille, null, 'l\'ancienne lecture n\'écrase pas le plus récent');
+});
+
+t('onChanged met le miroir à jour, et la clé vidée retire la demande', () => {
+  const p = runPage({ ...DEUX, getDiffere: true, skin: {} });
+  p.livre();
+  p.majAsk([{ gid: '33701', tech: 1, nom: 'Mine de métal', lvl: 20, at: 1 }]);
+  assert.match(p.tuile(1).pastille, /20/);
+  p.majAsk(undefined);                         // newValue absent : c'est le remove() du panneau
+  assert.equal(p.tuile(1).pastille, null);
+  assert.ok(!p.tuile(1).marquee);
+});
+
+t('un stockage qui lève au chargement ne casse ni la page ni le plan', () => {
+  const log = console.error; console.error = () => {};
+  let p;
+  try { p = runPage({ ...DEUX, stockageCasse: 'get', skin: { hints: { 33701: { 2: 10 } } } }); }
+  finally { console.error = log; }
+  assert.match(p.tuile(2).pastille, /10/);
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');
