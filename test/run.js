@@ -6574,6 +6574,36 @@ t('une demande en attente seule suffit à remplir le bloc', () => {
   assert.doesNotMatch(g.prioHtml(g.simulateDay()), /Aucune pour l'instant/);
 });
 
+t('une file de forme de vie occupée ne laisse pas dire « servie »', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})}, 'first');
+  g.S.timers = [{id:'l1', game:true, kind:'x', k:'other', queue:'lfbuilding', pid:'mere', end:SOIR + 20*3600e3, done:false}];
+  const h = lfHtml(g, lf11101);
+  assert.match(h, /file de forme de vie est occupée/);
+  assert.match(h, /dans 20h 00m/, 'et dit quand');
+  assert.doesNotMatch(h, /En tête de sa file|sert avant tout/);
+  g.S.timers[0].pid = 'colo';
+  assert.match(lfHtml(g, lf11101), /En tête de sa file/, 'le chantier d\'une autre planète ne la gêne pas');
+  g.S.timers[0].pid = 'mere'; g.S.timers[0].done = true;
+  assert.match(lfHtml(g, lf11101), /En tête de sa file/, 'un chantier fini non plus');
+  g.S.timers[0].done = false;
+  g.S.timers[0].queue = 'lfresearch';
+  assert.match(lfHtml(g, lf11101), /En tête de sa file/, 'une autre file ne la gêne pas');
+});
+
+t('une référence mal encodée ne lève pas et ne retire rien', () => {
+  const g = app(prio2);
+  g.prioRetire('b|%|lab'); g.prioRetire('lf|%E0%A4%A|1');
+  assert.equal(g.S.prio.length, 2);
+});
+
+t('le réglage des formes de vie est localisé, et la demande dit son délai', () => {
+  const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})}, 'off');
+  assert.match(lfHtml(g, lf11101), /Réglages › Plan du jour/);
+  const a = app();
+  a.S.prioAsk = [{gid:'99999', tech:14, nom:'Usine de robots', lvl:8, at:SOIR - 3600e3}];
+  assert.match(a.prioHtml(a.simulateDay()), /s'efface dans 23h 00m/);
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.17';
+const APP_VERSION = '1.53.18';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -299,7 +299,10 @@ function prioPose(kind, pid, k, raw){
    identifiant venu du jeu ne doit pas pouvoir y casser un guillemet. */
 const prioRef = (...parts) => parts.map(x => encodeURIComponent(String(x == null ? '' : x))).join('|');
 function prioRetire(ref){
-  const [kind, a, b] = String(ref).split('|').map(decodeURIComponent);
+  /* Une référence mal encodée lève URIError, et ce qui lève dans le gestionnaire
+     de clic le tue sans un mot : ni save() ni render(). On ne retire rien. */
+  let kind, a, b;
+  try{ [kind, a, b] = String(ref).split('|').map(decodeURIComponent); }catch(e){ return; }
   if(kind === 'ask'){
     const i = prioDemandes().findIndex(d => String(d.gid) === a && String(d.tech) === b);
     if(i >= 0) S.prioAsk.splice(i, 1);
@@ -323,8 +326,13 @@ function prioLfEtat(p, x, nuit){
   const l = lfCandidates(p, lfQueue(x.k));
   if(!l.some(c => c.id === x.k)) return 'Pas encore chiffrée : ouvre-la dans le jeu pour que le plan connaisse son prix.';
   if(nuit) return '';
-  const reglage = `Formes de vie : « ${LF_MODE[lfMode()]} »`;
+  const reglage = `Formes de vie : « ${LF_MODE[lfMode()]} », à changer dans Réglages › Plan du jour`;
   if(lfMode() === 'off') return `${reglage} — le plan n'y touche pas.`;
+  /* Le planificateur saute une file de forme de vie tant qu'un chantier y
+     tourne (même lecture que simulateDay : minuteur de jeu 'x', file, pas fini) :
+     annoncer « servie » par-dessus serait promettre ce qu'il ne fait pas. */
+  const fin = (S.timers || []).reduce((m, t) => t.kind === 'x' && t.queue === lfQueue(x.k) && t.pid === p.id && !t.done && t.end > Date.now() ? Math.max(m, t.end) : m, 0);
+  if(fin) return `Sa file de forme de vie est occupée : le plan la lancera quand le chantier en cours finira, dans ${dur((fin - Date.now())/1000)}. ${reglage}.`;
   if(l[0].id !== x.k) return `Attend son tour dans sa file : une case posée avant elle passe d'abord. ${reglage}.`;
   return lfMode() === 'first' ? `En tête de sa file : le plan la sert avant tout le reste. ${reglage}.`
     : `En tête de sa file, mais le réglage la fait passer après les bâtiments. ${reglage}.`;
@@ -358,7 +366,7 @@ function prioHtml(plan){
   }), at.map(d => {
     /* nom est du texte lu dans le DOM du jeu : il passe par esc, comme tout ce qui vient de là. */
     const quoi = d.lvl === 0 ? 'Retrait demandé' : `Niveau ${d.lvl} demandé`;
-    return li('En attente', esc(d.nom || `Case ${d.tech}`), `${quoi}, mais aucune de tes planètes relevées ne porte cette case (une lune, une colonie jamais parcourue ?). Ouvre cette planète dans le jeu : la demande sera placée alors, sinon elle s'efface au bout de 24 h.`, prioRef('ask', d.gid, d.tech));
+    return li('En attente', esc(d.nom || `Case ${d.tech}`), `${quoi}, mais aucune de tes planètes relevées ne porte cette case (une lune, une colonie jamais parcourue ?). Ouvre cette planète dans le jeu : la demande sera placée alors, sinon elle s'efface dans ${dur((d.at + PRIO_ATTENTE - Date.now())/1000)}.`, prioRef('ask', d.gid, d.tech));
   }));
   return `<div class="card"><h2>Tes priorités</h2><ul class="advice prios">${lignes.join('')}</ul></div>`;
 }
