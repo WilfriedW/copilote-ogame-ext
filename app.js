@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.11';
+const APP_VERSION = '1.53.12';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -220,30 +220,43 @@ function prioClean(){
    voulu. Seul le temps l'emporte : au-delà de 24 h, plus rien ne la réclamera.
    Le gid est une valeur de frontière : traduit en id local ici, jamais gardé. */
 const PRIO_ATTENTE = 24*3600*1000;
-function prioDrain(liste){
-  const gardees = [];
+/* Une demande fraîche porte l'intention du joueur à l'instant : viser le niveau
+   courant ou au-dessous retire la priorité, et c'est voulu. Une demande gardée
+   porte une intention que le monde a pu dépasser : « monter à 6 », rejouée
+   quand le bâtiment est déjà à 6, se lirait « retirer » et effacerait ce que le
+   joueur a posé à la main. Au rejeu, une demande qui ne demande plus rien est
+   donc abandonnée, jamais appliquée. */
+function prioDrain(liste, rejeu){
+  const gardees = new Map();
   for(const d of (Array.isArray(liste) ? liste : [])){
     if(!d || typeof d !== 'object') continue;
     const gid = String(d.gid), tech = String(d.tech), lvl = d.lvl;
     // « __proto__ » & co ne sont pas des suites de chiffres : jamais une clé
     if(!/^\d+$/.test(gid) || !/^\d+$/.test(tech) || !Number.isInteger(lvl) || lvl <= 0) continue;
     const id = +tech;
-    if(Object.prototype.hasOwnProperty.call(OG_TECH, id)){ prioPose('t', null, OG_TECH[id], lvl); continue; }
+    const pose = (kind, pid, k) => { if(!rejeu || lvl > prioActuel(kind, pid, k)) prioPose(kind, pid, k, lvl); };
+    if(Object.prototype.hasOwnProperty.call(OG_TECH, id)){ pose('t', null, OG_TECH[id]); continue; }
     const kind = Object.prototype.hasOwnProperty.call(OG_BUILD, id) ? 'b' : id >= 11000 ? 'lf' : null;
     if(!kind) continue; // 33 (Terraformeur) a un niveau dans le jeu, pas dans le moteur
     const p = S.planets.find(x => x.gid != null && String(x.gid) === gid);
-    if(p){ prioPose(kind, p.id, kind === 'b' ? OG_BUILD[id] : id, lvl); continue; }
+    if(p){ pose(kind, p.id, kind === 'b' ? OG_BUILD[id] : id); continue; }
     const at = Number.isFinite(d.at) ? d.at : Date.now();
-    if(Date.now() - at <= PRIO_ATTENTE) gardees.push({gid, tech: id, nom: typeof d.nom === 'string' ? d.nom : '', lvl, at});
+    if(Date.now() - at > PRIO_ATTENTE) continue;
+    // une seule par tuile, la dernière : même règle que pour une demande placée, que prioPose écrase sur place
+    const clef = gid + ':' + id;
+    gardees.delete(clef);
+    gardees.set(clef, {gid, tech: id, nom: typeof d.nom === 'string' ? d.nom.slice(0, 80) : '', lvl, at});
   }
-  return gardees;
+  return [...gardees.values()];
 }
 /* Les demandes qui attendent leur planète, pour le bloc des priorités. */
 function prioDemandes(){ return Array.isArray(S.prioAsk) ? S.prioAsk : []; }
 /* Ce qui était gardé repasse avec ce qui arrive : une planète peut avoir été
    relevée entre-temps. */
 function prioRecoit(neuves){
-  S.prioAsk = prioDrain(prioDemandes().concat(Array.isArray(neuves) ? neuves : []));
+  const reste = prioDrain(prioDemandes(), true).concat(prioDrain(neuves));
+  // les gardées d'abord, les fraîches ensuite : sur une même tuile, la dernière demandée l'emporte
+  S.prioAsk = prioDrain(reste);
 }
 
 /* Une entrée se reconnaît à ce qu'elle vise : le bâtiment sur sa planète, ou la
@@ -259,6 +272,11 @@ function prioLvl(kind, pid, k){
    correction met donc l'entrée à jour sur place, et seule une priorité neuve
    prend la fin de la liste. Un champ vidé, ou un niveau déjà atteint, retire :
    « viser » ce qu'on a ne demande rien au plan. */
+function prioActuel(kind, pid, k){
+  return kind === 't' ? (S.tech[k] || 0)
+    : kind === 'lf' ? (((planetById(pid) || {lf:{}}).lf || {})[k] || {}).lvl || 0
+    : ((planetById(pid) || {b:{}}).b[k] || 0);
+}
 function prioPose(kind, pid, k, raw){
   /* Une tuile se lit d'un attribut du DOM, donc en chaîne : stockée telle quelle,
      priosLf() — qui exige un entier — ne la retrouverait jamais et la priorité
@@ -268,9 +286,7 @@ function prioPose(kind, pid, k, raw){
      priosLf() : on ne range que ce que l'accesseur saura relire. */
   if(kind === 'lf'){ if(!/^\d+$/.test(String(k)) || +k < 11000) return; k = +k; }
   const lvl = parseInt(raw), i = prioIdx(kind, pid, k);
-  const actuel = kind === 't' ? (S.tech[k] || 0)
-    : kind === 'lf' ? (((planetById(pid) || {lf:{}}).lf || {})[k] || {}).lvl || 0
-    : ((planetById(pid) || {b:{}}).b[k] || 0);
+  const actuel = prioActuel(kind, pid, k);
   if(!(lvl > actuel)){ if(i >= 0) S.prio.splice(i, 1); return; }
   if(i >= 0) S.prio[i].lvl = lvl;
   else S.prio.push(kind === 't' ? {kind, k, lvl} : {kind, pid, k, lvl});
@@ -4553,7 +4569,7 @@ prioAccueille(window.__prioAsk);
 function prioAccueille(liste){
   if(!Array.isArray(liste) || !liste.length) return;
   prioRecoit(liste);
-  try{ chrome.storage.local.remove('prioAsk'); }catch(e){}
+  try{ chrome.storage.local.remove('prioAsk'); }catch(e){ console.error('Copilote : clé prioAsk non effacée, le prochain démarrage rejouera ce lot', e); }
   save();
   render();
 }

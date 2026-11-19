@@ -82,6 +82,8 @@ function loadApp(state, nowMs, want, api, ext, prioAsk) {
   /** Ce que le rendu a écrit, par identifiant d'élément. */
   /** Ce que le panneau a écrit dans le stockage de l'extension. */
   out.stored = () => written;
+  /** L'état tel que le panneau l'a sauvegardé. */
+  out.saved = () => JSON.parse(store['ogame-copilot-v1']);
   /** Les clés que le panneau a effacées du stockage. */
   out.removed = () => removed;
   /** Rejoue un changement de stockage, comme le navigateur le livre aux écouteurs. */

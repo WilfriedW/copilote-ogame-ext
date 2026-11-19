@@ -6266,7 +6266,10 @@ t('une demande malformée ne pose rien et ne lève pas', () => {
     D({tech:'__proto__'}), D({tech:'constructor'}), D({tech:10999}), D({tech:50}), D({tech:0}), D({tech:33}), D({tech:105}), D({tech:125}),
     D({gid:'__proto__', tech:122}), D({gid:'__proto__', tech:11101})];
   // une à une : une entrée posée serait sinon retirée par la suivante, et le défaut passerait inaperçu
-  for(const s of sales) assert.deepEqual(g.prioDrain([s]), [], 'jetée : ' + JSON.stringify(s)) || assert.deepEqual(g.S.prio, [], 'rien posé pour ' + JSON.stringify(s));
+  for(const s of sales) {
+    assert.deepEqual(g.prioDrain([s]), [], 'jetée : ' + JSON.stringify(s));
+    assert.deepEqual(g.S.prio, [], 'rien posé pour ' + JSON.stringify(s));
+  }
   const reste = g.prioDrain(sales);
   assert.equal(reste.length, 0, 'rien de ces entrées n\'est digne d\'être gardée');
   assert.deepEqual(g.prios(), []);
@@ -6299,6 +6302,7 @@ t('un changement de stockage prioAsk pose la priorité puis efface la clé', () 
   g.fire({prioAsk: {newValue: [D()]}});
   assert.deepEqual(g.prios(), [{kind:'b', pid:'mere', k:'lab', lvl:10}]);
   assert.deepEqual(g.removed(), ['prioAsk'], 'clé effacée');
+  assert.deepEqual(g.saved().prio, [{kind:'b', pid:'mere', k:'lab', lvl:10}], 'et sauvegardée : plus de copie côté page');
 });
 
 t('le changement que provoque l\'effacement lui-même ne rejoue rien', () => {
@@ -6346,6 +6350,54 @@ t('boot.js transmet prioAsk à app.js, clé sans préfixe ls:', () => {
   new Function('window', 'chrome', 'document', src)(win, chrome, document);
   assert.deepEqual(win.__prioAsk, ask);
   assert.equal(win.__mem.x, '1');
+});
+
+/* ---------- une demande gardée ne devient jamais une suppression ---------- */
+t('une demande gardée rattrapée par le niveau n\'efface pas la priorité posée à la main (b, t, lf)', () => {
+  const g = app(s => { s.planets[0].lf = {11101:{lvl:2, state:'ok'}}; });
+  const posees = [{kind:'b', pid:'mere', k:'lab', lvl:20}, {kind:'t', k:'plasma', lvl:20}, {kind:'lf', pid:'mere', k:11101, lvl:20}];
+  g.S.prio = posees.map(e => Object.assign({}, e));
+  // gardées parce que la planète était inconnue ; depuis, lab est à 5, plasma à 0 -> 3, 11101 à 2
+  g.S.tech.plasma = 3;
+  g.S.prioAsk = [D({tech:31, lvl:5}), D({tech:122, lvl:3}), D({tech:11101, lvl:2})];
+  g.S.planets[0].gid = '33701';
+  g.applyGame({planets:{'33701':{name:'Mère', coords:'1:142:8'}}, order:['33701']});
+  assert.deepEqual(g.S.prio, posees, 'rien n\'est retiré');
+  assert.deepEqual(g.prioDemandes(), [], 'et la demande dépassée est abandonnée, non gardée');
+});
+
+t('une demande fraîche au niveau courant retire toujours la priorité (b, t, lf)', () => {
+  const g = app(s => { G(s); s.planets[0].lf = {11101:{lvl:2, state:'ok'}}; s.tech.plasma = 4; });
+  for(const [tech, pose, lvl] of [[31, {kind:'b', pid:'mere', k:'lab', lvl:20}, 5], [122, {kind:'t', k:'plasma', lvl:20}, 4],
+      [11101, {kind:'lf', pid:'mere', k:11101, lvl:20}, 2]]){
+    g.S.prio = [pose];
+    g.fire({prioAsk: {newValue: [D({tech, lvl})]}});
+    assert.deepEqual(g.S.prio, [], 'retirée pour la tuile ' + tech);
+  }
+});
+
+t('les demandes gardées sur la même tuile se réduisent à la dernière', () => {
+  const g = app();
+  const reste = g.prioDrain([D({lvl:6, at:SOIR}), D({lvl:8, at:SOIR}), D({lvl:9, at:SOIR, tech:14})]);
+  assert.equal(reste.length, 2);
+  assert.equal(reste.find(x => x.tech === 31).lvl, 8);
+  g.S.prioAsk = reste;
+  g.fire({prioAsk: {newValue: [D({lvl:12})]}});
+  assert.equal(g.prioDemandes().filter(x => x.tech === 31).length, 1);
+  assert.equal(g.prioDemandes().find(x => x.tech === 31).lvl, 12, 'la plus récente');
+});
+
+t('une demande sans at utilisable est gardée, non expirée', () => {
+  const g = app();
+  for(const at of [undefined, NaN, 'hier', null, SOIR + 3600e3]){
+    const reste = g.prioDrain([D({at})]);
+    assert.equal(reste.length, 1, 'gardée pour at = ' + String(at));
+  }
+});
+
+t('un nom démesuré est borné avant d\'entrer dans l\'état', () => {
+  const g = app();
+  assert.equal(g.prioDrain([D({nom:'x'.repeat(5000)})])[0].nom.length, 80);
 });
 
 if (failures.length) {
