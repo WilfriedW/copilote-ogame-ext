@@ -82,13 +82,14 @@ function el(tag, attrs = {}) {
  * @param {object[]} opts.costs lignes de coût du panneau de détail
  * @param {number[]} opts.stock stocks affichés [métal, cristal, deutérium]
  * @param {object} opts.niveaux par tuile : un niveau (14), ou { nombre: 7 } pour une case qui se compte ; absente, la case n'a ni l'un ni l'autre
+ * @param {string} opts.stockageCasse 'get' : le stockage lève en lecture ; 'lastError' : l'écriture finit sur une erreur
  * @param {object} opts.noms par tuile : le nom que le jeu écrit dans son étiquette
  * @returns {object} { html, eta, dataset }
  */
 function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], details = true,
   search = '?page=ingame&component=research', tiles = [], vieuxStyle = null, intruse = false,
   casesIntruses = false, planetList = true, menuMuet = false, champsFlotte = false,
-  enChantier = null, heures = null, niveaux = {}, noms = {} }) {
+  enChantier = null, heures = null, niveaux = {}, noms = {}, stockageCasse = null }) {
   const html = el('html');
   const head = el('head');
   const body = el('body');
@@ -337,8 +338,15 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
          panneau. `prioAsk` est la seule clé que le script lise et écrive ; le
          reste de ce qu'il lit est le relevé du panneau. */
       local: {
-        get(k, cb) { cb(k === 'prioAsk' ? (ecrit.prioAsk !== undefined ? { prioAsk: ecrit.prioAsk } : {}) : { skin }); },
-        set(o, cb) { Object.assign(ecrit, JSON.parse(JSON.stringify(o))); if (cb) cb(); }
+        get(k, cb) {
+          if (stockageCasse === 'get' && k === 'prioAsk') throw new Error('Extension context invalidated.');
+          cb(k === 'prioAsk' ? (ecrit.prioAsk !== undefined ? { prioAsk: ecrit.prioAsk } : {}) : { skin });
+        },
+        set(o, cb) {
+          Object.assign(ecrit, JSON.parse(JSON.stringify(o)));
+          if (stockageCasse === 'lastError') chrome.runtime.lastError = { message: 'Extension context invalidated.' };
+          try { if (cb) cb(); } finally { delete chrome.runtime.lastError; }
+        }
       },
       onChanged: { addListener(fn) { republie = fn; } }
     },
@@ -490,9 +498,10 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     /** Un clic droit sur une tuile, puis ce que fait le joueur dans le champ :
         `saisie` remplace le contenu (absente, il laisse le champ prérempli),
         puis Entrée — ou `{ echap }`, ou `{ perdFocus }`. `{ laisse: true }` ne fait rien
-        du champ, pour le regarder ouvert. `{ carte: true }` vise la carte de la peau plutôt que la tuile du jeu. Retourne ce que le
+        du champ, pour le regarder ouvert. `{ dessus: true }` clique sur un descendant, `{ fabrique }` et
+        `{ synthese }` rendent le clic droit, ou la touche, non fiables. `{ carte: true }` vise la carte de la peau plutôt que la tuile du jeu. Retourne ce que le
         script a fait de l'événement et de la tuile. */
-    clicDroit: (id, saisie, { echap = false, perdFocus = false, carte = false, laisse = false } = {}) => {
+    clicDroit: (id, saisie, { echap = false, perdFocus = false, carte = false, laisse = false, dessus = false, fabrique = false, synthese = false } = {}) => {
       /* La carte de notre peau, ou la tuile du jeu : le geste est le même, le
          joueur vise celle qu'il a sous les yeux. */
       const panneau = principal.children.find(c => String(c.className).includes('copilote-peau-panneau'));
@@ -501,26 +510,46 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
           .find(c => c.dataset.technology === String(id))
         : tuiles.find(t => t.dataset.technology === String(id));
       if (!li) throw new Error('aucune ' + (carte ? 'carte ' : 'tuile ') + id + ' dans cette page');
-      const ev = { target: li, empeche: false, preventDefault() { this.empeche = true; } };
+      /* `dessus` : le clic tombe sur un descendant de la tuile (l'icône, le
+         nom), comme avec une vraie souris. `fabrique` : l'événement vient d'un
+         script de la page, non d'un geste du joueur. */
+      const cible = dessus ? li.appendChild(el('span')) : li;
+      const ev = { target: cible, isTrusted: !fabrique, empeche: false, preventDefault() { this.empeche = true; } };
       (ecoutes.contextmenu || []).forEach(fn => fn(ev));
       dernier = { ev, li };
       const champ = li.children.find(c => c.className === 'cp-prio-champ');
       if (!champ) return;
       if (laisse) return;
       if (saisie !== undefined) champ.value = saisie;
-      const touche = key => (champ.ecoutes.keydown || []).forEach(fn => fn({ key, stopPropagation() {} }));
+      const touche = key => {
+        const k = { key, isTrusted: !synthese, empeche: false, preventDefault() { this.empeche = true; }, stopPropagation() {} };
+        dernier.touche = k;
+        (champ.ecoutes.keydown || []).forEach(fn => fn(k));
+      };
       if (echap) touche('Escape');
       else if (perdFocus) (champ.ecoutes.blur || []).forEach(fn => fn({}));
       else touche('Enter');
     },
+    /** Un clic droit sur une carte dont l'attribut `data-technology` a été écrit
+        par quelqu'un d'autre : du texte qui voudrait casser un sélecteur. */
+    clicDroitCarteForgee: valeur => {
+      const panneau = principal.children.find(c => String(c.className).includes('copilote-peau-panneau'));
+      const carte = el('div', { className: 'cp-case', dataset: { technology: valeur } });
+      (panneau || principal).appendChild(carte);
+      const ev = { target: carte, isTrusted: true, empeche: false, preventDefault() { this.empeche = true; } };
+      (ecoutes.contextmenu || []).forEach(fn => fn(ev));
+      dernier = { ev, li: carte };
+    },
     /** Un clic droit sur autre chose qu'une tuile : un élément de la page, sans tuile au-dessus. */
     clicDroitAilleurs: () => {
-      const ev = { target: el('div'), empeche: false, preventDefault() { this.empeche = true; } };
+      const ev = { target: el('div'), isTrusted: true, empeche: false, preventDefault() { this.empeche = true; } };
       (ecoutes.contextmenu || []).forEach(fn => fn(ev));
       dernier = { ev, li: null };
     },
     /** Le clic droit le plus récent : a-t-il pris le menu du navigateur ? */
     get menuEmpeche() { return !!(dernier && dernier.ev.empeche); },
+    /** La touche jouée dans le champ a-t-elle perdu son action par défaut ? */
+    get toucheEmpechee() { return !!(dernier && dernier.touche && dernier.touche.empeche); },
     /** Ce que la tuile du dernier clic droit dit pour refuser, ou null. */
     get refus() {
       const r = dernier && dernier.li && dernier.li.children.find(c => c.className === 'cp-prio-refus');

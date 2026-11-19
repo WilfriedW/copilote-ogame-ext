@@ -6781,6 +6781,92 @@ t('la carte de la peau reçoit le même geste que la tuile du jeu', () => {
   assert.ok(p.menuEmpeche);
 });
 
+/* ---------- le clic droit : ce que la revue a repris ---------- */
+
+t('un clic droit tombé sur un descendant de la tuile ou de la carte est résolu par délégation', () => {
+  const p = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true } });
+  p.clicDroit(1, '20', { dessus: true });
+  assert.equal(p.ecrit().prioAsk[0].lvl, 20, 'tuile du jeu');
+  const q = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true } });
+  q.clicDroit(1, '21', { carte: true, dessus: true });
+  assert.equal(q.ecrit().prioAsk[0].lvl, 21, 'carte de la peau');
+});
+
+t('une écriture qui échoue le dit sur la tuile, au lieu de se taire', () => {
+  for (const casse of ['get', 'lastError']) {
+    const log = console.error; console.error = () => {};
+    let p;
+    try { p = runPage({ ...SUR_MINE, stockageCasse: casse }); p.clicDroit(1, '20'); }
+    finally { console.error = log; }
+    assert.match(p.refus, /pas enregistré/i, casse);
+    assert.equal(p.champ, null, casse + ' : le champ est fermé');
+  }
+});
+
+t('le champ et le refus ne se recouvrent pas : la faute de frappe se corrige sous le message', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '12abc');
+  assert.ok(p.champ && p.refus);
+  // la règle propre au refus, après la règle partagée : il passe en haut, le champ reste en bas
+  const refus = p.styleTxt.match(/\n\.cp-prio-refus\{[^}]*\}/)[0];
+  assert.match(refus, /top:2px/);
+  assert.match(refus, /bottom:auto/);
+});
+
+t('une faute corrigée puis validée ne laisse pas son reproche sur la tuile', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '12abc');
+  const champ = p.champ;
+  champ.value = '20';
+  champ.ecoutes.keydown.forEach(fn => fn({ key: 'Enter', isTrusted: true, preventDefault() {}, stopPropagation() {} }));
+  assert.equal(p.ecrit().prioAsk[0].lvl, 20);
+  assert.equal(p.refus, null, 'plus de message');
+});
+
+t('la demande que la page vient de poster gagne sur le préremplissage', () => {
+  // planète jamais relevée : le panneau n'a rien placé, `prio` est vide
+  const p = runPage({ ...SUR_MINE, skin: {} });
+  p.clicDroit(1, '20');
+  p.clicDroit(1, undefined, { laisse: true });
+  assert.equal(p.champ.value, '20', 'pas niveau + 1');
+});
+
+t('une demande de retrait posée l\'emporte sur la priorité du panneau', () => {
+  const p = runPage({ ...SUR_MINE, skin: { prio: { 33701: { 1: 20 } } } });
+  p.clicDroit(1, '');
+  p.clicDroit(1, undefined, { laisse: true });
+  assert.equal(p.champ.value, '15', 'plus de cible : niveau + 1');
+});
+
+t('Entrée perd son action par défaut : un formulaire autour de la tuile ne part pas', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '20');
+  assert.ok(p.toucheEmpechee);
+});
+
+t('un clic droit fabriqué par un script de la page n\'ouvre rien', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '20', { fabrique: true });
+  assert.equal(p.champ, null);
+  assert.ok(!p.menuEmpeche);
+  assert.equal(p.ecrit().prioAsk, undefined);
+});
+
+t('une touche Entrée fabriquée ne valide pas', () => {
+  const p = runPage({ ...SUR_MINE });
+  p.clicDroit(1, '20', { synthese: true });
+  assert.equal(p.ecrit().prioAsk, undefined);
+  assert.ok(p.champ, 'le champ reste ouvert');
+});
+
+t('un attribut de carte qui n\'est pas un entier ne lève rien et laisse le menu', () => {
+  const p = runPage({ ...SUR_MINE, skin: { ...BANDE, peau: true } });
+  p.clicDroit(1, undefined, { carte: true, laisse: true });
+  // on ne peut pas réécrire la carte ici : on en fabrique une, posée dans le panneau
+  assert.doesNotThrow(() => p.clicDroitCarteForgee('1"] , [x'));
+  assert.ok(!p.menuEmpeche);
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');
