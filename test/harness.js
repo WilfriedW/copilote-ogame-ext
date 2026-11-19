@@ -30,7 +30,10 @@ function fakeEl() {
  * @returns {object} les symboles demandés
  */
 function loadApp(state, nowMs, want, api, ext, prioAsk) {
+  // l'onglet où le panneau se trouve à l'ouverture : il le relit dans le stockage de page
+  const tab = state.__tab; delete state.__tab;
   const store = { 'ogame-copilot-v1': JSON.stringify(state) };
+  if (tab) store['ogame-copilot-v1-tab'] = tab;
   const LS = {
     getItem: k => (k in store ? store[k] : null),
     setItem: (k, v) => { store[k] = v; }

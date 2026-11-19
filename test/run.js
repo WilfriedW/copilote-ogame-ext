@@ -6306,6 +6306,16 @@ t('un changement de stockage prioAsk pose la priorité puis efface la clé', () 
   assert.deepEqual(g.saved().prio, [{kind:'b', pid:'mere', k:'lab', lvl:10}], 'et sauvegardée : plus de copie côté page');
 });
 
+t('accueillir une demande republie le plan, même hors de l\'onglet Aujourd\'hui', () => {
+  // l'onglet Empire : son rafraîchissement ne publie pas le plan, c'est le cas qui rendait la tuile muette
+  const g = app(s => { G(s); s.__tab = 'empire'; }, SOIR, null, true);
+  assert.equal((((g.stored().skin || {}).prio) || {})['33701'], undefined, 'pas de priorité publiée avant la demande');
+  g.fire({prioAsk: {newValue: [D()]}});
+  const skin = g.stored().skin;
+  assert.ok(skin, 'la peau a été publiée');
+  assert.equal(skin.prio['33701'][31], 10, 'avec la priorité qui vient d\'être posée');
+});
+
 t('le changement que provoque l\'effacement lui-même ne rejoue rien', () => {
   const g = app(G);
   g.fire({prioAsk: {newValue: [D()]}});
