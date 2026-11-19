@@ -2114,12 +2114,25 @@ border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}
    et atténuée, pour qu'on la voie comme provisoire. */
 .copilote-tag.cp-tag-prio{background:#ffc95c}
 .copilote-tag.cp-tag-attente{background:#ffc95c;box-shadow:inset 0 0 0 1px #0c1120,0 1px 3px rgba(0,0,0,.5);opacity:.8}
-/* Le champ du clic droit et son refus : posés sur la tuile, retirés après. */
-.cp-prio-hote{position:relative !important}
-.cp-prio-champ,.cp-prio-refus{position:absolute;left:2px;right:2px;bottom:2px;z-index:50;box-sizing:border-box;
-margin:0;padding:3px 5px;border-radius:3px;font:12px/1.3 Arial,sans-serif}
-.cp-prio-champ{border:1px solid #6f9fff;background:#0c1120;color:#e8eefc}
-.cp-prio-refus{border:1px solid #6f9fff;background:#0c1120;color:#e8eefc;pointer-events:none;bottom:auto;top:2px}
+/* Le champ du clic droit et son refus : posés sur la tuile, retirés après.
+   Tout est en !important, et la tuile est hissée tant que le champ est ouvert.
+   Nos nœuds vivent dans le DOM du jeu, dont la feuille est plus spécifique que
+   la nôtre : elle gagnait sur le fond, sur la largeur, et surtout sur le
+   z-index — ramené de 50 à 2, le champ passait sous le titre de section, qui
+   avalait le clic. Hisser la tuile elle-même, et pas seulement le champ, est
+   ce qui tient aussi quand elle fabrique son propre contexte d'empilement :
+   un enfant n'en sort jamais, si haut soit son z-index. Ces règles ne visent
+   que nos classes, le poids ne déborde donc sur rien du jeu, et tout revient
+   en place quand le champ se ferme. */
+.cp-prio-hote{position:relative !important;z-index:2147483000 !important}
+.cp-prio-champ,.cp-prio-refus{position:absolute !important;left:2px !important;right:2px !important;
+bottom:2px !important;width:auto !important;height:auto !important;min-width:0 !important;max-width:none !important;
+z-index:2147483000 !important;box-sizing:border-box !important;
+margin:0 !important;padding:3px 5px !important;border-radius:3px !important;font:12px/1.3 Arial,sans-serif !important}
+.cp-prio-champ{border:1px solid #6f9fff !important;background:#0c1120 !important;color:#e8eefc !important;
+-webkit-appearance:none !important;appearance:none !important;text-align:left !important}
+.cp-prio-refus{border:1px solid #6f9fff !important;background:#0c1120 !important;color:#e8eefc !important;
+pointer-events:none !important;bottom:auto !important;top:2px !important}
 .copilote-eta{position:relative;z-index:2;margin:8px 0;padding:8px 10px;white-space:pre-line;
 border:1px solid rgba(138,169,255,.45);border-left:3px solid #8aa9ff;border-radius:4px;
 background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55);
