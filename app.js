@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.52.3';
+const APP_VERSION = '1.53.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -218,9 +218,15 @@ function prioRetire(rang){
    manquant, prérequis absent, tour pas venu — l'annonçait quand même en
    premier, ce qui est le contraire de ce que ce bloc doit dire.
    Le bloc ne promet rien la nuit : le plan du jour ne tourne pas. */
+/* Le bloc reste là même vide. Les deux champs où l'on pose vivent dans des
+   volets repliés — « Niveaux des bâtiments » sur la carte d'une planète,
+   « Recherches » plus bas — et un panneau fraîchement ouvert ne montrait donc
+   rien de cette fonctionnalité, nulle part : ni champ, ni bloc, ni mot. Dire
+   où aller coûte trois lignes ; un joueur qui ne trouve pas le champ ne pose
+   jamais rien, et tout le reste de ce travail ne sert à personne. */
 function prioHtml(plan){
   const l = prios();
-  if(!l.length) return '';
+  if(!l.length) return `<div class="card"><h2>Tes priorités</h2><p class="note" style="margin:0">Aucune pour l'instant. Dans <b>Empire</b>, déplie les niveaux d'une planète — ou les recherches — et écris le niveau que tu vises dans le petit champ <b>→</b>, à droite du niveau actuel. Le plan épargnera pour l'atteindre, et le dira sur ses cartes.</p></div>`;
   const nuit = !!S.day.night;
   const dits = new Map((((plan || simulateDay()).sessions[0] || {}).prio || []).map(e => [e.id, e]));
   const lignes = l.map((x, i) => {
@@ -3708,7 +3714,7 @@ planets(){
         : `<label class="f" style="width:auto"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>${i===ci&&centreWhy()?`<span class="note">${esc(centreWhy())}</span>`:''}`}</div>
       <p class="note" style="margin:0" id="pctrn-${i}">${centreNoteHtml(p, i, ci)}</p>
       <p class="note" id="pfleet-${i}" style="margin:0"></p>
-      <details><summary class="note">Niveaux des bâtiments et stock</summary>
+      <details><summary class="note">Niveaux des bâtiments, stock et niveaux visés</summary>
       <div class="grid tight" style="margin-top:8px">
         ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${p.b[k]}"><input class="prio" type="number" min="1" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
         <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${p.sats}"></label>
@@ -3725,7 +3731,7 @@ planets(){
   </section>`;
 },
 research(){
-  return `<details class="card"><summary>Recherches <span class="note">labo niveau <b id="labLv"></b></span></summary>
+  return `<details class="card"><summary>Recherches et niveaux visés <span class="note">labo niveau <b id="labLv"></b></span></summary>
     <div class="tbl-wrap"><table class="tech"><thead><tr><th>Technologie</th><th class="n">Niv.</th><th class="n">Visé</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th></tr></thead><tbody>
     ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${S.tech[k]}"></td><td class="n"><input class="prio" type="number" min="1" data-prio="${k}" value="${prioLvl('t', null, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${T[k].n} : niveau visé"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
     </tbody></table></div>

@@ -5833,8 +5833,21 @@ t('render() compacte les priorités avant de dessiner', () => {
   assert.match(src, /function render\(\)\{\s*prioClean\(\);/);
 });
 
-t('aucun bloc quand il n\'y a aucune priorité', () => {
-  assert.equal(app().prioHtml(), '');
+t('sans aucune priorité, le bloc dit quand même où en poser une', () => {
+  // Les deux champs vivent dans des volets repliés : un bloc vide était la
+  // seule trace visible de la fonctionnalité, et il n'existait pas.
+  const h = app().prioHtml();
+  assert.ok(h, 'le bloc est rendu');
+  assert.match(h, /Tes priorités/);
+  assert.match(h, /Empire/, 'il nomme l\'onglet où aller');
+  assert.match(h, /déplie/, 'il dit qu\'il faut déplier');
+  assert.ok(!/data-prio-del/.test(h), 'et il ne propose rien à retirer');
+});
+
+t('les deux volets annoncent qu\'ils portent le niveau visé', () => {
+  const g = app();
+  assert.match(g.VIEWS.planets(), /Niveaux des bâtiments, stock et niveaux visés/);
+  assert.match(g.VIEWS.research(), /Recherches et niveaux visés/);
 });
 
 t('en mode nuit le bloc reste lisible et ne promet rien', () => {
