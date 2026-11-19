@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.12';
+const APP_VERSION = '1.53.13';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -220,21 +220,23 @@ function prioClean(){
    voulu. Seul le temps l'emporte : au-delà de 24 h, plus rien ne la réclamera.
    Le gid est une valeur de frontière : traduit en id local ici, jamais gardé. */
 const PRIO_ATTENTE = 24*3600*1000;
-/* Une demande fraîche porte l'intention du joueur à l'instant : viser le niveau
-   courant ou au-dessous retire la priorité, et c'est voulu. Une demande gardée
-   porte une intention que le monde a pu dépasser : « monter à 6 », rejouée
-   quand le bâtiment est déjà à 6, se lirait « retirer » et effacerait ce que le
-   joueur a posé à la main. Au rejeu, une demande qui ne demande plus rien est
-   donc abandonnée, jamais appliquée. */
-function prioDrain(liste, rejeu){
+/* Le niveau 0 est un ordre : « retire cette priorité ». C'est la page, là où le
+   joueur a formé son intention (champ vidé, ou niveau saisi au courant ou
+   au-dessous), qui l'envoie : le panneau lit une intention, il ne la déduit pas
+   d'une comparaison de niveaux. Un retrait reste un retrait à quelque moment
+   qu'on l'applique, y compris rejoué après avoir attendu sa planète.
+   Un niveau positif qui n'est plus au-dessus du courant est une demande
+   satisfaite : le jeu a donné ce qu'elle voulait, on l'abandonne sans rien
+   toucher — la lire comme un retrait effacerait ce que le joueur a posé. */
+function prioDrain(liste){
   const gardees = new Map();
   for(const d of (Array.isArray(liste) ? liste : [])){
     if(!d || typeof d !== 'object') continue;
     const gid = String(d.gid), tech = String(d.tech), lvl = d.lvl;
     // « __proto__ » & co ne sont pas des suites de chiffres : jamais une clé
-    if(!/^\d+$/.test(gid) || !/^\d+$/.test(tech) || !Number.isInteger(lvl) || lvl <= 0) continue;
+    if(!/^\d+$/.test(gid) || !/^\d+$/.test(tech) || !Number.isInteger(lvl) || lvl < 0) continue;
     const id = +tech;
-    const pose = (kind, pid, k) => { if(!rejeu || lvl > prioActuel(kind, pid, k)) prioPose(kind, pid, k, lvl); };
+    const pose = (kind, pid, k) => { if(lvl === 0 || lvl > prioActuel(kind, pid, k)) prioPose(kind, pid, k, lvl); };
     if(Object.prototype.hasOwnProperty.call(OG_TECH, id)){ pose('t', null, OG_TECH[id]); continue; }
     const kind = Object.prototype.hasOwnProperty.call(OG_BUILD, id) ? 'b' : id >= 11000 ? 'lf' : null;
     if(!kind) continue; // 33 (Terraformeur) a un niveau dans le jeu, pas dans le moteur
@@ -254,9 +256,8 @@ function prioDemandes(){ return Array.isArray(S.prioAsk) ? S.prioAsk : []; }
 /* Ce qui était gardé repasse avec ce qui arrive : une planète peut avoir été
    relevée entre-temps. */
 function prioRecoit(neuves){
-  const reste = prioDrain(prioDemandes(), true).concat(prioDrain(neuves));
   // les gardées d'abord, les fraîches ensuite : sur une même tuile, la dernière demandée l'emporte
-  S.prioAsk = prioDrain(reste);
+  S.prioAsk = prioDrain(prioDemandes().concat(Array.isArray(neuves) ? neuves : []));
 }
 
 /* Une entrée se reconnaît à ce qu'elle vise : le bâtiment sur sa planète, ou la

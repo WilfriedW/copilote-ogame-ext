@@ -6261,7 +6261,7 @@ t('la liste gardée vit dans S : vide à neuf et sur un ancien état, rejouée a
 
 t('une demande malformée ne pose rien et ne lève pas', () => {
   const g = app(G);
-  const sales = [null, undefined, 7, 'x', [], {}, D({tech:null}), D({lvl:'dix'}), D({lvl:0}), D({lvl:2.5}), D({lvl:10.5}), D({lvl:'10'}), D({lvl:-3}), D({tech:'0x2B4D'}), D({tech:'11101abc'}),
+  const sales = [null, undefined, 7, 'x', [], {}, D({tech:null}), D({lvl:'dix'}), D({lvl:2.5}), D({lvl:10.5}), D({lvl:'10'}), D({lvl:-3}), D({tech:'0x2B4D'}), D({tech:'11101abc'}),
     D({lvl:undefined}), D({gid:undefined}), D({gid:'__proto__'}), D({gid:'constructor'}), D({gid:'33701x'}),
     D({tech:'__proto__'}), D({tech:'constructor'}), D({tech:10999}), D({tech:50}), D({tech:0}), D({tech:33}), D({tech:105}), D({tech:125}),
     D({gid:'__proto__', tech:122}), D({gid:'__proto__', tech:11101})];
@@ -6353,27 +6353,54 @@ t('boot.js transmet prioAsk à app.js, clé sans préfixe ls:', () => {
 });
 
 /* ---------- une demande gardée ne devient jamais une suppression ---------- */
-t('une demande gardée rattrapée par le niveau n\'efface pas la priorité posée à la main (b, t, lf)', () => {
-  const g = app(s => { s.planets[0].lf = {11101:{lvl:2, state:'ok'}}; });
-  const posees = [{kind:'b', pid:'mere', k:'lab', lvl:20}, {kind:'t', k:'plasma', lvl:20}, {kind:'lf', pid:'mere', k:11101, lvl:20}];
-  g.S.prio = posees.map(e => Object.assign({}, e));
-  // gardées parce que la planète était inconnue ; depuis, lab est à 5, plasma à 0 -> 3, 11101 à 2
-  g.S.tech.plasma = 3;
-  g.S.prioAsk = [D({tech:31, lvl:5}), D({tech:122, lvl:3}), D({tech:11101, lvl:2})];
-  g.S.planets[0].gid = '33701';
-  g.applyGame({planets:{'33701':{name:'Mère', coords:'1:142:8'}}, order:['33701']});
-  assert.deepEqual(g.S.prio, posees, 'rien n\'est retiré');
-  assert.deepEqual(g.prioDemandes(), [], 'et la demande dépassée est abandonnée, non gardée');
-});
+/* ---------- lvl 0 retire ; une demande satisfaite est abandonnée, jamais lue comme un retrait ---------- */
+const TUILES = [['b', 31, {kind:'b', pid:'mere', k:'lab', lvl:20}], ['t', 122, {kind:'t', k:'plasma', lvl:20}],
+  ['lf', 11101, {kind:'lf', pid:'mere', k:11101, lvl:20}]];
+const base = s => { G(s); s.planets[0].lf = {11101:{lvl:2, state:'ok'}}; s.tech.plasma = 4; };  // lab 5, plasma 4, 11101 à 2
+const courant = {31: 5, 122: 4, 11101: 2};
 
-t('une demande fraîche au niveau courant retire toujours la priorité (b, t, lf)', () => {
-  const g = app(s => { G(s); s.planets[0].lf = {11101:{lvl:2, state:'ok'}}; s.tech.plasma = 4; });
-  for(const [tech, pose, lvl] of [[31, {kind:'b', pid:'mere', k:'lab', lvl:20}, 5], [122, {kind:'t', k:'plasma', lvl:20}, 4],
-      [11101, {kind:'lf', pid:'mere', k:11101, lvl:20}, 2]]){
-    g.S.prio = [pose];
-    g.fire({prioAsk: {newValue: [D({tech, lvl})]}});
+t('lvl 0, fraîche, retire la priorité (b, t, lf)', () => {
+  for(const [, tech, pose] of TUILES){
+    const g = app(base);
+    g.S.prio = [Object.assign({}, pose)];
+    g.prioDrain([D({tech, lvl:0})]);
     assert.deepEqual(g.S.prio, [], 'retirée pour la tuile ' + tech);
   }
+});
+
+t('lvl 0, gardée faute de planète, retire au rejeu une fois la planète relevée', () => {
+  for(const [kind, tech, pose] of TUILES.filter(x => x[0] !== 't')){
+    const g = app(base);
+    g.S.prio = [Object.assign({}, pose)];
+    g.S.prioAsk = g.prioDrain([D({gid:'55555', tech, lvl:0})]);
+    assert.equal(g.prioDemandes().length, 1, 'gardée : ' + kind);
+    assert.equal(g.S.prio.length, 1, 'et rien n\'est retiré tant que la planète manque');
+    g.applyGame({planets:{'55555':{name:'Mère', coords:'1:142:8'}}, order:['55555']});
+    assert.deepEqual(g.S.prio, [], 'retirée au rejeu : ' + kind);
+    assert.deepEqual(g.prioDemandes(), []);
+  }
+});
+
+t('une demande satisfaite est abandonnée, fraîche ou rejouée, et ne touche à rien (b, t, lf)', () => {
+  for(const [, tech, pose] of TUILES){
+    const g = app(base);
+    g.S.prio = [Object.assign({}, pose)];
+    for(const lvl of [courant[tech], courant[tech] - 1].filter(x => x > 0)){
+      assert.deepEqual(g.prioDrain([D({tech, lvl})]), [], 'fraîche, abandonnée');
+      assert.deepEqual(g.S.prio, [pose], 'et la priorité posée à la main reste : ' + tech + ' lvl ' + lvl);
+    }
+    // gardée, puis rattrapée par le niveau pendant l'attente
+    g.S.prioAsk = [D({tech, lvl:courant[tech]})];
+    g.applyGame({planets:{'33701':{name:'Mère', coords:'1:142:8'}}, order:['33701']});
+    assert.deepEqual(g.S.prio, [pose], 'rejouée, elle ne retire rien : ' + tech);
+    assert.deepEqual(g.prioDemandes(), [], 'et n\'est pas gardée plus longtemps');
+  }
+});
+
+t('un niveau fraîchement relevé n\'a plus à être demandé : la demande au-dessus du courant pose', () => {
+  const g = app(base);
+  g.prioDrain([D({tech:31, lvl:6})]);
+  assert.deepEqual(g.S.prio, [{kind:'b', pid:'mere', k:'lab', lvl:6}]);
 });
 
 t('les demandes gardées sur la même tuile se réduisent à la dernière', () => {
