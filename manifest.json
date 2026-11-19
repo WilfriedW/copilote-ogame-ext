@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Copilote OGame",
-  "version": "1.53.14",
+  "version": "1.53.15",
   "description": "Read-only OGame companion: levels, production, advice and end-of-queue notifications in the side panel.",
   "permissions": [
     "storage",

@@ -158,8 +158,9 @@ contenu est sélectionné, le focus est dedans.
 - **Entrée** valide ce qu'il y a dans le champ.
 - **Échap** ou la perte du focus annule, sans rien changer.
 - **Vider le champ**, ou saisir un niveau au niveau courant ou au-dessous,
-  **retire** la priorité — c'est déjà le contrat de `prioPose`
-  (`app.js:205`) : `lvl > actuel` faux, l'entrée est retirée.
+  **retire** la priorité. Dans les deux cas la page envoie `lvl: 0` : c'est
+  elle qui tranche, puisque c'est là que le joueur a formé l'intention. Le
+  panneau ne la devine pas — voir « Ce qui part de la page ».
 
 ### Qui refuse, et où
 
@@ -191,6 +192,9 @@ lui :
 prioAsk = [ { gid: '33701234', tech: 31, nom: 'Laboratoire de recherche',
               lvl: 10, at: 1763... }, … ]
 ```
+
+`lvl` est un entier `>= 0` : au-dessus du niveau courant il pose, à `0` il
+retire, entre les deux la demande est satisfaite.
 
 **`lvl: 0` veut dire « retire cette priorité ».** La page décide de l'intention
 là où le joueur l'a formée : champ vidé, ou niveau tapé au niveau courant ou
