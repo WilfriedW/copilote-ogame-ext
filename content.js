@@ -272,14 +272,38 @@
       prodPanel,
       /* Le lien que le jeu affiche vers « Paramétrage de la production ». Le
          relevé ne devine pas cette adresse — selon la version elle s'ouvre par
-         `component=` ou par `page=` — il reprend celle du jeu. Un lien, pas un
-         robot. */
-      prodUrl: (document.querySelector('a[href*="esourcesettings" i]') || {}).href || null,
+         `component=` ou par `page=` — il reprend celle du jeu. Mais le DOM
+         contient aussi ce que d'autres joueurs y écrivent (messages, pages
+         d'alliance) : on ne garde pas l'adresse lue, on la reconstruit à partir
+         de la seule chose qu'on en accepte, la forme du paramètre. */
+      prodUrl: prodLink(),
       lf,
       lfSeen: lfPage ? { [lfPage]: Date.now() } : null,
       slots,
       timers: unique
     };
+  }
+
+  /**
+   * Adresse du paramétrage de la production, reconstruite : même origine, même
+   * chemin, et rien d'autre que `page`/`component` tels que le jeu les écrit.
+   * @returns {string|null}
+   */
+  function prodLink() {
+    const a = document.querySelector('a[href*="esourcesettings" i]');
+    if (!a) return null;
+    try {
+      const ici = new URL(location.href), u = new URL(a.href, location.href);
+      if (u.origin !== ici.origin || u.pathname !== ici.pathname) return null;
+      const comp = u.searchParams.get('component'), page = u.searchParams.get('page');
+      const v = new URL(ici.origin + ici.pathname);
+      if (/^resourcesettings$/i.test(comp || '') && /^ingame$/i.test(page || '')) {
+        v.searchParams.set('page', 'ingame'); v.searchParams.set('component', comp);
+      } else if (!comp && /^resourcesettings$/i.test(page || '')) {
+        v.searchParams.set('page', page);
+      } else return null;
+      return v.href;
+    } catch (e) { return null; }
   }
 
   /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On

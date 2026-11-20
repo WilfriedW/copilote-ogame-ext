@@ -1379,11 +1379,26 @@ t('Galaxie prend le cadre, pas la grille', () => {
 
 t("la page publie le lien du jeu vers le paramétrage de la production", () => {
   /* Cette adresse-là, le copilote ne la devine pas : selon la version elle
-     s'ouvre par `component=` ou par `page=`. Il reprend celle que la page
-     affiche, et son relevé la suit. */
+     s'ouvre par `component=` ou par `page=`. Il lit celle que la page affiche,
+     mais il la reconstruit : la forme du paramètre, rien d'autre. */
   const lien = 'https://s1-fr.ogame.gameforge.com/game/index.php?page=resourceSettings&cp=33657643';
   const r = runPage({ search: '?page=ingame&component=supplies', prodHref: lien });
-  assert.equal(r.envois().find(m => m.type === 'snapshot').data.prodUrl, lien);
+  assert.equal(r.envois().find(m => m.type === 'snapshot').data.prodUrl,
+    'https://s1-fr.ogame.gameforge.com/game/index.php?page=resourceSettings');
+});
+
+t("un lien pi\u00e9g\u00e9 dans la page du jeu n'est pas suivi", () => {
+  /* Le DOM contient ce que d'autres joueurs y \u00e9crivent : messages, pages
+     d'alliance. Un lien qui porte le bon mot ne suffit pas \u00e0 \u00eatre cru. */
+  const pieges = [
+    'https://evil.example/game/index.php?page=resourceSettings',
+    'https://s1-fr.ogame.gameforge.com/game/index.php?page=ingame&component=fleetdispatch&x=resourcesettings',
+    'https://s1-fr.ogame.gameforge.com/forum/index.php?page=resourceSettings'
+  ];
+  for (const lien of pieges) {
+    const r = runPage({ search: '?page=ingame&component=supplies', prodHref: lien });
+    assert.equal(r.envois().find(m => m.type === 'snapshot').data.prodUrl, null, lien);
+  }
 });
 
 t("une page sans ce lien n'en invente pas", () => {

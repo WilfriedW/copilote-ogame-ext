@@ -380,7 +380,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   const args = {
     document, chrome,
     window: {},
-    location: { search, pathname: '/game/index.php', href: 'https://x/game/index.php' + search },
+    location: { search, pathname: '/game/index.php', href: 'https://s1-fr.ogame.gameforge.com/game/index.php' + search },
     MutationObserver: class { constructor(cb) { secousse = cb; } observe() {} },
     Event: class { constructor(type) { this.type = type; } },
     setTimeout: fn => { fn(); return 0; },
