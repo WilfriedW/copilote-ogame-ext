@@ -96,6 +96,11 @@ async function merge(s) {
     if (p.tmax != null) cur.tmax = p.tmax;
   }
 
+  // La planète et la page que le joueur regarde : le relevé y lit son avancement,
+  // et y revient à la fin.
+  if (s.planetId) game.cur = s.planetId;
+  game.page = s.page || null;
+
   if (s.planetType === 'planet') {
     const cur = game.planets[s.planetId] = game.planets[s.planetId] || { b: {} };
     cur.name = s.planetName || cur.name;
@@ -132,6 +137,8 @@ async function merge(s) {
   if (s.slots) game.slots = { ...s.slots, at: s.at };
   if (s.artefacts != null) game.artefacts = s.artefacts;
   if (s.prodPanel && s.planetId) game.prod = { ...(game.prod || {}), [s.planetId]: { text: s.prodPanel, at: s.at } };
+  // L'adresse du paramétrage de la production, telle que le jeu l'écrit : le relevé la réutilise.
+  if (s.prodUrl) game.prodUrl = s.prodUrl;
   const timers = (game.timers || []).filter(t => t.end * 1000 > now - 10 * 60 * 1000);
   for (const t of s.timers) {
     const k = timerKey(t);
@@ -153,21 +160,29 @@ async function merge(s) {
  * Ouvre une page du jeu dans l'onglet OGame déjà ouvert, sinon dans un nouvel
  * onglet. On ne navigue que vers OGame : l'URL vient du panneau, on la vérifie
  * quand même avant de l'envoyer à un onglet.
+ *
+ * Un clic du joueur sur une carte veut l'onglet devant lui : on l'active et on
+ * ramène sa fenêtre. Le relevé, non — il enchaîne des dizaines de pages, et
+ * reprendre la main à chaque fois arrachait le joueur à l'application où il
+ * travaillait, bureau compris. Il navigue donc l'onglet là où il est, sans
+ * l'activer ni toucher à la fenêtre : le script de page tourne et relève aussi
+ * bien dans un onglet d'arrière-plan.
  * @param {string} url page du jeu
+ * @param {boolean} discret ne pas prendre la main sur l'onglet ni la fenêtre
  */
-function goToGame(url) {
+function goToGame(url, discret) {
   if (!OGAME.test(url || '')) return;
   chrome.tabs.query({}, tabs => {
     const t = tabs.find(x => OGAME.test(x.url || ''));
-    if (!t) return void chrome.tabs.create({ url });
-    chrome.tabs.update(t.id, { url, active: true });
-    chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
+    if (!t) return void chrome.tabs.create({ url, active: !discret });
+    chrome.tabs.update(t.id, discret ? { url } : { url, active: true });
+    if (!discret) chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
   });
 }
 
 chrome.runtime.onMessage.addListener(msg => {
   if (msg && msg.type === 'snapshot' && msg.data) merge(msg.data);
-  if (msg && msg.type === 'go' && msg.url) goToGame(msg.url);
+  if (msg && msg.type === 'go' && msg.url) goToGame(msg.url, !!msg.discret);
   if (msg && msg.type === 'alert' && msg.text) showAlertWindow(msg.text);
   if (msg && msg.type === 'apiRefresh') apiRefresh(!!msg.force);
 });

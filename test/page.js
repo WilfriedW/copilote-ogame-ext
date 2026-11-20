@@ -86,12 +86,14 @@ function el(tag, attrs = {}) {
  * @param {object[]} opts.askAvant ce que `prioAsk` contient déjà au chargement
  * @param {boolean} opts.getDiffere le `get('prioAsk')` ne répond qu'à `livre()` : le vrai est asynchrone
  * @param {object} opts.noms par tuile : le nom que le jeu écrit dans son étiquette
+ * @param {string} opts.prodHref href du lien du jeu vers « Paramétrage de la production », absent par défaut
  * @returns {object} { html, eta, dataset }
  */
 function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], details = true,
   search = '?page=ingame&component=research', tiles = [], vieuxStyle = null, intruse = false,
   casesIntruses = false, planetList = true, menuMuet = false, champsFlotte = false,
-  enChantier = null, heures = null, niveaux = {}, noms = {}, stockageCasse = null, getDiffere = false, askAvant }) {
+  enChantier = null, heures = null, niveaux = {}, noms = {}, stockageCasse = null, getDiffere = false, askAvant,
+  prodHref = null }) {
   const html = el('html');
   const head = el('head');
   const body = el('body');
@@ -292,7 +294,9 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     '.OGameClock': () => horloge,
     '[data-arrival-time]': () => arrivees.map(c => c.parent),
     '#slots, .fleetStatus': () => null,
-    '#planetList .smallplanet': () => []
+    '#planetList .smallplanet': () => [],
+    // le lien du jeu vers le paramétrage de la production, quand la page en porte un
+    'a[href*="esourcesettings" i]': () => (prodHref ? Object.assign(el('a'), { href: prodHref }) : null)
   };
   const pick = (sel, all) => {
     if (!(sel in routes)) {
@@ -314,6 +318,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     e.querySelectorAll = sel => pick(sel, true);
   }
 
+  /** Ce que la page a envoyé au service : les instantanés, dans l'ordre. */
+  const envois = [];
   /* Les écoutes posées sur le document, par type : le script en pose une sur
      les clics, et une sur l'arrivée d'un script plus neuf. */
   const ecoutes = {};
@@ -364,7 +370,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
       },
       onChanged: { addListener(fn) { republie = fn; } }
     },
-    runtime: { sendMessage() { return { catch() {} }; } }
+    runtime: { sendMessage(m) { envois.push(m); return { catch() {} }; } }
   };
 
   const src = ['ids.js', 'content.js'].map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
@@ -494,6 +500,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   return {
     ...read(),
     read,
+    /** Les instantanés envoyés par la page. */
+    envois: () => envois,
     /** Ce que fait le jeu en ouvrant une autre tuile : il refait son panneau. */
     efface: () => { const e = det && det.children.find(c => c.className === 'copilote-eta'); if (e) e.remove(); },
     /** Le panneau republie un envoi : les chiffres bougent, la page suit. */

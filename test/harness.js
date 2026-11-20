@@ -14,7 +14,9 @@ function fakeEl() {
   const el = {
     textContent: '', innerHTML: '', value: '', hidden: false, checked: false,
     dataset: {}, style: {}, classList: { add() {}, remove() {}, toggle() {} },
-    addEventListener() {}, removeEventListener() {}, setAttribute() {},
+    on: {},
+    addEventListener(type, fn) { (this.on[type] = this.on[type] || []).push(fn); },
+    removeEventListener() {}, setAttribute() {},
     getAttribute() { return null; }, appendChild() {}, focus() {}, select() {},
     closest() { return null; }, querySelector() { return fakeEl(); },
     querySelectorAll() { return []; }
@@ -58,15 +60,20 @@ function loadApp(state, nowMs, want, api, ext, prioAsk) {
 
   // ce que le panneau publie pour le script de page, pour pouvoir le relire
   const written = {};
+  // ce que le panneau a envoyé au service worker
+  const sent = [];
   const removed = [];
   const listeners = [];
+  // ce que le panneau a envoyé aux autres postes
+  const shared = {};
   const chrome = {
     storage: {
       local: { get(k, cb) { if (cb) cb({}); }, set(v) { Object.assign(written, v); },
         remove(k) { [].concat(k).forEach(x => removed.push(x)); } },
+      sync: { get(k, cb) { if (cb) cb({}); }, set(v) { Object.assign(shared, v); return Promise.resolve(); } },
       onChanged: { addListener(fn) { listeners.push(fn); } }
     },
-    runtime: { sendMessage() {}, id: ext ? 'test-extension' : undefined }
+    runtime: { sendMessage(m) { sent.push(m); }, id: ext ? 'test-extension' : undefined }
   };
 
   // IS_EXT se lit sur window.chrome.runtime.id : seuls les tests qui veulent
@@ -77,20 +84,29 @@ function loadApp(state, nowMs, want, api, ext, prioAsk) {
   const src = ['ids.js', 'app.js']
     .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
 
+  // l'envoi aux autres postes est différé : sans ces bouchons, le test
+  // attendrait dix secondes pour rien et le runner ne rendrait pas la main
   const args = { document, window, chrome, LS, Date: FrozenDate,
-    setInterval: () => 0, clearInterval: () => {} };
+    setInterval: () => 0, clearInterval: () => {},
+    setTimeout: () => 0, clearTimeout: () => {} };
   const names = Object.keys(args);
   const out = new Function(...names, src + '\nreturn {' + want.join(', ') + '};')(
     ...names.map(n => args[n]));
   /** Ce que le rendu a écrit, par identifiant d'élément. */
   /** Ce que le panneau a écrit dans le stockage de l'extension. */
   out.stored = () => written;
+  /** Ce que le panneau a envoyé au stockage partagé entre postes. */
+  out.shared = () => shared;
   /** L'état tel que le panneau l'a sauvegardé. */
   out.saved = () => JSON.parse(store['ogame-copilot-v1']);
   /** Les clés que le panneau a effacées du stockage. */
   out.removed = () => removed;
   /** Rejoue un changement de stockage, comme le navigateur le livre aux écouteurs. */
   out.fire = (changes, area) => listeners.forEach(fn => fn(changes, area || 'local'));
+  /** Les messages que le panneau a envoyés au service worker. */
+  out.sent = () => sent;
+  /** Rejoue un clic sur un élément du panneau ; `target` sert aux poignées déléguées. */
+  out.click = (id, target) => { const el = byId.get(id); if (!el) throw new Error('aucun élément ' + id); (el.on.click || []).forEach(fn => fn({ target: target || el, currentTarget: el })); return el; };
   out.html = () => { const o = {}; for (const [k, el] of byId) o[k] = el.innerHTML || el.textContent || ''; return o; };
   return out;
 }

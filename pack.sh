@@ -7,7 +7,7 @@
 # le manifeste ou par sidepanel.html manque ici.
 set -e
 cd "$(dirname "$0")"
-FICHIERS="manifest.json background.js boot.js ids.js content.js app.js sidepanel.html panel.css icon32.png icon128.png"
+FICHIERS="README.md manifest.json background.js boot.js ids.js content.js app.js sidepanel.html panel.css icon32.png icon128.png"
 rm -rf dist && mkdir dist
 cp $FICHIERS dist/
 rm -f copilote-ogame.zip

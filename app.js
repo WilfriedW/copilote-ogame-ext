@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.28';
+const APP_VERSION = '1.53.32';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -140,7 +140,7 @@ S.daily = Object.assign(sample().daily, S.daily);
    case cochée, et le rechargement suivant l'a oubliée. */
 function saveFailed(e){ console.error('Copilote : sauvegarde impossible', e); try{ toast('Sauvegarde impossible : recharge le panneau'); }catch(err){} }
 window.__saveFailed = saveFailed;
-function save(){ try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){ saveFailed(e); } }
+function save(){ try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){ saveFailed(e); } syncPush(); }
 
 /* L'identité d'une planète est son id. Le rang change dès que le jeu
    réordonne, le nom se répète d'une colonie à l'autre, le gid n'existe qu'une
@@ -211,13 +211,18 @@ function prioClean(){
      recherche n'appartient à aucune planète, et un empire vidé (import tronqué)
      ne doit pas emporter ce que le joueur a posé. Pas d'empire, rien à compacter. */
   if(!S.planets.length) return;
+  /* Une priorité reçue d'un autre poste désigne sa planète par le gid tant que
+     le relevé d'ici ne l'a pas nommée. Elle ne vise aucune planète connue, donc
+     prios() ne la rend pas — mais elle n'est pas morte pour autant : la jeter
+     ici la renverrait effacée au poste qui l'a posée. */
+  const attend = e => e && e.gid != null;
   const vivantes = prios().concat(priosLf().map(x => ({kind:'lf', pid:x.pid, k:x.k, lvl:x.lvl})));
-  if(vivantes.length === S.prio.length) return;
+  if(vivantes.length + S.prio.filter(attend).length === S.prio.length) return;
   /* prios() et priosLf() sont deux files : on les remet dans l'ordre de pose
      d'origine, qui seul arbitre la précédence. */
   const clef = x => x.kind + ':' + (x.kind === 't' ? '' : x.pid) + ':' + x.k;
   const par = new Map(vivantes.map(x => [clef(x), x]));
-  S.prio = S.prio.map(e => e && par.get(clef(e))).filter(Boolean)
+  S.prio = S.prio.map(e => attend(e) ? e : (e && par.get(clef(e)))).filter(Boolean)
     .map(x => x.kind === 't' ? {kind:'t', k:x.k, lvl:x.lvl} : x);
   save();
 }
@@ -1003,6 +1008,8 @@ function parseProdPanel(text){
     if(/^Total par heure/i.test(label)){
       const em = (cells[4] || '').match(/^(-?[\d.]+)\/([\d.]+)$/);
       if(em) out.energy = {free:num(em[1]), prod:num(em[2])};
+      // Ce que le jeu annonce vraiment par heure : la mesure contre laquelle le moteur se cale.
+      out.perHour = v.slice(0, 3);
       out.total = true;
     }else if(/^Revenu de base/i.test(label)) out.base = v.slice(0, 3).map(x => x || 0);
     else if(/^Bonus technologique/i.test(label)) out.lfBonus = v.map(x => x || 0);
@@ -1114,11 +1121,16 @@ function production(p, ov){
   const factor = eCons===0 ? 1 : Math.max(0, Math.min(1, eProd/eCons));
   const common = (s.cls==='collector'?.25:0) + (s.geo?.1:0) + craw;
   const pos = (parseC(p.coords)||[])[2]||0, posM = POS_BONUS_M[pos]||0, posC = POS_BONUS_C[pos]||0;
-  const m = 30*e + 30*g(b.metal)*e*factor*(1 + .01*t.plasma + common + posM) + lf[0];
-  const c = 15*e + 20*g(b.crystal)*e*factor*(1 + .0066*t.plasma + common + posC) + lf[1];
+  /* L'écart que le jeu a mesuré et que la formule n'explique pas : bridage
+     d'une mine à la main, bonus d'officier, tout ce qui ne se lit pas dans les
+     niveaux. Additif, donc il survit à une montée simulée — c'est ce qui permet
+     de comparer deux montées entre elles sans que la calibration les fausse. */
+  const adj = Array.isArray(p.pAdj) ? p.pAdj : [0,0,0];
+  const m = 30*e + 30*g(b.metal)*e*factor*(1 + .01*t.plasma + common + posM) + lf[0] + (+adj[0]||0);
+  const c = 15*e + 20*g(b.crystal)*e*factor*(1 + .0066*t.plasma + common + posC) + lf[1] + (+adj[1]||0);
   const dRaw = 10*g(b.deut)*(1.44 - .004*p.tmax)*e*factor*(1 + .0033*t.plasma + common);
   const dFus = 10*g(b.fusion)*e;
-  return {m, c, d:dRaw - dFus + lf[2], eProd, eCons, eBal:eProd-eCons, factor,
+  return {m, c, d:dRaw - dFus + lf[2] + (+adj[2]||0), eProd, eCons, eBal:eProd-eCons, factor,
           cap:[storageCap(b.smetal), storageCap(b.scrystal), storageCap(b.sdeut)]};
 }
 function mse(m,c,d){ const r=S.settings.ratio; return m + c*r[0]/r[1] + d*r[0]/r[2]; }
@@ -1150,7 +1162,7 @@ const TERRAIN_LVL = 20;
  */
 function terrainRates(p){
   if(!p || !parseC(p.coords)) return null;
-  const nu = Object.assign({}, p, {gid:null, crawlers:0, sats:0, eAdj:0});
+  const nu = Object.assign({}, p, {gid:null, crawlers:0, sats:0, eAdj:0, pAdj:null});
   const ov = {metal:TERRAIN_LVL, crystal:TERRAIN_LVL, deut:TERRAIN_LVL, fusion:0, crawlers:0, solar:p.b.solar};
   /* Assez de centrales pour que rien ne soit bridé : un terrain se mesure à
      plein régime, sinon il dirait l'énergie posée plutôt que le sol. Même
@@ -1342,9 +1354,155 @@ function fold(name, def){
 try{ tab = LS.getItem(KEY+'-tab') || 'today'; }catch(e){}
 if(!['today','empire','tools','settings'].includes(tab)) tab='today';
 
+/* ---------- fraîcheur du relevé ---------- */
+/* Le copilote ne requête jamais le jeu : il lit la page que le joueur a sous
+   les yeux. Les autres planètes datent donc de sa dernière visite, et un plan
+   bâti sur un stock d'il y a une heure propose des choses qui ne sont plus
+   payables — c'est ce qui faisait « disparaître » une carte au clic, quand la
+   page enfin relue disait la vérité.
+   Au-delà de dix minutes, le panneau ne fait plus semblant : il montre le
+   bouton. En dessous, il se tait et se redessine tout seul. */
+const FRAIS_MS = 10*60e3;
+/**
+ * L'âge du relevé le plus vieux de l'empire, en ms.
+ * Une planète que la liste du jeu vient de révéler porte `bNeuve` : son stock
+ * est daté de maintenant, mais ses 500/500/0 sont inventés et aucun de ses
+ * niveaux n'est lu. La compter comme fraîche cachait le bouton au moment où il
+ * sert le plus — juste après une colonisation.
+ * @returns {number} ms depuis la lecture la plus ancienne, énorme si rien n'est lu
+ */
+function releveAge(){
+  const ats = S.planets.map(p => p.bNeuve ? 0 : (p.stock && p.stock.at) || 0);
+  return Date.now() - (ats.length ? Math.min(...ats) : 0);
+}
+/* Le relevé ne lit que les tuiles de la page affichée : chaque domaine demande
+   donc son arrêt. Le panneau enchaîne les mêmes liens qu'un clic du joueur —
+   rien n'est requêté, rien n'est cliqué dans la page du jeu.
+   L'ordre est par page et non par planète : le relevé qu'on arrête à moitié
+   rend alors un empire cohérent sur ce qu'il a déjà lu — tous les stocks, puis
+   toutes les flottes — au lieu de deux planètes complètes et six muettes. Les
+   pages viennent donc de la plus volatile à la plus stable. */
+/* « resourcesettings » est le paramétrage de la production. Sans cet arrêt, le
+   facteur, le revenu de base, le bonus des formes de vie et le compte de
+   foreuses ne se rafraîchissaient qu'en ouvrant la page à la main : la carte
+   d'une planète annonçait une production bâtie sur une lecture d'il y a des
+   jours. */
+const RELEVE_PAGES = ['supplies', 'resourcesettings', 'shipyard', 'defenses', 'facilities', 'lfbuildings', 'lfresearch'];
+/* Ce qui ne dépend pas de la planète se lit une fois, à la fin, sur la planète
+   de départ — ainsi le dernier arrêt est déjà celui du retour. */
+const RELEVE_GLOBAL = ['research', 'movement'];
+/**
+ * La planète d'où part le relevé, et où il ramène : celle que le joueur regarde.
+ * `S.cur` se teste avant de chercher — sans lui, l'égalité trouvait la première
+ * planète que le jeu ne nomme pas, et le relevé finissait sur une planète sans
+ * identifiant, incapable de dire qu'elle était arrivée.
+ * @returns {number} un rang de S.planets, celui du départ ou le premier nommé
+ */
+/**
+ * L'adresse du paramétrage de la production, pour une planète.
+ * Cette page est la seule du jeu que le copilote ne sait pas nommer : selon la
+ * version, elle s'ouvre par `component=` ou par `page=`. On ne devine donc
+ * pas — on reprend le lien que la page des ressources affiche et on n'y change
+ * que la planète. Tant qu'aucune page ne l'a montré, la forme commune aux
+ * autres pages sert de repli.
+ * @param {number} pi rang dans S.planets
+ * @returns {string|null}
+ */
+function prodUrl(pi){
+  const gid = (S.planets[pi] || {}).gid, repli = () => goUrl('resourcesettings', pi);
+  if(!S.prodUrl || !gid) return repli();
+  try{ const u = new URL(S.prodUrl); u.searchParams.set('cp', gid); return u.href; }
+  catch(e){ return repli(); }
+}
+function releveDepart(){
+  const i = S.cur ? S.planets.findIndex(p=>p.gid===S.cur) : -1;
+  if(i>=0) return i;
+  return Math.max(0, S.planets.findIndex(p=>p.gid));
+}
+/** Les arrêts du relevé complet : {gid, page, url}, dans l'ordre. */
+function releveEtapes(){
+  /* Les pages de formes de vie n'existent que pour qui en a : sans jamais en
+     avoir lu une, le relevé irait attendre quatre secondes devant une page qui
+     ne se nomme pas, deux fois par planète. Le panneau demande déjà d'en
+     ouvrir une à la main ; après ça, le relevé les prend. */
+  const avecLf = S.planets.some(p=>Object.keys(p.lfSeen||{}).length || Object.keys(p.lf||{}).length);
+  const pages = avecLf ? RELEVE_PAGES : RELEVE_PAGES.filter(c=>!c.startsWith('lf'));
+  const out = [];
+  for(const page of pages) S.planets.forEach((p,i)=>{
+    const url = p.gid ? (page === 'resourcesettings' ? prodUrl(i) : goUrl(page, i)) : null;
+    if(url) out.push({gid:p.gid, page, url});
+  });
+  if(!out.length) return out;
+  const i = releveDepart(), gid = (S.planets[i]||{}).gid;
+  for(const page of RELEVE_GLOBAL){ const url = goUrl(page, i); if(url) out.push({gid, page, url}); }
+  return out;
+}
+let releveEnCours = false, releveFin = null;
+/** Réveille le relevé dès que la page visitée a été lue. */
+function releveLu(){ if(releveFin) releveFin(); }
+/* Le relevé arrive toutes les cinq secondes depuis la page ouverte : un relevé
+   qui tombe pendant la navigation parle encore de la page d'avant. On n'avance
+   donc que sur un relevé qui nomme la planète où l'on vient d'aller — et, à
+   défaut, au bout de quatre secondes, pour qu'une page muette n'arrête rien. */
+function relevePas(gid, page){
+  return new Promise(res=>{
+    const fin = ()=>{ clearTimeout(t); releveFin = null; res(); };
+    const t = setTimeout(fin, 4000);
+    /* La planète seule ne suffit pas : six arrêts de suite la gardent, et le
+       battement de la page d'avant ferait avancer le relevé sans rien lire. */
+    releveFin = ()=>{ if(String(S.cur) === String(gid) && S.page === page) fin(); };
+  });
+}
+/** Le relevé complet : passe sur chaque page de chaque planète, puis ramène l'onglet. */
+async function faitLeReleve(){
+  const etapes = releveEtapes();
+  if(releveEnCours || !etapes.length) return;
+  /* Le point de départ se note avant le relevé : chaque page visitée déplace la
+     planète courante, et à la fin S.cur serait le dernier arrêt. */
+  const depart = releveDepart();
+  releveEnCours = {fait:0, total:etapes.length}; header();
+  try{
+    for(const e of etapes){
+      if(!releveEnCours) break; // le joueur a rappuyé sur le bouton
+      // discret : le relevé ne vole pas la main, le joueur peut travailler ailleurs
+      chrome.runtime.sendMessage({type:'go', url:e.url, discret:true});
+      await relevePas(e.gid, e.page);
+      if(releveEnCours){ releveEnCours.fait++; header(); }
+    }
+    /* Le retour part même d'un relevé arrêté : le joueur ne doit pas rester où
+       le relevé l'a laissé. */
+    const retour = goUrl('overview', depart);
+    if(retour) chrome.runtime.sendMessage({type:'go', url:retour, discret:true});
+  } catch(e){ console.error('Copilote : relevé interrompu', e); }
+  finally{ releveEnCours = null; header(); render(); }
+}
+/** Le bouton : lance le relevé, ou l'arrête s'il tourne. */
+function boutonMaj(){
+  if(releveEnCours){ releveEnCours = null; header(); return; }
+  faitLeReleve();
+}
+/* Le bouton du haut : caché tant que le relevé est frais, et le seul moyen
+   d'arrêter un relevé en route — à huit planètes il y a cinquante arrêts, et
+   le joueur qui change d'avis ne doit pas attendre la fin. */
+function majBouton(){
+  const b = document.getElementById('majBtn'); if(!b) return;
+  const n = releveEtapes().length, age = releveAge();
+  b.hidden = !n || (!releveEnCours && age <= FRAIS_MS);
+  if(releveEnCours){
+    b.textContent = `Arrêter (${releveEnCours.fait}/${releveEnCours.total})`;
+    b.title = "Le relevé passe par chaque page de chaque planète, puis te ramène où tu étais.";
+  } else {
+    b.textContent = 'Actualiser';
+    /* Une planète jamais relevée a un stock daté de zéro : « vieux de 20778j »
+       au lieu de dire simplement que rien n'a encore été lu. */
+    const vieux = age > 7*864e5 ? 'Relevé jamais fait' : `Relevé vieux de ${dur(age/1000)}`;
+    b.title = `${vieux} : ${n} page${n>1?'s':''} à relire pour tout savoir.`;
+  }
+}
 function header(){
   const s=S.settings;
   document.getElementById('uniBadge').textContent = `${S.syncAt ? 'synchro ' + new Date(S.syncAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) + ' · ' : 'en attente du jeu · '}éco x${s.eco} · flotte x${s.fleet} · ${({collector:'Collecteur',general:'Général',explorer:'Explorateur',none:'Sans classe'})[s.cls]}`;
+  majBouton();
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.tab===tab)));
 }
 function render(){ prioClean(); header(); view.innerHTML = VIEWS[tab](); bind(); refresh(); }
@@ -2966,7 +3124,7 @@ function foundLifeforms(){
 function lfSettingsHtml(){
   const lues = readLifeforms();
   return Object.entries(LIFEFORMS).map(([k,l]) => lues.includes(k)
-    ? `<span class="pill good" style="padding:6px 12px">${l.n} · lue sur tes planètes</span>`
+    ? `<span class="pill good" style="padding:6px 12px"><input type="checkbox" checked disabled style="width:auto;margin-right:6px">${l.n} · lue sur tes planètes</span>`
     : `<label class="pill ${S.lf.found.includes(k)?'good':'info'}" style="cursor:pointer;padding:6px 12px"><input type="checkbox" data-lf="${k}" ${S.lf.found.includes(k)?'checked':''} style="width:auto;margin-right:6px">${l.n}</label>`).join('');
 }
 function bestLifeform(){
@@ -4031,10 +4189,10 @@ settings(){
     </div>
     <div class="card"><h2>Page du jeu</h2>
       <div class="grid">
-        <label class="f">Épurer la page du jeu<select id="sLean" data-set="lean"><option value="1" ${s.lean?'selected':''}>Oui</option><option value="0" ${!s.lean?'selected':''}>Non</option></select><span class="note">La barre Gameforge, l'en-tête, le pied de page et la bannière publicitaire s'en vont ; la photo de fond laisse place à un aplat sombre, et le menu du jeu grossit d'un septième. La page du jeu, elle, n'est pas touchée.</span></label>
-        <label class="f">Masquer les menus payants<select id="sNoShop" data-set="noshop"><option value="1" ${s.noshop?'selected':''}>Oui</option><option value="0" ${!s.noshop?'selected':''}>Non</option></select><span class="note">Les entrées jaunes du menu du jeu : Marchand, Mess des officiers, les deux boutiques.</span></label>
+        <label class="f">Épurer la page du jeu<select id="sLean" data-set="lean"><option value="1" ${s.lean?'selected':''}>Oui</option><option value="0" ${!s.lean?'selected':''}>Non</option></select><span class="note">Barre Gameforge, en-tête, pied de page et pub en moins ; fond sombre, menu plus grand.</span></label>
+        <label class="f">Masquer les menus payants<select id="sNoShop" data-set="noshop"><option value="1" ${s.noshop?'selected':''}>Oui</option><option value="0" ${!s.noshop?'selected':''}>Non</option></select><span class="note">Marchand, Mess des officiers, boutiques.</span></label>
       </div>
-      <p class="note">Deux réglages d'allure, qui ne touchent ni aux calculs ni au plan. Ils agissent sur la page du jeu, pas sur ce panneau.</p>
+      <p class="note">Allure seulement : la page du jeu, pas ce panneau, ni les calculs.</p>
     </div>
     <div class="card"><h2>Sauvegarde</h2>
       <p class="note">Tes données restent dans ce navigateur. Copie-les pour les garder ailleurs ou les passer sur un autre appareil.</p>
@@ -4472,6 +4630,10 @@ document.addEventListener('paste', e=>{
   if(t && t.includes('"planets"') && t.trim().startsWith('{')){ e.preventDefault(); runImport(t); }
 });
 view.addEventListener('click', e=>{ if(e.target.id==='impGo') runImport(document.getElementById('impText').value); });
+document.getElementById('majBtn').addEventListener('click', boutonMaj);
+/* L'âge du relevé vieillit tout seul : sans ce battement, le bouton n'apparaîtrait
+   qu'au prochain clic du joueur — au moment où il se fie déjà au plan. */
+setInterval(header, 60000);
 document.getElementById('tabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-tab]'); if(!b) return; tab=b.dataset.tab; try{ LS.setItem(KEY+'-tab',tab); }catch(err){} render(); });
 view.addEventListener('click', e=>{
   if(e.target.id==='tmSound'){ unlockAudio(); chime(); }
@@ -4505,10 +4667,12 @@ function publieLePlan(){
 
 
 /**
- * Cale le solde d'énergie d'une planète sur celui que le panneau de production
- * affiche. Même mesure que les deux autres lectures : on remet eAdj à zéro pour
- * que production() rende le solde du moteur seul, et l'écart est ce qu'il ne
- * sait pas expliquer (la consommation des formes de vie déjà bâties, notamment).
+ * Cale une planète sur ce que le panneau de production affiche : d'abord son
+ * solde d'énergie (eAdj), puis sa production horaire (pAdj). Même mesure dans
+ * les deux cas — on remet l'écart à zéro pour que production() rende le chiffre
+ * du moteur seul, et ce qui reste est ce qu'il ne sait pas expliquer : la
+ * consommation des formes de vie déjà bâties, une mine bridée à la main, un
+ * bonus que la formule ignore.
  * Sans effet si la planète est inconnue, la lecture a plus de sept jours ou
  * l'énergie libre est illisible. Une lecture ne cale qu'une fois (eAdjAt) : le
  * panneau et les niveaux viennent de la même visite, et une relecture plus tard
@@ -4519,9 +4683,22 @@ function calePlanete(p){
   const r = prodOf(p);
   const free = r && r.energy && r.energy.free;
   if(!Number.isFinite(free) || !(Date.now() - r.at < LF_READ_TTL) || p.eAdjAt === r.at) return;
+  const borne = x => Math.min(Math.max(x, -1e9), 1e9);
   p.eAdjAt = r.at;
   p.eAdj = 0;
-  p.eAdj = Math.min(Math.max(free, -1e9), 1e9) - production(p).eBal;
+  p.eAdj = borne(free) - production(p).eBal;
+  /* Puis les trois ressources, sur « Total par heure » — le chiffre que le
+     joueur a sous les yeux. L'énergie d'abord : elle décide du facteur, donc
+     de la production. La formule connaît les niveaux, le plasma, la classe et
+     les formes de vie ; elle ignore le reste, et c'est ce reste qu'on mesure.
+     Comme pour l'énergie, la mesure se fait à écart nul, et une seule fois par
+     lecture — sinon la relecture d'un vieux panneau effacerait la mine montée
+     depuis. */
+  const t = r.perHour;
+  if(!Array.isArray(t) || !t.every(x => Number.isFinite(x))) return;
+  p.pAdj = [0,0,0];
+  const f = production(p);
+  p.pAdj = [borne(t[0]) - f.m, borne(t[1]) - f.c, borne(t[2]) - f.d];
 }
 
 /* ---------- live sync from the extension ---------- */
@@ -4565,6 +4742,9 @@ function applyGame(g){
     kept.push(p);
   }
   if(kept.length) S.planets = kept;
+  /* Une priorité reçue d'un autre poste attendait sa planète : le relevé vient
+     de la nommer, elle peut enfin désigner la planète d'ici. */
+  S.prio = prioIn(S.prio);
   S.timers = (S.timers || []).filter(t=>!t.game);
   for(const t of (g.timers || [])){
     const tm = {id:'g'+t.end+(t.techId||t.type)+(t.planetId||''), game:true, queue:t.type, end:t.end*1000, done:t.end*1000 <= Date.now()};
@@ -4607,6 +4787,9 @@ function applyGame(g){
       if(r){ r.at = +e.at || 0; S.prod[gid] = r; calePlanete(S.planets.find(x=>x.gid===gid)); }
     }
   }
+  if(g.prodUrl) S.prodUrl = g.prodUrl;
+  if(g.cur) S.cur = g.cur;
+  S.page = g.page || null;
   S.sample = false;
   S.syncAt = g.at || Date.now();
   prioRecoit(); // une planète vient peut-être d'être relevée
@@ -4614,6 +4797,7 @@ function applyGame(g){
   const a = document.activeElement;
   const typing = a && view.contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName);
   typing ? refresh() : render();
+  releveLu();
   // render() ne publie le plan que sur Aujourd'hui : une demande placée ici resterait muette sur la tuile
   publieLePlan();
 }
@@ -4644,6 +4828,87 @@ function prioAccueille(liste){
   publieLePlan();
 }
 chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioAsk) prioAccueille(ch.prioAsk.newValue); if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ API = ch.api.newValue; if(tab==='tools' && S.ui.tool==='explore') render(); } });
+
+/* ---------- deux postes, un seul plan ---------- */
+/* Le stockage local ne voyage pas : sur un deuxième ordinateur le panneau
+   repart d'une copie à lui, et ne propose pas la même chose. Ce qui se
+   redécouvre en jouant — niveaux, files, relevé de l'empire — reste local :
+   chaque poste le relit des pages du jeu, et le partager donnerait au poste en
+   retard le pouvoir d'écraser le poste à jour. Ce que le joueur décide, lui, ne
+   se redécouvre pas : c'est cela qui voyage.
+   Le pid est tiré au sort à la création de la planète, donc propre au poste ;
+   le gid vient du jeu et vaut sur les deux. Même règle qu'à la frontière de la
+   page du jeu : on traduit en sortie et en entrée, et S ne garde jamais de gid. */
+const SYNC_KEYS = ['settings','day','expo','lf','raids','daily'];
+const gidDe = pid => { const p = planetById(pid); return p && p.gid != null ? String(p.gid) : null; };
+const pidDe = gid => { const p = (S.planets || []).find(x => x.gid != null && String(x.gid) === String(gid)); return p ? p.id : null; };
+/* Une recherche ne porte pas de pid : elle voyage telle quelle. */
+function prioOut(l){
+  return (l || []).map(e => {
+    if(!e || e.kind === 't' || !e.pid) return e;
+    const gid = gidDe(e.pid); if(gid == null) return e;
+    const o = Object.assign({}, e, {gid}); delete o.pid; return o;
+  });
+}
+function prioIn(l){
+  return (l || []).map(e => {
+    if(!e || e.gid == null) return e;
+    // planète pas encore relevée ici : l'entrée attend, applyGame repassera
+    const pid = pidDe(e.gid); if(!pid) return e;
+    const o = Object.assign({}, e, {pid}); delete o.gid; return o;
+  });
+}
+function syncOut(){
+  const out = {};
+  for(const k of SYNC_KEYS) out['sy:' + k] = S[k];
+  /* Une priorité posée sur une planète que le jeu ne nomme pas n'a pas de gid :
+     l'envoyer la ferait disparaître au retour, puisque l'autre poste renverrait
+     la liste sans elle. On n'envoie pas la liste, voilà tout. */
+  const prio = prioOut(S.prio);
+  if(prio.every(e => !e || e.kind === 't' || e.gid != null)) out['sy:prio'] = prio;
+  const centre = gidDe(S.centre); if(centre != null) out['sy:centre'] = centre;
+  return out;
+}
+/* `var` et non `let` : save() part dès le chargement, avant que cette ligne
+   soit atteinte, et une liaison temporairement morte lèverait là. */
+var syncT = 0;
+/* Le stockage partagé compte les écritures à la minute : on groupe, plutôt que
+   d'écrire à chaque clic. */
+function syncPush(){
+  if(typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.sync) return;
+  clearTimeout(syncT);
+  syncT = setTimeout(() => {
+    try{ const r = chrome.storage.sync.set(syncOut()); if(r && r.catch) r.catch(syncFailed); }
+    catch(e){ syncFailed(e); }
+  }, 10000);
+}
+/* Le quota dépassé ou le navigateur déconnecté : le poste continue de jouer sur
+   sa copie locale, mais le taire laisserait croire les deux postes d'accord. */
+function syncFailed(e){ console.error('Copilote : synchro entre postes impossible', e); }
+/* Ce que notre propre écriture nous renvoie est déjà dans S : comparer évite le
+   rendu pour rien, et surtout le va-et-vient entre deux panneaux ouverts. */
+function syncApply(d){
+  if(!d) return;
+  let chg = false;
+  const met = (k, v) => { if(v === undefined || JSON.stringify(S[k]) === JSON.stringify(v)) return; S[k] = v; chg = true; };
+  for(const k of SYNC_KEYS) met(k, d['sy:' + k]);
+  if(d['sy:prio'] !== undefined) met('prio', prioIn(d['sy:prio']));
+  if(d['sy:centre'] != null){ const pid = pidDe(d['sy:centre']); if(pid && pid !== S.centre){ S.centre = pid; chg = true; } }
+  if(!chg) return;
+  /* On enregistre sans repasser par save() : renvoyer ce qu'on vient de recevoir
+     n'apprendrait rien à personne. */
+  try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){ saveFailed(e); }
+  render();
+  publieLePlan();
+}
+if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){
+  chrome.storage.sync.get(null, syncApply);
+  chrome.storage.onChanged.addListener((ch, area)=>{
+    if(area !== 'sync') return;
+    const d = {}; for(const k in ch) d[k] = ch[k].newValue;
+    syncApply(d);
+  });
+}
 
 /* ---------- one alert, one acknowledgment ---------- */
 /** In the extension, every alert goes through the background so a single "OK" clears them all. */

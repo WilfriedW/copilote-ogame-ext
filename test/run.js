@@ -24,8 +24,143 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'view', 'bind'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'view', 'bind'], api, ext, prioAsk);
 }
+
+/* ---------- fraîcheur du relevé ---------- */
+
+/** Deux planètes que le jeu nomme, sur un serveur connu. */
+const RELEVE = s => { s.host = 's1-fr.ogame.gameforge.com'; s.planets[0].gid = '101'; s.planets[1].gid = '102'; };
+/** Un relevé assez vieux pour que le bouton sorte. */
+const PERIME = s => { s.planets.forEach(p => { p.stock.at = SOIR - 42 * 60e3; }); };
+
+t('un relevé du jour même est frais, le bouton reste caché', () => {
+  const g = app();
+  assert.ok(g.releveAge() <= g.FRAIS_MS, 'les stocks de la fixture sont calés sur maintenant');
+});
+
+t("c'est la planète la moins souvent vue qui donne l'âge", () => {
+  const g = app(s => { s.planets[1].stock.at = SOIR - 42 * 60e3; });
+  assert.ok(g.releveAge() > g.FRAIS_MS);
+  assert.equal(Math.round(g.releveAge() / 60e3), 42);
+});
+
+t("une planète que le jeu vient de révéler rend tout l'empire périmé", () => {
+  // bNeuve : nommée par la liste du jeu, aucun niveau lu, stock inventé à maintenant
+  const g = app(s => { RELEVE(s); s.planets[1].bNeuve = 1; });
+  assert.ok(g.releveAge() > g.FRAIS_MS, 'le bouton doit sortir après une colonisation');
+});
+
+t("une planète relevée depuis ne périme plus l'empire", () => {
+  const g = app(RELEVE);
+  assert.ok(g.releveAge() <= g.FRAIS_MS);
+});
+
+t('sans serveur connu, aucun relevé à proposer', () => {
+  const g = app(s => { s.planets.forEach(p => { p.gid = '101'; }); });
+  assert.deepEqual(g.releveEtapes(), []);
+});
+
+t('une planète que le jeu ne nomme pas ne fait pas étape', () => {
+  const g = app(s => { RELEVE(s); delete s.planets[1].gid; });
+  assert.deepEqual([...new Set(g.releveEtapes().map(e => e.gid))], ['101']);
+});
+
+t('le relevé va page par page, pas planète par planète', () => {
+  // arrêté à moitié, il rend un empire cohérent sur ce qu'il a lu
+  const g = app(RELEVE);
+  const e = g.releveEtapes();
+  assert.deepEqual(e.slice(0, 4).map(x => `${x.page}:${x.gid}`),
+    ['supplies:101', 'supplies:102', 'resourcesettings:101', 'resourcesettings:102']);
+});
+
+t('chaque page porte son domaine, et une seule fois par planète', () => {
+  const g = app(RELEVE);
+  const e = g.releveEtapes();
+  for (const page of ['supplies', 'resourcesettings', 'shipyard', 'defenses', 'facilities']) {
+    assert.equal(e.filter(x => x.page === page).length, 2, page);
+  }
+  assert.ok(e[0].url.includes('component=supplies') && e[0].url.includes('cp=101'), e[0].url);
+});
+
+t('le relevé passe par le paramétrage de la production de chaque planète', () => {
+  // sans lui, facteur, bonus de forme de vie et foreuses ne se rafraîchissent jamais
+  const g = app(RELEVE);
+  const e = g.releveEtapes().filter(x => x.page === 'resourcesettings');
+  assert.deepEqual(e.map(x => x.gid), ['101', '102']);
+  assert.ok(e[0].url.includes('component=resourcesettings'), e[0].url);
+});
+
+t("le relevé reprend le lien du jeu vers le paramétrage, planète changée", () => {
+  // selon la version, cette page s'ouvre par `page=` et non par `component=` :
+  // on ne devine pas l'adresse, on reprend celle que la page affiche
+  const g = app(s => { RELEVE(s); s.prodUrl = 'https://s1-fr.ogame.gameforge.com/game/index.php?page=resourceSettings&cp=101'; });
+  const e = g.releveEtapes().filter(x => x.page === 'resourcesettings');
+  assert.deepEqual(e.map(x => x.url), [
+    'https://s1-fr.ogame.gameforge.com/game/index.php?page=resourceSettings&cp=101',
+    'https://s1-fr.ogame.gameforge.com/game/index.php?page=resourceSettings&cp=102']);
+});
+
+t("un lien illisible ne prive pas le relevé de sa page", () => {
+  const g = app(s => { RELEVE(s); s.prodUrl = 'pas une adresse'; });
+  const e = g.releveEtapes().filter(x => x.page === 'resourcesettings');
+  assert.equal(e.length, 2);
+  assert.ok(e[0].url.includes('component=resourcesettings'), e[0].url);
+});
+
+t('sans forme de vie jamais lue, le relevé ne va pas les attendre', () => {
+  const g = app(RELEVE);
+  assert.deepEqual(g.releveEtapes().filter(e => e.page.startsWith('lf')), []);
+});
+
+t("une forme de vie déjà vue ramène ses deux pages par planète", () => {
+  const g = app(s => { RELEVE(s); s.planets[0].lfSeen = { lfbuilding: SOIR }; });
+  const e = g.releveEtapes();
+  assert.equal(e.filter(x => x.page === 'lfbuildings').length, 2);
+  assert.equal(e.filter(x => x.page === 'lfresearch').length, 2);
+});
+
+t('recherche et mouvements ferment le relevé, une fois chacun', () => {
+  const g = app(RELEVE);
+  const e = g.releveEtapes();
+  assert.deepEqual(e.slice(-2).map(x => x.page), ['research', 'movement']);
+  assert.equal(e.filter(x => x.page === 'research').length, 1);
+});
+
+t('le bouton du haut lance le relevé', () => {
+  const g = app(s => { RELEVE(s); PERIME(s); }, SOIR, null, true);
+  g.click('majBtn');
+  const go = g.sent().filter(m => m.type === 'go');
+  assert.equal(go.length, 1, 'le premier arrêt part au clic');
+  assert.ok(go[0].url.includes('cp=101'), go[0].url);
+});
+
+t('le relevé navigue sans prendre la main sur la fenêtre', () => {
+  // sinon chaque étape arrache le joueur à l'application où il travaille
+  const g = app(s => { RELEVE(s); PERIME(s); }, SOIR, null, true);
+  g.click('majBtn');
+  assert.equal(g.sent().filter(m => m.type === 'go')[0].discret, true);
+});
+
+t("le clic sur une carte, lui, amène bien l'onglet devant", () => {
+  const g = app(RELEVE, SOIR, null, true);
+  // une carte telle que la poignée déléguée la voit : porteuse de data-go
+  const carte = { dataset: { go: g.goUrl('supplies', 0) } };
+  carte.closest = sel => (sel === '[data-go]' ? carte : null);
+  g.click('view', carte);
+  const go = g.sent().filter(m => m.type === 'go');
+  assert.equal(go.length, 1);
+  assert.ok(!go[0].discret, 'un clic du joueur veut son onglet devant lui');
+});
+
+t('le bouton annonce sa progression et devient le bouton d\'arrêt', () => {
+  const g = app(s => { RELEVE(s); PERIME(s); }, SOIR, null, true);
+  const b = g.click('majBtn');
+  assert.ok(/^Arrêter \(0\/\d+\)$/.test(b.textContent), b.textContent);
+  // rappuyer arrête : le relevé ne repart pas, et le joueur est ramené
+  g.click('majBtn');
+  assert.equal(b.textContent, 'Actualiser');
+});
 
 /* ---------- ce qu'il y a à envoyer ---------- */
 
@@ -1240,6 +1375,20 @@ t('Galaxie prend le cadre, pas la grille', () => {
   assert.ok(r.peau.rail.length > 0, 'mais le rail est là');
   assert.ok(r.peau.planetesEnHaut, 'et les planètes aussi, en haut');
   assert.ok(/peau=cadre/.test(r.dataset.copilote), r.dataset.copilote);
+});
+
+t("la page publie le lien du jeu vers le paramétrage de la production", () => {
+  /* Cette adresse-là, le copilote ne la devine pas : selon la version elle
+     s'ouvre par `component=` ou par `page=`. Il reprend celle que la page
+     affiche, et son relevé la suit. */
+  const lien = 'https://s1-fr.ogame.gameforge.com/game/index.php?page=resourceSettings&cp=33657643';
+  const r = runPage({ search: '?page=ingame&component=supplies', prodHref: lien });
+  assert.equal(r.envois().find(m => m.type === 'snapshot').data.prodUrl, lien);
+});
+
+t("une page sans ce lien n'en invente pas", () => {
+  const r = runPage({ search: '?page=ingame&component=supplies' });
+  assert.equal(r.envois().find(m => m.type === 'snapshot').data.prodUrl, null);
 });
 
 t('la page Flotte est habillée, pas redessinée', () => {
@@ -3600,6 +3749,52 @@ t('un facteur sous 100 % ne se propage pas au gain du niveau suivant', () => {
   const ups = g.rankUpgrades(g.S.planets[0]);
   assert.ok(ups.length, 'des montées sont proposées');
   assert.strictEqual(ups[0].key, 'solar', 'et l\'énergie passe devant : ' + ups.map(u => u.key));
+});
+
+t('le panneau donne le total horaire que le jeu affiche', () => {
+  const g = app(null, SOIR);
+  assert.deepEqual(g.parseProdPanel(PANNEAU_CARIBOU).perHour, [46958, 17351, 8862]);
+});
+
+t('la production lue cale les trois ressources de la planète', () => {
+  // le joueur compare la carte au « Total par heure » du jeu : les deux doivent dire pareil
+  const g = app(null, SOIR);
+  const avant = g.production(g.S.planets[0]);
+  assert.ok(Math.round(avant.m) !== 46958, 'la fixture ne tombe pas déjà dessus : le test mord');
+  const pr = lis(g, PANNEAU_CARIBOU, SOIR);
+  assert.deepEqual([pr.m, pr.c, pr.d].map(Math.round), [46958, 17351, 8862]);
+});
+
+t("l'écart calé est additif : une montée simulée garde tout son gain", () => {
+  /* Caler ne doit pas écraser la comparaison entre deux montées : l'écart est
+     un forfait, le delta d'un niveau reste celui de la formule. */
+  const g = app(null, SOIR);
+  const p = g.S.planets[0];
+  const nu = { metal: p.b.metal + 1 };
+  lis(g, PANNEAU_CARIBOU, SOIR);
+  const cale = g.production(p, nu).m - g.production(p).m;
+  const ecart = p.pAdj;
+  p.pAdj = null; // tout le reste identique : seul le forfait tombe
+  const brut = g.production(p, nu).m - g.production(p).m;
+  assert.ok(ecart && ecart[0] !== 0, 'un écart a bien été posé : ' + ecart);
+  assert.ok(brut > 0, 'un niveau de mine rapporte : ' + brut);
+  assert.ok(Math.abs(cale - brut) < 1e-6, cale + ' vs ' + brut);
+});
+
+t("un sol se lit sans la calibration posée sur la planète", () => {
+  // sinon le forfait d'une planète la ferait passer devant les autres au classement des terrains
+  const g = app(null, SOIR);
+  const avant = g.terrainRates(g.S.planets[0]);
+  lis(g, PANNEAU_CARIBOU, SOIR);
+  assert.deepEqual(g.terrainRates(g.S.planets[0]), avant);
+});
+
+t("un total par heure illisible laisse la production au moteur", () => {
+  const g = app(null, SOIR);
+  const sans = PANNEAU_CARIBOU.replace('Total par heure:\t46.958\t17.351\t8.862\t231/4.385',
+    'Total par heure:\t2M\t17.351\t8.862\t231/4.385');
+  lis(g, sans, SOIR);
+  assert.strictEqual(g.S.planets[0].pAdj, undefined, 'aucun écart posé sur un total tronqué');
 });
 
 t('un même panneau relu ne gomme pas le coût d\'un niveau monté depuis', () => {
@@ -7142,6 +7337,56 @@ t('un stockage qui lève au chargement ne casse ni la page ni le plan', () => {
   try { p = runPage({ ...DEUX, stockageCasse: 'get', skin: { hints: { 33701: { 2: 10 } } } }); }
   finally { console.error = log; }
   assert.match(p.tuile(2).pastille, /10/);
+});
+
+/* ---------- deux postes, un seul plan ---------- */
+
+/** Le même empire vu par deux postes : les gid viennent du jeu, les id sont locaux. */
+const poste = (un, deux) => (s) => {
+  s.planets[0].id = un; s.planets[0].gid = '33701';
+  s.planets[1].id = deux; s.planets[1].gid = '33801';
+};
+
+t('vers l\'autre poste part ce que le joueur décide, pas le relevé de l\'empire', () => {
+  const g = app(poste('a1', 'a2'));
+  const envoi = g.syncOut();
+  for (const k of ['sy:settings', 'sy:day', 'sy:daily', 'sy:prio', 'sy:raids'])
+    assert.ok(k in envoi, k + ' doit voyager');
+  for (const k of Object.keys(envoi))
+    assert.ok(!/planets|tech|timers|explored|syncAt/.test(k), k + ' se relit des pages du jeu');
+});
+
+t('une priorité voyage par le gid : l\'autre poste la pose sur sa propre planète', () => {
+  const a = app(poste('a1', 'a2'));
+  a.prioPose('b', 'a2', 'metal', 12);
+  const envoi = a.syncOut();
+  assert.deepEqual(envoi['sy:prio'], [{ kind: 'b', k: 'metal', lvl: 12, gid: '33801' }]);
+  const b = app(poste('b1', 'b2'));
+  b.syncApply(envoi);
+  assert.deepEqual(b.S.prio, [{ kind: 'b', k: 'metal', lvl: 12, pid: 'b2' }]);
+});
+
+t('une priorité retirée sur un poste s\'en va sur l\'autre', () => {
+  const g = app(poste('b1', 'b2'));
+  g.prioPose('b', 'b2', 'metal', 12);
+  g.syncApply({ 'sy:prio': [] });
+  assert.deepEqual(g.S.prio, []);
+});
+
+t('une priorité reçue avant le relevé attend sa planète, puis s\'y pose', () => {
+  const g = app(poste('b1', 'b2'));
+  g.syncApply({ 'sy:prio': [{ kind: 'b', k: 'metal', lvl: 12, gid: '44000' }] });
+  assert.equal(g.S.prio[0].gid, '44000', 'gardée telle quelle : cette planète est inconnue ici');
+  g.applyGame({ order: ['44000'], planets: { 44000: { name: 'Colonie neuve', coords: '1:142:4', tmax: 50, b: { metal: 3 } } } });
+  const p = g.S.planets.find(x => x.gid === '44000');
+  assert.deepEqual(g.S.prio[0], { kind: 'b', k: 'metal', lvl: 12, pid: p.id });
+});
+
+t('une priorité sur une planète que le jeu ne nomme pas ne part pas', () => {
+  const g = app(s => { s.planets[0].gid = '33701'; });
+  g.prioPose('b', 'colo', 'metal', 12);
+  assert.ok(!('sy:prio' in g.syncOut()),
+    'toute la liste reste à quai : envoyée sans elle, elle reviendrait effacée');
 });
 
 if (failures.length) {

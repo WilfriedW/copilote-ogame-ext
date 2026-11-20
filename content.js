@@ -265,9 +265,16 @@
       def,
       defs,
       moves,
+      // La page lue, pour que le panneau sache quel arrêt de son relevé vient d'arriver.
+      page: component,
       movePage: /movement/i.test(component),
       artefacts,
       prodPanel,
+      /* Le lien que le jeu affiche vers « Paramétrage de la production ». Le
+         relevé ne devine pas cette adresse — selon la version elle s'ouvre par
+         `component=` ou par `page=` — il reprend celle du jeu. Un lien, pas un
+         robot. */
+      prodUrl: (document.querySelector('a[href*="esourcesettings" i]') || {}).href || null,
       lf,
       lfSeen: lfPage ? { [lfPage]: Date.now() } : null,
       slots,
