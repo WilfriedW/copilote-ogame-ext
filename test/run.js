@@ -191,7 +191,7 @@ t('recherche et mouvements ferment le relevé, une fois chacun', () => {
 t('le bouton du haut lance le relevé', () => {
   const g = app(s => { RELEVE(s); PERIME(s); }, SOIR, null, true);
   g.click('majBtn');
-  const go = g.sent().filter(m => m.type === 'go');
+  const go = g.sent().filter(m => m.type === 'scan');
   assert.equal(go.length, 1, 'le premier arrêt part au clic');
   assert.ok(go[0].url.includes('cp=101'), go[0].url);
 });
@@ -206,11 +206,29 @@ t('le bouton se montre en rouge, et seulement quand il se montre', () => {
   assert.ok(vieux.el('majBtn').classList.contains('bad'));
 });
 
-t('le relevé navigue sans prendre la main sur la fenêtre', () => {
-  // sinon chaque étape arrache le joueur à l'application où il travaille
+t("le relevé ne navigue pas l'onglet du joueur : il demande le sien", () => {
+  // sinon sa page de jeu clignote page après page sous ses yeux
   const g = app(s => { RELEVE(s); PERIME(s); }, SOIR, null, true);
   g.click('majBtn');
-  assert.equal(g.sent().filter(m => m.type === 'go')[0].discret, true);
+  assert.deepEqual(g.sent().filter(m => m.type === 'go'), [],
+    "aucun message qui déplacerait l'onglet du joueur");
+});
+
+t("l'écran du relevé prend la place du contenu, et montre ce qui reste", () => {
+  const g = app(s => { RELEVE(s); PERIME(s); }, SOIR, null, true);
+  g.click('majBtn');
+  const h = g.html().view;
+  assert.ok(/Relevé en cours/.test(h), h.slice(0, 200));
+  assert.ok(/0 \/ \d+/.test(h), 'le compteur est là');
+  assert.ok(/ressources/.test(h) && /production/.test(h), 'les pages sont nommées');
+});
+
+t("un clic sur un onglet rend la main avant la fin du relevé", () => {
+  const g = app(s => { RELEVE(s); PERIME(s); }, SOIR, null, true);
+  g.click('majBtn');
+  assert.ok(/Relevé en cours/.test(g.html().view));
+  g.click('tabs', { closest: sel => (sel === 'button[data-tab]' ? { dataset: { tab: 'empire' } } : null) });
+  assert.ok(!/Relevé en cours/.test(g.html().view), "l'écran s'est baissé");
 });
 
 t("le clic sur une carte, lui, amène bien l'onglet devant", () => {

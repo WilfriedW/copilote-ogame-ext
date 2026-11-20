@@ -198,12 +198,46 @@ function goToGame(url, discret) {
   });
 }
 
+/* L'onglet de travail du relevé. Il navigue des dizaines de pages : le faire
+   dans l'onglet du joueur transformait sa page de jeu en clignotement et le
+   déplaçait de planète en planète. Il a donc le sien, ouvert en arrière-plan à
+   côté du sien et refermé à la fin — pendant ce temps le joueur continue de
+   jouer sur le sien, qui ne bouge pas.
+   L'identifiant vit dans le stockage de session et non dans une variable : le
+   service worker peut s'arrêter entre deux arrêts du relevé, et on rouvrirait
+   alors un onglet par page. */
+const SCAN_TAB = 'scanTab';
+const OGAME_MATCH = 'https://*.ogame.gameforge.com/game/index.php*';
+/**
+ * Mène l'onglet du relevé à cette page, en l'ouvrant la première fois.
+ * @param {string} url page du jeu
+ */
+async function scanGo(url) {
+  if (!OGAME.test(url || '')) return;
+  const { [SCAN_TAB]: id } = await chrome.storage.session.get(SCAN_TAB);
+  // Le joueur a pu le fermer à la main : on le rouvre plutôt que d'échouer.
+  if (id != null) { try { await chrome.tabs.update(id, { url }); return; } catch (e) {} }
+  const [jeu] = await chrome.tabs.query({ url: OGAME_MATCH });
+  const t = await chrome.tabs.create(Object.assign({ url, active: false },
+    jeu ? { windowId: jeu.windowId, index: jeu.index + 1 } : {}));
+  await chrome.storage.session.set({ [SCAN_TAB]: t.id });
+}
+/** Ferme l'onglet du relevé, s'il en reste un. */
+async function scanFin() {
+  const { [SCAN_TAB]: id } = await chrome.storage.session.get(SCAN_TAB);
+  if (id == null) return;
+  await chrome.storage.session.remove(SCAN_TAB);
+  try { await chrome.tabs.remove(id); } catch (e) {}
+}
+
 chrome.runtime.onMessage.addListener(msg => {
   // Le seul endroit où l'échec de `merge` peut encore se dire : sans ce
   // `catch`, ce qu'elle lève part en rejet non traité, donc invisible.
   if (msg && msg.type === 'snapshot' && msg.data) merge(msg.data)
     .catch(e => console.error('Copilote : instantané non fusionné, l\'état du jeu n\'a pas avancé', e));
   if (msg && msg.type === 'go' && msg.url) goToGame(msg.url, !!msg.discret);
+  if (msg && msg.type === 'scan' && msg.url) scanGo(msg.url).catch(e => console.error('Copilote : onglet de relevé', e));
+  if (msg && msg.type === 'scanFin') scanFin().catch(e => console.error('Copilote : fermeture de l\'onglet de relevé', e));
   if (msg && msg.type === 'alert' && msg.text) showAlertWindow(msg.text);
   if (msg && msg.type === 'apiRefresh') apiRefresh(!!msg.force);
 });

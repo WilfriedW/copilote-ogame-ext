@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.38';
+const APP_VERSION = '1.53.39';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1494,9 +1494,19 @@ function releveEtapes(){
   });
   if(!out.length) return out;
   const i = releveDepart(), gid = (S.planets[i]||{}).gid;
-  for(const page of RELEVE_GLOBAL){ const url = goUrl(page, i); if(url) out.push({gid, page, url}); }
+  for(const page of RELEVE_GLOBAL){ const url = goUrl(page, i); if(url) out.push({gid, page, url, global:true}); }
   return out;
 }
+/* Ce que chaque page du relevé rapporte, dit au joueur. */
+const RELEVE_NOMS = {
+  supplies:'ressources', resourcesettings:'production', facilities:'installations',
+  shipyard:'chantier', defenses:'défense', lfbuildings:'formes de vie',
+  lfresearch:'recherche de forme de vie', research:'recherche', movement:'flotte',
+  overview: 'retour'
+};
+/* Vrai pendant que l'écran du relevé tient la place du contenu. Un clic sur un
+   onglet le baisse : le joueur reprend la main sans attendre la fin. */
+let scanEcran = false;
 let releveEnCours = false, releveFin = null;
 /** Réveille le relevé dès que la page visitée a été lue. */
 function releveLu(){ if(releveFin) releveFin(); }
@@ -1520,25 +1530,29 @@ async function faitLeReleve(){
   /* Le point de départ se note avant le relevé : chaque page visitée déplace la
      planète courante, et à la fin S.cur serait le dernier arrêt. */
   const depart = releveDepart();
-  releveEnCours = {fait:0, total:etapes.length}; header();
+  releveEnCours = {fait:0, total:etapes.length, etapes}; scanEcran = true; render();
   try{
     for(const e of etapes){
       if(!releveEnCours) break; // le joueur a rappuyé sur le bouton
-      // discret : le relevé ne vole pas la main, le joueur peut travailler ailleurs
-      chrome.runtime.sendMessage({type:'go', url:e.url, discret:true});
+      /* Le relevé a son propre onglet : l'onglet du joueur ne bouge pas, et il
+         n'a plus sa page de jeu qui clignote sous les yeux. */
+      chrome.runtime.sendMessage({type:'scan', url:e.url});
       await relevePas(e.gid, e.page);
-      if(releveEnCours){ releveEnCours.fait++; header(); }
+      if(releveEnCours){ releveEnCours.fait++; render(); }
     }
-    /* Le retour part même d'un relevé arrêté : le joueur ne doit pas rester où
-       le relevé l'a laissé. */
+    /* Chaque page visitée déplace la planète courante du côté du jeu, pour
+       l'onglet du joueur aussi : le dernier arrêt le remet où il était. */
     const retour = goUrl('overview', depart);
-    if(retour) chrome.runtime.sendMessage({type:'go', url:retour, discret:true});
+    if(retour){ chrome.runtime.sendMessage({type:'scan', url:retour}); await relevePas((S.planets[depart]||{}).gid, 'overview'); }
   } catch(e){ console.error('Copilote : relevé interrompu', e); }
-  finally{ releveEnCours = null; header(); render(); }
+  finally{
+    chrome.runtime.sendMessage({type:'scanFin'});
+    releveEnCours = null; scanEcran = false; header(); render();
+  }
 }
 /** Le bouton : lance le relevé, ou l'arrête s'il tourne. */
 function boutonMaj(){
-  if(releveEnCours){ releveEnCours = null; header(); return; }
+  if(releveEnCours){ releveEnCours = null; scanEcran = false; render(); return; }
   faitLeReleve();
 }
 /* Le bouton du haut : caché tant que le relevé est frais, et le seul moyen
@@ -1569,8 +1583,12 @@ function header(){
   majBouton();
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.tab===tab)));
 }
-function render(){ prioClean(); header(); view.innerHTML = VIEWS[tab](); bind(); refresh(); }
-function refresh(){ (REFRESH[tab]||(()=>{}))(); header(); }
+/** Vrai tant que l'écran du relevé tient la place du contenu. */
+function enScan(){ return !!(scanEcran && releveEnCours); }
+function render(){ prioClean(); header(); view.innerHTML = enScan() ? VIEWS.scan() : VIEWS[tab](); bind(); refresh(); }
+/* Pendant le relevé, les REFRESH écriraient dans des éléments que l'écran du
+   relevé n'a pas : ils ne rafraîchissent que ce qui est à l'écran. */
+function refresh(){ if(!enScan()) (REFRESH[tab]||(()=>{}))(); header(); }
 
 /* ---------- advice ---------- */
 const MILESTONES = [
@@ -4072,6 +4090,34 @@ today(){
   </section>`;
 },
 empire(){ return `<div class="panel">${VIEWS.planets()}${VIEWS.research()}</div>`; },
+/* L'écran du relevé. Il tient la place du contenu tant qu'il tourne : ce que
+   le joueur regardait est en train d'être relu, et le voir se recomposer carte
+   par carte ne lui apprend rien. Ici il voit ce qui reste à lire. */
+scan(){
+  const r = releveEnCours || {fait:0, total:0, etapes:[]};
+  const groupes = new Map();
+  (r.etapes || []).forEach((e, i) => {
+    const cle = e.global ? '' : e.gid;
+    if(!groupes.has(cle)) groupes.set(cle, []);
+    groupes.get(cle).push({e, i});
+  });
+  const lignes = [...groupes].map(([cle, pas]) => {
+    const p = cle ? S.planets.find(x => x.gid === cle) : null;
+    const cases = pas.map(({e, i}) => {
+      const nom = esc(RELEVE_NOMS[e.page] || e.page);
+      if(i < r.fait) return `<span class="pill good">\u2713 ${nom}</span>`;
+      if(i === r.fait) return `<span class="pill info">\u2026 ${nom}</span>`;
+      return `<span class="pill">${nom}</span>`;
+    }).join(' ');
+    return `<tr><td>${esc(p ? p.name : 'Empire')}</td><td>${cases}</td></tr>`;
+  }).join('');
+  return `<section class="panel"><div class="card">
+    <div class="row spread"><h2>Relevé en cours</h2><span class="pill info">${r.fait} / ${r.total}</span></div>
+    <p class="note">Le relevé lit chaque page dans un onglet à lui, ouvert en arrière-plan : ta page de jeu ne bouge pas, tu peux continuer à jouer. Il se referme tout seul à la fin.</p>
+    <div class="tbl-wrap"><table><tbody>${lignes}</tbody></table></div>
+    <div class="row" style="margin-top:10px"><button class="btn sm" id="scanStop">Arrêter</button><span class="note">Ce qui est déjà lu reste acquis.</span></div>
+  </div></section>`;
+},
 explore(){
   if(!IS_EXT) return `<div class="card"><h2>Cibles</h2><p class="note">Cette partie utilise les données publiques officielles d'OGame. Elle ne fonctionne que dans l'extension Copilote.</p></div>`;
   const a = API, ok = a && a.planets && a.players;
@@ -4719,12 +4765,12 @@ document.addEventListener('paste', e=>{
   const t = (e.clipboardData||window.clipboardData).getData('text');
   if(t && t.includes('"planets"') && t.trim().startsWith('{')){ e.preventDefault(); runImport(t); }
 });
-view.addEventListener('click', e=>{ if(e.target.id==='impGo') runImport(document.getElementById('impText').value); });
+view.addEventListener('click', e=>{ if(e.target.id==='impGo') runImport(document.getElementById('impText').value); if(e.target.id==='scanStop') boutonMaj(); });
 document.getElementById('majBtn').addEventListener('click', boutonMaj);
 /* L'âge du relevé vieillit tout seul : sans ce battement, le bouton n'apparaîtrait
    qu'au prochain clic du joueur — au moment où il se fie déjà au plan. */
 setInterval(header, 60000);
-document.getElementById('tabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-tab]'); if(!b) return; tab=b.dataset.tab; try{ LS.setItem(KEY+'-tab',tab); }catch(err){} render(); });
+document.getElementById('tabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-tab]'); if(!b) return; scanEcran=false; tab=b.dataset.tab; try{ LS.setItem(KEY+'-tab',tab); }catch(err){} render(); });
 view.addEventListener('click', e=>{
   if(e.target.id==='tmSound'){ unlockAudio(); chime(); }
   if(e.target.id==='tmAdd'){
