@@ -134,6 +134,46 @@ t("une page déjà relevée ici garde sa place, quoi que dise le menu", () => {
   assert.equal(g.releveEtapes().filter(e => e.page === 'lfbuildings').length, 2);
 });
 
+t("le relevé ouvre lui-même une case non chiffrée, par un lien", () => {
+  /* Le prix n'apparaît que dans le panneau de détail ; le jeu accepte openTech
+     dans ses URL, donc le relevé l'ouvre sans rien cliquer dans la page. */
+  const g = app(s => {
+    RELEVE(s); s.lfMenu = true;
+    s.planets[0].lf = { 11101: { lvl: 3, state: 'ok' } };
+  });
+  const e = g.releveEtapes().find(x => x.page === 'lfbuildings' && x.gid === '101');
+  assert.ok(e.url.includes('openTech=11101'), e.url);
+});
+
+t("une case déjà chiffrée n'est pas rouverte", () => {
+  const g = app(s => {
+    RELEVE(s); s.lfMenu = true;
+    s.planets[0].lf = { 11101: { lvl: 3, state: 'ok', next: 4, cost: [100, 50, 0], secs: 600 } };
+  });
+  const e = g.releveEtapes().find(x => x.page === 'lfbuildings' && x.gid === '101');
+  assert.ok(!e.url.includes('openTech'), e.url);
+});
+
+t("une case verrouillée ne vaut pas la peine d'être ouverte", () => {
+  const g = app(s => {
+    RELEVE(s); s.lfMenu = true;
+    s.planets[0].lf = { 11101: { lvl: 0, state: 'locked' } };
+  });
+  const e = g.releveEtapes().find(x => x.page === 'lfbuildings' && x.gid === '101');
+  assert.ok(!e.url.includes('openTech'), e.url);
+});
+
+t("la file de recherche a sa propre case à ouvrir", () => {
+  const g = app(s => {
+    RELEVE(s); s.lfMenu = true;
+    s.planets[0].lf = { 11101: { lvl: 3, state: 'ok' }, 11201: { lvl: 1, state: 'ok' } };
+  });
+  const e = g.releveEtapes().filter(x => x.gid === '101' && x.page.startsWith('lf'));
+  const parPage = Object.fromEntries(e.map(x => [x.page, x.url]));
+  assert.ok(parPage.lfbuildings.includes('openTech=11101'), parPage.lfbuildings);
+  assert.ok(parPage.lfresearch.includes('openTech=11201'), parPage.lfresearch);
+});
+
 t("une forme de vie déjà vue ramène ses deux pages par planète", () => {
   const g = app(s => { RELEVE(s); s.planets[0].lfSeen = { lfbuilding: SOIR }; });
   const e = g.releveEtapes();

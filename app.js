@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.37';
+const APP_VERSION = '1.53.38';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1447,6 +1447,28 @@ function releveDepart(){
   if(i>=0) return i;
   return Math.max(0, S.planets.findIndex(p=>p.gid));
 }
+/* La page de forme de vie et la file qu'elle montre. */
+const LF_FILE = {lfbuildings:'lfbuilding', lfresearch:'lfresearch'};
+/**
+ * La case de cette file que le relevé a le plus besoin d'ouvrir : la première
+ * que le panneau ne sait pas encore chiffrer.
+ * Le jeu ne donne le prix et la durée que dans le panneau de détail — et il
+ * accepte `openTech` dans ses URL, comme le montrent ses propres encadrés de
+ * production. Le relevé ouvre donc la case par un lien, sans rien cliquer dans
+ * la page. Une seule par passage : la suivante viendra au relevé d'après, et
+ * une case chiffrée suffit à faire taire le rappel du panneau.
+ * Les cases ne sont connues qu'une fois la page lue : sur un poste neuf, le
+ * premier relevé découvre la liste et le deuxième ouvre.
+ * @param {object} p planète de S.planets
+ * @param {string} file 'lfbuilding' ou 'lfresearch'
+ * @returns {string|null} l'identifiant de la case, ou null si tout est chiffré
+ */
+function lfAOuvrir(p, file){
+  const e = Object.entries(p.lf || {}).find(([id,v]) =>
+    lfQueue(id) === file && v && v.state !== 'locked'
+    && (!(v.secs > 0) || !lfCost(v, (v.lvl||0)+1)));
+  return e ? e[0] : null;
+}
 /** Les arrêts du relevé complet : {gid, page, url}, dans l'ordre. */
 function releveEtapes(){
   /* Les pages de formes de vie n'existent que pour qui en a : sans jamais en
@@ -1463,7 +1485,11 @@ function releveEtapes(){
   const pages = avecLf ? RELEVE_PAGES : RELEVE_PAGES.filter(c=>!c.startsWith('lf'));
   const out = [];
   for(const page of pages) S.planets.forEach((p,i)=>{
-    const url = p.gid ? (page === 'resourcesettings' ? prodUrl(i) : goUrl(page, i)) : null;
+    let url = p.gid ? (page === 'resourcesettings' ? prodUrl(i) : goUrl(page, i)) : null;
+    if(url && LF_FILE[page]){
+      const t = lfAOuvrir(p, LF_FILE[page]);
+      if(t) url += '&openTech=' + encodeURIComponent(t);
+    }
     if(url) out.push({gid:p.gid, page, url});
   });
   if(!out.length) return out;
