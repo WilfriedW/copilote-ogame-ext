@@ -2825,6 +2825,42 @@ t('le pourquoi d\'Astrophysique ne dit pas deux fois la même chose', () => {
    quatre tests qui relisent app.js. */
 const SW = () => require('fs').readFileSync(require('path').join(__dirname, '..', 'background.js'), 'utf8');
 
+/** `pageDuJeu`, découpée dans la source du worker : elle ne dépend d'aucune API de Chrome. */
+const pageDuJeu = () => new Function('return ' + /function pageDuJeu[\s\S]*?\n}/.exec(SW())[0])();
+
+t("une adresse n'est autorisée que si l'analyseur d'URL la dit du jeu", () => {
+  const ok = pageDuJeu();
+  assert.equal(ok('https://s1-fr.ogame.gameforge.com/game/index.php?cp=1'),
+    'https://s1-fr.ogame.gameforge.com/game/index.php?cp=1');
+  assert.equal(ok('https://ogame.gameforge.com/game/index.php'),
+    'https://ogame.gameforge.com/game/index.php');
+});
+
+t("les adresses que l'expression régulière laissait passer sont refusées", () => {
+  /* La barre oblique inversée est une barre oblique pour l'analyseur, et le
+     dièse ouvre le fragment : les deux mènent chez mechant.fr alors que
+     /^https:\/\/[^/]*\.ogame\.gameforge\.com\// les accepte. Un onglet y serait
+     parti avec la session du joueur dans l'adresse. */
+  const ok = pageDuJeu();
+  for (const u of [
+    'https://mechant.fr\\.ogame.gameforge.com/game/index.php',
+    'https://mechant.fr#.ogame.gameforge.com/game/index.php',
+    'https://mechant-ogame.gameforge.com.evil.fr/game/index.php',
+    'http://s1-fr.ogame.gameforge.com/game/index.php',
+    'javascript:alert(1)//.ogame.gameforge.com/',
+    'pas une adresse', '', null
+  ]) assert.equal(ok(u), null, u);
+});
+
+t("la navigation part de ce que l'analyseur a compris, pas de la chaîne reçue", () => {
+  // sinon la vérification porte sur un texte et le navigateur en suit un autre
+  const src = SW();
+  assert.ok(!/chrome\.tabs\.(update|create)\([^)]*\{ url,/.test(src),
+    'aucune navigation ne doit reprendre `url` tel quel');
+  assert.equal((src.match(/const sur = pageDuJeu\(url\);/g) || []).length, 2,
+    'goToGame et scanGo passent toutes les deux par la vérification');
+});
+
 t('la file d\'une case de forme de vie est demandée à lfQueue, jamais recalculée', () => {
   const src = SW();
   assert.ok(/id >= 11000\) return lfQueue\(id\)/.test(src),

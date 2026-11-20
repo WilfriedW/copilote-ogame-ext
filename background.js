@@ -188,12 +188,39 @@ async function merge(s) {
  * @param {string} url page du jeu
  * @param {boolean} discret ne pas prendre la main sur l'onglet ni la fenêtre
  */
+/**
+ * L'adresse, si c'en est bien une du jeu — telle que le navigateur la comprend.
+ *
+ * `OGAME` ne suffit pas à autoriser une navigation : son `[^/]*` accepte des
+ * chaînes que le navigateur lit tout autrement. `https://mechant.fr\\.ogame.
+ * gameforge.com/` et `https://mechant.fr#.ogame.gameforge.com/` la satisfont
+ * toutes les deux, et mènent chez mechant.fr — la barre oblique inversée est
+ * une barre oblique pour l'analyseur d'URL, et le dièse ouvre le fragment.
+ * Rien dans le copilote ne fabrique aujourd'hui une telle adresse, mais celles
+ * qui arrivent ici sont bâties sur `S.host`, lu dans une balise de la page :
+ * c'est à l'entrée qu'on vérifie, pas à la source.
+ *
+ * On rend donc ce que l'analyseur a compris, jamais la chaîne reçue : le
+ * chemin suivi est celui qui a été vérifié.
+ * @param {string} url adresse à vérifier
+ * @returns {string|null} l'adresse normalisée, ou null si elle n'est pas du jeu
+ */
+function pageDuJeu(url) {
+  let u;
+  try { u = new URL(String(url)); } catch (e) { return null; }
+  if (u.protocol !== 'https:') return null;
+  const h = u.hostname;
+  if (h !== 'ogame.gameforge.com' && !h.endsWith('.ogame.gameforge.com')) return null;
+  return u.href;
+}
+
 function goToGame(url, discret) {
-  if (!OGAME.test(url || '')) return;
+  const sur = pageDuJeu(url);
+  if (!sur) return;
   chrome.tabs.query({}, tabs => {
     const t = tabs.find(x => OGAME.test(x.url || ''));
-    if (!t) return void chrome.tabs.create({ url, active: !discret });
-    chrome.tabs.update(t.id, discret ? { url } : { url, active: true });
+    if (!t) return void chrome.tabs.create({ url: sur, active: !discret });
+    chrome.tabs.update(t.id, discret ? { url: sur } : { url: sur, active: true });
     if (!discret) chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
   });
 }
@@ -213,12 +240,13 @@ const OGAME_MATCH = 'https://*.ogame.gameforge.com/game/index.php*';
  * @param {string} url page du jeu
  */
 async function scanGo(url) {
-  if (!OGAME.test(url || '')) return;
+  const sur = pageDuJeu(url);
+  if (!sur) return;
   const { [SCAN_TAB]: id } = await chrome.storage.session.get(SCAN_TAB);
   // Le joueur a pu le fermer à la main : on le rouvre plutôt que d'échouer.
-  if (id != null) { try { await chrome.tabs.update(id, { url }); return; } catch (e) {} }
+  if (id != null) { try { await chrome.tabs.update(id, { url: sur }); return; } catch (e) {} }
   const [jeu] = await chrome.tabs.query({ url: OGAME_MATCH });
-  const t = await chrome.tabs.create(Object.assign({ url, active: false },
+  const t = await chrome.tabs.create(Object.assign({ url: sur, active: false },
     jeu ? { windowId: jeu.windowId, index: jeu.index + 1 } : {}));
   await chrome.storage.session.set({ [SCAN_TAB]: t.id });
 }
