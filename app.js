@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.35';
+const APP_VERSION = '1.53.36';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -969,10 +969,38 @@ function labPlanet(){ return centrePlanet() || S.planets.reduce((a,p)=>(!a || p.
    maximum ferait promettre une durée que le jeu ne tiendra pas, et lancer une
    recherche depuis un labo trop petit. */
 function labLevel(){ const p = labPlanet(); return p ? (p.b.lab || 0) : 0; }
+/**
+ * Le niveau de labo qui décide de la VITESSE d'une recherche, Réseau compris.
+ * Le Réseau de recherche intergalactique relie les N meilleurs labos des autres
+ * planètes à celui d'où part la recherche, N étant son niveau : la durée se
+ * calcule sur la somme. Page officielle de Gameforge : « Effective Lab Level =
+ * Main Lab Level + Sum of N highest Colony Lab Levels (N = IRN Level) », avec
+ * l'exemple 15 + 4×12 = 63.
+ *
+ * Il ne faut pas confondre avec `labLevel()`, qui décide de ce qui est
+ * DÉBLOQUÉ : un prérequis est une propriété de la planète, et le Réseau n'aide
+ * jamais à le remplir. Les deux questions passaient par la même fonction, donc
+ * les labos des autres planètes ne servaient à rien.
+ *
+ * ponytail: aucune source lisible ne donne de niveau minimum pour qu'un labo
+ * compte, ni le sort des lunes (le wiki fandom répond 402) ; on somme les N
+ * plus hauts tels quels. À reprendre si le jeu dit autre chose.
+ * Lit `S.planets`, donc marche aussi sur l'empire simulé que `simulateDay`
+ * met à la place : ses copies portent `b`, le seul champ touché ici.
+ * @returns {number} niveau de labo effectif
+ */
+function labEffectif(){
+  const p = labPlanet(); if(!p) return 0;
+  const mien = p.b.lab || 0;
+  const n = Math.max(0, Math.trunc(+S.tech.irn) || 0);
+  if(!n) return mien;
+  const autres = S.planets.filter(x => x !== p).map(x => x.b.lab || 0).sort((a,b) => b-a);
+  return mien + autres.slice(0, n).reduce((a,b) => a+b, 0);
+}
 /** Research time in seconds. */
 function researchTime(key, L){
   const c = levelCost(T[key], L);
-  let h = (c[0]+c[1]) / (1000 * (1+labLevel()) * S.settings.eco);
+  let h = (c[0]+c[1]) / (1000 * (1+labEffectif()) * S.settings.eco);
   if(S.settings.cls==='explorer') h *= .75;
   return Math.max(1, h*3600);
 }
@@ -4369,7 +4397,11 @@ planets(){
   document.getElementById('colonyNote').textContent = S.tech.astro ? '' : 'Les colonies demandent Astrophysique 1.';
 },
 research(){
-  document.getElementById('labLv').textContent = labLevel();
+  /* Le labo de la planète, et ce que le Réseau en fait quand il y en a un :
+     c'est le premier qui débloque, le second qui donne les durées de la
+     colonne d'à côté. Les afficher ensemble évite de lire l'un pour l'autre. */
+  const lv = labLevel(), eff = labEffectif();
+  document.getElementById('labLv').textContent = eff > lv ? `${lv} · réseau ${eff}` : lv;
   for(const k of Object.keys(T)){
     const L=S.tech[k]+1, miss=reqOk(T[k].req, null);
     document.getElementById('tc-'+k).innerHTML = costHtml(levelCost(T[k],L));

@@ -1,6 +1,6 @@
 # Copilote OGame — comment il marche, pourquoi, et tous ses réglages
 
-Revue du 20 novembre 2026, version 1.53.35. Écrit pour être lu sans ouvrir le
+Revue du 20 novembre 2026, version 1.53.36. Écrit pour être lu sans ouvrir le
 code. Trois questions : qu'est-ce qu'il fait, est-ce taillé pour toi seul, et
 qu'est-ce qui cloche dans Réglages.
 
@@ -143,6 +143,38 @@ labo et le chantier. Règles reprises du wiki : la plus grande, pas la mère
 Seul le labo décide du centre, jamais le chantier : un centre posé ailleurs
 ferait repayer un labo déjà payé. Tant qu'aucun labo n'existe, c'est le nombre
 de cases qui tranche. Tu peux forcer le choix avec la case « Centre ».
+
+**Un seul labo compte, celui du centre.** La durée d'une recherche se calcule
+sur lui seul (`labLevel()`), pas sur le plus haut de l'empire et pas sur une
+somme — le code dit pourquoi : annoncer le maximum « ferait promettre une durée
+que le jeu ne tiendra pas ». Si tu as des labos sur toutes tes planètes, leurs
+niveaux sont relevés et affichés, mais **ils n'entrent dans aucun calcul** ; ils
+ne servent qu'à désigner le centre, tant que tu ne l'as pas forcé.
+
+**Sauf avec le Réseau de recherche intergalactique.** C'est la techno qui fait
+compter les autres labos, et elle est désormais modélisée. Deux niveaux de labo
+coexistent donc, et il ne faut pas les confondre :
+
+| | Ce qu'il décide | Ce qu'il vaut |
+|---|---|---|
+| `labLevel()` | ce qui est **débloqué** | le labo du centre, seul |
+| `labEffectif()` | la **vitesse** d'une recherche | labo du centre + les N meilleurs labos des autres planètes, N = niveau du Réseau |
+
+Le Réseau **n'aide jamais à remplir un prérequis** : un prérequis est une
+propriété de la planète. C'est la raison pour laquelle les deux rôles sont
+séparés — ils passaient par la même fonction, et c'est pour ça que les labos
+des autres planètes ne servaient à rien.
+
+L'onglet Empire affiche les deux dès qu'il y a un Réseau : « labo niveau 12 ·
+réseau 22 ». Sur un centre à 12 et une colonie à 10, Plasma 1 passe de 28 min à
+16 min.
+
+Deux choses restent incertaines, faute de source lisible (le wiki fandom
+répond 402) : un éventuel **niveau minimum** pour qu'un labo compte, et le sort
+des **lunes**. Le copilote somme les N plus hauts tels quels, et le commentaire
+du code le dit. Choix assumé par ailleurs : **le plan ne conseille pas** de
+monter le Réseau — aucune feuille de route ne contient `irn`. Il le compte
+quand tu l'as, il ne te pousse pas à l'acheter.
 
 ### 2.8 La défense se compte par type
 
@@ -378,7 +410,38 @@ changé, il se voit.
 valeur (45 min par exemple), la liste affichera « 30 min » pendant que le plan
 utilisera 45. Peu probable, mais possible.
 
-### 5.6 Un commentaire périmé
+### 5.6 Les files de forme de vie des races non-Humaines — **corrigé**
+
+La même règle — « quelle file de jeu porte cette case de forme de vie ? » —
+existait en deux versions qui ne donnaient pas la même réponse. `ids.js` tient
+la règle canonique ; le service worker en portait une seconde copie, qui ne
+s'accordait avec elle que sur la série des Humains.
+
+| Identifiant | `ids.js` | l'ancienne copie du worker |
+|---|---|---|
+| 11101 · 11301 · 11501 · 11701 · 11901 | bâtiments | bâtiments |
+| 11201 | recherche | recherche |
+| **11401 · 11601 · 11801 · 12001** | **recherche** | **bâtiments** |
+
+Le relevé lit n'importe quel identifiant ≥ 11000 sur la page vivante. Pour une
+autre race, un minuteur de recherche était donc classé comme bâtiment, fusionné
+avec un minuteur de bâtiment finissant à moins de 5 s près, et l'alarme du
+survivant effacée : **une notification perdue, sans trace.** Le worker défère
+maintenant à `lfQueue`, comme le script de page le faisait déjà.
+
+### 5.7 Le worker pouvait mourir en silence — **corrigé**
+
+`merge()` est appelée sans `await` ni `catch`, et déréférençait sept champs de
+l'instantané sans garde. Un instantané amputé levait donc un rejet non traité
+**dans le service worker** : aucune notification, aucun badge, aucune console
+que le joueur ouvrira — et l'état du jeu cessait simplement d'avancer.
+Pendant ce temps `applyGame`, à l'autre bout de la même charge, est défensif
+partout : les deux moitiés avaient des politiques d'erreur opposées.
+
+Les champs sont désormais comblés une fois en tête de `merge`, et l'appel
+capture : ce qui casse se dit au lieu de disparaître.
+
+### 5.8 Un commentaire périmé
 
 Dans la lecture des demandes venues de la page, un commentaire dit que
 l'identifiant 33 (Terraformeur) « a un niveau dans le jeu, pas dans le
@@ -564,11 +627,14 @@ plafonds d'expédition. À comparer une fois avec ton jeu.
 ## 7. Ce que je ferais ensuite, par ordre
 
 ~~Donner un retour visible à la carte « Plan du jour »~~ — fait (§ 5.1).
+~~Modéliser le Réseau de recherche intergalactique~~ — fait (§ 2.7).
 
-1. **Trancher sur `peau` / `large` / `clair`** (§ 5.2) : les exposer, ou les
+1. **Vérifier le prérequis du Réseau** (§ 2.7) : la table du copilote demande
+   Labo 10, la page officielle de Gameforge dit 12. À lire dans le jeu.
+2. **Trancher sur `peau` / `large` / `clair`** (§ 5.2) : les exposer, ou les
    retirer. C'est le plus gros morceau : du code écrit que personne ne verra.
-2. **Une case « je ne joue pas la flotte »** (§ 4) pour que l'extension soit
+3. **Une case « je ne joue pas la flotte »** (§ 4) pour que l'extension soit
    donnable à un mineur sans mode d'emploi.
-3. **Borner les heures de nuit** à 0–23 à l'enregistrement (§ 5.3). Le résumé
+4. **Borner les heures de nuit** à 0–23 à l'enregistrement (§ 5.3). Le résumé
    rend maintenant la bêtise visible, il ne l'empêche pas.
-4. **Corriger le commentaire du Terraformeur** (§ 5.6).
+5. **Corriger le commentaire du Terraformeur** (§ 5.8).

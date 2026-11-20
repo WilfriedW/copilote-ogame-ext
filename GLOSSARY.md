@@ -40,6 +40,17 @@ Trois choses que le jeu dit d'une planète. Chacune se lit, s'affiche et sert
 une liste n'en est pas une non plus : il change dès que la liste change.
 _Éviter_ : désigner une planète par l'une d'elles.
 
+**labo effectif** :
+Le niveau de laboratoire qui fixe la **durée** d'une recherche : celui du
+centre, plus les meilleurs laboratoires des autres planètes que le Réseau de
+recherche intergalactique y relie, autant qu'il a de niveaux. À distinguer du
+laboratoire du centre, qui seul **débloque** : un prérequis est une propriété
+de la planète, et le Réseau ne le remplit jamais. Confondre les deux fait
+croire débloqué ce qui ne l'est pas, ou fait annoncer une durée que le jeu ne
+tiendra pas.
+_Éviter_ : niveau de labo (ne dit pas lequel des deux), labo de l'empire, somme
+des labos (le Réseau n'en relie qu'un nombre borné).
+
 **défense** :
 Ce qui est posé au sol d'une planète et ne bouge pas. Elle ne protège pas la
 planète : elle rend le pillage non rentable, en valant plus que ce qu'un

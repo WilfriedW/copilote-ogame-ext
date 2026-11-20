@@ -62,7 +62,14 @@ function dedupe(list) {
     const id = +t.techId || 0;
     if (t.type === 'fleet') return 'fleet';
     if (OG_TECH[t.techId] || /^research$/.test(t.type)) return 'research';
-    if (id >= 11000) return Math.floor(id / 100) % 10 === 2 ? 'lfresearch' : 'lfbuilding';
+    /* La file d'une case de forme de vie se demande à `lfQueue`, et ne se
+       recalcule pas ici : cette ligne en portait une seconde version, qui ne
+       donnait la même réponse que sur la série des Humains. Pour une autre
+       race (11401, 11601, 11801, 12001…) elle classait une recherche comme un
+       bâtiment, la fusion d'en dessous l'écrasait contre un minuteur de
+       bâtiment finissant à moins de 5 s près, et l'alarme du survivant était
+       effacée : le joueur perdait une notification, sans trace. */
+    if (id >= 11000) return lfQueue(id);
     if (/^lf/.test(t.type)) return /research/.test(t.type) ? 'lfresearch' : 'lfbuilding';
     if (/shipyard|defen/.test(t.type) || (id >= 200 && id < 600)) return 'shipyard';
     return 'building';
@@ -84,6 +91,15 @@ function dedupe(list) {
  * @param {object} s snapshot from content.js
  */
 async function merge(s) {
+  /* Les champs que la suite déréférence sans garde, comblés une fois ici plutôt
+     que sept fois plus bas. `merge` est appelée sans `await` ni `catch` : un
+     lèvement y partait en rejet non traité, dans un service worker — donc pas
+     de notification, pas de badge, aucune console que le joueur ouvrira, et
+     `game` cessait d'avancer en silence. `applyGame`, à l'autre bout de la même
+     charge, est défensif partout : les deux moitiés avaient des politiques
+     d'erreur opposées. */
+  s = { ...s, meta: s.meta || {}, planets: s.planets || [], levels: s.levels || {},
+    stock: s.stock || {}, timers: s.timers || [], moves: s.moves || [] };
   const { game = {} } = await chrome.storage.local.get('game');
   game.meta = { ...(game.meta || {}), ...Object.fromEntries(Object.entries(s.meta).filter(([, v]) => v != null)) };
   game.planets = game.planets || {};
@@ -181,7 +197,10 @@ function goToGame(url, discret) {
 }
 
 chrome.runtime.onMessage.addListener(msg => {
-  if (msg && msg.type === 'snapshot' && msg.data) merge(msg.data);
+  // Le seul endroit où l'échec de `merge` peut encore se dire : sans ce
+  // `catch`, ce qu'elle lève part en rejet non traité, donc invisible.
+  if (msg && msg.type === 'snapshot' && msg.data) merge(msg.data)
+    .catch(e => console.error('Copilote : instantané non fusionné, l\'état du jeu n\'a pas avancé', e));
   if (msg && msg.type === 'go' && msg.url) goToGame(msg.url, !!msg.discret);
   if (msg && msg.type === 'alert' && msg.text) showAlertWindow(msg.text);
   if (msg && msg.type === 'apiRefresh') apiRefresh(!!msg.force);

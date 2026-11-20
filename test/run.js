@@ -24,7 +24,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'view', 'bind'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'view', 'bind'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -2495,6 +2495,69 @@ t('sans lien préparé, tout reste copiable', () => {
   assert.ok(/Grand transporteur/.test(h) && /data-copy="3"/.test(h), h);
 });
 
+/* ---------- le Réseau de recherche intergalactique ---------- */
+
+/* Centre forcé sur la mère, labo 5, et un plus gros labo sur la colonie : sans
+   ça le centre se déplacerait sur le plus haut labo et il n'y aurait plus rien
+   à relier. C'est aussi le cas qui compte — un centre au petit labo qui
+   récupère le gros d'à côté. */
+const RESEAU = (irn, labColo) => app(s => {
+  s.centre = 'mere'; s.tech.irn = irn; s.planets[1].b.lab = labColo;
+});
+/** Une voisine de plus, labo donné, avec son propre stock. */
+const voisine = (s, id, pos, lab) => s.planets.push(Object.assign({}, s.planets[1], {
+  id, coords: '1:142:' + pos, b: Object.assign({}, s.planets[1].b, {lab}),
+  stock: Object.assign({}, s.planets[1].stock)
+}));
+
+t('sans Réseau, seul le labo du centre compte', () => {
+  const g = RESEAU(0, 9);
+  assert.equal(g.labLevel(), 5, 'le labo du centre');
+  assert.equal(g.labEffectif(), 5,
+    'un labo 9 sur la colonie ne doit rien ajouter tant que le Réseau est à zéro');
+});
+
+t('le Réseau ajoute les meilleurs labos des autres planètes', () => {
+  const g = RESEAU(1, 9);
+  assert.equal(g.labLevel(), 5, 'le labo qui débloque ne bouge pas');
+  assert.equal(g.labEffectif(), 14, '5 + 9 : Réseau 1 relie le meilleur labo d\'à côté');
+});
+
+t('le Réseau ne relie que N labos, N étant son niveau', () => {
+  // Trois voisines à 7, 9 et 8 : au niveau 2, les deux meilleures seulement.
+  const g = app(s => {
+    s.centre = 'mere'; s.tech.irn = 2; s.planets[1].b.lab = 7;
+    voisine(s, 'c2', 5, 9);
+    voisine(s, 'c3', 4, 8);
+  });
+  assert.equal(g.labEffectif(), 22, '5 + 9 + 8, et pas le 7 de la troisième');
+});
+
+t('le Réseau raccourcit la recherche, sans toucher ce qui la débloque', () => {
+  const sans = RESEAU(0, 9), avec = RESEAU(1, 9);
+  const t0 = sans.researchTime('energy', 1), t1 = avec.researchTime('energy', 1);
+  assert.ok(t1 < t0, `la durée doit baisser : ${t0} puis ${t1}`);
+  // (1+5) contre (1+14) : le rapport des dénominateurs, à l'arrondi près
+  assert.ok(Math.abs(t0 / t1 - 15 / 6) < .01, `rapport attendu 2,5, obtenu ${t0 / t1}`);
+});
+
+t('le Réseau n\'aide jamais à remplir un prérequis de labo', () => {
+  /* Le piège de la modélisation : un prérequis est une propriété de la
+     planète. Avec un labo effectif de 14, Nanites ne doit pas paraître
+     débloquée alors que le labo du centre est à 5. */
+  const g = RESEAU(1, 9);
+  assert.equal(g.labEffectif(), 14, 'le labo effectif dépasse bien le seuil');
+  assert.deepEqual(g.reqOk({lab:10}), ['Labo 10'],
+    'le prérequis doit rester manquant : le Réseau accélère, il ne débloque pas');
+});
+
+t('le Réseau n\'est pas conseillé de lui-même', () => {
+  // Choix assumé : on le compte quand le joueur l'a, on ne le pousse pas.
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const feuilles = /const ROADMAPS = \{[\s\S]*?\n\};/.exec(src)[0];
+  assert.ok(!/'irn'/.test(feuilles), 'aucune feuille de route ne doit contenir irn');
+});
+
 /* ---------- pourquoi cette recherche ---------- */
 
 t('un prérequis de recherche dit vers quelle recherche il mène', () => {
@@ -2665,6 +2728,45 @@ t('le pourquoi d\'Astrophysique ne dit pas deux fois la même chose', () => {
   assert.ok(!/un palier sur deux/.test(w),
     'l\'effet générique répète le plafond, qui est plus précis : « ' + w + ' »');
   assert.ok(/planète/.test(w), 'mais la planète gagnée reste dite');
+});
+
+/* ---------- le service worker ---------- */
+
+/* background.js n'a pas de surface de test : il lui faudrait feindre alarms,
+   notifications, tabs, windows, action, sidePanel, scripting, importScripts et
+   fetch, et `merge` n'est joignable qu'à travers un message. On garde donc ses
+   deux défauts corrigés là où on peut : sur sa source. Même repli que les
+   quatre tests qui relisent app.js. */
+const SW = () => require('fs').readFileSync(require('path').join(__dirname, '..', 'background.js'), 'utf8');
+
+t('la file d\'une case de forme de vie est demandée à lfQueue, jamais recalculée', () => {
+  const src = SW();
+  assert.ok(/id >= 11000\) return lfQueue\(id\)/.test(src),
+    'le worker doit déférer à la règle canonique de ids.js');
+  assert.ok(!/% 10 === 2/.test(src),
+    'la seconde copie de la règle ne doit pas revenir : elle ne s\'accordait que sur les Humains');
+});
+
+t('la règle canonique range les séries paires en recherche', () => {
+  /* Ce que la copie du worker se trompait à dire. Les Humains occupent 111xx
+     et 112xx, la race suivante 113xx et 114xx : la centaine impaire construit,
+     la paire cherche. */
+  const g = app();
+  for (const id of [11101, 11301, 11501, 11701, 11901, 12101])
+    assert.equal(g.lfQueue(id), 'lfbuilding', id + ' est une file de bâtiments');
+  for (const id of [11201, 11401, 11601, 11801, 12001])
+    assert.equal(g.lfQueue(id), 'lfresearch', id + ' est une file de recherche');
+});
+
+t('un instantané amputé ne tue pas le worker en silence', () => {
+  const src = SW();
+  const tete = /async function merge\(s\) \{[\s\S]{0,700}?const \{ game/.exec(src);
+  assert.ok(tete, 'la tête de merge doit être lisible');
+  for (const champ of ['meta', 'planets', 'levels', 'stock', 'timers'])
+    assert.ok(new RegExp(champ + ': s\\.' + champ + ' \\|\\|').test(tete[0]),
+      's.' + champ + ' est déréférencé plus bas sans garde : il doit être comblé en tête');
+  assert.ok(/merge\(msg\.data\)\s*[\r\n]*\s*\.catch\(/.test(src),
+    'l\'appel doit capturer : sinon ce que merge lève est un rejet non traité, invisible');
 });
 
 /* ---------- la version ---------- */
