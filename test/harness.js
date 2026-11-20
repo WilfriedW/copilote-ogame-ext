@@ -11,9 +11,18 @@ const ROOT = path.join(__dirname, '..');
 
 /** Élément de DOM tolérant : tout accès réussit, rien n'a d'effet. */
 function fakeEl() {
+  /* Les classes se retiennent : une couleur posée par le panneau n'a pas
+     d'autre trace, et un test qui ne peut pas la lire ne peut pas la tenir. */
+  const cls = new Set();
   const el = {
     textContent: '', innerHTML: '', value: '', hidden: false, checked: false,
-    dataset: {}, style: {}, classList: { add() {}, remove() {}, toggle() {} },
+    dataset: {}, style: {},
+    classList: {
+      add(...c) { c.forEach(x => cls.add(x)); },
+      remove(...c) { c.forEach(x => cls.delete(x)); },
+      toggle(c, on) { (on === undefined ? !cls.has(c) : on) ? cls.add(c) : cls.delete(c); },
+      contains(c) { return cls.has(c); }
+    },
     on: {},
     addEventListener(type, fn) { (this.on[type] = this.on[type] || []).push(fn); },
     removeEventListener() {}, setAttribute() {},
@@ -107,6 +116,8 @@ function loadApp(state, nowMs, want, api, ext, prioAsk) {
   out.sent = () => sent;
   /** Rejoue un clic sur un élément du panneau ; `target` sert aux poignées déléguées. */
   out.click = (id, target) => { const el = byId.get(id); if (!el) throw new Error('aucun élément ' + id); (el.on.click || []).forEach(fn => fn({ target: target || el, currentTarget: el })); return el; };
+  /** Un élément du panneau, pour lire ce que le code lui a posé. */
+  out.el = id => byId.get(id) || null;
   out.html = () => { const o = {}; for (const [k, el] of byId) o[k] = el.innerHTML || el.textContent || ''; return o; };
   return out;
 }

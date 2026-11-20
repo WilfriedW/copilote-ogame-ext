@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.33';
+const APP_VERSION = '1.53.34';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1488,6 +1488,10 @@ function majBouton(){
   const b = document.getElementById('majBtn'); if(!b) return;
   const n = releveEtapes().length, age = releveAge();
   b.hidden = !n || (!releveEnCours && age <= FRAIS_MS);
+  /* Rouge tant qu'il est là : ce bouton ne sort que quand le plan se fie à des
+     chiffres périmés, et un bouton de la couleur des autres se regarde sans se
+     voir. Il n'a rien à signaler le reste du temps — il est caché. */
+  b.classList.toggle('bad', !b.hidden);
   if(releveEnCours){
     b.textContent = `Arrêter (${releveEnCours.fait}/${releveEnCours.total})`;
     b.title = "Le relevé passe par chaque page de chaque planète, puis te ramène où tu étais.";

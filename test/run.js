@@ -135,6 +135,16 @@ t('le bouton du haut lance le relevé', () => {
   assert.ok(go[0].url.includes('cp=101'), go[0].url);
 });
 
+t('le bouton se montre en rouge, et seulement quand il se montre', () => {
+  // il ne sort que si le plan se fie à des chiffres périmés : il doit se voir
+  const frais = app(RELEVE, SOIR, null, true);
+  assert.ok(frais.el('majBtn').hidden, 'rien à relever');
+  assert.ok(!frais.el('majBtn').classList.contains('bad'));
+  const vieux = app(s => { RELEVE(s); PERIME(s); }, SOIR, null, true);
+  assert.ok(!vieux.el('majBtn').hidden);
+  assert.ok(vieux.el('majBtn').classList.contains('bad'));
+});
+
 t('le relevé navigue sans prendre la main sur la fenêtre', () => {
   // sinon chaque étape arrache le joueur à l'application où il travaille
   const g = app(s => { RELEVE(s); PERIME(s); }, SOIR, null, true);
