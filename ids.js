@@ -1,4 +1,4 @@
-var OG_BUILD = {1:'metal', 2:'crystal', 3:'deut', 4:'solar', 12:'fusion', 14:'robot', 15:'nanite', 21:'shipyard', 22:'smetal', 23:'scrystal', 24:'sdeut', 31:'lab'};
+var OG_BUILD = {1:'metal', 2:'crystal', 3:'deut', 4:'solar', 12:'fusion', 14:'robot', 15:'nanite', 21:'shipyard', 22:'smetal', 23:'scrystal', 24:'sdeut', 31:'lab', 34:'depot', 44:'silo'};
 
 var OG_TECH = {106:'espionage', 108:'computer', 109:'weapons', 110:'shielding', 111:'armour', 113:'energy', 114:'hyper', 115:'combustion', 117:'impulse', 118:'hyperdrive', 120:'laser', 121:'ion', 122:'plasma', 123:'irn', 124:'astro'};
 

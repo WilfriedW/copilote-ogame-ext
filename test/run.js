@@ -24,7 +24,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'view', 'bind'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'view', 'bind'], api, ext, prioAsk);
 }
 
 /* ---------- ce qu'il y a à envoyer ---------- */
@@ -6698,8 +6698,50 @@ t('une case de recherche de forme de vie, sans niveau, est refusée pour ce moti
   assert.match(p.refus, /niveau/i);
 });
 
+t('tout bâtiment modélisé a sa tuile, son nom court et son libellé d\'import', () => {
+  const g = app();
+  const { OG_BUILD } = new Function(require('fs').readFileSync(require('path').join(__dirname, '..', 'ids.js'), 'utf8')
+    + '; return { OG_BUILD };')();
+  const tuiles = Object.values(OG_BUILD), importe = g.MATCH_B.map(x => x[0]);
+  /* Quatre tables à tenir ensemble : une clé qui manque à l'une passe inaperçue
+     jusqu'à ce que le volet Empire affiche « undefined » chez le joueur. */
+  for (const k of Object.keys(g.B)) {
+    assert.ok(tuiles.includes(k), k + ' n\'a pas de tuile dans OG_BUILD');
+    assert.ok(g.B_SHORT[k], k + ' n\'a pas de nom court');
+    assert.ok(importe.includes(k), k + ' ne se retrouve pas à l\'import de la Vue empire');
+  }
+});
+
+t('le Dépôt et le Silo se posent au clic droit', () => {
+  for (const id of [34, 44]) {
+    const p = runPage({ search: '?page=ingame&component=facilities', planetId: '33701',
+      tiles: [id], niveaux: { [id]: 2 } });
+    p.clicDroit(id, '5');
+    assert.equal(p.ecrit().prioAsk[0].lvl, 5, 'tuile ' + id);
+  }
+});
+
+t('le Dépôt de ravitaillement et le Silo de missiles ont le prix du jeu', () => {
+  const g = app();
+  /* Relevé sur le wiki OGame, niveau 1 puis doublement : un prix inventé ferait
+     épargner la mauvaise somme sans que rien ne le signale. */
+  assert.deepEqual(g.levelCost(g.B.depot, 1), [20000, 40000, 0]);
+  assert.deepEqual(g.levelCost(g.B.depot, 8), [2560000, 5120000, 0]);
+  assert.deepEqual(g.levelCost(g.B.silo, 1), [20000, 20000, 1000]);
+  assert.deepEqual(g.levelCost(g.B.silo, 10), [10240000, 10240000, 512000]);
+  // le silo demande un chantier, le dépôt ne demande rien
+  assert.deepEqual(g.B.silo.req, { b: { shipyard: 1 } });
+  assert.equal(g.B.depot.req, undefined);
+});
+
+t('une sauvegarde d\'avant ces bâtiments les compte à zéro, pas à « undefined »', () => {
+  const g = app(s => { for (const p of s.planets) { delete p.b.depot; delete p.b.silo; } });
+  assert.equal(g.S.planets[0].b.depot, 0);
+  assert.equal(g.S.planets[0].b.silo, 0);
+});
+
 t('une tuile à niveau que le copilote ne modélise pas est refusée dans la page', () => {
-  for (const id of [33, 34, 36, 44]) {   // Terraformeur, Dépôt, Dock spatial, Silo
+  for (const id of [33, 36]) {   // Terraformeur, Dock spatial
     const p = runPage({ search: '?page=ingame&component=facilities', planetId: '33701', tiles: [id],
       niveaux: { [id]: 2 } });
     p.clicDroit(id, '5');

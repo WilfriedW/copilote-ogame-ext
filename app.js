@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.26';
+const APP_VERSION = '1.53.27';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -16,8 +16,13 @@ const B = {
   smetal:  {n:'Hangar de métal', c:[1000,0,0], f:2},
   scrystal:{n:'Hangar de cristal', c:[1000,500,0], f:2},
   sdeut:   {n:'Réservoir de deutérium', c:[1000,1000,0], f:2},
+  /* Ni l'un ni l'autre ne produit ni ne stocke : le classement par amortissement
+     ne les propose jamais de lui-même. Ils sont ici pour que le joueur puisse
+     les viser au clic droit, et que le plan sache ce que coûte le pas. */
+  depot:   {n:'Dépôt de ravitaillement', c:[20000,40000,0], f:2},
+  silo:    {n:'Silo de missiles', c:[20000,20000,1000], f:2, req:{b:{shipyard:1}}},
 };
-const B_SHORT = {crawl:'Foreuses', metal:'Métal',crystal:'Cristal',deut:'Deut.',solar:'Solaire',fusion:'Fusion',robot:'Robots',shipyard:'Chantier',lab:'Labo',nanite:'Nanites',smetal:'Hangar M',scrystal:'Hangar C',sdeut:'Réserv. D'};
+const B_SHORT = {crawl:'Foreuses', metal:'Métal',crystal:'Cristal',deut:'Deut.',solar:'Solaire',fusion:'Fusion',robot:'Robots',shipyard:'Chantier',lab:'Labo',nanite:'Nanites',smetal:'Hangar M',scrystal:'Hangar C',sdeut:'Réserv. D',depot:'Dépôt',silo:'Silo'};
 
 const T = {
   energy:    {n:'Technologie Énergie', c:[0,800,400], f:2, req:{lab:1}},
@@ -123,6 +128,9 @@ S.raids = S.raids || {};
 S.prio = Array.isArray(S.prio) ? S.prio : [];
 S.prioAsk = Array.isArray(S.prioAsk) ? S.prioAsk : [];
 migratePlanetIds();
+/* Une sauvegarde d'avant un bâtiment ne connaît pas sa clé : sans ce comblement
+   la case du volet Empire afficherait « undefined » et le joueur l'y saisirait. */
+for(const p of S.planets || []) p.b = Object.assign(Object.fromEntries(Object.keys(B).map(k=>[k,0])), p.b);
 S.daily = Object.assign(sample().daily, S.daily);
 /* Une sauvegarde perdue en silence est pire qu'une erreur : l'écran montre la
    case cochée, et le rechargement suivant l'a oubliée. */
@@ -4378,6 +4386,7 @@ const MATCH_B = [
   ['solar',[['centrale','solaire'],['solar','plant']]], ['fusion',[['fusion']]], ['robot',[['robot']]],
   ['shipyard',[['chantier'],['shipyard']]], ['lab',[['laboratoire'],['research','lab']]], ['nanite',[['nanite']]],
   ['smetal',[['hangar','metal'],['metal','storage']]], ['scrystal',[['hangar','crist'],['crystal','storage']]], ['sdeut',[['reservoir','deut'],['deuterium','tank']]],
+  ['depot',[['depot','ravitaillement'],['alliance','depot']]], ['silo',[['silo']]],
 ];
 const MATCH_T = [
   ['irn',[['reseau'],['intergalactic']]], ['hyperdrive',[['propulsion','hyper'],['hyperspace','drive']]], ['hyper',[['hyperespace'],['hyperspace']]],
