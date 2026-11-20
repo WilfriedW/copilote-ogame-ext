@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.40';
+const APP_VERSION = '1.53.42';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1486,16 +1486,32 @@ function releveEtapes(){
   const out = [];
   for(const page of pages) S.planets.forEach((p,i)=>{
     let url = p.gid ? (page === 'resourcesettings' ? prodUrl(i) : goUrl(page, i)) : null;
+    let tuile = null;
     if(url && LF_FILE[page]){
-      const t = lfAOuvrir(p, LF_FILE[page]);
-      if(t) url += '&openTech=' + encodeURIComponent(t);
+      tuile = lfAOuvrir(p, LF_FILE[page]);
+      if(tuile) url += '&openTech=' + encodeURIComponent(tuile);
     }
-    if(url) out.push({gid:p.gid, page, url});
+    if(url) out.push({gid:p.gid, page, url, tuile});
   });
   if(!out.length) return out;
   const i = releveDepart(), gid = (S.planets[i]||{}).gid;
   for(const page of RELEVE_GLOBAL){ const url = goUrl(page, i); if(url) out.push({gid, page, url, global:true}); }
   return out;
+}
+/**
+ * L'état d'un arrêt du relevé, pour l'écran.
+ * Une page muette a coûté le délai entier sans rien apprendre : c'est elle qui
+ * fait traîner un relevé, et elle ne se distingue pas d'une page lue si on ne
+ * les sépare pas ici.
+ * @param {number} i rang de l'arrêt
+ * @param {number} fait nombre d'arrêts terminés
+ * @param {object} etat compte rendu de l'arrêt, {muet, ms}
+ * @returns {'attente'|'encours'|'muet'|'lu'}
+ */
+function scanEtat(i, fait, etat){
+  if(i === fait) return 'encours';
+  if(i > fait) return 'attente';
+  return etat && etat.muet ? 'muet' : 'lu';
 }
 /* Ce que chaque page du relevé rapporte, dit au joueur. */
 const RELEVE_NOMS = {
@@ -1507,6 +1523,8 @@ const RELEVE_NOMS = {
 /* Vrai pendant que l'écran du relevé tient la place du contenu. Un clic sur un
    onglet le baisse : le joueur reprend la main sans attendre la fin. */
 let scanEcran = false;
+/* Le temps qu'on laisse à une page pour se dire relevée. */
+const RELEVE_DELAI = 4000;
 let releveEnCours = false, releveFin = null;
 /** Réveille le relevé dès que la page visitée a été lue. */
 function releveLu(){ if(releveFin) releveFin(); }
@@ -1514,13 +1532,33 @@ function releveLu(){ if(releveFin) releveFin(); }
    qui tombe pendant la navigation parle encore de la page d'avant. On n'avance
    donc que sur un relevé qui nomme la planète où l'on vient d'aller — et, à
    défaut, au bout de quatre secondes, pour qu'une page muette n'arrête rien. */
-function relevePas(gid, page){
+/**
+ * Cette case est-elle chiffrée, maintenant, sur cette planète ?
+ * @param {string} gid planète du jeu
+ * @param {string|null} tuile identifiant de case, ou null si l'arrêt n'en demandait pas
+ */
+function lfChiffree(gid, tuile){
+  if(!tuile) return true;
+  const p = S.planets.find(x=>x.gid === gid);
+  const v = p && (p.lf || {})[tuile];
+  return !!(v && v.secs > 0 && lfCost(v, (v.lvl||0)+1));
+}
+function relevePas(gid, page, tuile){
   return new Promise(res=>{
-    const fin = ()=>{ clearTimeout(t); releveFin = null; res(); };
-    const t = setTimeout(fin, 4000);
+    /* Ce que l'arrêt a donné : la page a parlé, ou le délai l'a emporté. Un
+       relevé lent n'a pas la même cause selon le cas — des pages lentes à
+       charger, ou des pages que le copilote attend pour rien — et l'écran le
+       montre plutôt que de laisser deviner. */
+    const t0 = Date.now();
+    const fin = muet=>{ clearTimeout(t); releveFin = null; res({muet, ms:Date.now()-t0}); };
+    const t = setTimeout(()=>fin(true), RELEVE_DELAI);
     /* La planète seule ne suffit pas : six arrêts de suite la gardent, et le
        battement de la page d'avant ferait avancer le relevé sans rien lire. */
-    releveFin = ()=>{ if(String(S.cur) === String(gid) && S.page === page) fin(); };
+    /* Le prix d'une case arrive après la page : le jeu le charge à part. Un
+       arrêt qui part chercher une case attend donc de l'avoir — sinon on
+       repartait sur le premier instantané, celui d'avant le prix, et aucune
+       case n'était jamais chiffrée. Le délai borne l'attente comme ailleurs. */
+    releveFin = ()=>{ if(String(S.cur) === String(gid) && S.page === page && lfChiffree(gid, tuile)) fin(false); };
   });
 }
 /** Le relevé complet : passe sur chaque page de chaque planète, puis ramène l'onglet. */
@@ -1530,15 +1568,15 @@ async function faitLeReleve(){
   /* Le point de départ se note avant le relevé : chaque page visitée déplace la
      planète courante, et à la fin S.cur serait le dernier arrêt. */
   const depart = releveDepart();
-  releveEnCours = {fait:0, total:etapes.length, etapes}; scanEcran = true; render();
+  releveEnCours = {fait:0, total:etapes.length, etapes, etats:[], debut:Date.now()}; scanEcran = true; render();
   try{
     for(const e of etapes){
       if(!releveEnCours) break; // le joueur a rappuyé sur le bouton
       /* Le relevé a son propre onglet : l'onglet du joueur ne bouge pas, et il
          n'a plus sa page de jeu qui clignote sous les yeux. */
       chrome.runtime.sendMessage({type:'scan', url:e.url});
-      await relevePas(e.gid, e.page);
-      if(releveEnCours){ releveEnCours.fait++; render(); }
+      const r = await relevePas(e.gid, e.page, e.tuile);
+      if(releveEnCours){ releveEnCours.etats.push(r); releveEnCours.fait++; render(); }
     }
     /* Chaque page visitée déplace la planète courante du côté du jeu, pour
        l'onglet du joueur aussi : le dernier arrêt le remet où il était. */
@@ -4094,7 +4132,8 @@ empire(){ return `<div class="panel">${VIEWS.planets()}${VIEWS.research()}</div>
    le joueur regardait est en train d'être relu, et le voir se recomposer carte
    par carte ne lui apprend rien. Ici il voit ce qui reste à lire. */
 scan(){
-  const r = releveEnCours || {fait:0, total:0, etapes:[]};
+  const r = releveEnCours || {fait:0, total:0, etapes:[], etats:[], debut:Date.now()};
+  const etats = r.etats || [];
   const groupes = new Map();
   (r.etapes || []).forEach((e, i) => {
     const cle = e.global ? '' : e.gid;
@@ -4104,16 +4143,23 @@ scan(){
   const lignes = [...groupes].map(([cle, pas]) => {
     const p = cle ? S.planets.find(x => x.gid === cle) : null;
     const cases = pas.map(({e, i}) => {
-      const nom = esc(RELEVE_NOMS[e.page] || e.page);
-      if(i < r.fait) return `<span class="pill good">\u2713 ${nom}</span>`;
-      if(i === r.fait) return `<span class="pill info">\u2026 ${nom}</span>`;
-      return `<span class="pill">${nom}</span>`;
+      const nom = esc(RELEVE_NOMS[e.page] || e.page), et = etats[i] || {};
+      return ({
+        attente: () => `<span class="pill">${nom}</span>`,
+        encours: () => `<span class="pill info">\u2026 ${nom}</span>`,
+        muet: () => `<span class="pill warn" title="Cette page n'a rien renvoyé : ${RELEVE_DELAI/1000} s d'attente pour rien.">\u231b ${nom}</span>`,
+        lu: () => `<span class="pill good" title="${Math.round(et.ms || 0)} ms">\u2713 ${nom}</span>`
+      })[scanEtat(i, r.fait, et)]();
     }).join(' ');
     return `<tr><td>${esc(p ? p.name : 'Empire')}</td><td>${cases}</td></tr>`;
   }).join('');
+  const muets = etats.filter(x => x && x.muet).length;
+  const ecoule = Math.max(0, Date.now() - (r.debut || Date.now())) / 1000;
+  const reste = r.fait ? ` · encore ~${dur(ecoule / r.fait * (r.total - r.fait))}` : '';
   return `<section class="panel"><div class="card">
     <div class="row spread"><h2>Relevé en cours</h2><span class="pill info">${r.fait} / ${r.total}</span></div>
     <p class="note">Le relevé lit chaque page dans un onglet à lui, ouvert en arrière-plan : ta page de jeu ne bouge pas, tu peux continuer à jouer. Il se referme tout seul à la fin.</p>
+    <p class="note">${dur(ecoule)} écoulées${reste}${muets ? ` · <b>${muets} page${muets>1?'s':''} muette${muets>1?'s':''}</b>, ${RELEVE_DELAI/1000} s d'attente chacune` : ''}</p>
     <div class="tbl-wrap"><table><tbody>${lignes}</tbody></table></div>
     <div class="row" style="margin-top:10px"><button class="btn sm" id="scanStop">Arrêter</button><span class="note">Ce qui est déjà lu reste acquis.</span></div>
   </div></section>`;

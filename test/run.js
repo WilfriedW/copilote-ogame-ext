@@ -24,7 +24,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'view', 'bind'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'view', 'bind'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -145,6 +145,32 @@ t("le relevé ouvre lui-même une case non chiffrée, par un lien", () => {
   assert.ok(e.url.includes('openTech=11101'), e.url);
 });
 
+t("l'arrêt qui part chercher une case la nomme", () => {
+  // sans ça, il ne peut pas savoir si la page lui a rendu ce qu'il demandait
+  const g = app(s => {
+    RELEVE(s); s.lfMenu = true;
+    s.planets[0].lf = { 11101: { lvl: 3, state: 'ok' } };
+  });
+  const e = g.releveEtapes().find(x => x.page === 'lfbuildings' && x.gid === '101');
+  assert.equal(e.tuile, '11101');
+});
+
+t("une case n'est tenue pour chiffrée qu'avec son prix et sa durée", () => {
+  /* Le jeu charge le prix après la page : repartir sur le premier instantané,
+     c'est repartir avant le prix — et aucune case n'était jamais chiffrée. */
+  const g = app(s => {
+    RELEVE(s); s.lfMenu = true;
+    s.planets[0].lf = { 11101: { lvl: 3, state: 'ok' } };
+  });
+  assert.equal(g.lfChiffree('101', '11101'), false, 'niveau seul : pas de prix');
+  g.S.planets[0].lf[11101] = { lvl: 3, state: 'ok', next: 4, cost: [100, 50, 0] };
+  assert.equal(g.lfChiffree('101', '11101'), false, 'prix sans durée : incomplet');
+  g.S.planets[0].lf[11101].secs = 600;
+  assert.equal(g.lfChiffree('101', '11101'), true);
+  // un arrêt qui ne demandait rien n'attend rien
+  assert.equal(g.lfChiffree('101', null), true);
+});
+
 t("une case déjà chiffrée n'est pas rouverte", () => {
   const g = app(s => {
     RELEVE(s); s.lfMenu = true;
@@ -221,6 +247,24 @@ t("l'écran du relevé prend la place du contenu, et montre ce qui reste", () =>
   assert.ok(/Relevé en cours/.test(h), h.slice(0, 200));
   assert.ok(/0 \/ \d+/.test(h), 'le compteur est là');
   assert.ok(/ressources/.test(h) && /production/.test(h), 'les pages sont nommées');
+});
+
+t("l'écran sépare la page lue de la page muette", () => {
+  /* Une page qui n'a rien renvoyé a coûté le délai entier pour rien : c'est
+     elle qui fait traîner un relevé, et il faut pouvoir la montrer du doigt. */
+  const g = app(RELEVE, SOIR, null, true);
+  assert.equal(g.scanEtat(5, 3, undefined), 'attente');
+  assert.equal(g.scanEtat(3, 3, undefined), 'encours');
+  assert.equal(g.scanEtat(1, 3, {muet:false, ms:420}), 'lu');
+  assert.equal(g.scanEtat(1, 3, {muet:true, ms:4000}), 'muet');
+  // un arrêt terminé dont le compte rendu manque passe pour lu, pas pour muet
+  assert.equal(g.scanEtat(0, 3, undefined), 'lu');
+});
+
+t("l'écran dit le temps écoulé", () => {
+  const g = app(s => { RELEVE(s); PERIME(s); }, SOIR, null, true);
+  g.click('majBtn');
+  assert.ok(/écoulée/.test(g.html().view), g.html().view.slice(0, 400));
 });
 
 t("un clic sur un onglet rend la main avant la fin du relevé", () => {
