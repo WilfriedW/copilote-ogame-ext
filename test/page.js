@@ -87,13 +87,14 @@ function el(tag, attrs = {}) {
  * @param {boolean} opts.getDiffere le `get('prioAsk')` ne répond qu'à `livre()` : le vrai est asynchrone
  * @param {object} opts.noms par tuile : le nom que le jeu écrit dans son étiquette
  * @param {string} opts.prodHref href du lien du jeu vers « Paramétrage de la production », absent par défaut
+ * @param {boolean} opts.menuLf le menu du jeu offre les pages de forme de vie (univers qui en a)
  * @returns {object} { html, eta, dataset }
  */
 function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], details = true,
   search = '?page=ingame&component=research', tiles = [], vieuxStyle = null, intruse = false,
   casesIntruses = false, planetList = true, menuMuet = false, champsFlotte = false,
   enChantier = null, heures = null, niveaux = {}, noms = {}, stockageCasse = null, getDiffere = false, askAvant,
-  prodHref = null }) {
+  prodHref = null, menuLf = false }) {
   const html = el('html');
   const head = el('head');
   const body = el('body');
@@ -156,7 +157,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
      est une page qu'aucune famille du rail ne connaît. */
   const MENU = [['overview', "Vue d'ensemble"], ['supplies', 'Ressources'],
     ['facilities', 'Installations'], ['research', 'Recherche'],
-    ['fleetdispatch', 'Flotte'], ['galaxy', 'Galaxie'], ['zorglub', 'Nouveauté']];
+    ['fleetdispatch', 'Flotte'], ['galaxy', 'Galaxie'], ['zorglub', 'Nouveauté']]
+    .concat(menuLf ? [['lfbuildings', 'Formes de vie'], ['lfresearch', 'Recherche de forme de vie']] : []);
   const liensMenu = MENU.map(([comp, nom]) => {
     const a = el('a');
     // un menu dont aucune entrée ne porte de nom : le jeu n'en fait pas, mais

@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.36';
+const APP_VERSION = '1.53.37';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1453,7 +1453,13 @@ function releveEtapes(){
      avoir lu une, le relevé irait attendre quatre secondes devant une page qui
      ne se nomme pas, deux fois par planète. Le panneau demande déjà d'en
      ouvrir une à la main ; après ça, le relevé les prend. */
-  const avecLf = S.planets.some(p=>Object.keys(p.lfSeen||{}).length || Object.keys(p.lf||{}).length);
+  /* Deux façons de savoir que ces pages existent, et il suffit de l'une : le
+     menu du jeu, qui le dit dès la première page lue — c'est ce qui manquait à
+     un second ordinateur, où rien n'a encore été vu — ou une de ces pages déjà
+     relevée ici. Le menu ne fait qu'ajouter : s'il changeait de forme un jour,
+     le relevé retomberait sur ce qu'il a vu plutôt que de s'arrêter. */
+  const avecLf = !!S.lfMenu
+    || S.planets.some(p=>Object.keys(p.lfSeen||{}).length || Object.keys(p.lf||{}).length);
   const pages = avecLf ? RELEVE_PAGES : RELEVE_PAGES.filter(c=>!c.startsWith('lf'));
   const out = [];
   for(const page of pages) S.planets.forEach((p,i)=>{
@@ -4846,6 +4852,7 @@ function applyGame(g){
     }
   }
   if(g.prodUrl) S.prodUrl = g.prodUrl;
+  if(g.lfMenu != null) S.lfMenu = g.lfMenu;
   if(g.cur) S.cur = g.cur;
   S.page = g.page || null;
   S.sample = false;

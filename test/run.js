@@ -113,6 +113,27 @@ t('sans forme de vie jamais lue, le relevé ne va pas les attendre', () => {
   assert.deepEqual(g.releveEtapes().filter(e => e.page.startsWith('lf')), []);
 });
 
+t("le menu du jeu suffit : un poste neuf relève les formes de vie sans qu'on lui en ouvre une", () => {
+  /* Avoir des formes de vie est un fait du compte, pas du poste. Sur un second
+     ordinateur, rien n'a encore été vu : le relevé sautait leurs pages et le
+     panneau réclamait une ouverture à la main. */
+  const g = app(s => { RELEVE(s); s.lfMenu = true; });
+  const e = g.releveEtapes();
+  assert.equal(e.filter(x => x.page === 'lfbuildings').length, 2);
+  assert.equal(e.filter(x => x.page === 'lfresearch').length, 2);
+});
+
+t("un univers sans formes de vie ne les relève pas", () => {
+  const g = app(s => { RELEVE(s); s.lfMenu = false; });
+  assert.deepEqual(g.releveEtapes().filter(e => e.page.startsWith('lf')), []);
+});
+
+t("une page déjà relevée ici garde sa place, quoi que dise le menu", () => {
+  // le menu ne fait qu'ajouter : une forme reconnue autrement n'est jamais perdue
+  const g = app(s => { RELEVE(s); s.lfMenu = false; s.planets[0].lfSeen = { lfbuilding: SOIR }; });
+  assert.equal(g.releveEtapes().filter(e => e.page === 'lfbuildings').length, 2);
+});
+
 t("une forme de vie déjà vue ramène ses deux pages par planète", () => {
   const g = app(s => { RELEVE(s); s.planets[0].lfSeen = { lfbuilding: SOIR }; });
   const e = g.releveEtapes();
@@ -1435,6 +1456,13 @@ t("un lien pi\u00e9g\u00e9 dans la page du jeu n'est pas suivi", () => {
     const r = runPage({ search: '?page=ingame&component=supplies', prodHref: lien });
     assert.equal(r.envois().find(m => m.type === 'snapshot').data.prodUrl, null, lien);
   }
+});
+
+t("la page dit si l'univers a des formes de vie, d'après le menu du jeu", () => {
+  const avec = runPage({ search: '?page=ingame&component=supplies', menuLf: true });
+  assert.strictEqual(avec.envois().find(m => m.type === 'snapshot').data.lfMenu, true);
+  const sans = runPage({ search: '?page=ingame&component=supplies' });
+  assert.strictEqual(sans.envois().find(m => m.type === 'snapshot').data.lfMenu, false);
 });
 
 t("une page sans ce lien n'en invente pas", () => {

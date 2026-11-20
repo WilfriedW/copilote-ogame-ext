@@ -279,9 +279,26 @@
       prodUrl: prodLink(),
       lf,
       lfSeen: lfPage ? { [lfPage]: Date.now() } : null,
+      /* Le menu du jeu dit, sur n'importe quelle page, si cet univers a des
+         formes de vie. C'est un fait du compte, pas du poste : sans lui, un
+         deuxième ordinateur devait rouvrir une page de forme de vie à la main
+         avant que le relevé accepte d'y passer. On ne lit que la forme du
+         paramètre dans les liens du menu, rien de ce qui est écrit dedans. */
+      lfMenu: lfAuMenu(),
       slots,
       timers: unique
     };
+  }
+
+  /**
+   * Cet univers offre-t-il les pages de forme de vie ? Lu dans le menu du jeu.
+   * @returns {boolean|null} null quand la page n'a pas de menu : on ne sait pas
+   */
+  function lfAuMenu() {
+    const menu = document.getElementById('menuTable');
+    if (!menu) return null;
+    return [...menu.querySelectorAll('a[href]')]
+      .some(a => /[?&]component=lf[a-z]*(&|$)/i.test(a.getAttribute('href') || ''));
   }
 
   /**

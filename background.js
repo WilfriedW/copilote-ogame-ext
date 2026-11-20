@@ -155,6 +155,8 @@ async function merge(s) {
   if (s.prodPanel && s.planetId) game.prod = { ...(game.prod || {}), [s.planetId]: { text: s.prodPanel, at: s.at } };
   // L'adresse du paramétrage de la production, telle que le jeu l'écrit : le relevé la réutilise.
   if (s.prodUrl) game.prodUrl = s.prodUrl;
+  // Cet univers a-t-il des formes de vie : su dès la première page lue, sur n'importe quel poste.
+  if (s.lfMenu != null) game.lfMenu = s.lfMenu;
   const timers = (game.timers || []).filter(t => t.end * 1000 > now - 10 * 60 * 1000);
   for (const t of s.timers) {
     const k = timerKey(t);
