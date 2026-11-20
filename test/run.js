@@ -308,6 +308,32 @@ t('sans transporteur, le rappel reste utile mais générique', () => {
   assert.ok(/Dépense/.test(nuit.how.join(' ')), 'il conseille au moins de dépenser');
 });
 
+/* ---------- le retour de l'écran Réglages ---------- */
+
+t('l\'écran Réglages dit ce que le plan du jour devient', () => {
+  const g = app(s => { s.day.focus = 'eco'; s.day.horizon = 48; });
+  g.REFRESH.settings();
+  const txt = g.html().daySum || '';
+  assert.ok(/Économie pure/.test(txt), 'la priorité choisie est nommée : ' + txt);
+  assert.ok(/en 48 h/.test(txt), 'l\'horizon choisi est dit : ' + txt);
+  assert.ok(/production [+-]/.test(txt), 'le plan recalculé se voit : ' + txt);
+});
+
+t('deux heures de nuit égales s\'annoncent comme aucune nuit', () => {
+  // Sinon le résumé disait « nuit 7h–7h », qui a l'air d'un réglage en place
+  // alors que plus rien n'est sauté et que la mise à l'abri a disparu.
+  const g = app(s => { s.day.nightStart = 7; s.day.nightEnd = 7; });
+  g.REFRESH.settings();
+  const txt = g.html().daySum || '';
+  assert.ok(/aucune nuit/.test(txt), 'le résumé doit le dire : ' + txt);
+});
+
+t('en mode nuit l\'écran Réglages ne promet aucun plan', () => {
+  const g = app(s => { s.day.night = true; });
+  g.REFRESH.settings();
+  assert.ok(/[Mm]ode nuit/.test(g.html().daySum || ''), 'le résumé dit la pause');
+});
+
 t('l\'onglet Aujourd\'hui affiche les pastilles de planète', () => {
   const g = app(s => { s.planets[0].ships = { lc: 30 }; });
   g.REFRESH.today();

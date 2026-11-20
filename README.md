@@ -26,10 +26,10 @@ hors du Store : laisse-le, il ne casse rien.
    onglets du jeu.
 2. Clique l'icône : le panneau s'ouvre à droite. Au premier lancement il montre
    des **données d'exemple**, le temps qu'il lise tes vraies pages.
-3. Va dans **Réglages › Univers** et renseigne la **vitesse économie**, la
-   **vitesse flotte** et ta **classe**. Ces trois valeurs ne se devinent pas :
-   elles sont sur la liste des univers à la connexion. Mal réglées, tout
-   l'onglet Empire est faux.
+3. Vérifie le bandeau en haut du panneau : il affiche `éco x… · flotte x… ·`
+   ta classe. Ces trois valeurs se lisent dans la page du jeu, tu n'as rien à
+   chercher. Si l'une manque, navigue une page de plus dans le jeu. Tu peux les
+   corriger à la main dans **Réglages › Univers**, mais normalement non.
 4. Clique **Actualiser** en haut du panneau : le relevé passe sur chaque page de
    chaque planète, puis te ramène où tu étais. Laisse-le finir.
 

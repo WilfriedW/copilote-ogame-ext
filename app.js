@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.34';
+const APP_VERSION = '1.53.35';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4169,6 +4169,7 @@ settings(){
         <label class="f">Formes de vie<select id="dLf" data-day="lf">${Object.entries(LF_MODE).map(([k,l])=>`<option value="${k}" ${lfMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
         <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
       </div>
+      <p class="note" id="daySum"></p>
     </div>
     <div class="card"><h2>Formes de vie découvertes</h2>
       <div class="chips">${lfSettingsHtml()}</div>
@@ -4180,7 +4181,7 @@ settings(){
         <label class="f">Vitesse flotte (pacifique)<input id="sFleet" type="number" min="1" step="1" data-set="fleet" value="${s.fleet}"></label>
         <label class="f">Classe<select id="sCls" data-set="cls">${[['collector','Collecteur'],['general','Général'],['explorer','Explorateur'],['none','Aucune']].map(([v,l])=>`<option value="${v}" ${s.cls===v?'selected':''}>${l}</option>`).join('')}</select></label>
       </div>
-      <p class="note">Tu ne connais pas la vitesse : elle est affichée sur la liste des univers au moment de te connecter, et dans les infos du serveur. Si ta production réelle (onglet Ressources) ne correspond pas à l'onglet Empire, c'est le premier réglage à vérifier.</p>
+      <p class="note">Ces trois valeurs se remplissent toutes seules : le Copilote les lit dans la page du jeu dès que tu l'ouvres. Tu n'y touches que si elles sont vides — le jeu n'a pas encore été ouvert — ou fausses. Si ta production réelle (onglet Ressources) ne correspond pas à l'onglet Empire, c'est le premier réglage à vérifier.</p>
     </div>
     <div class="card"><h2>Bonus</h2>
       <div class="grid">
@@ -4291,6 +4292,27 @@ today(){
     : `${later.length} connexion${later.length>1?'s':''} à venir · production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${S.day.horizon} h`;
 },
 empire(){ REFRESH.planets(); REFRESH.research(); },
+/* Le seul retour de l'écran Réglages. Sans lui, changer la priorité, l'horizon
+   ou l'intervalle n'affichait rien du tout : la valeur partait bien au
+   stockage et le plan s'en servait, mais il fallait passer sur Aujourd'hui
+   pour savoir si le choix avait pris. Un réglage muet est un réglage dont on
+   doute — et le badge du haut, lui, ne parle que de l'univers. */
+settings(){
+  const el = document.getElementById('daySum'); if(!el) return;
+  const d = S.day;
+  if(d.night){ el.textContent = 'Mode nuit : le plan est en pause, seule la mise à l\'abri compte.'; return; }
+  const plan = simulateDay();
+  /* Les connexions qui portent quelque chose, dites comme telles : le résumé
+     d'Aujourd'hui compte aussi les missions, et deux lignes qui annoncent le
+     même mot avec deux chiffres différents est le pire des deux mondes. */
+  const n = plan.sessions.slice(1).filter(x=>x.acts.length).length;
+  const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
+  // Deux heures égales ne font pas une nuit de zéro heure : elles n'en font aucune.
+  const nuit = +d.nightStart === +d.nightEnd ? 'aucune nuit' : `nuit ${d.nightStart}h–${d.nightEnd}h`;
+  el.textContent = `${FOCUS[d.focus]||''} · toutes les ${d.interval} min · ${nuit} · `
+    + `${n} connexion${n>1?'s':''} avec quelque chose à lancer · `
+    + `production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${d.horizon} h`;
+},
 tools(){ REFRESH[toolTab()](); },
 explore(){
   const el = document.getElementById('exColo'); if(!el || !API || !API.planets) return;
