@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.27';
+const APP_VERSION = '1.53.28';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -21,8 +21,12 @@ const B = {
      les viser au clic droit, et que le plan sache ce que coûte le pas. */
   depot:   {n:'Dépôt de ravitaillement', c:[20000,40000,0], f:2},
   silo:    {n:'Silo de missiles', c:[20000,20000,1000], f:2, req:{b:{shipyard:1}}},
+  terra:   {n:'Terraformeur', c:[0,50000,100000], f:2, req:{b:{nanite:1}, t:{energy:12}}},
+  /* Seul bâtiment à quintupler d'un niveau à l'autre. Ses conditions ne sont
+     pas relevées : mieux vaut ne rien annoncer qu'annoncer un chantier faux. */
+  dock:    {n:'Dock spatial', c:[200,0,50], f:5},
 };
-const B_SHORT = {crawl:'Foreuses', metal:'Métal',crystal:'Cristal',deut:'Deut.',solar:'Solaire',fusion:'Fusion',robot:'Robots',shipyard:'Chantier',lab:'Labo',nanite:'Nanites',smetal:'Hangar M',scrystal:'Hangar C',sdeut:'Réserv. D',depot:'Dépôt',silo:'Silo'};
+const B_SHORT = {crawl:'Foreuses', metal:'Métal',crystal:'Cristal',deut:'Deut.',solar:'Solaire',fusion:'Fusion',robot:'Robots',shipyard:'Chantier',lab:'Labo',nanite:'Nanites',smetal:'Hangar M',scrystal:'Hangar C',sdeut:'Réserv. D',depot:'Dépôt',silo:'Silo',terra:'Terraf.',dock:'Dock'};
 
 const T = {
   energy:    {n:'Technologie Énergie', c:[0,800,400], f:2, req:{lab:1}},
@@ -4387,6 +4391,7 @@ const MATCH_B = [
   ['shipyard',[['chantier'],['shipyard']]], ['lab',[['laboratoire'],['research','lab']]], ['nanite',[['nanite']]],
   ['smetal',[['hangar','metal'],['metal','storage']]], ['scrystal',[['hangar','crist'],['crystal','storage']]], ['sdeut',[['reservoir','deut'],['deuterium','tank']]],
   ['depot',[['depot','ravitaillement'],['alliance','depot']]], ['silo',[['silo']]],
+  ['terra',[['terraform']]], ['dock',[['dock']]],
 ];
 const MATCH_T = [
   ['irn',[['reseau'],['intergalactic']]], ['hyperdrive',[['propulsion','hyper'],['hyperspace','drive']]], ['hyper',[['hyperespace'],['hyperspace']]],

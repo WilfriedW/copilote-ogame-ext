@@ -6264,7 +6264,7 @@ t('une demande malformée ne pose rien et ne lève pas', () => {
   const g = app(G);
   const sales = [null, undefined, 7, 'x', [], {}, D({tech:null}), D({lvl:'dix'}), D({lvl:2.5}), D({lvl:10.5}), D({lvl:'10'}), D({lvl:-3}), D({tech:'0x2B4D'}), D({tech:'11101abc'}),
     D({lvl:undefined}), D({gid:undefined}), D({gid:'__proto__'}), D({gid:'constructor'}), D({gid:'33701x'}),
-    D({tech:'__proto__'}), D({tech:'constructor'}), D({tech:10999}), D({tech:50}), D({tech:0}), D({tech:33}), D({tech:105}), D({tech:125}),
+    D({tech:'__proto__'}), D({tech:'constructor'}), D({tech:10999}), D({tech:50}), D({tech:0}), D({tech:41}), D({tech:105}), D({tech:125}),
     D({gid:'__proto__', tech:122}), D({gid:'__proto__', tech:11101})];
   // une à une : une entrée posée serait sinon retirée par la suivante, et le défaut passerait inaperçu
   for(const s of sales) {
@@ -6721,6 +6721,29 @@ t('le Dépôt et le Silo se posent au clic droit', () => {
   }
 });
 
+t('le Terraformeur et le Dock spatial ont le prix du jeu', () => {
+  const g = app();
+  /* Relevés sur le wiki OGame. Le Dock spatial est le seul à quintupler d'un
+     niveau à l'autre : lui donner le doublement des autres le ferait paraître
+     douze fois trop bon marché au niveau 4. */
+  assert.deepEqual(g.levelCost(g.B.terra, 1), [0, 50000, 100000]);
+  assert.deepEqual(g.levelCost(g.B.terra, 10), [0, 25600000, 51200000]);
+  assert.deepEqual(g.levelCost(g.B.dock, 1), [200, 0, 50]);
+  assert.deepEqual(g.levelCost(g.B.dock, 4), [25000, 0, 6250]);
+  // le terraformeur demande des nanites et de l'énergie ; le dock, rien de relevé
+  assert.deepEqual(g.B.terra.req, { b: { nanite: 1 }, t: { energy: 12 } });
+  assert.equal(g.B.dock.req, undefined);
+});
+
+t('le Terraformeur et le Dock spatial se posent au clic droit', () => {
+  for (const id of [33, 36]) {
+    const p = runPage({ search: '?page=ingame&component=facilities', planetId: '33701',
+      tiles: [id], niveaux: { [id]: 2 } });
+    p.clicDroit(id, '5');
+    assert.equal(p.ecrit().prioAsk[0].lvl, 5, 'tuile ' + id);
+  }
+});
+
 t('le Dépôt de ravitaillement et le Silo de missiles ont le prix du jeu', () => {
   const g = app();
   /* Relevé sur le wiki OGame, niveau 1 puis doublement : un prix inventé ferait
@@ -6741,7 +6764,7 @@ t('une sauvegarde d\'avant ces bâtiments les compte à zéro, pas à « undefin
 });
 
 t('une tuile à niveau que le copilote ne modélise pas est refusée dans la page', () => {
-  for (const id of [33, 36]) {   // Terraformeur, Dock spatial
+  for (const id of [41, 42, 43]) {   // Base lunaire, Phalange, Porte de saut
     const p = runPage({ search: '?page=ingame&component=facilities', planetId: '33701', tiles: [id],
       niveaux: { [id]: 2 } });
     p.clicDroit(id, '5');
