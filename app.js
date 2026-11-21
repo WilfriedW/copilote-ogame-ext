@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.48';
+const APP_VERSION = '1.53.49';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -270,6 +270,12 @@ function prioDrain(liste){
 }
 /* Les demandes qui attendent leur planète, pour le bloc des priorités. */
 function prioDemandes(){ return Array.isArray(S.prioAsk) ? S.prioAsk : []; }
+/* Posées sur l'autre poste, sur une planète que celui-ci n'a pas encore
+   relevée : elles désignent leur planète par le gid, donc prios() ne les rend
+   pas et le champ d'Empire reste vide. prioClean les garde — les jeter
+   renverrait effacé au poste qui les a posées —, mais rien ne les montrait.
+   Une priorité qu'on garde sans la dire est une priorité perdue pour le joueur. */
+function prioAttend(){ return (S.prio || []).filter(e => e && e.gid != null && Number.isInteger(e.lvl) && e.lvl > 0); }
 /* Ce qui était gardé repasse avec ce qui arrive : une planète peut avoir été
    relevée entre-temps. */
 function prioRecoit(neuves){
@@ -325,6 +331,11 @@ function prioRetire(ref){
     if(i >= 0) S.prioAsk.splice(i, 1);
     return;
   }
+  if(kind === 'gid'){
+    const i = (S.prio || []).findIndex(e => e && e.gid != null && String(e.gid) === a && String(e.k) === b);
+    if(i >= 0) S.prio.splice(i, 1);
+    return;
+  }
   const i = kind === 't' ? prioIdx('t', null, a) : kind === 'lf' ? prioIdx('lf', a, +b) : kind === 'b' ? prioIdx('b', a, b) : -1;
   if(i >= 0) S.prio.splice(i, 1);
 }
@@ -366,8 +377,8 @@ function prioLfEtat(p, x, nuit){
    où aller coûte trois lignes ; un joueur qui ne trouve pas le champ ne pose
    jamais rien, et tout le reste de ce travail ne sert à personne. */
 function prioHtml(plan){
-  const l = prios(), lf = priosLf(), at = prioDemandes();
-  if(!l.length && !lf.length && !at.length) return `<div class="card"><h2>Tes priorités</h2><p class="note" style="margin:0">Aucune pour l'instant. Dans le jeu, fais un <b>clic droit</b> sur la case d'un bâtiment, d'une recherche ou d'une forme de vie : elle devient une priorité, et le plan la sert. Ici, dans <b>Empire</b>, déplie les niveaux d'une planète — ou les recherches — et écris le niveau que tu vises dans le petit champ <b>→</b>, à droite du niveau actuel. Le plan épargnera pour l'atteindre, et le dira sur ses cartes.</p></div>`;
+  const l = prios(), lf = priosLf(), at = prioDemandes(), loin = prioAttend();
+  if(!l.length && !lf.length && !at.length && !loin.length) return `<div class="card"><h2>Tes priorités</h2><p class="note" style="margin:0">Aucune pour l'instant. Dans le jeu, fais un <b>clic droit</b> sur la case d'un bâtiment, d'une recherche ou d'une forme de vie : elle devient une priorité, et le plan la sert. Ici, dans <b>Empire</b>, déplie les niveaux d'une planète — ou les recherches — et écris le niveau que tu vises dans le petit champ <b>→</b>, à droite du niveau actuel. Le plan épargnera pour l'atteindre, et le dira sur ses cartes.</p></div>`;
   const nuit = !!S.day.night;
   const dits = new Map((((plan || simulateDay()).sessions[0] || {}).prio || []).map(e => [e.id, e]));
   const li = (pill, what, why, ref) => `<li><span class="pill">${pill}</span><span class="what">${what}</span>${why ? `<span class="why">${esc(why)}</span>` : ''}<button class="btn sm ghost" data-prio-del="${esc(ref)}">Retirer</button></li>`;
@@ -384,6 +395,9 @@ function prioHtml(plan){
     /* nom est du texte lu dans le DOM du jeu : il passe par esc, comme tout ce qui vient de là. */
     const quoi = d.lvl === 0 ? 'Retrait demandé' : `Niveau ${d.lvl} demandé`;
     return li('En attente', esc(d.nom || `Case ${d.tech}`), `${quoi}, mais aucune de tes planètes relevées ne porte cette case. Si c'est une colonie jamais parcourue, ouvre-la dans le jeu : la demande sera placée alors. Si c'est une lune, le panneau n'en gère pas : la demande n'aboutira pas. Sinon elle s'efface dans ${dur((d.at + PRIO_ATTENTE - Date.now())/1000)}.`, prioRef('ask', d.gid, d.tech));
+  }), loin.map(e => {
+    const nom = e.kind === 'b' ? (B_SHORT[e.k] || e.k) : e.kind === 'lf' ? (LF_NAMES[e.k] || `Forme de vie ${e.k}`) : ((T[e.k] || {}).n || e.k);
+    return li('Autre poste', `${esc(String(nom))} ${e.lvl}`, `Posée sur ton autre ordinateur, sur une planète que celui-ci n'a pas encore relevée. Ouvre-la dans le jeu : elle rejoindra la liste et le plan la servira.`, prioRef('gid', e.gid, e.k));
   }));
   return `<div class="card"><h2>Tes priorités</h2><ul class="advice prios">${lignes.join('')}</ul></div>`;
 }
@@ -4180,7 +4194,7 @@ function lfIds(p){
 function lfRows(p){
   return lfIds(p).map(id=>{
     const v = (p.lf || {})[id] || {}, nom = v.nom || LF_NAMES[id] || ('Forme de vie ' + id);
-    return `<label class="f">${esc(nom)}<span class="lv"><input type="number" value="${v.lvl || 0}" readonly tabindex="-1" aria-label="${esc(nom)} : niveau relevé"><input class="prio" type="number" min="1" data-pid="${p.id}" data-prio="${id}" data-kind="lf" value="${prioLvl('lf', p.id, id)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${esc(nom)} : niveau visé"></span></label>`;
+    return `<label class="f">${esc(nom)}<span class="lv"><input type="number" value="${v.lvl || 0}" readonly tabindex="-1" aria-label="${esc(nom)} : niveau relevé"><input class="prio" type="number" min="${(v.lvl||0)+1}" data-pid="${p.id}" data-prio="${id}" data-kind="lf" value="${prioLvl('lf', p.id, id)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${esc(nom)} : niveau visé"></span></label>`;
   }).join('');
 }
 /** Les formes de vie sous leur nom, et non mêlées aux bâtiments : posées à la
@@ -4311,17 +4325,18 @@ planets(){
         : `<label class="f coche"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>${i===ci&&centreWhy()?`<span class="note">${esc(centreWhy())}</span>`:''}`}</div>
       <p class="note" style="margin:0" id="pctrn-${i}">${centreNoteHtml(p, i, ci)}</p>
       <p class="note" id="pfleet-${i}" style="margin:0"></p>
-      <details class="volet"><summary>Niveaux, stock et niveaux visés</summary>
+      <details class="volet"${fold('niv:' + p.id, false)}><summary data-fold="niv:${p.id}">Bâtiments et niveaux visés</summary>
       <div class="grid tight" style="margin-top:8px">
-        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${p.b[k]}"><input class="prio" type="number" min="1" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
+        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${p.b[k]}"><input class="prio" type="number" min="${(p.b[k]||0)+1}" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
         <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${p.sats}"></label>
       </div>
       ${lfBloc(p)}
-      <div class="grid tight" style="margin-top:8px">
+      <p class="note" style="margin:10px 0 0"><b>Stock</b> — ce que cette planète a en magasin. Il avance tout seul avec ta production ; recale-le quand tu dépenses.</p>
+      <div class="grid tight" style="margin-top:6px">
           <label class="f">Métal<input id="sm-${p.id}" type="number" data-s="m" value="${Math.round(stockNow(p)[0])}"></label>
           <label class="f">Cristal<input id="sc-${p.id}" type="number" data-s="c" value="${Math.round(stockNow(p)[1])}"></label>
           <label class="f">Deutérium<input id="sd-${p.id}" type="number" data-s="d" value="${Math.round(stockNow(p)[2])}"></label>
-      </div><p class="note" style="margin-top:6px">Le stock avance tout seul avec ta production. Recale-le quand tu dépenses.</p>
+      </div>
       </details>
     </div>`).join(''); })()}
     <div class="row"><button class="btn" id="addPlanet">Ajouter une colonie</button>
@@ -4331,7 +4346,7 @@ planets(){
 research(){
   return `<details class="card"><summary>Recherches et niveaux visés <span class="note">labo niveau <b id="labLv"></b></span></summary>
     <div class="tbl-wrap"><table class="tech"><thead><tr><th>Technologie</th><th class="n">Niv.</th><th class="n">Visé</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th></tr></thead><tbody>
-    ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${S.tech[k]}"></td><td class="n"><input class="prio" type="number" min="1" data-prio="${k}" value="${prioLvl('t', null, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${T[k].n} : niveau visé"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
+    ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${S.tech[k]}"></td><td class="n"><input class="prio" type="number" min="${(S.tech[k]||0)+1}" data-prio="${k}" value="${prioLvl('t', null, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${T[k].n} : niveau visé"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
     </tbody></table></div>
   </details>`;
 },
@@ -5121,12 +5136,18 @@ chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioA
 const SYNC_KEYS = ['settings','day','expo','lf','raids','daily'];
 const gidDe = pid => { const p = planetById(pid); return p && p.gid != null ? String(p.gid) : null; };
 const pidDe = gid => { const p = (S.planets || []).find(x => x.gid != null && String(x.gid) === String(gid)); return p ? p.id : null; };
-/* Une recherche ne porte pas de pid : elle voyage telle quelle. */
+/* Une recherche ne porte pas de pid : elle voyage telle quelle.
+   L'ordre des clés compte, et c'est tout sauf cosmétique : syncApply compare au
+   JSON, et le stockage partagé nous renvoie notre propre écriture. Reconstruite
+   clé par clé dans un autre ordre, elle revenait méconnaissable — S.prio était
+   remplacé, chg passait à vrai, et render() repassait toutes les dix secondes.
+   Le joueur voyait le volet qu'il venait d'ouvrir se refermer sous ses doigts.
+   On rebâtit donc dans l'ordre exact où prioPose range. */
 function prioOut(l){
   return (l || []).map(e => {
     if(!e || e.kind === 't' || !e.pid) return e;
     const gid = gidDe(e.pid); if(gid == null) return e;
-    const o = Object.assign({}, e, {gid}); delete o.pid; return o;
+    return {kind:e.kind, gid, k:e.k, lvl:e.lvl};
   });
 }
 function prioIn(l){
@@ -5134,7 +5155,7 @@ function prioIn(l){
     if(!e || e.gid == null) return e;
     // planète pas encore relevée ici : l'entrée attend, applyGame repassera
     const pid = pidDe(e.gid); if(!pid) return e;
-    const o = Object.assign({}, e, {pid}); delete o.gid; return o;
+    return {kind:e.kind, pid, k:e.k, lvl:e.lvl};
   });
 }
 function syncOut(){

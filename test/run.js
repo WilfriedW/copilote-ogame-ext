@@ -6687,7 +6687,7 @@ t('sans aucune priorité, le bloc dit quand même où en poser une', () => {
 
 t('les deux volets annoncent qu\'ils portent le niveau visé', () => {
   const g = app();
-  assert.match(g.VIEWS.planets(), /Niveaux, stock et niveaux visés/);
+  assert.match(g.VIEWS.planets(), /Bâtiments et niveaux visés/);
   assert.match(g.VIEWS.research(), /Recherches et niveaux visés/);
 });
 
@@ -6712,11 +6712,66 @@ t('la case du centre tient sur une ligne, hors du gabarit des champs', () => {
 t('le volet des niveaux se donne pour ce qu\'il est : un réglage qu\'on ouvre', () => {
   /* Sans classe il ne touchait aucune règle : triangle du navigateur et douze
      pixels de gris, rien qui dise qu\'on règle quelque chose derrière. */
-  assert.match(app().VIEWS.planets(), /<details class="volet"><summary>/);
+  const h = app().VIEWS.planets();
+  assert.match(h, /<details class="volet"><summary data-fold="niv:mere">/);
+  /* Un render() le refermait sous les doigts du joueur : il retient son état,
+     comme les volets d'Aujourd'hui. */
+  const ouvert = app(s2 => { s2.ui.fold = { 'niv:mere': true }; }).VIEWS.planets();
+  assert.match(ouvert, /<details class="volet" open><summary data-fold="niv:mere">/);
   const css = CSS();
   assert.match(css, /details\.volet>summary\{[^}]*cursor:pointer/);
   assert.match(css, /details\.volet>summary::after\{content:"Ouvrir \+"/, 'il dit qu\'il s\'ouvre');
   assert.match(css, /details\.volet\[open\]>summary::after\{content:"Fermer/, 'et qu\'il se ferme');
+});
+
+t('le compteur du niveau visé part du niveau en place, pas de 1', () => {
+  /* Partir de 1 obligeait à retaper le niveau entier, et proposait d'abord des
+     niveaux déjà atteints — que prioPose jette aussitôt. */
+  const g = app(s2 => { s2.planets[0].b.lab = 5; s2.tech.plasma = 7;
+    s2.planets[0].lf = { 11101: { lvl: 3, state: 'ok' } }; });
+  const h = g.VIEWS.planets();
+  assert.match(h, /min="6" data-pid="mere" data-prio="lab"/, 'un bâtiment');
+  assert.match(h, /min="4" data-pid="mere" data-prio="11101" data-kind="lf"/, 'une forme de vie');
+  assert.match(g.VIEWS.research(), /min="8" data-prio="plasma"/, 'une recherche');
+});
+
+t('le stock dit son nom au-dessus de sa grille, et quitte le titre du volet', () => {
+  const h = app().VIEWS.planets();
+  assert.match(h, /<b>Stock<\/b> — ce que cette planète a en magasin/);
+  assert.doesNotMatch(h, /stock et niveaux visés/, 'le titre ne le porte plus');
+});
+
+t('l\'écho de notre propre écriture ne redessine pas la vue', () => {
+  /* syncApply compare au JSON, qui dépend de l'ordre des clés : reconstruite
+     dans un autre ordre, notre propre priorité revenait méconnaissable du
+     stockage partagé, et render() refermait le volet toutes les dix secondes. */
+  const g = app(s2 => { s2.planets[0].gid = '33701';
+    s2.prio = [{ kind: 'b', pid: 'mere', k: 'lab', lvl: 10 }]; });
+  const avant = JSON.stringify(g.S.prio);
+  g.syncApply(g.syncOut());
+  assert.equal(JSON.stringify(g.S.prio), avant, 'rien à réécrire, donc rien à redessiner');
+});
+
+t('une priorité posée sur l\'autre poste ne reste pas invisible', () => {
+  /* Elle désigne sa planète par le gid tant que le relevé d'ici ne l'a pas
+     nommée : prios() ne la rend pas, le champ d'Empire reste vide, et jusqu'ici
+     rien ne la montrait nulle part. */
+  const g = app(s2 => { s2.planets[0].gid = '33701';
+    s2.prio = [{ kind: 'b', k: 'lab', lvl: 10, gid: '99999' }]; });
+  assert.deepEqual(g.prios(), [], 'aucune planète d\'ici ne la porte');
+  const h = g.prioHtml();
+  assert.match(h, /Autre poste/);
+  assert.match(h, /Labo 10/);
+  g.prioClean();
+  assert.equal(g.S.prio.length, 1, 'et le nettoyage ne la jette pas');
+});
+
+t('une priorité venue de l\'autre poste se retire comme les autres', () => {
+  const g = app(s2 => { s2.planets[0].gid = '33701';
+    s2.prio = [{ kind: 'b', k: 'lab', lvl: 10, gid: '99999' }]; });
+  assert.match(g.prioHtml(), /data-prio-del="gid\|99999\|lab"/);
+  g.prioRetire('gid|99999|lab');
+  assert.deepEqual(g.S.prio, []);
 });
 
 t('les cases de forme de vie relevées entrent dans la grille des niveaux', () => {
