@@ -2550,8 +2550,26 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
   });
 
   let bientot = null;
+  /* Le panneau de détail — le seul endroit où le jeu écrit le prix d'une case —
+     n'arrive pas avec la page : il se charge à part, après. Jusqu'ici son prix
+     attendait le battement de cinq secondes pour partir, et un relevé qui ne
+     laisse que quatre secondes à une page ne le voyait donc jamais : il
+     ouvrait la case et repartait avant qu'elle réponde.
+     On part dès que ce panneau change — identifiant ou montants. La signature
+     se calcule sur un seul élément, pas sur la page : une secousse ordinaire
+     ne coûte donc rien de plus qu'avant. */
+  const detSignature = () => {
+    const d = document.getElementById('technologydetails');
+    if (!d) return '';
+    const c = [...d.querySelectorAll('.costs li.resource[data-value]')]
+      .map(x => x.dataset.value).join(',');
+    return (d.dataset.technologyId || '') + '|' + c;
+  };
+  let detVu = detSignature();
   new MutationObserver(() => {
     dirty = true;
+    const sig = detSignature();
+    if (sig !== detVu) { detVu = sig; send(); }
     if (bientot) return;
     bientot = setTimeout(() => { bientot = null; paint(); }, 250);
   }).observe(document.body, { childList: true, subtree: true });

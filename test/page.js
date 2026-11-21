@@ -532,6 +532,14 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     },
     /** Une secousse de la page, comme en produit le jeu. */
     secousse: () => secousse && secousse(),
+    /** Le jeu charge le panneau de détail d'une case, après la page. */
+    detailArrive: (id, montants) => {
+      if (!det) throw new Error('cette page de test n\'a pas de panneau de détail');
+      det.dataset.technologyId = String(id);
+      costEls.length = 0;
+      (montants || []).forEach(([cls, v]) => costEls.push(el('li', { className: cls, dataset: { value: String(v) } })));
+      secousse && secousse();
+    },
     /** Un script plus neuf arrive : recharger l'extension sans recharger la
         page laisse l'ancien en vie, et les deux dessinaient côte à côte. */
     scriptNeuf: () => document.dispatchEvent({ type: 'copilote:arrivee' }),

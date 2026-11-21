@@ -1567,6 +1567,28 @@ t("la page dit si l'univers a des formes de vie, d'après le menu du jeu", () =>
   assert.strictEqual(sans.envois().find(m => m.type === 'snapshot').data.lfMenu, false);
 });
 
+t("le prix d'une case part dès qu'il arrive, sans attendre le battement", () => {
+  /* Le jeu charge le panneau de détail après la page. Tant que son prix
+     attendait le tour de garde de cinq secondes, un relevé qui laisse quatre
+     secondes à une page ne le voyait jamais : il ouvrait la case et repartait
+     avant qu'elle réponde. */
+  const r = runPage({ search: '?page=ingame&component=lfbuildings&openTech=11101' });
+  const avant = r.envois().filter(m => m.type === 'snapshot').length;
+  r.detailArrive(11101, [['resource metal', 1200], ['resource crystal', 600]]);
+  const envois = r.envois().filter(m => m.type === 'snapshot');
+  assert.ok(envois.length > avant, "l'arrivée du panneau doit partir tout de suite");
+  const lf = envois[envois.length - 1].data.lf[11101];
+  assert.deepEqual(lf.cost, [1200, 600, 0]);
+});
+
+t("une secousse qui ne touche pas au panneau de détail n'envoie rien de plus", () => {
+  // sinon chaque remuement de la page du jeu referait tout l'instantané
+  const r = runPage({ search: '?page=ingame&component=lfbuildings' });
+  const avant = r.envois().filter(m => m.type === 'snapshot').length;
+  r.secousse();
+  assert.equal(r.envois().filter(m => m.type === 'snapshot').length, avant);
+});
+
 t("une page sans ce lien n'en invente pas", () => {
   const r = runPage({ search: '?page=ingame&component=supplies' });
   assert.equal(r.envois().find(m => m.type === 'snapshot').data.prodUrl, null);
