@@ -24,7 +24,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'view', 'bind'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -4194,6 +4194,51 @@ t('calibrer une planète ne touche pas les autres', () => {
   assert.strictEqual(g.production(g.S.planets[1]).eBal, 231, 'la bonne planète est calée');
 });
 
+/* ---------- un chantier flou ne se relit qu'une fois son lot au sol ---------- */
+
+/** Une planète dont le chantier a un lot, avec son heure de sortie et la dernière lecture. */
+const CHANTIER = (g, sortie, lu) => {
+  const p = g.S.planets[0];
+  p.b.shipyard = 4; p.flotteFloue = sortie; p.shipsAt = lu;
+  p.defFloue = 0; p.defsAt = lu;
+  return p;
+};
+
+t('un lot encore en route rend le chantier flou', () => {
+  // le copilote ne propose rien à ce chantier : il doublerait ce qui en sort
+  const g = app(null, SOIR);
+  assert.equal(g.chantierFlou(CHANTIER(g, SOIR + 2 * 3600e3, SOIR)), true);
+});
+
+t("mais on ne demande pas d'aller relire une page qui n'a rien de neuf", () => {
+  /* Elle dirait le même compte qu'avant : le joueur faisait le geste, rien ne
+     changeait, et la carte revenait au tour suivant. */
+  const g = app(null, SOIR);
+  assert.equal(g.chantierARelire(CHANTIER(g, SOIR + 2 * 3600e3, SOIR)), false);
+});
+
+t('le lot au sol et jamais relu, là il faut rouvrir la page', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.chantierARelire(CHANTIER(g, SOIR - 3600e3, SOIR - 2 * 3600e3)), true);
+});
+
+t('un lot au sol et déjà relu ne demande plus rien', () => {
+  const g = app(null, SOIR);
+  const p = CHANTIER(g, SOIR - 2 * 3600e3, SOIR - 60e3);
+  assert.equal(g.chantierFlou(p), false);
+  assert.equal(g.chantierARelire(p), false);
+});
+
+t('la défense suit la même règle que la flotte', () => {
+  const g = app(null, SOIR);
+  const p = g.S.planets[0];
+  p.b.shipyard = 4; p.flotteFloue = 0; p.shipsAt = SOIR;
+  p.defFloue = SOIR + 3600e3; p.defsAt = SOIR;
+  assert.equal(g.chantierARelire(p), false, 'le lot de défense est encore en route');
+  p.defFloue = SOIR - 3600e3; p.defsAt = SOIR - 2 * 3600e3;
+  assert.equal(g.chantierARelire(p), true);
+});
+
 /* ---------- un prix de case appartient à l'espèce, pas à la planète ---------- */
 
 /** Deux planètes de la même espèce : la case 11101 y coûte la même chose. */
@@ -5790,8 +5835,10 @@ t('une planète dont aucun lot n\'a été vu reste bavarde', () => {
 });
 
 t('la carte de lecture dit quelle page ouvrir, et laquelle', () => {
+  /* Le lot est sorti il y a vingt minutes : c'est à ce moment-là, et pas
+     avant, qu'aller relire la page apprend quelque chose. */
   const g = app(chantierPret, JOUR);
-  publieLot(g, '203', 1200);
+  publieLot(g, '203', -1200);
   const m = g.dailyMissions().find(x => x.id === 'chantierlu');
   assert.ok(m, 'une carte réclame la lecture');
   assert.ok(/Planète mère/.test(m.what), 'elle nomme la planète : ' + m.what);

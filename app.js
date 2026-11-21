@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.45';
+const APP_VERSION = '1.53.46';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -2269,6 +2269,21 @@ function chantierFlou(p){
   if(!p || (p.b||{}).shipyard < 1) return false;
   return (p.flotteFloue||0) > (p.shipsAt||0) || (p.defFloue||0) > (p.defsAt||0);
 }
+/**
+ * Ce chantier flou vaut-il qu'on aille relire sa page, maintenant ?
+ * Non tant que son lot est en route : la page dirait le même compte qu'avant,
+ * le copilote resterait aveugle, et la carte reviendrait au prochain tour —
+ * on demandait au joueur un geste qui ne pouvait rien changer. Oui dès que le
+ * lot est au sol et que la page ne l'a pas encore redit.
+ * @param {object} p planète
+ * @returns {boolean}
+ */
+function chantierARelire(p){
+  if(!chantierFlou(p)) return false;
+  const now = Date.now();
+  return ((p.flotteFloue||0) > (p.shipsAt||0) && (p.flotteFloue||0) <= now)
+      || ((p.defFloue||0) > (p.defsAt||0) && (p.defFloue||0) <= now);
+}
 /* ---------- ce qu'une priorité demande à une planète ---------- */
 /* Le copilote obéit, et il chiffre. Une priorité que rien n'empêche devient un
    objectif ; une priorité qui ne peut rien faire doit le dire, parce qu'une
@@ -3525,11 +3540,11 @@ function dailyMissions(){
      n'annonce que le lot en cours. Après un lot, le copilote ne sait donc plus
      ce qui est au sol : il se tait sur ce chantier au lieu de reproposer ce qui
      vient d'en sortir. Une page relue le rend bavard aussitôt. */
-  const flous = S.planets.filter(p=>chantierFlou(p));
+  const flous = S.planets.filter(chantierARelire);
   if(flous.length) out.push({id:'chantierlu', q:'Chantier', every:6, sev:'warn', tags:flous.map(planetRef),
     what:flous.length>1 ? `Ouvrir la page Chantier spatial (${flous.length} planètes)` : `Ouvrir la page Chantier spatial sur ${planetRef(flous[0])}`,
     why:`Ton chantier a sorti un lot que le copilote n'a pas relu : le jeu dit ce qu'il construit, jamais combien. Tant que la page n'est pas rouverte, il ne propose ni vaisseau, ni défense, ni satellite ${flous.length>1?'sur ces planètes':'sur cette planète'} — il doublerait ce que tu viens de construire.`,
-    how:['Ouvre Chantier spatial sur la planète : le copilote recompte tout au passage.', 'La page Flotte fait aussi l\'affaire pour les vaisseaux ; la page Défense pour la défense.', 'Les cartes de chantier reviennent aussitôt, avec les bons nombres.']});
+    how:['Le bouton Actualiser, en haut : son relevé passe par le chantier et la défense de chaque planète.', 'Ou ouvre Chantier spatial sur la planète : le copilote recompte tout au passage.', 'La page Flotte fait aussi l\'affaire pour les vaisseaux ; la page Défense pour la défense.', 'Les cartes de chantier reviennent aussitôt, avec les bons nombres.']});
   const occ = API && API.planets ? occupied() : null;
   if(occ && parseC(S.colo.target) && occ.has(S.colo.target) && occ.get(S.colo.target)!==S.me && !colSentNow()){ const alt = colonyCandidates()[0]; out.unshift({id:'colo-taken', q:'Colonie', every:6, sev:'bad', coords:S.colo.target, what:`${S.colo.target} est déjà occupée`, why:alt?`Meilleure position libre proche : ${alt.coords} (${alt.bonus||'pas de bonus'}, ~${alt.fields} cases).`:'Choisis une autre position dans Outils › Cibles.', how:['Outils › Cibles › Où coloniser : clique sur Choisir pour changer la destination.']}); }
   // Chaque sonde occupe un emplacement de flotte jusqu'à son retour : en
