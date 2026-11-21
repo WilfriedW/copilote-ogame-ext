@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.43';
+const APP_VERSION = '1.53.45';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -617,6 +617,52 @@ function lfRemember(prev, v){
   if(n >= 1 && n <= LF_LVL_MAX && Array.isArray(v.cost) && v.cost.some(x=>x>0)){ const c = lfClampCost(v.cost); /* l'heure ne bouge que si le prix est nouveau ou change */ if(!seen[n] || !seen[n].every((x,i)=>x===c[i])) seenAt[n] = Date.now(); seen[n] = c; }
   Object.keys(seen).map(Number).sort((a,b)=>b-a).slice(LF_SEEN_KEEP).forEach(k=>{ delete seen[k]; delete seenAt[k]; });
   return {seen, seenAt};
+}
+
+/**
+ * Met en commun, entre planètes, ce que chaque case de forme de vie a coûté.
+ *
+ * Le prix d'une case ne dépend pas de la planète : l'identifiant porte déjà
+ * l'espèce, donc la même case coûte la même chose partout où elle existe. Tant
+ * que chaque planète ne se fiait qu'à ses propres lectures, le copilote ne
+ * comparait que la case qu'on venait d'ouvrir — et la désignait donc
+ * forcément, quelle qu'elle soit. En commun, un relevé apprend autant de cases
+ * que le joueur a de planètes, et les niveaux différents d'une planète à
+ * l'autre donnent enfin de quoi extrapoler le facteur.
+ *
+ * La durée, elle, est empruntée faute de mieux : elle dépend du chantier de la
+ * planète autant que de la case. On ne la prête qu'à une planète qui n'en a
+ * aucune, et la première lecture locale la remplace — comme pour le prix, le
+ * local prime toujours.
+ */
+function lfMetEnCommun(){
+  const pool = {};
+  const sac = id => (pool[id] = pool[id] || {niveaux:{}, secs:0});
+  const pose = (id, n, cost, at) => {
+    if(!(n >= 1 && n <= LF_LVL_MAX) || !Array.isArray(cost) || !cost.some(x=>x>0)) return;
+    const b = sac(id), vu = b.niveaux[n];
+    // deux planètes peuvent diverger après une mise à jour du jeu : la plus récente gagne
+    if(!vu || (at || 0) > (vu.at || 0)) b.niveaux[n] = {cost: lfClampCost(cost), at: at || 0};
+  };
+  for(const p of S.planets) for(const [id, v] of Object.entries(p.lf || {})){
+    if(!v) continue;
+    for(const [n, c] of Object.entries(v.seen || {})) pose(id, +n, c, (v.seenAt || {})[n]);
+    if(lfPriced(v)) pose(id, v.next, v.cost, (v.seenAt || {})[v.next]);
+    if(v.secs > 0) sac(id).secs = Math.max(sac(id).secs, v.secs);
+  }
+  for(const p of S.planets) for(const [id, v] of Object.entries(p.lf || {})){
+    const b = pool[id];
+    if(!b || !v) continue;
+    const seen = {}, seenAt = {};
+    for(const [n, e] of Object.entries(b.niveaux)){ seen[n] = e.cost; seenAt[n] = e.at; }
+    Object.assign(seen, v.seen || {});
+    Object.assign(seenAt, v.seenAt || {});
+    // même borne qu'une lecture seule : les dix niveaux les plus hauts
+    Object.keys(seen).map(Number).sort((a, b2) => b2 - a).slice(LF_SEEN_KEEP)
+      .forEach(k => { delete seen[k]; delete seenAt[k]; });
+    v.seen = seen; v.seenAt = seenAt;
+    if(!(v.secs > 0) && b.secs > 0) v.secs = b.secs;
+  }
 }
 
 /**
@@ -1525,6 +1571,11 @@ const RELEVE_NOMS = {
 let scanEcran = false;
 /* Le temps qu'on laisse à une page pour se dire relevée. */
 const RELEVE_DELAI = 4000;
+/* Un arrêt qui va chercher le prix d'une case attend deux choses du jeu, pas
+   une : la page, puis le panneau de détail qu'il charge à part. Le délai d'une
+   page simple ne lui laisse pas le temps — c'est ce qui faisait échouer les
+   planètes les plus lentes alors que les autres passaient. */
+const RELEVE_DELAI_CASE = 9000;
 let releveEnCours = false, releveFin = null;
 /** Réveille le relevé dès que la page visitée a été lue. */
 function releveLu(){ if(releveFin) releveFin(); }
@@ -1551,7 +1602,7 @@ function relevePas(gid, page, tuile){
        montre plutôt que de laisser deviner. */
     const t0 = Date.now();
     const fin = muet=>{ clearTimeout(t); releveFin = null; res({muet, ms:Date.now()-t0}); };
-    const t = setTimeout(()=>fin(true), RELEVE_DELAI);
+    const t = setTimeout(()=>fin(true), tuile ? RELEVE_DELAI_CASE : RELEVE_DELAI);
     /* La planète seule ne suffit pas : six arrêts de suite la gardent, et le
        battement de la page d'avant ferait avancer le relevé sans rien lire. */
     /* Le prix d'une case arrive après la page : le jeu le charge à part. Un
@@ -4147,7 +4198,7 @@ scan(){
       return ({
         attente: () => `<span class="pill">${nom}</span>`,
         encours: () => `<span class="pill info">\u2026 ${nom}</span>`,
-        muet: () => `<span class="pill warn" title="Cette page n'a rien renvoyé : ${RELEVE_DELAI/1000} s d'attente pour rien.">\u231b ${nom}</span>`,
+        muet: () => `<span class="pill warn" title="Cette page n'a rien renvoyé : ${Math.round((et.ms||0)/1000)} s d'attente pour rien.">\u231b ${nom}</span>`,
         lu: () => `<span class="pill good" title="${Math.round(et.ms || 0)} ms">\u2713 ${nom}</span>`
       })[scanEtat(i, r.fait, et)]();
     }).join(' ');
@@ -4159,7 +4210,7 @@ scan(){
   return `<section class="panel"><div class="card">
     <div class="row spread"><h2>Relevé en cours</h2><span class="pill info">${r.fait} / ${r.total}</span></div>
     <p class="note">Le relevé lit chaque page dans un onglet à lui, ouvert en arrière-plan : ta page de jeu ne bouge pas, tu peux continuer à jouer. Il se referme tout seul à la fin.</p>
-    <p class="note">${dur(ecoule)} écoulées${reste}${muets ? ` · <b>${muets} page${muets>1?'s':''} muette${muets>1?'s':''}</b>, ${RELEVE_DELAI/1000} s d'attente chacune` : ''}</p>
+    <p class="note">${dur(ecoule)} écoulées${reste}${muets ? ` · <b>${muets} page${muets>1?'s':''} muette${muets>1?'s':''}</b> : rien n'en est revenu` : ''}</p>
     <div class="tbl-wrap"><table><tbody>${lignes}</tbody></table></div>
     <div class="row" style="margin-top:10px"><button class="btn sm" id="scanStop">Arrêter</button><span class="note">Ce qui est déjà lu reste acquis.</span></div>
   </div></section>`;
@@ -4924,6 +4975,7 @@ function applyGame(g){
     kept.push(p);
   }
   if(kept.length) S.planets = kept;
+  lfMetEnCommun();
   /* Une priorité reçue d'un autre poste attendait sa planète : le relevé vient
      de la nommer, elle peut enfin désigner la planète d'ici. */
   S.prio = prioIn(S.prio);

@@ -24,7 +24,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'view', 'bind'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'view', 'bind'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -247,6 +247,17 @@ t("l'écran du relevé prend la place du contenu, et montre ce qui reste", () =>
   assert.ok(/Relevé en cours/.test(h), h.slice(0, 200));
   assert.ok(/0 \/ \d+/.test(h), 'le compteur est là');
   assert.ok(/ressources/.test(h) && /production/.test(h), 'les pages sont nommées');
+});
+
+t("un arrêt qui va chercher une case a plus de temps qu'une page simple", () => {
+  /* Il attend deux réponses du jeu : la page, puis le panneau de détail qu'il
+     charge à part. Les planètes les plus lentes expiraient là. */
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const simple = +/const RELEVE_DELAI = (\d+);/.exec(src)[1];
+  const avecCase = +/const RELEVE_DELAI_CASE = (\d+);/.exec(src)[1];
+  assert.ok(avecCase > simple, avecCase + ' doit dépasser ' + simple);
+  assert.ok(/setTimeout\(\(\)=>fin\(true\), tuile \? RELEVE_DELAI_CASE : RELEVE_DELAI\)/.test(src),
+    'le choix du délai doit suivre la présence d\'une case à chercher');
 });
 
 t("l'écran sépare la page lue de la page muette", () => {
@@ -4181,6 +4192,69 @@ t('calibrer une planète ne touche pas les autres', () => {
   g.applyGame({ prod: { 33001: { text: PANNEAU_CARIBOU, at: SOIR } }, planets: {}, timers: [], moves: [] });
   assert.strictEqual(g.S.planets[0].eAdj, -77, 'l\'autre planète est intacte');
   assert.strictEqual(g.production(g.S.planets[1]).eBal, 231, 'la bonne planète est calée');
+});
+
+/* ---------- un prix de case appartient à l'espèce, pas à la planète ---------- */
+
+/** Deux planètes de la même espèce : la case 11101 y coûte la même chose. */
+const DEUX_LF = (g, a, b) => {
+  g.S.planets[0].lf = { 11101: a };
+  g.S.planets[1].lf = { 11101: b };
+  g.lfMetEnCommun();
+  return [g.S.planets[0].lf[11101], g.S.planets[1].lf[11101]];
+};
+
+t('le prix lu sur une planète chiffre la même case sur les autres', () => {
+  /* Sans ça le copilote ne comparait que la case qu'on venait d'ouvrir, et la
+     désignait forcément — quelle qu'elle soit. */
+  const g = app(null, SOIR);
+  const [, b] = DEUX_LF(g,
+    { lvl: 3, state: 'ok', next: 4, cost: [1200, 600, 0], secs: 900, seenAt: { 4: SOIR } },
+    { lvl: 3, state: 'ok' });
+  assert.deepEqual(b.seen[4], [1200, 600, 0], 'la seconde planète hérite du prix');
+  assert.deepEqual(g.lfCost(b, 4).cost, [1200, 600, 0]);
+});
+
+t('la lecture locale prime toujours sur celle des voisines', () => {
+  const g = app(null, SOIR);
+  const [a] = DEUX_LF(g,
+    { lvl: 3, state: 'ok', seen: { 4: [1, 1, 1] }, seenAt: { 4: SOIR } },
+    { lvl: 3, state: 'ok', next: 4, cost: [9999, 9999, 9999], secs: 900, seenAt: { 4: SOIR + 1000 } });
+  assert.deepEqual(a.seen[4], [1, 1, 1], 'ce que cette planète a lu reste le sien');
+});
+
+t("deux niveaux vus sur deux planètes donnent enfin le facteur", () => {
+  /* C'est le vrai gain : une seule planète ne voit qu'un niveau à la fois, et
+     lfCost en demande deux pour extrapoler. */
+  const g = app(null, SOIR);
+  const [a] = DEUX_LF(g,
+    { lvl: 3, state: 'ok', next: 4, cost: [1000, 0, 0], secs: 900, seenAt: { 4: SOIR } },
+    { lvl: 5, state: 'ok', next: 6, cost: [1440, 0, 0], secs: 900, seenAt: { 6: SOIR } });
+  const c = g.lfCost(a, 8);
+  assert.ok(c, 'le niveau 8 se chiffre maintenant');
+  assert.equal(c.src, 'estimé');
+  assert.equal(c.cost[0], 2074); // 1440 × 1,2² : le facteur se lit entre les niveaux 4 et 6
+});
+
+t("la durée ne se prête qu'à une planète qui n'en a aucune", () => {
+  // elle dépend du chantier de la planète autant que de la case
+  const g = app(null, SOIR);
+  const [a, b] = DEUX_LF(g,
+    { lvl: 3, state: 'ok', secs: 300 },
+    { lvl: 3, state: 'ok', next: 4, cost: [1200, 0, 0], secs: 900, seenAt: { 4: SOIR } });
+  assert.equal(a.secs, 300, 'sa propre durée est gardée');
+  const g2 = app(null, SOIR);
+  const [c] = DEUX_LF(g2,
+    { lvl: 3, state: 'ok' },
+    { lvl: 3, state: 'ok', next: 4, cost: [1200, 0, 0], secs: 900, seenAt: { 4: SOIR } });
+  assert.equal(c.secs, 900, 'sans durée à elle, elle emprunte');
+});
+
+t("une case que personne n'a ouverte ne reçoit rien", () => {
+  const g = app(null, SOIR);
+  const [a, b] = DEUX_LF(g, { lvl: 3, state: 'ok' }, { lvl: 2, state: 'ok' });
+  assert.ok(!a.seen || !Object.keys(a.seen).length, 'rien à partager');
+  assert.equal(g.lfCost(a, 4), null);
 });
 
 /* ---------- le prix d'une case jamais ouverte ---------- */
