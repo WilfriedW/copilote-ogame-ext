@@ -478,9 +478,8 @@ html.copilote-large ul.icons{width:auto !important;max-width:none !important}`;
   const compDuLien = a => ((a.getAttribute('href') || '').match(/component=([a-z]+)/i) || ['', ''])[1].toLowerCase();
   /* Le menu se trouve par son identifiant, et par rien d'autre. Chercher
      ailleurs « une liste qui porte un lien Flotte » ramasserait, sur une page
-     écrite par les joueurs, un lien écrit par eux — et c'est celui-là qu'on
-     recopierait en entrée de menu. Si Gameforge renomme son `#menuTable`, le
-     témoin le dit et on se tait : c'est le bon silence. */
+     écrite par les joueurs, un lien écrit par eux. Si Gameforge renomme son
+     `#menuTable`, le témoin le dit et on se tait : c'est le bon silence. */
   const leMenu = () => document.getElementById('menuTable');
   /** La case d'une entrée : son <li>, ou le lien lui-même si le menu n'en a pas. */
   const caseDuLien = a => a.closest('li') || a;
@@ -491,67 +490,22 @@ html.copilote-large ul.icons{width:auto !important;max-width:none !important}`;
       return c.length >= 3 && c[0] > 150 && c[1] > 120 && c[2] < 90;
     });
   }
-  /* L'entrée est une copie de celle du jeu : même balisage, même habillage,
-     et elle suivra le jour où Gameforge redessinera son menu. Seuls l'adresse
-     et le texte changent ; les identifiants partent, le jeu retrouve les siens
-     par eux. */
-  function ajouteMouvement(menu) {
-    if (menu.querySelector('.copilote-menu-ajout')) return;
-    const src = menu.querySelector('a[href*="component=fleetdispatch"]');
-    const li = src && caseDuLien(src);
-    if (!li) return;
-    /* L'adresse se relit avant d'être reposée : on ne recopie une entrée de
-       menu que si elle mène à une page de ce serveur. Un `href` d'une autre
-       forme — un autre domaine, un `javascript:` — n'en est pas une. Et elle
-       se rebâtit par ses paramètres, pas par un remplacement de texte. */
-    let u;
-    try { u = new URL(src.getAttribute('href'), location.href); } catch (e) { return; }
-    if (u.origin !== location.origin) return;
-    u.searchParams.set('component', 'movement');
-    const href = u.pathname + u.search;
-    const copie = li.cloneNode(true);
-    copie.classList.add('copilote-menu-ajout');
-    copie.removeAttribute('id');
-    copie.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
-    /* Tous les liens de la copie, et la copie elle-même si c'est un lien : le
-       jeu en pose parfois deux sur une entrée, l'icône et le texte. N'en
-       changer qu'un enverrait un clic sur deux à la page de flotte. */
-    const liens = [copie, ...copie.querySelectorAll('a[href]')]
-      .filter(n => n.tagName === 'A' && n.getAttribute('href'));
-    if (!liens.length) return;
-    liens.forEach(a => { a.setAttribute('href', href); a.title = 'Mouvements de flotte'; });
-    renomme(copie, clean(src.textContent));
-    li.after(copie);
-  }
-  /** Les nœuds de texte d'un élément, dans l'ordre où ils se lisent. */
-  const textes = n => [...n.childNodes].flatMap(c => c.nodeType === 3 ? [c] : textes(c));
-  /* Le libellé n'est pas toujours dans le lien : le jeu le pose parfois à côté,
-     et l'écrire dans le lien laissait « Flotte » à l'écran. On cherche donc le
-     texte que portait l'entrée d'origine, où qu'il soit, et on ne touche qu'à
-     lui — le reste de la copie tient l'icône et l'habillage. */
-  function renomme(copie, ancien) {
-    const txts = textes(copie).filter(t => clean(t.nodeValue));
-    const cible = txts.find(t => clean(t.nodeValue) === ancien) || txts[0];
-    if (cible) { cible.nodeValue = 'Mouvement de flotte'; return; }
-    const el = copie.querySelector('.textlabel');
-    if (el) el.textContent = 'Mouvement de flotte';
-  }
-  /* Le menu du jeu est le seul morceau de page que le copilote retouche sans
-     l'avoir lu ailleurs : si Gameforge renomme son `#menuTable`, tout se tait.
-     Le témoin le dit, plutôt que de laisser chercher. */
+  /* Le copilote n'ajoute plus rien au menu du jeu : il n'en recolore que les
+     entrées et cache les payantes si le joueur l'a demandé. Si Gameforge
+     renomme son `#menuTable`, tout se tait — le témoin le dit, plutôt que de
+     laisser chercher. */
   let menuEtat = 'absent';
-  /** Repose le menu : l'entrée ajoutée, les payantes cachées, les autres colorées. */
+  /** Repose le menu : les payantes cachées, les autres colorées. */
   function peintMenu() {
     const menu = leMenu();
     if (!menu) { menuEtat = 'absent'; return; }
-    ajouteMouvement(menu);
     let payantes = 0;
     menu.querySelectorAll('a[href]').forEach(a => {
       const li = caseDuLien(a);
       /* Le jaune se lit une fois : une entrée cachée n'a plus de couleur à
          montrer, et la nôtre ne doit pas être reprise pour celle du jeu. */
       if (!li.classList.contains('copilote-paye') && !li.classList.contains('copilote-menu')
-          && !li.classList.contains('copilote-menu-ajout') && entreeJaune(a)) {
+          && entreeJaune(a)) {
         li.classList.add('copilote-paye');
       }
       if (li.classList.contains('copilote-paye')) {
@@ -562,7 +516,7 @@ html.copilote-large ul.icons{width:auto !important;max-width:none !important}`;
       const c = MENU_COULEURS[compDuLien(a)];
       if (c) { li.classList.add('copilote-menu'); li.style.setProperty('--cm', c); }
     });
-    menuEtat = (menu.querySelector('.copilote-menu-ajout') ? 'ok' : 'sans-flotte') + ':' + payantes + 'payantes';
+    menuEtat = 'ok:' + payantes + 'payantes';
   }
 
   /* Le cadre du jeu ne se nomme pas : un identifiant peut changer, et une page
@@ -693,7 +647,7 @@ position:absolute !important;left:-99999px !important;top:0 !important;width:160
    elle se replie à zéro. On s'arrête donc juste au-dessus. */
 /* La largeur du rail, c'est celle de son entrée la plus longue : aucune ne
    revient à la ligne, et pas un pixel n'est pris pour rien. Elle suit donc
-   la langue du joueur — « Mouvement de flotte » ici, autre chose ailleurs.
+   la langue du joueur — « Vue d'ensemble » ici, autre chose ailleurs.
    Deux bornes : la liste des planètes du jeu mesure 147 px et ne se rétrécit
    pas, et au-delà de 320 px un menu n'apprend plus rien de plus. */
 html.copilote-peau .copilote-col-menu{width:max-content !important;

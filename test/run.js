@@ -4194,6 +4194,17 @@ t('calibrer une planète ne touche pas les autres', () => {
   assert.strictEqual(g.production(g.S.planets[1]).eBal, 231, 'la bonne planète est calée');
 });
 
+t("le copilote n'ajoute aucune entrée au menu du jeu", () => {
+  /* Il en recolore les entrées et cache les payantes ; il n'en pose pas. Le
+     joueur a demandé le retrait de l'entrée « Mouvement de flotte », et une
+     copie d'entrée de menu est de toute façon le seul endroit où le copilote
+     écrivait dans la page sans l'avoir lue ailleurs. */
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'content.js'), 'utf8');
+  assert.ok(!/copilote-menu-ajout/.test(src), "la classe de l'entrée ajoutée ne doit pas revenir");
+  assert.ok(!/ajouteMouvement/.test(src), 'ni la fonction qui la posait');
+  assert.ok(!/li\.after\(/.test(src), 'ni une insertion à côté d\'une entrée du menu');
+});
+
 /* ---------- un chantier flou ne se relit qu'une fois son lot au sol ---------- */
 
 /** Une planète dont le chantier a un lot, avec son heure de sortie et la dernière lecture. */
