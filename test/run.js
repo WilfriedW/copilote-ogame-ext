@@ -6687,8 +6687,71 @@ t('sans aucune priorité, le bloc dit quand même où en poser une', () => {
 
 t('les deux volets annoncent qu\'ils portent le niveau visé', () => {
   const g = app();
-  assert.match(g.VIEWS.planets(), /Niveaux des bâtiments, stock et niveaux visés/);
+  assert.match(g.VIEWS.planets(), /Niveaux, stock et niveaux visés/);
   assert.match(g.VIEWS.research(), /Recherches et niveaux visés/);
+});
+
+const CSS = () => require('fs').readFileSync(require('path').join(__dirname, '..', 'panel.css'), 'utf8');
+
+t('la case du centre tient sur une ligne, hors du gabarit des champs', () => {
+  /* label.f empile un titre au-dessus d'un champ : la case y partait seule sur
+     sa ligne, étirée par input{width:100%}, et son libellé tombait dessous. */
+  const h = app().VIEWS.planets();
+  assert.match(h, /<label class="f coche"><input id="pcentre-/);
+  assert.doesNotMatch(h, /style="width:auto"><input id="pcentre-/);
+  const css = CSS();
+  assert.match(css, /label\.f\.coche\{[^}]*flex-direction:row/, 'la case et son libellé côte à côte');
+  assert.match(css, /label\.f\.coche input\{[^}]*width:auto/, 'et la case à sa taille');
+  /* La pastille de vocation et sa raison ne sont plus enfants de .row : sans
+     règle propre, l'espacement de la rangée ne les atteint plus et la raison
+     vient se coller à la pastille. */
+  assert.match(h, /<span class="voc" id="pvoc-/);
+  assert.match(css, /\.voc\{[^}]*gap:8px/, 'la raison garde ses distances');
+});
+
+t('le volet des niveaux se donne pour ce qu\'il est : un réglage qu\'on ouvre', () => {
+  /* Sans classe il ne touchait aucune règle : triangle du navigateur et douze
+     pixels de gris, rien qui dise qu\'on règle quelque chose derrière. */
+  assert.match(app().VIEWS.planets(), /<details class="volet"><summary>/);
+  const css = CSS();
+  assert.match(css, /details\.volet>summary\{[^}]*cursor:pointer/);
+  assert.match(css, /details\.volet>summary::after\{content:"Ouvrir \+"/, 'il dit qu\'il s\'ouvre');
+  assert.match(css, /details\.volet\[open\]>summary::after\{content:"Fermer/, 'et qu\'il se ferme');
+});
+
+t('les cases de forme de vie relevées entrent dans la grille des niveaux', () => {
+  const g = app(s => { s.planets[0].lf = { 11102: { lvl: 7, state: 'ok' }, 11101: { lvl: 3, state: 'ok' } }; });
+  const h = g.VIEWS.planets();
+  /* Dans l'ordre du jeu : les clés entières s'énumèrent en ordre croissant,
+     quel que soit l'ordre où le relevé les a posées. */
+  assert.ok(h.indexOf('Secteur résidentiel') < h.indexOf('Ferme biosphérique'), 'rangées par identifiant');
+  assert.match(h, /Secteur résidentiel<span class="lv"><input type="number" value="3" readonly/, 'niveau relevé, non saisi');
+  assert.match(h, /data-pid="mere" data-prio="11102" data-kind="lf"/, 'et son champ de niveau visé');
+  /* Sous leur nom : mêlées aux bâtiments, elles étaient là sans se trouver. */
+  assert.ok(h.indexOf('<b>Formes de vie</b>') < h.indexOf('Secteur résidentiel'), 'la grille porte son titre');
+});
+
+t('le champ de niveau visé d\'une forme de vie montre la priorité posée', () => {
+  const g = app(s => { s.planets[0].lf = { 11101: { lvl: 3, state: 'ok' } };
+    s.prio = [{ kind: 'lf', pid: 'mere', k: 11101, lvl: 6 }]; });
+  assert.match(g.VIEWS.planets(), /data-prio="11101" data-kind="lf" value="6"/);
+});
+
+t('une planète dont aucune case n\'est relevée le dit au lieu de se taire', () => {
+  const g = app(s => { for (const p of s.planets) p.lf = {}; });
+  const h = g.VIEWS.planets();
+  assert.match(h, /<b>Formes de vie<\/b> — aucune case de forme de vie relevée ici/);
+  assert.doesNotMatch(h, /data-kind="lf"/, 'et pas de grille vide');
+});
+
+t('relire un niveau visé de forme de vie demande un entier, pas la chaîne du DOM', () => {
+  /* Pourquoi le gestionnaire convertit : l'attribut d'une tuile se lit en
+     chaîne, et priosLf() ne range que des entiers. Sans la conversion, le champ
+     se viderait sous les doigts du joueur à l'instant où il pose. */
+  const g = app(s => { s.planets[0].lf = { 11101: { lvl: 3, state: 'ok' } }; });
+  g.prioPose('lf', 'mere', '11101', '6');
+  assert.equal(g.prioLvl('lf', 'mere', 11101), 6);
+  assert.equal(g.prioLvl('lf', 'mere', '11101'), '', 'la chaîne ne retrouve rien');
 });
 
 t('en mode nuit le bloc reste lisible et ne promet rien', () => {

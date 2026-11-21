@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.47';
+const APP_VERSION = '1.53.48';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4166,6 +4166,32 @@ function labLaisse(p){
   if(!autre || (autre.b.lab||0) <= (p.b.lab||0)) return '';
   return ` Le labo ${autre.b.lab} de ${esc(planetRef(autre))} ne suit pas : repartir d'un labo 1 ici coûterait ${fmt(mse(...rangeCost(B.lab, 0, autre.b.lab)))} en équivalent métal.`;
 }
+/** Les identifiants de case de forme de vie relevés sur une planète. Pas de
+    tri : une clé entière s'énumère déjà en ordre croissant, et c'est l'ordre
+    du jeu — les trier à nouveau serait une ligne qui ne fait rien. */
+function lfIds(p){
+  return Object.keys((p || {}).lf || {}).map(Number).filter(id=>Number.isInteger(id) && id >= 11000);
+}
+/** Les cases de forme de vie dans la grille des niveaux. Elles ne sont pas
+    dans B — qui ne porte que des prix fixes, alors que ceux d'une case changent
+    d'une espèce à l'autre et s'apprennent au relevé —, d'où leur absence de
+    cette grille jusqu'ici. Leur niveau vient du jeu et ne se tape pas : seul
+    l'objectif s'écrit, comme pour un bâtiment. */
+function lfRows(p){
+  return lfIds(p).map(id=>{
+    const v = (p.lf || {})[id] || {}, nom = v.nom || LF_NAMES[id] || ('Forme de vie ' + id);
+    return `<label class="f">${esc(nom)}<span class="lv"><input type="number" value="${v.lvl || 0}" readonly tabindex="-1" aria-label="${esc(nom)} : niveau relevé"><input class="prio" type="number" min="1" data-pid="${p.id}" data-prio="${id}" data-kind="lf" value="${prioLvl('lf', p.id, id)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${esc(nom)} : niveau visé"></span></label>`;
+  }).join('');
+}
+/** Les formes de vie sous leur nom, et non mêlées aux bâtiments : posées à la
+    suite du Dock et des Satellites, elles étaient présentes sans être
+    trouvables. Rien de relevé n'est pas rien à dire non plus — sans cette
+    ligne, le joueur cherche dans une grille qui ne les nomme même pas. */
+function lfBloc(p){
+  const titre = `<p class="note" style="margin:10px 0 0"><b>Formes de vie</b> — niveaux relevés sur la page de ton espèce dans le jeu, à droite le niveau visé.</p>`;
+  if(!lfIds(p).length) return `<p class="note" style="margin:10px 0 0"><b>Formes de vie</b> — aucune case de forme de vie relevée ici : ouvre la page de ta forme de vie dans le jeu pour qu'elles apparaissent.</p>`;
+  return `${titre}<div class="grid tight" style="margin-top:6px">${lfRows(p)}</div>`;
+}
 const VIEWS = {
 /* Ce que le joueur vient chercher, c'est la carte à suivre maintenant : elle
    seule reste dépliée. Le reste — la journée qui vient, les minuteurs — se
@@ -4278,19 +4304,19 @@ planets(){
         ${S.planets.length>1?`<button class="btn sm ghost" data-del="${i}">Retirer</button>`:''}
       </div>
       <div class="res" id="pres-${i}"></div>
-      <div class="row" style="gap:8px" id="pvoc-${i}">${vocHtml(voc[p.id])}</div>
-      <div class="row" style="gap:8px">${ci<0
+      <div class="row" style="gap:8px"><span class="voc" id="pvoc-${i}">${vocHtml(voc[p.id])}</span>${ci<0
         ? `<span class="note">${S.day.focus==='fleet'
             ? 'Stratégie flotte : pas de centre, tes planètes doivent rester dispersées.'
             : 'Un centre se choisit entre plusieurs planètes.'}</span>`
-        : `<label class="f" style="width:auto"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>${i===ci&&centreWhy()?`<span class="note">${esc(centreWhy())}</span>`:''}`}</div>
+        : `<label class="f coche"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>${i===ci&&centreWhy()?`<span class="note">${esc(centreWhy())}</span>`:''}`}</div>
       <p class="note" style="margin:0" id="pctrn-${i}">${centreNoteHtml(p, i, ci)}</p>
       <p class="note" id="pfleet-${i}" style="margin:0"></p>
-      <details><summary class="note">Niveaux des bâtiments, stock et niveaux visés</summary>
+      <details class="volet"><summary>Niveaux, stock et niveaux visés</summary>
       <div class="grid tight" style="margin-top:8px">
         ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${p.b[k]}"><input class="prio" type="number" min="1" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
         <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${p.sats}"></label>
       </div>
+      ${lfBloc(p)}
       <div class="grid tight" style="margin-top:8px">
           <label class="f">Métal<input id="sm-${p.id}" type="number" data-s="m" value="${Math.round(stockNow(p)[0])}"></label>
           <label class="f">Cristal<input id="sc-${p.id}" type="number" data-s="c" value="${Math.round(stockNow(p)[1])}"></label>
@@ -4689,12 +4715,15 @@ function bind(){
   /* « change » et non « input » comme les niveaux voisins : sur un labo 5,
      taper « 10 » passe par « 1 », que prioPose jugerait atteint avant de
      recréer la priorité en fin de liste — et le joueur perdrait son rang. */
-  view.querySelectorAll('input[data-prio]').forEach(el=>el.addEventListener('change',()=>{ const kind = el.dataset.pid ? 'b' : 't';
-    prioPose(kind, el.dataset.pid, el.dataset.prio, el.value);
+  view.querySelectorAll('input[data-prio]').forEach(el=>el.addEventListener('change',()=>{ const kind = el.dataset.kind || (el.dataset.pid ? 'b' : 't');
+    /* Une case de forme de vie se range sous un identifiant entier, et
+       l'attribut le donne en chaîne : prioLvl ne la retrouverait pas au relire. */
+    const cle = kind === 'lf' ? +el.dataset.prio : el.dataset.prio;
+    prioPose(kind, el.dataset.pid, cle, el.value);
     /* Pas de render() : il refermerait le volet qui porte le champ, et le
        joueur qui en pose deux de suite devrait le rouvrir à chaque fois. Le
        champ dit ce que la priorité est devenue — vide si elle a été retirée. */
-    el.value = prioLvl(kind, el.dataset.pid, el.dataset.prio);
+    el.value = prioLvl(kind, el.dataset.pid, cle);
     save(); refresh();
     // refresh() sur Empire ne publie pas le plan : la tuile ne saurait rien de ce qu'on vient de poser
     publieLePlan();
