@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.49';
+const APP_VERSION = '1.53.50';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -168,6 +168,15 @@ function forgetPlanet(id){
    Une recherche ne se range pas sur une planète, elle part du centre : on lui
    donne le pid de labPlanet() à la lecture et jamais au stockage, sinon un
    centre que le joueur déplace laisserait la priorité visée sur l'ancien. */
+/* Un palier en deux temps. Le joueur veut « les deux à 21, et seulement après
+   la population à 41 » : une priorité ne portait qu'un niveau, elle en porte
+   maintenant deux. Tant que `lvl` n'est pas atteint c'est lui la cible ; une
+   fois atteint, `puis` prend le relais. Rien d'autre ne change : tout ce qui
+   lit une priorité — le plan, le bloc, le champ d'Empire, la tuile du jeu —
+   reçoit la cible du moment et n'a pas à connaître l'étape. */
+function prioCible(e, actuel){
+  return (Number.isInteger(e.puis) && e.puis > e.lvl && actuel >= e.lvl) ? e.puis : e.lvl;
+}
 function prios(){
   const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
   const out = [];
@@ -175,7 +184,9 @@ function prios(){
     if(!e || !Number.isInteger(e.lvl) || e.lvl <= 0) continue;
     if(e.kind === 'b'){
       const p = own(B, e.k) ? planetById(e.pid) : null;
-      if(p && e.lvl > (p.b[e.k] || 0)) out.push({kind:'b', pid:p.id, k:e.k, lvl:e.lvl});
+      if(!p) continue;
+      const actuel = p.b[e.k] || 0, cible = prioCible(e, actuel);
+      if(cible > actuel) out.push({kind:'b', pid:p.id, k:e.k, lvl:cible});
     }else if(e.kind === 't'){
       const p = own(T, e.k) ? labPlanet() : null;
       if(p && e.lvl > (S.tech[e.k] || 0)) out.push({kind:'t', pid:p.id, k:e.k, lvl:e.lvl});
@@ -197,7 +208,9 @@ function priosLf(){
     if(!e || e.kind !== 'lf' || !Number.isInteger(e.lvl) || e.lvl <= 0) continue;
     if(!Number.isInteger(e.k) || e.k < 11000) continue;
     const p = planetById(e.pid);
-    if(p && e.lvl > (((p.lf || {})[e.k] || {}).lvl || 0)) out.push({pid:p.id, k:e.k, lvl:e.lvl});
+    if(!p) continue;
+    const actuel = ((p.lf || {})[e.k] || {}).lvl || 0, cible = prioCible(e, actuel);
+    if(cible > actuel) out.push({pid:p.id, k:e.k, lvl:cible});
   }
   return out;
 }
@@ -221,9 +234,11 @@ function prioClean(){
   /* prios() et priosLf() sont deux files : on les remet dans l'ordre de pose
      d'origine, qui seul arbitre la précédence. */
   const clef = x => x.kind + ':' + (x.kind === 't' ? '' : x.pid) + ':' + x.k;
-  const par = new Map(vivantes.map(x => [clef(x), x]));
-  S.prio = S.prio.map(e => attend(e) ? e : (e && par.get(clef(e)))).filter(Boolean)
-    .map(x => x.kind === 't' ? {kind:'t', k:x.k, lvl:x.lvl} : x);
+  const vivante = new Set(vivantes.map(clef));
+  /* On garde l'entrée telle qu'elle est rangée, et non celle que prios() vient
+     de rendre : celle-ci porte la cible du moment, pas le palier, et la
+     recopier effacerait le second niveau au premier nettoyage venu. */
+  S.prio = S.prio.filter(e => e && (attend(e) || vivante.has(clef(e))));
   save();
 }
 
@@ -312,8 +327,26 @@ function prioPose(kind, pid, k, raw){
   const lvl = parseInt(raw), i = prioIdx(kind, pid, k);
   const actuel = prioActuel(kind, pid, k);
   if(!(lvl > actuel)){ if(i >= 0) S.prio.splice(i, 1); return; }
-  if(i >= 0) S.prio[i].lvl = lvl;
+  /* Le joueur corrige le champ : il reprend la barre, et le second palier
+     n'a plus lieu d'être. Le laisser ferait repartir la case toute seule vers
+     un niveau qu'il vient justement de refuser. */
+  if(i >= 0){ S.prio[i].lvl = lvl; delete S.prio[i].puis; }
   else S.prio.push(kind === 't' ? {kind, k, lvl} : {kind, pid, k, lvl});
+}
+/* Un palier se pose par le même chemin que tout le reste, puis reçoit son
+   second niveau. Si le premier est déjà atteint, le second est la seule cible
+   qui reste : prioPose refuserait le premier sans rien dire. */
+function prioPalier(kind, pid, k, lvl, puis){
+  const actuel = prioActuel(kind, pid, k);
+  if(actuel >= lvl){ if(Number.isInteger(puis)) prioPose(kind, pid, k, puis); return; }
+  prioPose(kind, pid, k, lvl);
+  const i = prioIdx(kind, pid, k);
+  if(i >= 0 && Number.isInteger(puis) && puis > lvl) S.prio[i].puis = puis;
+}
+/* Ce qu'une ligne du bloc ajoute quand un second palier attend derrière. */
+function prioSuite(kind, pid, k, lvl){
+  const e = (S.prio || []).find(x => x && x.kind === kind && x.k === k && (kind === 't' || x.pid === pid));
+  return e && Number.isInteger(e.puis) && e.puis > lvl ? `, puis ${e.puis}` : '';
 }
 /* Chaque ligne du bloc porte sa propre référence — espèce et identité —, jamais
    un rang : le bloc mêle trois listes (prios, priosLf, demandes gardées), et un
@@ -386,11 +419,11 @@ function prioHtml(plan){
     const p = planetById(x.pid), d = dits.get(`${x.kind}:${x.pid}:${x.k}`) || {};
     const nom = x.kind === 'b' ? B_SHORT[x.k] : T[x.k].n;
     const etat = nuit ? '' : [d.etat, d.recoit ? 'Les rapatriements de l\'empire vont vers elle.' : ''].filter(Boolean).join(' ');
-    return li(x.kind === 'b' ? esc(p.name) : 'Recherche', `${esc(nom)} ${x.lvl}`, etat, x.kind === 'b' ? prioRef('b', x.pid, x.k) : prioRef('t', x.k));
+    return li(x.kind === 'b' ? esc(p.name) : 'Recherche', `${esc(nom)} ${x.lvl}${prioSuite(x.kind, x.pid, x.k, x.lvl)}`, etat, x.kind === 'b' ? prioRef('b', x.pid, x.k) : prioRef('t', x.k));
   }).concat(lf.map(x => {
     const p = planetById(x.pid), v = (p.lf || {})[x.k] || {};
     const nom = v.nom || v.name || LF_NAMES[x.k] || `Forme de vie ${x.k}`;
-    return li(esc(p.name), `${esc(nom)} ${x.lvl}`, prioLfEtat(p, x, nuit), prioRef('lf', x.pid, x.k));
+    return li(esc(p.name), `${esc(nom)} ${x.lvl}${prioSuite('lf', x.pid, x.k, x.lvl)}`, prioLfEtat(p, x, nuit), prioRef('lf', x.pid, x.k));
   }), at.map(d => {
     /* nom est du texte lu dans le DOM du jeu : il passe par esc, comme tout ce qui vient de là. */
     const quoi = d.lvl === 0 ? 'Retrait demandé' : `Niveau ${d.lvl} demandé`;
@@ -4197,12 +4230,45 @@ function lfRows(p){
     return `<label class="f">${esc(nom)}<span class="lv"><input type="number" value="${v.lvl || 0}" readonly tabindex="-1" aria-label="${esc(nom)} : niveau relevé"><input class="prio" type="number" min="${(v.lvl||0)+1}" data-pid="${p.id}" data-prio="${id}" data-kind="lf" value="${prioLvl('lf', p.id, id)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${esc(nom)} : niveau visé"></span></label>`;
   }).join('');
 }
+/* Les paliers de population. Le wiki dit la même chose des quatre espèces :
+   « each race has a building that generates population and another that
+   generates food », et chez chacune ce sont les deux premières cases — Secteur
+   résidentiel puis Ferme biosphérique chez les Humains, Enclave de méditation
+   puis Ferme de cristal chez les Roctas. Le rôle ne se devine donc pas, il est
+   documenté. Les identifiants, eux, ne le sont pas : on ne les invente pas, on
+   prend ceux que le relevé a vus ici et on exige qu'ils finissent par 01 et 02
+   dans la même série. Si ce n'est pas le cas, on ne propose rien plutôt que de
+   viser la mauvaise case.
+   Les niveaux viennent du joueur, pas du jeu : le wiki ne documente aucun
+   palier de population. Ils sont écrits ici pour être relus et changés. */
+const LF_PALIER = {nourriture:21, population:[21, 41]};
+function lfPopNourriture(p){
+  const ids = lfIds(p);
+  if(!ids.length) return null;
+  const serie = Math.floor(ids[0] / 100), pop = serie * 100 + 1, nour = serie * 100 + 2;
+  return ids.includes(pop) && ids.includes(nour) ? {pop, nour} : null;
+}
+/* La nourriture d'abord : l'ordre de pose arbitre la précédence, et une
+   population qu'on loge sans la nourrir ne tient pas. La population part donc
+   en second, avec son palier — elle ne repartira vers le niveau haut qu'une
+   fois le premier atteint. */
+function lfPosePaliers(p){
+  const r = lfPopNourriture(p); if(!r) return false;
+  prioPalier('lf', p.id, r.nour, LF_PALIER.nourriture, null);
+  prioPalier('lf', p.id, r.pop, LF_PALIER.population[0], LF_PALIER.population[1]);
+  return true;
+}
 /** Les formes de vie sous leur nom, et non mêlées aux bâtiments : posées à la
     suite du Dock et des Satellites, elles étaient présentes sans être
     trouvables. Rien de relevé n'est pas rien à dire non plus — sans cette
     ligne, le joueur cherche dans une grille qui ne les nomme même pas. */
 function lfBloc(p){
-  const titre = `<p class="note" style="margin:10px 0 0"><b>Formes de vie</b> — niveaux relevés sur la page de ton espèce dans le jeu, à droite le niveau visé.</p>`;
+  const r = lfPopNourriture(p);
+  /* Le bouton sur sa propre ligne : au bout d'une phrase longue, au fond d'un
+     volet, il ne se voyait pas — c'est exactement le reproche qui a valu son
+     cadre au volet lui-même. */
+  const bouton = r ? `<div class="row" style="margin-top:6px"><button class="btn sm" data-lfpaliers="${p.id}" title="Pose deux priorités : la nourriture au niveau ${LF_PALIER.nourriture}, puis la population au niveau ${LF_PALIER.population[0]} et enfin ${LF_PALIER.population[1]}. Les niveaux se corrigent ensuite dans les champs.">Poser les paliers de population</button><span class="note">nourriture ${LF_PALIER.nourriture}, population ${LF_PALIER.population[0]} puis ${LF_PALIER.population[1]}</span></div>` : '';
+  const titre = `<p class="note" style="margin:10px 0 0"><b>Formes de vie</b> — niveaux relevés sur la page de ton espèce dans le jeu, à droite le niveau visé.</p>${bouton}`;
   if(!lfIds(p).length) return `<p class="note" style="margin:10px 0 0"><b>Formes de vie</b> — aucune case de forme de vie relevée ici : ouvre la page de ta forme de vie dans le jeu pour qu'elles apparaissent.</p>`;
   return `${titre}<div class="grid tight" style="margin-top:6px">${lfRows(p)}</div>`;
 }
@@ -4797,6 +4863,10 @@ view.addEventListener('click', e=>{
     if(dn.dataset.mark) dn.dataset.mark.split(',').forEach(c=>{ S.raids[c] = {at:Date.now(), probe:true}; }); save(); refresh(); toast('Bien joué'); return; }
   const no = e.target.closest('[data-no]'); if(no){ S.daily.no[no.dataset.no] = Date.now(); save(); refresh(); toast('Mis de côté'); return; }
   const pd = e.target.closest('[data-prio-del]'); if(pd){ prioRetire(pd.dataset.prioDel); save(); render(); return; }
+  const lp = e.target.closest('[data-lfpaliers]');
+  if(lp){ const p = planetById(lp.dataset.lfpaliers);
+    if(p && lfPosePaliers(p)){ save(); render(); publieLePlan(); toast('Paliers de population posés'); }
+    return; }
   const nc = e.target.closest('[data-noclear]'); if(nc){ S.daily.no = {}; save(); render(); toast('Cartes refusées remises'); return; }
   const sm = e.target.closest('summary[data-fold]');
   // Le repli bascule tout seul : on ne note que l'état où il va.
@@ -5147,7 +5217,9 @@ function prioOut(l){
   return (l || []).map(e => {
     if(!e || e.kind === 't' || !e.pid) return e;
     const gid = gidDe(e.pid); if(gid == null) return e;
-    return {kind:e.kind, gid, k:e.k, lvl:e.lvl};
+    const o = {kind:e.kind, gid, k:e.k, lvl:e.lvl};
+    if(Number.isInteger(e.puis)) o.puis = e.puis;
+    return o;
   });
 }
 function prioIn(l){
@@ -5155,7 +5227,9 @@ function prioIn(l){
     if(!e || e.gid == null) return e;
     // planète pas encore relevée ici : l'entrée attend, applyGame repassera
     const pid = pidDe(e.gid); if(!pid) return e;
-    return {kind:e.kind, pid, k:e.k, lvl:e.lvl};
+    const o = {kind:e.kind, pid, k:e.k, lvl:e.lvl};
+    if(Number.isInteger(e.puis)) o.puis = e.puis;
+    return o;
   });
 }
 function syncOut(){

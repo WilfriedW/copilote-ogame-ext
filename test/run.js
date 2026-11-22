@@ -24,7 +24,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -6807,6 +6807,87 @@ t('relire un niveau visé de forme de vie demande un entier, pas la chaîne du D
   g.prioPose('lf', 'mere', '11101', '6');
   assert.equal(g.prioLvl('lf', 'mere', 11101), 6);
   assert.equal(g.prioLvl('lf', 'mere', '11101'), '', 'la chaîne ne retrouve rien');
+});
+
+/* ---------- les paliers de population ---------- */
+/** Une planète roctas telle que le relevé la voit : la série, pas les noms. */
+const vie = (lf, autres) => s2 => { s2.planets[0].lf = lf; if (autres) autres(s2); };
+const CASES_1_2 = { 11101: { lvl: 0, state: 'ok' }, 11102: { lvl: 0, state: 'ok' } };
+
+t('un palier vise le premier niveau, puis le second une fois celui-ci atteint', () => {
+  const g = app(vie({ 11101: { lvl: 5, state: 'ok' } }));
+  g.prioPalier('lf', 'mere', 11101, 21, 41);
+  assert.equal(g.prioLvl('lf', 'mere', 11101), 21, 'tant que 21 n\'est pas atteint');
+  g.S.planets[0].lf[11101].lvl = 21;
+  assert.equal(g.prioLvl('lf', 'mere', 11101), 41, 'une fois 21 atteint');
+  g.S.planets[0].lf[11101].lvl = 41;
+  assert.deepEqual(g.priosLf(), [], 'et au bout, elle est accomplie');
+});
+
+t('le second palier survit au nettoyage', () => {
+  /* prioClean recopiait l'entrée rendue — qui porte la cible du moment, pas le
+     palier — à la place de l'entrée rangée. */
+  const g = app(vie({ 11101: { lvl: 5, state: 'ok' }, 11102: { lvl: 1, state: 'ok' } }));
+  g.prioPalier('lf', 'mere', 11101, 21, 41);
+  g.prioPose('lf', 'mere', 11102, '4');
+  assert.equal(g.S.prio.length, 2);
+  /* La seconde s'accomplit en cours de route : le nettoyage réécrit la liste,
+     et c'est là que le palier de la première se perdait. */
+  g.S.planets[0].lf[11102].lvl = 4;
+  g.prioClean();
+  assert.equal(g.S.prio.length, 1, 'la case accomplie est partie');
+  assert.equal(g.S.prio[0].puis, 41, 'le palier est toujours là');
+});
+
+t('corriger le champ à la main efface le palier', () => {
+  const g = app(vie({ 11101: { lvl: 5, state: 'ok' } }));
+  g.prioPalier('lf', 'mere', 11101, 21, 41);
+  g.prioPose('lf', 'mere', 11101, '30');
+  assert.equal(g.S.prio[0].lvl, 30);
+  assert.equal(g.S.prio[0].puis, undefined, 'le joueur reprend la barre');
+});
+
+t('un premier palier déjà atteint vise directement le second', () => {
+  const g = app(vie({ 11101: { lvl: 25, state: 'ok' } }));
+  g.prioPalier('lf', 'mere', 11101, 21, 41);
+  assert.equal(g.prioLvl('lf', 'mere', 11101), 41);
+});
+
+t('la préselection pose la nourriture avant la population', () => {
+  const g = app(vie(CASES_1_2));
+  assert.ok(g.lfPosePaliers(g.S.planets[0]));
+  assert.deepEqual(g.S.prio.map(e => [e.k, e.lvl, e.puis]),
+    [[11102, g.LF_PALIER.nourriture, undefined], [11101, g.LF_PALIER.population[0], g.LF_PALIER.population[1]]],
+    'la nourriture d\'abord : l\'ordre de pose arbitre la précédence');
+});
+
+t('sans les deux premières cases relevées, aucune préselection n\'est proposée', () => {
+  /* On ne devine pas un identifiant : viser la mauvaise case ne se verrait pas. */
+  const g = app(vie({ 11103: { lvl: 2, state: 'ok' }, 11104: { lvl: 1, state: 'ok' } }));
+  assert.equal(g.lfPopNourriture(g.S.planets[0]), null);
+  assert.equal(g.lfPosePaliers(g.S.planets[0]), false);
+  assert.deepEqual(g.S.prio, []);
+  assert.doesNotMatch(g.VIEWS.planets(), /data-lfpaliers/, 'et pas de bouton');
+});
+
+t('le bouton des paliers paraît dès que les deux cases sont là', () => {
+  const g = app(vie(CASES_1_2));
+  assert.match(g.VIEWS.planets(), /data-lfpaliers="mere"/);
+});
+
+t('le bloc dit le palier qui attend derrière', () => {
+  const g = app(vie({ 11101: { lvl: 5, state: 'ok', nom: 'Enclave de méditation' } }));
+  g.prioPalier('lf', 'mere', 11101, 21, 41);
+  assert.match(g.prioHtml(), /Enclave de méditation 21, puis 41/);
+});
+
+t('un palier voyage entre les postes sans réveiller le rendu', () => {
+  const g = app(vie({ 11101: { lvl: 5, state: 'ok' } }, s2 => { s2.planets[0].gid = '33701'; }));
+  g.prioPalier('lf', 'mere', 11101, 21, 41);
+  const avant = JSON.stringify(g.S.prio);
+  g.syncApply(g.syncOut());
+  assert.equal(JSON.stringify(g.S.prio), avant, 'même forme à l\'aller qu\'au retour');
+  assert.equal(g.S.prio[0].puis, 41, 'et le palier a fait le voyage');
 });
 
 t('en mode nuit le bloc reste lisible et ne promet rien', () => {
