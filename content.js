@@ -114,8 +114,14 @@
       const id = +li.dataset.technology;
       if (id < 11000) return;
       const tip = String(li.dataset.tooltipTitle || '');
+      /* Le nom vient de l'étiquette de la tuile, comme pour lireTuile : le jeu
+         l'y écrit dans la langue du joueur, et il nomme les quatre espèces là
+         où notre table ne connaît que les Humains. Le panneau de détail ne
+         nomme que la case ouverte — onze sur douze restaient « Forme de vie
+         12103 » sous les yeux du joueur. */
       lf[id] = {
         lvl: +(li.querySelector('.level[data-value]')?.dataset.value) || 0,
+        nom: clean(String(li.getAttribute('aria-label') || '').split('(')[0]) || undefined,
         state: /pas assez/i.test(tip) ? 'short' : /pr[ée]requis/i.test(tip) ? 'locked' : 'ok'
       };
     });

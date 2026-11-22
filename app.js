@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.50';
+const APP_VERSION = '1.53.51';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -722,6 +722,10 @@ function lfMetEnCommun(){
 function lfMerge(prev, cur){
   const out = Object.assign({}, cur, lfRemember(prev, cur));
   if(!cur.cost && prev && prev.secs > 0 && !(cur.secs > 0)) out.secs = prev.secs;
+  /* Le nom se garde : une page relue depuis une version qui ne le relevait pas,
+     ou un relevé partiel, rendrait la case anonyme alors qu'on la connaît. */
+  const nom = cur.nom || cur.name || (prev && (prev.nom || prev.name));
+  if(nom) out.nom = nom; else delete out.nom;
   /* L'effet ne se lit que sur le panneau de détail, que le joueur n'ouvre
      qu'une fois : une lecture de la liste l'effacerait. */
   const eff = [0,1,2].includes(cur.eff) ? cur.eff : ([0,1,2].includes(prev && prev.eff) ? prev.eff : null);
@@ -4226,7 +4230,7 @@ function lfIds(p){
     l'objectif s'écrit, comme pour un bâtiment. */
 function lfRows(p){
   return lfIds(p).map(id=>{
-    const v = (p.lf || {})[id] || {}, nom = v.nom || LF_NAMES[id] || ('Forme de vie ' + id);
+    const v = (p.lf || {})[id] || {}, nom = v.nom || v.name || LF_NAMES[id] || ('Forme de vie ' + id);
     return `<label class="f">${esc(nom)}<span class="lv"><input type="number" value="${v.lvl || 0}" readonly tabindex="-1" aria-label="${esc(nom)} : niveau relevé"><input class="prio" type="number" min="${(v.lvl||0)+1}" data-pid="${p.id}" data-prio="${id}" data-kind="lf" value="${prioLvl('lf', p.id, id)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${esc(nom)} : niveau visé"></span></label>`;
   }).join('');
 }

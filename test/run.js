@@ -6809,6 +6809,35 @@ t('relire un niveau visé de forme de vie demande un entier, pas la chaîne du D
   assert.equal(g.prioLvl('lf', 'mere', '11101'), '', 'la chaîne ne retrouve rien');
 });
 
+/* ---------- le nom des cases de forme de vie ---------- */
+t('le relevé nomme chaque case, pas seulement celle que le joueur a ouverte', () => {
+  /* Le panneau de détail ne nomme que la case ouverte : onze sur douze
+     restaient « Forme de vie 12103 » sous les yeux du joueur. Le nom est
+     pourtant sur chaque tuile, dans sa langue. */
+  const p = runPage({ search: '?page=ingame&component=lfbuildings', planetId: '33701',
+    tiles: [12101, 12102], niveaux: { 12101: 38, 12102: 34 },
+    noms: { 12101: 'Enclave de méditation', 12102: 'Ferme de cristal' } });
+  const lf = p.envois()[0].data.lf;
+  assert.equal(lf[12101].nom, 'Enclave de méditation');
+  assert.equal(lf[12102].nom, 'Ferme de cristal', 'les douze, pas une');
+});
+
+t('un nom déjà connu survit à une lecture de liste qui ne le porte pas', () => {
+  const g = app();
+  const fondu = g.lfMerge({ lvl: 3, name: 'Enclave de méditation' }, { lvl: 4, state: 'ok' });
+  assert.equal(fondu.nom, 'Enclave de méditation');
+  assert.equal(fondu.lvl, 4, 'le niveau, lui, vient bien de la lecture fraîche');
+});
+
+t('la grille appelle les cases par leur nom quand le relevé le connaît', () => {
+  const g = app(s2 => { s2.planets[0].lf = {
+    12101: { lvl: 38, state: 'ok', nom: 'Enclave de méditation' },
+    12103: { lvl: 4, state: 'ok' } }; });
+  const h = g.VIEWS.planets();
+  assert.match(h, /Enclave de méditation<span class="lv"/);
+  assert.match(h, /Forme de vie 12103<span class="lv"/, 'et se rabat sur le numéro quand il l\'ignore');
+});
+
 /* ---------- les paliers de population ---------- */
 /** Une planète roctas telle que le relevé la voit : la série, pas les noms. */
 const vie = (lf, autres) => s2 => { s2.planets[0].lf = lf; if (autres) autres(s2); };
