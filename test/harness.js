@@ -26,7 +26,7 @@ function fakeEl() {
     on: {},
     addEventListener(type, fn) { (this.on[type] = this.on[type] || []).push(fn); },
     removeEventListener() {}, setAttribute() {},
-    getAttribute() { return null; }, appendChild() {}, focus() {}, select() {},
+    getAttribute() { return null; }, appendChild() {}, focus() {}, select() {}, click() {},
     closest() { return null; }, querySelector() { return fakeEl(); },
     querySelectorAll() { return []; }
   };
@@ -75,6 +75,8 @@ function loadApp(state, nowMs, want, api, ext, prioAsk) {
   const listeners = [];
   // ce que le panneau a envoyé aux autres postes
   const shared = {};
+  // les fichiers que le panneau a fait écrire sur le disque
+  const telecharges = [];
   const chrome = {
     storage: {
       local: { get(k, cb) { if (cb) cb({}); }, set(v) { Object.assign(written, v); },
@@ -82,7 +84,8 @@ function loadApp(state, nowMs, want, api, ext, prioAsk) {
       sync: { get(k, cb) { if (cb) cb({}); }, set(v) { Object.assign(shared, v); return Promise.resolve(); } },
       onChanged: { addListener(fn) { listeners.push(fn); } }
     },
-    runtime: { sendMessage(m) { sent.push(m); }, id: ext ? 'test-extension' : undefined }
+    runtime: { sendMessage(m) { sent.push(m); }, id: ext ? 'test-extension' : undefined },
+    downloads: { download(o, cb) { telecharges.push(o); if (cb) cb(1); } }
   };
 
   // IS_EXT se lit sur window.chrome.runtime.id : seuls les tests qui veulent
@@ -106,6 +109,8 @@ function loadApp(state, nowMs, want, api, ext, prioAsk) {
   out.stored = () => written;
   /** Ce que le panneau a envoyé au stockage partagé entre postes. */
   out.shared = () => shared;
+  /** Les fichiers que le panneau a fait enregistrer. */
+  out.telecharges = () => telecharges;
   /** L'état tel que le panneau l'a sauvegardé. */
   out.saved = () => JSON.parse(store['ogame-copilot-v1']);
   /** Les clés que le panneau a effacées du stockage. */

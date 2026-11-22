@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.54';
+const APP_VERSION = '1.53.55';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4535,9 +4535,10 @@ settings(){
       <p class="note">Allure seulement : la page du jeu, pas ce panneau, ni les calculs.</p>
     </div>
     <div class="card"><h2>Sauvegarde</h2>
-      <p class="note">Tes données restent dans ce navigateur. Copie-les pour les garder ailleurs ou les passer sur un autre appareil.</p>
-      <textarea id="ioText" aria-label="Données JSON" placeholder="Colle ici une sauvegarde pour l'importer"></textarea>
-      <div class="row"><button class="btn" id="ioCopy">Copier mes données</button><button class="btn" id="ioImport">Importer</button><button class="btn ghost" id="ioReset">Réinitialiser…</button><span class="note" id="ioMsg"></span></div>
+      <p class="note">Tes données restent dans ce navigateur. « Enregistrer » écrit un fichier <code>save.json</code> : mets-le dans le dossier du dépôt et pousse-le, puis « Charger » le relit sur l'autre poste.</p>
+      <div class="row"><button class="btn" id="ioSave">Enregistrer dans un fichier</button><button class="btn" id="ioLoad">Charger un fichier…</button><input type="file" id="ioFile" accept="application/json,.json" hidden><button class="btn ghost" id="ioReset">Réinitialiser…</button><span class="note" id="ioMsg"></span></div>
+      <textarea id="ioText" aria-label="Données JSON" placeholder="Ou colle ici une sauvegarde pour l'importer"></textarea>
+      <div class="row"><button class="btn" id="ioImport">Importer le texte collé</button></div>
       ${noCount() ? `<div class="row" style="margin-top:8px">${noRestore()}<span class="note">Un « Non » met la carte de côté jusqu'à ce que tu la remettes.</span></div>` : ''}
     </div>
     <div class="card"><h2>Fiabilité des calculs</h2>
@@ -4832,9 +4833,25 @@ function bind(){
   view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.value==='1'; changed(); }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
   view.querySelectorAll('[data-ship]').forEach(el=>el.addEventListener('input',()=>{ S.fleetCalc.ships[el.dataset.ship]=Math.max(0,parseInt(el.value)||0); changed(); }));
-  on('ioCopy','click',()=>{ const txt=JSON.stringify(S); const ta=document.getElementById('ioText'); ta.value=txt;
-    (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>msg('Copié dans le presse-papiers')).catch(()=>{ ta.select(); msg('Sélectionné : copie-le manuellement'); }); });
-  on('ioImport','click',()=>{ try{ const d=JSON.parse(document.getElementById('ioText').value); if(!d.planets||!d.settings) throw 0; S=Object.assign(sample(),d); S.sample=false; save(); render(); toast('Données importées'); }catch(e){ msg('Texte invalide : colle une sauvegarde complète'); } });
+  /* Le presse-papiers du panneau latéral refuse l'écriture dès que le focus est
+     ailleurs, et la sauvegarde partait alors en silence : un fichier, lui,
+     atterrit dans le dépôt, qui est le seul endroit que les deux postes
+     partagent. `saveAs` pour pouvoir viser ce dossier plutôt que
+     Téléchargements. L'URL n'est pas révoquée : le téléchargement démarre après
+     le retour, et le panneau fermé la libère de toute façon. */
+  on('ioSave','click',()=>{
+    const url = URL.createObjectURL(new Blob([JSON.stringify(S)], {type:'application/json'}));
+    if(typeof chrome!=='undefined' && chrome.downloads){
+      chrome.downloads.download({url, filename:'save.json', saveAs:true}, ()=>msg('Enregistre-le dans le dépôt, puis pousse-le'));
+    } else {
+      const a=document.createElement('a'); a.href=url; a.download='save.json'; a.click(); msg('Enregistré dans tes téléchargements');
+    }
+  });
+  on('ioLoad','click',()=>document.getElementById('ioFile').click());
+  on('ioFile','change',e=>{ const f=e.target.files && e.target.files[0]; e.target.value=''; if(!f) return;
+    f.text().then(t=>{ if(appliqueSauvegarde(t)) toast('Données importées'); else msg('Fichier invalide : choisis le save.json du dépôt'); })
+      .catch(()=>msg('Lecture du fichier impossible')); });
+  on('ioImport','click',()=>{ if(appliqueSauvegarde(document.getElementById('ioText').value)) toast('Données importées'); else msg('Texte invalide : colle une sauvegarde complète'); });
   on('ioReset','click',e=>{ const b=e.currentTarget; if(b.dataset.armed){ S=sample(); save(); render(); toast('Réinitialisé'); } else { b.dataset.armed='1'; b.textContent='Confirmer la réinitialisation'; b.classList.remove('ghost'); } });
 }
 // Un clic sur la carte ouvre la page du jeu. Les boutons gardent leur rôle :
@@ -4911,6 +4928,14 @@ view.addEventListener('click', e=>{
 });
 function on(id,ev,fn){ const el=document.getElementById(id); if(el) el.addEventListener(ev,fn); }
 function msg(t){ const m=document.getElementById('ioMsg'); if(m) m.textContent=t; }
+/* Le texte collé et le fichier choisi arrivent par deux chemins : un seul dit
+   ce qu'est une sauvegarde, sinon l'un des deux accepterait un JSON quelconque
+   et remplacerait l'empire par du vide. */
+function appliqueSauvegarde(txt){
+  let d; try{ d = JSON.parse(txt); }catch(e){ return false; }
+  if(!d || !Array.isArray(d.planets) || !d.settings) return false;
+  S = Object.assign(sample(), d); S.sample = false; save(); render(); return true;
+}
 function changed(){ S.sample=false; save(); refresh(); }
 
 /* ---------- import from the Empire-view bookmarklet ---------- */

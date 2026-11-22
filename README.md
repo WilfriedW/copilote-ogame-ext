@@ -47,6 +47,8 @@ stockage local de l'extension. Rien n'est envoyé nulle part. Le seul appel
 réseau va à l'API publique de ton univers, celle que tout le monde peut lire,
 pour le classement — sans aucun identifiant.
 
-**Réglages › Sauvegarde › Copier mes données** te donne tout ton état en texte :
-garde-le avant de désinstaller ou de changer de machine, c'est la seule copie de
-tes réglages.
+**Réglages › Sauvegarde › Enregistrer dans un fichier** écrit `save.json` : la
+boîte de dialogue te laisse viser le dossier du dépôt, où un `git commit` le
+garde et le porte sur l'autre poste. **Charger un fichier…** le relit. C'est la
+seule copie de tes réglages : fais-la avant de désinstaller ou de changer de
+machine.

@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -8116,6 +8116,43 @@ t('une priorité sur une planète que le jeu ne nomme pas ne part pas', () => {
   g.prioPose('b', 'colo', 'metal', 12);
   assert.ok(!('sy:prio' in g.syncOut()),
     'toute la liste reste à quai : envoyée sans elle, elle reviendrait effacée');
+});
+
+/* ---------- sauvegarde dans un fichier ---------- */
+
+t("un fichier de sauvegarde se recharge tel qu'il a été écrit", () => {
+  const g = app();
+  const ecrit = JSON.stringify(g.S);
+  g.S.planets = [];
+  assert.ok(g.appliqueSauvegarde(ecrit), 'le texte vient du panneau lui-même');
+  assert.equal(g.saved().planets.length, 2);
+  assert.equal(g.saved().planets[0].name, 'Planète mère', 'rechargé veut dire enregistré');
+});
+
+t('« Enregistrer » écrit un save.json que le joueur place où il veut', () => {
+  /* Le presse-papiers du panneau latéral échouait en silence : ce clic doit
+     produire un fichier, et viser le dépôt plutôt que Téléchargements. */
+  const s = fixtureState(); s.__tab = 'settings';
+  const g = loadApp(s, SOIR, ['S'], null, true);
+  g.click('ioSave');
+  const f = g.telecharges()[0];
+  assert.equal(f.filename, 'save.json');
+  assert.ok(f.saveAs, 'sans la boîte de dialogue, le fichier n\'atteint pas le dépôt');
+  assert.ok(/^blob:/.test(f.url));
+  assert.ok(g.el('ioMsg').textContent, 'le panneau dit quoi faire du fichier');
+  // « Charger » ouvre le sélecteur, et le fichier choisi est bien lu
+  g.click('ioLoad');
+  let lu = 0;
+  const fichier = { text() { lu++; return new Promise(() => {}); } };
+  (g.el('ioFile').on.change || []).forEach(fn => fn({ target: { files: [fichier], value: '' } }));
+  assert.equal(lu, 1, 'le fichier choisi doit être lu');
+});
+
+t('un fichier qui n\'est pas une sauvegarde ne remplace rien', () => {
+  const g = app();
+  for (const txt of ['', 'pas du json', '{}', '{"planets":[]}', '{"settings":{}}'])
+    assert.ok(!g.appliqueSauvegarde(txt), txt + ' ne devrait pas passer');
+  assert.equal(g.S.planets.length, 2, 'l\'empire est resté en place');
 });
 
 if (failures.length) {
