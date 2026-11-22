@@ -121,7 +121,8 @@
          12103 » sous les yeux du joueur. */
       lf[id] = {
         lvl: +(li.querySelector('.level[data-value]')?.dataset.value) || 0,
-        nom: clean(String(li.getAttribute('aria-label') || '').split('(')[0]) || undefined,
+        // valeur de frontière : plafonnée comme le nom que reçoit prioDrain
+        nom: clean(String(li.getAttribute('aria-label') || '').split('(')[0]).slice(0, 80) || undefined,
         state: /pas assez/i.test(tip) ? 'short' : /pr[ée]requis/i.test(tip) ? 'locked' : 'ok'
       };
     });

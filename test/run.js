@@ -8,6 +8,10 @@ const assert = require('assert');
 const { loadApp, fixtureState } = require('./harness');
 const { runPage } = require('./page');
 
+/** Le HTML tel que le joueur le lit : les entités redeviennent des caractères.
+    esc() échappe l'apostrophe depuis qu'un attribut à apostrophes s'y cassait. */
+const lu = h => String(h).replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+
 let passed = 0;
 const failures = [];
 function t(name, fn) {
@@ -24,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -6306,7 +6310,7 @@ t('à chaque session, les rapatriements vont vers la priorité posée en premier
 t('le bloc dit laquelle des priorités reçoit les rapatriements', () => {
   const g = app(troisPrios);
   const h = g.prioHtml();
-  assert.equal((h.match(/rapatriements de l'empire vont vers elle/g) || []).length, 1,
+  assert.equal((lu(h).match(/rapatriements de l'empire vont vers elle/g) || []).length, 1,
     'une seule ligne le dit : ' + h);
   assert.match(h.split('</li>')[0], /Métal 12[\s\S]*rapatriements/,
     'et c\'est celle que le joueur a posée la première');
@@ -6807,6 +6811,30 @@ t('relire un niveau visé de forme de vie demande un entier, pas la chaîne du D
   g.prioPose('lf', 'mere', '11101', '6');
   assert.equal(g.prioLvl('lf', 'mere', 11101), 6);
   assert.equal(g.prioLvl('lf', 'mere', '11101'), '', 'la chaîne ne retrouve rien');
+});
+
+/* ---------- ce qui vient de la page du jeu est une valeur de frontière ---------- */
+t('une apostrophe ne referme plus un attribut à apostrophes', () => {
+  /* data-launch est écrit entre apostrophes, et « Tour d'habitation » est dans
+     notre propre table de noms : le JSON s'y coupait en deux. Le bouton
+     « Lancé » mourait sur la carte, et la fin du nom se lisait comme des
+     attributs — un nom de planète bien choisi y posait ce qu'il voulait. */
+  const g = app();
+  assert.equal(g.esc("Tour d'habitation"), 'Tour d&#39;habitation');
+  const charge = JSON.stringify({ what: "Tour d'habitation 5" });
+  const html = `<button data-launch='${g.esc(charge)}'>Lancé</button>`;
+  const dedans = html.match(/data-launch='([^']*)'/)[1];
+  assert.deepEqual(JSON.parse(lu(dedans)), { what: "Tour d'habitation 5" }, 'le JSON traverse entier');
+});
+
+t('un nom relevé sur la page du jeu est plafonné, à la lecture et à la fusion', () => {
+  /* Même règle que pour le nom qu'une demande apporte : ce que la page du jeu
+     écrit n'a pas de longueur promise, et il finit dans le stockage. */
+  const long = 'A'.repeat(500);
+  const p2 = runPage({ search: '?page=ingame&component=lfbuildings', planetId: '33701',
+    tiles: [12101], niveaux: { 12101: 1 }, noms: { 12101: long } });
+  assert.equal(p2.envois()[0].data.lf[12101].nom.length, 80, 'à la lecture');
+  assert.equal(app().lfMerge({}, { lvl: 1, nom: long }).nom.length, 80, 'et à la fusion');
 });
 
 /* ---------- le nom des cases de forme de vie ---------- */
@@ -7416,7 +7444,7 @@ t('une priorité lf qui attend le tour d\'une autre de sa file le dit', () => {
 
 t('formes de vie réglées sur « Ne pas s\'en occuper » : la ligne le dit', () => {
   const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})}, 'off');
-  assert.match(lfHtml(g, lf11101), /Ne pas s'en occuper[^<]*n'y touche pas/);
+  assert.match(lu(lfHtml(g, lf11101)), /Ne pas s'en occuper[^<]*n'y touche pas/);
 });
 
 // Review Focus 1, côté visible
@@ -7536,7 +7564,7 @@ t('le réglage des formes de vie est localisé, et la demande dit son délai', (
   assert.match(lfHtml(g, lf11101), /Réglages › Plan du jour/);
   const a = app();
   a.S.prioAsk = [{gid:'99999', tech:14, nom:'Usine de robots', lvl:8, at:SOIR - 3600e3}];
-  assert.match(a.prioHtml(a.simulateDay()), /s'efface dans 23h 00m/);
+  assert.match(lu(a.prioHtml(a.simulateDay())), /s'efface dans 23h 00m/);
 });
 
 /* ---------- le clic droit sur une tuile ---------- */

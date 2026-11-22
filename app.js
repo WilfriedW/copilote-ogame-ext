@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.51';
+const APP_VERSION = '1.53.52';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -462,7 +462,11 @@ let API = window.__api || null;
 const nf = new Intl.NumberFormat('fr-FR');
 function fmt(n){ if(!isFinite(n)) return '∞'; const a=Math.abs(n); if(a>=1e9) return (n/1e9).toFixed(2).replace('.',',')+' G'; if(a>=1e6) return (n/1e6).toFixed(2).replace('.',',')+' M'; if(a>=1e5) return (n/1e3).toFixed(0)+' k'; return nf.format(Math.round(n)); }
 function dur(sec){ if(!isFinite(sec)) return 'jamais'; sec=Math.max(0,Math.round(sec)); const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60), s=sec%60; if(d) return `${d}j ${h}h`; if(h) return `${h}h ${String(m).padStart(2,'0')}m`; if(m) return `${m}m ${String(s).padStart(2,'0')}s`; return `${s}s`; }
-function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+/* L'apostrophe compte autant que le guillemet : data-launch est un attribut
+   à apostrophes, et « Tour d'habitation » — un nom qui est dans notre propre
+   table — y refermait l'attribut au milieu du JSON. Le bouton « Lancé » mourait
+   sur la carte, et la fin du nom se retrouvait lue comme des attributs. */
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function costHtml(c){ return `<span class="cost"><span class="c-m">${fmt(c[0])}</span><span class="c-c">${fmt(c[1])}</span><span class="c-d">${fmt(c[2])}</span></span>`; }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true,1800); }
 
@@ -725,7 +729,9 @@ function lfMerge(prev, cur){
   /* Le nom se garde : une page relue depuis une version qui ne le relevait pas,
      ou un relevé partiel, rendrait la case anonyme alors qu'on la connaît. */
   const nom = cur.nom || cur.name || (prev && (prev.nom || prev.name));
-  if(nom) out.nom = nom; else delete out.nom;
+  /* Replafonné ici aussi : une sauvegarde d'avant le plafond, ou un relevé
+     d'une version plus ancienne, porterait un nom sans bornes. */
+  if(typeof nom === 'string' && nom) out.nom = nom.slice(0, 80); else delete out.nom;
   /* L'effet ne se lit que sur le panneau de détail, que le joueur n'ouvre
      qu'une fois : une lecture de la liste l'effacerait. */
   const eff = [0,1,2].includes(cur.eff) ? cur.eff : ([0,1,2].includes(prev && prev.eff) ? prev.eff : null);
