@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.64';
+const APP_VERSION = '1.54.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4350,9 +4350,70 @@ function raidPlan(){
     lootValue: mse(...loot)};
 }
 
+/* ---------- les faits du serveur ---------- */
+
+/** Un fait du serveur se lit comme le jeu l'écrit : un pourcent reste un
+    pourcent, un multiplicateur garde son ×, un oui/non ne redevient pas 1. */
+const srvPct = v => (Math.round(v*1000)/10).toString().replace('.',',')+' %';
+const srvX = v => '×'+String(v).replace('.',',');
+
+/* La carte Serveur, déclarée plutôt qu'écrite : quatre groupes, dans l'ordre
+   où le joueur cherche. `[clé, libellé, format, note, mien]` — `mien` rend ce
+   que les réglages du copilote disent du même fait, dans la même unité, et un
+   écart se signale au lieu de fausser les calculs en silence. Une clé que le
+   serveur ne publie pas disparaît de la liste. */
+const SRV_ROWS = [
+  ['L\'univers', [
+    ['name', 'Nom', esc],
+    ['number', 'Numéro', v=>String(v)],
+    ['version', 'Version du jeu', esc],
+    ['language', 'Langue', esc],
+    ['domain', 'Adresse', esc],
+    ['timezone', 'Fuseau horaire', (v,sv)=>esc(v+(sv.timezoneOffset?` (${sv.timezoneOffset})`:''))],
+    ['galaxies', 'Galaxies'],
+    ['systems', 'Systèmes par galaxie'],
+    ['donutGalaxy', 'Galaxies en anneau', null, 'La première galaxie touche la dernière : les temps de vol en tiennent compte.'],
+    ['donutSystem', 'Systèmes en anneau', null, 'Le système 1 touche le dernier.'],
+    ['bonusFields', 'Cases bonus', null, 'Ajoutées à chaque planète en plus de sa taille.'],
+    ['topScore', 'Points du n°1'],
+  ]],
+  ['Vitesses', [
+    ['speed', 'Économie', srvX, 'Multiplie production, coûts de temps et recherches.', ()=>S.settings.eco],
+    ['speedFleetPeaceful', 'Flotte pacifique', srvX, 'Transport, colonisation, expédition, recyclage.', ()=>S.settings.fleet],
+    ['speedFleetWar', 'Flotte de guerre', srvX, 'Attaque et espionnage.'],
+    ['speedFleetHolding', 'Stationnement', srvX, 'Durée des missions qui attendent sur place.'],
+    ['researchDurationDivisor', 'Recherche', v=>'÷'+String(v).replace('.',','), 'Diviseur appliqué à la durée des recherches, en plus de la vitesse éco.'],
+    ['globalDeuteriumSaveFactor', 'Carburant', srvX, 'Multiplie le deutérium brûlé par chaque vol.'],
+  ]],
+  ['Combat, débris et lune', [
+    ['debrisFactor', 'Débris des vaisseaux', srvPct, 'Part de la coque détruite qui tombe dans le champ de ruines.', ()=>moonDf()/100],
+    ['debrisFactorDef', 'Débris de la défense', srvPct],
+    ['defToTF', 'Défense dans le champ de ruines'],
+    ['deuteriumInDebris', 'Deutérium dans les débris'],
+    ['repairFactor', 'Défense réparée', srvPct, 'Part de la défense détruite qui se relève après le combat.'],
+    ['combatDebrisFieldLimit', 'Plafond du champ de ruines', srvPct],
+    ['wfEnabled', 'Champ d\'épaves'],
+    ['wfMinimumRessLost', 'Épaves : pertes minimales'],
+    ['wfBasicPercentageRepairable', 'Épaves réparables', v=>String(v).replace('.',',')+' %'],
+    ['rapidFire', 'Feu rapide'],
+    ['acs', 'Attaque groupée'],
+    ['bashingSystemEnabled', 'Limite anti-bash'],
+    ['bashlimit', 'Attaques permises', null, 'Par cible et par vague, avant l\'avertissement.'],
+  ]],
+  ['Règles du serveur', [
+    ['newbieProtectionLimit', 'Protection débutant'],
+    ['newbieProtectionHigh', 'Seuil des gros joueurs'],
+    ['probeCargo', 'Soute des sondes'],
+    ['cargoHyperspaceTechMultiplier', 'Soute par niveau d\'Hyperespace', v=>String(v).replace('.',',')+' %'],
+    ['characterClassesEnabled', 'Classes de personnage'],
+    ['marketplaceEnabled', 'Place de marché'],
+    ['darkMatterNewAcount', 'Matière noire de départ'],
+  ]],
+];
+
 /* Un outil retiré laisse son nom dans les réglages du joueur : on ne demande à
    VIEWS que ce qu'il sait encore dessiner. */
-const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['moon','Lune']];
+const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['moon','Lune'],['server','Serveur']];
 function toolTab(){ return TOOLS.some(([k])=>k===S.ui.tool) ? S.ui.tool : 'colony'; }
 
 /** Ce que la carte du centre dit sous la case : le risque que le wiki nomme,
@@ -4527,6 +4588,32 @@ explore(){
     </div>` : ''}
     <div class="card"><h2>Qui piller</h2><div id="exRaid"></div></div>
     <div class="card"><h2>Où explorer</h2><div id="exExplore"></div></div>
+  </section>`;
+},
+server(){
+  const sv = API && API.server, at = API && API.at && API.at.server;
+  if(!sv) return `<section class="panel"><div class="card"><h2>Ton serveur</h2>
+    <p class="note">${!IS_EXT ? 'Cette carte lit les paramètres publics officiels du serveur. Elle ne fonctionne que dans l\'extension Copilote.'
+      : API && API.error ? `Erreur de téléchargement : ${esc(API.error)}.`
+      : 'Rien encore : ouvre une page du jeu, le copilote lira les paramètres publics du serveur.'}</p>
+    ${IS_EXT ? '<div class="row"><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>' : ''}
+  </div></section>`;
+  const cards = SRV_ROWS.map(([titre, lignes])=>{
+    const li = lignes.map(([k, lib, f, note, mien])=>{
+      const v = sv[k]; if(v == null) return '';
+      const dit = x => typeof x === 'boolean' ? (x ? 'Oui' : 'Non') : f ? f(x, sv) : fmt(x);
+      const m = mien ? mien() : null;
+      const ecart = m != null && Math.abs(m - v) > 1e-9 ? `<span class="pill warn">tes réglages : ${dit(m)}</span>` : '';
+      const bas = [note || '', ecart].filter(Boolean).join(' ');
+      return `<li><div>${lib}${bas?`<div class="note">${bas}</div>`:''}</div><b class="mono">${dit(v)}</b></li>`;
+    }).join('');
+    return li ? `<div class="card"><h2>${titre}</h2><ul class="list">${li}</ul></div>` : '';
+  }).join('');
+  return `<section class="panel">
+    <div class="card"><div class="row spread"><h2>Ton serveur</h2><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>
+      <p class="note">Les paramètres publics de <b>${esc(sv.name||'ton univers')}</b>${sv.number?` (n°${esc(String(sv.number))})`:''}, lus dans <span class="mono">serverData.xml</span>${at?` à ${hm(at)}`:''}. Ce sont des faits du serveur, pas des réglages : le copilote s'en sert pour les vols et les positions libres, et signale ici ce que tes réglages contredisent.</p>
+    </div>
+    ${cards}
   </section>`;
 },
 tools(){
@@ -4832,7 +4919,7 @@ settings(){
     + `${n} connexion${n>1?'s':''} avec quelque chose à lancer · `
     + `production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${d.horizon} h`;
 },
-tools(){ REFRESH[toolTab()](); },
+tools(){ (REFRESH[toolTab()]||(()=>{}))(); },
 explore(){
   const el = document.getElementById('exColo'); if(!el || !API || !API.planets) return;
   const cand = colonyCandidates().slice(0,8), tgt = coloTarget();
@@ -5461,7 +5548,7 @@ function prioAccueille(liste){
   // render() ne publie le plan que sur Aujourd'hui : sans cela la tuile resterait muette
   publieLePlan();
 }
-chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioAsk) prioAccueille(ch.prioAsk.newValue); if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ API = ch.api.newValue; if(tab==='tools' && S.ui.tool==='explore') render(); } });
+chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioAsk) prioAccueille(ch.prioAsk.newValue); if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ API = ch.api.newValue; if(tab==='tools' && (S.ui.tool==='explore'||S.ui.tool==='server')) render(); } });
 
 /* ---------- deux postes, un seul plan ---------- */
 /* Le stockage local ne voyage pas : sur un deuxième ordinateur le panneau

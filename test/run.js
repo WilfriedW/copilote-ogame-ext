@@ -8617,6 +8617,38 @@ t('les réglages Oui/Non sont des bascules cochées selon le réglage', () => {
   assert.match(app().VIEWS.fleet(), /id="expoPf" data-expo="pf" checked/);
 });
 
+/* ---------- les faits du serveur ---------- */
+
+/** serverData.xml tel que le fond de tâche le range : Celestia, vitesse 8. */
+const API_SERVEUR = {
+  server: { name: 'Celestia', number: 284, version: '13.1.1-r5', galaxies: 5, systems: 499,
+    donutGalaxy: true, donutSystem: true, speed: 8, speedFleetPeaceful: 3, debrisFactor: 0.3,
+    defToTF: false, marketplaceEnabled: false, bonusFields: 10 },
+  at: { server: SOIR }
+};
+
+t('la carte Serveur dit les faits du serveur dans ses unités', () => {
+  const h = lu(app(s => { s.ui.tool = 'server'; }, SOIR, API_SERVEUR).VIEWS.server());
+  assert.ok(/Celestia/.test(h), 'le nom de l\'univers : ' + h.slice(0, 300));
+  assert.ok(/×8/.test(h), 'la vitesse éco garde son ×');
+  assert.ok(/30 %/.test(h), 'le taux de débris est un pourcent, pas 0,3');
+  assert.ok(/Non/.test(h), 'un drapeau à zéro se lit Non, pas 0');
+});
+
+t('un réglage qui contredit le serveur est signalé', () => {
+  const g = app(s => { s.ui.tool = 'server'; s.settings.eco = 1; s.settings.fleet = 3; }, SOIR, API_SERVEUR);
+  const h = lu(g.VIEWS.server());
+  assert.ok(/tes réglages : ×1/.test(h), 'la vitesse éco du joueur est fausse et le dit : ' + h.slice(0, 600));
+  assert.ok(!/tes réglages : ×3/.test(h), 'la vitesse flotte est juste, rien à signaler');
+});
+
+t('sans données du serveur, la carte le dit au lieu de casser', () => {
+  const g = app(s => { s.ui.tool = 'server'; });
+  const h = lu(g.VIEWS.server());
+  assert.ok(/serveur/i.test(h));
+  g.REFRESH.tools();
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

@@ -280,6 +280,13 @@ chrome.notifications.onClicked.addListener(() => chrome.storage.local.set({ pend
 
 const API_TTL = { server: 20 * 3600e3, players: 20 * 3600e3, universe: 24 * 3600e3, scores: 55 * 60e3 };
 const attrs = s => Object.fromEntries([...s.matchAll(/([\w-]+)="([^"]*)"/g)].map(m => [m[1], m[2].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>')]));
+/* Les faits du serveur, tels que serverData.xml les publie. Lus tels quels et
+   nommés une seule fois : la carte Serveur du panneau les affiche, et le reste
+   du copilote n'en prend que ce dont il a besoin (anneaux, systèmes, cases
+   bonus). Une clé absente d'une version du jeu laisse un trou, pas une erreur. */
+const SRV_NUM = ['number', 'galaxies', 'systems', 'bonusFields', 'topScore', 'speed', 'speedFleetPeaceful', 'speedFleetWar', 'speedFleetHolding', 'researchDurationDivisor', 'globalDeuteriumSaveFactor', 'debrisFactor', 'debrisFactorDef', 'repairFactor', 'combatDebrisFieldLimit', 'wfMinimumRessLost', 'wfMinimumLossPercentage', 'wfBasicPercentageRepairable', 'bashlimit', 'newbieProtectionLimit', 'newbieProtectionHigh', 'probeCargo', 'cargoHyperspaceTechMultiplier', 'darkMatterNewAcount'];
+const SRV_FLAG = ['donutGalaxy', 'donutSystem', 'acs', 'rapidFire', 'defToTF', 'deuteriumInDebris', 'wfEnabled', 'bashingSystemEnabled', 'marketplaceEnabled', 'characterClassesEnabled'];
+const SRV_TXT = ['name', 'language', 'version', 'domain', 'timezone', 'timezoneOffset'];
 const tag = (x, name) => { const m = x.match(new RegExp(`<${name}>([^<]*)</${name}>`)); return m ? m[1] : null; };
 
 /**
@@ -296,7 +303,12 @@ async function apiRefresh(force) {
   try {
     if (stale('server')) {
       const x = await get('serverData.xml');
-      out.server = { galaxies: +tag(x, 'galaxies') || 9, systems: +tag(x, 'systems') || 499, donutGalaxy: tag(x, 'donutGalaxy') === '1', donutSystem: tag(x, 'donutSystem') === '1', bonusFields: +tag(x, 'bonusFields') || 0, speed: +tag(x, 'speed') || null };
+      const sv = {};
+      for (const k of SRV_NUM) { const v = tag(x, k); if (v !== null && v !== '') sv[k] = +v; }
+      for (const k of SRV_FLAG) sv[k] = tag(x, k) === '1';
+      for (const k of SRV_TXT) { const v = tag(x, k); if (v) sv[k] = v; }
+      sv.galaxies = sv.galaxies || 9; sv.systems = sv.systems || 499;
+      out.server = sv;
       out.at.server = now;
     }
     if (stale('players')) {
