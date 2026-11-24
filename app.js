@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.61';
+const APP_VERSION = '1.53.62';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3877,14 +3877,19 @@ function luneCoque(k){ const c = SHIP_COST[k] || [0, 0, 0]; return c[0] + c[1]; 
 /** Ce qu'un tir de `n` vaisseaux `k` laisse derrière lui, et ce qu'il vaut. */
 function luneTir(k, n, df = LUNE_DF){
   const v = luneCoque(k), debris = df * Math.max(0, n) * v / 100;
-  return {v, debris, chance: debris < 1e5 ? 0 : Math.min(20, debris / 1e5)};
+  /* « more than 100k debris » : 100 000 pile ne donne rien. Le plafond, lui,
+     est atteint à 2 M pile — le tableau du wiki y pose 5 000 sondes. */
+  return {v, debris, chance: debris <= 1e5 ? 0 : Math.min(20, debris / 1e5)};
 }
 
 /** Le nombre de vaisseaux `k` qu'il faut faire mourir pour viser `pct`. */
 function luneVaisseaux(k, pct, df = LUNE_DF){
   const v = luneCoque(k);
   if(!v) return 0;
-  return Math.ceil(Math.min(20, Math.max(1, pct)) * 1e7 / (df * v));
+  let n = Math.ceil(Math.min(20, Math.max(1, pct)) * 1e7 / (df * v));
+  /* Tomber pile sur 100 000 ne donne rien : il en faut un de plus. */
+  if(df * n * v / 100 <= 1e5) n++;
+  return n;
 }
 
 /** Ce qu'une lune coûte en espérance, et ce que le recyclage des tirs ratés
@@ -3896,7 +3901,7 @@ function luneFacture(k, n, df = LUNE_DF){
   if(!t.chance) return null;
   const tirs = Math.ceil(100 / t.chance), c = SHIP_COST[k] || [0, 0, 0];
   return {chance: t.chance, tirs, m: tirs * n * c[0], c: tirs * n * c[1],
-          recupere: (tirs - 1) * t.debris};
+          deut: tirs * n * c[2], recupere: (tirs - 1) * t.debris};
 }
 
 /** Ce que la flotte posée sur une planète vaut en métal et en cristal, pour
@@ -3955,15 +3960,17 @@ function moonPct(x){
 
     Les clés se lisent sur DEF, jamais sur p.defs : une clé venue du stockage
     ne doit pas pouvoir compter. Et p.defs == null veut dire « jamais relevée »,
-    jamais zéro — le même partage que defsOf, et pour la même raison : annoncer
+    jamais zéro — on passe par defsOf lui-même, qui sait aussi lire l'ancienne
+    forme où seul p.def existe, et pour la même raison : annoncer
     qu'une défense inconnue tue mille chasseurs ferait brûler une flotte.
 
     Le +5 % par niveau d'Armes et de Bouclier vient du wiki, pas de la revue. */
 function luneDefense(p, k, bouLvl = 0){
-  if(!p || p.defs == null) return null;
+  const have = p && defsOf(p);
+  if(!have) return null;
   let brut = 0, tirs = 0;
   for(const j of Object.keys(DEF)){
-    const n = Math.max(0, p.defs[j] || 0);
+    const n = Math.max(0, have[j] || 0);
     brut += n * DEF[j].a;
     tirs += n;
   }
@@ -4577,11 +4584,11 @@ moon(){
       <div class="grid">
         <label class="f">Planète visée<select id="mnP" data-mc="pid">${S.planets.map(q=>`<option value="${q.id}" ${p && p.id===q.id?'selected':''}>${esc(q.name)} [${esc(q.coords)}]</option>`).join('')}</select></label>
         <label class="f">Ce qu'il envoie<select id="mnShip" data-mc="ship">${Object.keys(SHIPS).map(j=>`<option value="${j}" ${k===j?'selected':''}>${SHIPS[j].n}</option>`).join('')}</select></label>
-        <label class="f">Combien<input id="mnN" type="number" min="0" data-mc="n" value="${Math.max(0,+m.n||0)}"></label>
+        <label class="f">Combien<input id="mnN" type="number" min="0" data-mc="n" step="1" value="${Math.floor(Math.max(0,+m.n||0))}"></label>
       </div>
       <div class="grid">
-        <label class="f">Chance visée<input id="mnVise" type="number" min="1" max="20" data-mc="viser" value="${Math.min(20,Math.max(1,+m.viser||12))}"><span class="note">En pourcent, 20 au plus : c'est le plafond du jeu.</span></label>
-        <label class="f">Son niveau de Bouclier<input id="mnBou" type="number" min="0" data-mc="bou" value="${moonBou()}"><span class="note">Celui de ton camarade. Proposé au tien.</span></label>
+        <label class="f">Chance visée<input id="mnVise" type="number" min="1" max="20" data-mc="viser" step="1" value="${Math.min(20,Math.max(1,Math.round(+m.viser||12)))}"><span class="note">En pourcent, 20 au plus : c'est le plafond du jeu.</span></label>
+        <label class="f">Son niveau de Bouclier<input id="mnBou" type="number" min="0" data-mc="bou" step="1" value="${moonBou()}"><span class="note">Celui de ton camarade. Proposé au tien.</span></label>
         <label class="f">Débris de ton univers<select id="mnDf" data-mc="df">${[30,40,50,60,70].map(v=>`<option ${(+m.df||LUNE_DF)===v?'selected':''}>${v}</option>`).join('')}</select><span class="note">En pourcent, dans les paramètres de ton univers.</span></label>
       </div>
       <div class="res" id="moonOut"></div>
@@ -4882,33 +4889,52 @@ research(){
 },
 moon(){
   const m = S.moonCalc, p = moonPlanete(), k = moonShip();
-  const n = Math.max(0, +m.n || 0), df = +m.df || LUNE_DF;
-  const out = document.getElementById('moonOut');
+  const n = Math.floor(Math.max(0, +m.n || 0)), df = +m.df || LUNE_DF;
+  const out = document.getElementById('moonOut'), noteEl = document.getElementById('moonNote');
   if(!n){
     out.innerHTML = `<p class="note" style="grid-column:1/-1">Dis combien de vaisseaux il envoie, et la carte chiffre le tir.</p>`;
+    noteEl.innerHTML = '';
     return;
   }
-  const t = luneTir(k, n, df), d = luneDefense(p, k, moonBou());
+  /* Ce qui compte n'est pas ce qu'il envoie, c'est ce qui meurt : les débris
+     viennent des coques détruites, et les survivants rentrent chez lui. Sans
+     ça la carte promettait 20 % à qui envoie 1 667 chasseurs sur une défense
+     qui n'en tue que mille — et une facture en dizaines de millions avec.
+     Défense jamais relevée : on suppose que tout meurt, et la jauge le dit. */
+  const d = luneDefense(p, k, moonBou()), v = luneCoque(k);
+  const tues = d ? Math.floor(d.tue / v) : null;
+  const morts = tues == null ? n : Math.min(n, tues);
+  const t = luneTir(k, morts, df);
   const rec = ((p || {}).ships || {}).rec || 0, soute = shipStats('rec').cargoEff;
-  const vise = Math.min(20, Math.max(1, +m.viser || 12));
-  const tues = d ? Math.floor(d.tue / t.v) : 0, pour = luneVaisseaux(k, vise, df);
+  const vise = Math.min(20, Math.max(1, Math.round(+m.viser || 12)));
+  const pour = luneVaisseaux(k, vise, df);
   out.innerHTML =
     gauge('m','m','Débris', fmt(t.debris), 'par tir') +
     gauge('c','c','Chance', moonPct(t.chance), 'par tir') +
-    (d ? gauge('e','e','Ta défense tue', fmt(tues), moonNom(k, tues))
-       : gauge('e','e','Ta défense', '?', 'jamais relevée')) +
+    (tues == null ? gauge('e','e','Ta défense', '?', 'jamais relevée')
+                  : gauge('e','e','Ta défense tue', fmt(tues), moonNom(k, tues))) +
     gauge('d','d','Pour ' + moonPct(vise), fmt(pour), moonNom(k, pour)) +
-    (rec && soute ? gauge('m','m','Ramasser', fmt(Math.ceil(t.debris / (rec * soute))), 'voyages de recycleur') : '');
+    (rec && soute && t.debris ? gauge('m','m','Ramasser', fmt(Math.ceil(t.debris / (rec * soute))), 'voyages de recycleur') : '');
 
-  const f = luneFacture(k, n, df), sol = luneFlotteAuSol(p), av = [];
-  if(!t.chance) av.push(`Sous <b>100 000</b> de débris, le combat ne tire rien du tout : il en faut ${fmt(luneVaisseaux(k, 1, df))} au moins.`);
-  if(t.debris > 2e6) av.push(`Au-delà de <b>2 M</b> de débris le surplus est perdu : ${fmt(luneVaisseaux(k, 20, df))} suffisent pour les 20 %.`);
-  if(sol && sol.m + sol.c > 0) av.push(`Sors ta flotte de ${planetRef(p)} avant le tir : ${shipList(p.ships)} au sol mourraient avec, ${fmt(sol.m)} métal et ${fmt(sol.c)} cristal à ta charge.`);
-  document.getElementById('moonNote').innerHTML =
-    (f ? `Facture espérée d'une lune : <b>${f.tirs} tirs</b>, ${fmt(f.m)} métal et ${fmt(f.c)} cristal chez lui. Tu ramasses ${fmt(f.recupere)} de débris sur les tirs ratés. ` : '')
+  const f = luneFacture(k, morts, df), sol = luneFlotteAuSol(p), av = [];
+  if(tues === 0)
+    av.push(`Ta défense <b>n'en tue aucun</b> : la flotte repart entière, il n'y a aucun débris, et il te pille au passage.`);
+  else if(tues != null && tues < n)
+    av.push(`Ta défense n'en tue que <b>${fmt(tues)}</b> sur ${fmt(n)} : les survivants rentrent chez lui. Les chiffres ci-dessus ne comptent que les morts.`);
+  if(tues != null && tues > 0 && pour > tues)
+    av.push(`Pour ${moonPct(vise)} il faudrait ${fmt(pour)} ${moonNom(k, pour)} morts, mais ta défense n'en tue que ${fmt(tues)} : c'est elle qui <b>plafonne</b> ta chance, à ${moonPct(luneTir(k, tues, df).chance)} par tir.`);
+  if(t.debris > 2e6)
+    av.push(`Au-delà de <b>2 M</b> de débris le surplus est perdu : ${fmt(luneVaisseaux(k, 20, df))} morts suffisent pour les 20 %.`);
+  if(!t.chance && tues !== 0)
+    av.push(`Sous <b>100 000</b> de débris, le combat ne tire rien du tout : il faut ${fmt(luneVaisseaux(k, 1, df))} morts au moins.`);
+  if(sol && sol.m + sol.c > 0)
+    av.push(`Sors ta flotte de ${esc(planetRef(p))} avant le tir : ${shipList(p.ships)} au sol mourraient avec, ${fmt(sol.m)} métal et ${fmt(sol.c)} cristal à ta charge.`);
+
+  noteEl.innerHTML =
+    (f ? `Facture espérée d'une lune : <b>${f.tirs} tirs</b>, ${fmt(f.m)} métal, ${fmt(f.c)} cristal${f.deut ? ` et ${fmt(f.deut)} deutérium` : ''} chez lui. Tu ramasses ${fmt(f.recupere)} de débris sur les tirs ratés. C'est une <b>moyenne, pas une promesse</b> : environ un joueur sur sept n'a toujours pas sa lune après le double de tirs. ` : '')
     + (av.length ? av.map(x=>`<br>⚠ ${x}`).join('') + '<br>' : '')
-    + ` Les débris de <b>ses</b> vaisseaux tombent chez <b>toi</b>, et le jeu dit à qui ils reviennent : au moins bien classé de vous deux. Si c'est lui, préviens un <b>Game Operator</b> avant de lui renvoyer quoi que ce soit — remonter des ressources vers le mieux classé est du pushing.`
-    + ` <b>Estimation.</b> Seule la ligne « ta défense tue » est estimée : elle ne compte pas la règle d'explosion sous 70 % de coque, qui tue plus vite, et suppose le niveau de Bouclier saisi ci-dessus. La chance, elle, est exacte et linéaire — 1 % coûte le même poids de vaisseaux, gros tir ou petit. Le copilote ne connaît pas les lunes : il ne peut pas savoir si cette position en porte déjà une.`;
+    + ` Les débris de <b>ses</b> vaisseaux tombent chez <b>toi</b>. Si tu es le <b>mieux classé</b> de vous deux, tu ne peux pas les garder : les ramasser ferait monter ses ressources vers toi, et c'est du pushing — préviens un <b>Game Operator</b> avant. S'il est mieux classé que toi, ils sont à toi.`
+    + ` <b>Estimation.</b> Seule la ligne « ta défense tue » est estimée : elle ne compte pas la règle d'explosion sous 70 % de coque, qui tue plus vite, et elle suppose le niveau de Bouclier saisi ci-dessus. La chance, elle, se déduit exactement des débris. Le copilote ne connaît pas les lunes : il ne peut pas savoir si cette position en porte déjà une.`;
 },
 fleet(){
   const s=S.settings, cap = expoFind(S.expo.pf);
@@ -5024,7 +5050,7 @@ function bind(){
     if(k==='lean' || k==='noshop' || k==='large' || k==='peau' || k==='clair') pushLook();
   }));
   view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.value==='1'; changed(); }));
-  view.querySelectorAll('[data-mc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.mc; S.moonCalc[k] = (k==='pid'||k==='ship') ? el.value : Math.max(0, parseFloat(el.value)||0); changed(); }));
+  view.querySelectorAll('[data-mc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.mc; S.moonCalc[k] = (k==='pid'||k==='ship') ? el.value : Math.max(0, parseInt(el.value, 10)||0); changed(); }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
   view.querySelectorAll('[data-ship]').forEach(el=>el.addEventListener('input',()=>{ S.fleetCalc.ships[el.dataset.ship]=Math.max(0,parseInt(el.value)||0); changed(); }));
   /* Le presse-papiers du panneau latéral refuse l'écriture dès que le focus est

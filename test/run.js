@@ -8448,11 +8448,14 @@ t('la carte avertit sous le plancher et pour la flotte au sol', () => {
 });
 
 t('au-dessus du plafond, la carte dit ce qui est perdu', () => {
-  const g = app(s => { LUNE(s); s.moonCalc.n = 3000; });
+  /* Défense jamais relevée : tout meurt, donc 3 000 chasseurs dépassent les
+     2 M. Avec la défense du HQ, elle n'en tuerait que mille et le surplus
+     n'existerait pas — c'est ce que vérifie « ce qui meurt » plus bas. */
+  const g = app(s => { LUNE(s); s.moonCalc.n = 3000; s.planets[0].defs = null; });
   g.REFRESH.moon();
   const note = lu(g.html().moonNote || '');
   assert.ok(/perdu/.test(note), note);
-  assert.ok(/667 suffisent/.test(note), 'le nombre qui suffit : ' + note);
+  assert.ok(/667 morts suffisent/.test(note), 'le nombre qui suffit : ' + note);
 });
 
 t('sans flotte relevée, aucun avertissement de flotte au sol', () => {
@@ -8468,6 +8471,105 @@ t('la note porte la règle de pushing et la facture espérée', () => {
   assert.ok(/pushing/i.test(note), 'la règle du jeu : ' + note);
   assert.ok(/Game Operator/.test(note), 'qui prévenir : ' + note);
   assert.ok(/9 tirs/.test(note), 'la facture espérée : ' + note);
+});
+
+/* ---------- le tir de lune : ce qui meurt, et rien de plus ---------- */
+
+t('la chance se calcule sur ce qui meurt, pas sur ce qu\'il envoie', () => {
+  /* 1 667 chasseurs légers, le nombre qu'il faut pour 20 % si tout meurt :
+     la défense du HQ n'en tue qu'un millier, donc le tir vaut 12 %, pas 20 %. */
+  const g = app(s => { LUNE(s); s.moonCalc.n = 1667; });
+  g.REFRESH.moon();
+  const out = lu(g.html().moonOut || '');
+  assert.ok(/1,20 M/.test(out), 'les débris de ce qui meurt : ' + out);
+  assert.ok(!/2,00 M/.test(out), 'pas ceux de ce qui part : ' + out);
+  assert.ok(/12 %/.test(out), 'la chance réelle : ' + out);
+});
+
+t('une défense rasée ne promet aucune chance', () => {
+  const g = app(s => { LUNE(s); s.planets[0].defs = {}; });
+  g.REFRESH.moon();
+  assert.ok(/0 %/.test(lu(g.html().moonOut || '')), 'aucune chance');
+  const note = lu(g.html().moonNote || '');
+  assert.ok(!/Facture/.test(note), 'aucune facture : ' + note);
+  assert.ok(/n\'en tue aucun/.test(note), 'et la carte le dit : ' + note);
+});
+
+t('la carte dit quand la défense plafonne la chance visée', () => {
+  const g = app(s => { LUNE(s); s.moonCalc.n = 1667; s.moonCalc.viser = 20; });
+  g.REFRESH.moon();
+  assert.ok(/plafonne/.test(lu(g.html().moonNote || '')), lu(g.html().moonNote || ''));
+});
+
+t('une défense jamais relevée suppose que tout meurt', () => {
+  const g = app(s => { LUNE(s); s.planets[0].defs = null; });
+  g.REFRESH.moon();
+  assert.ok(/12 %/.test(lu(g.html().moonOut || '')));
+});
+
+t('la vieille forme p.def suffit à rendre un verdict de défense', () => {
+  const g = app(s => { LUNE(s); delete s.planets[0].defs; s.planets[0].def = 4216; });
+  assert.notEqual(g.luneDefense(g.S.planets[0], 'lf', 0), null,
+    'defsOf sait lire p.def seul, luneDefense doit passer par lui');
+});
+
+t('sans vaisseau, la note se vide aussi', () => {
+  const g = app(LUNE);
+  g.REFRESH.moon();
+  assert.ok(/Facture/.test(lu(g.html().moonNote || '')), 'posée une première fois');
+  g.S.moonCalc.n = 0;
+  g.REFRESH.moon();
+  assert.ok(!/Facture/.test(lu(g.html().moonNote || '')), 'le tir d\'avant ne reste pas');
+});
+
+t('la règle de pushing est dite dans le bon sens', () => {
+  const g = app(LUNE);
+  g.REFRESH.moon();
+  const note = lu(g.html().moonNote || '');
+  assert.ok(/mieux classé/.test(note), note);
+  assert.ok(/pushing/i.test(note) && /Game Operator/.test(note), note);
+  assert.ok(!/renvoyer/.test(note), 'le risque est de ramasser, pas de renvoyer : ' + note);
+});
+
+t('la facture se dit moyenne, pas promesse', () => {
+  const g = app(LUNE);
+  g.REFRESH.moon();
+  assert.ok(/moyenne, pas une promesse/.test(lu(g.html().moonNote || '')));
+});
+
+t('la facture compte le deutérium des coques qui en coûtent', () => {
+  const g = app(), f = g.luneFacture('rp', 30, 30);
+  assert.equal(f.deut, f.tirs * 30 * 20000);
+  assert.equal(g.luneFacture('lf', 1000, 30).deut, 0);
+});
+
+t('le plancher exclut 100 000 pile, comme la règle le dit', () => {
+  const g = app();
+  assert.equal(g.luneTir('lf', 50, 50).debris, 100000);
+  assert.equal(g.luneTir('lf', 50, 50).chance, 0, '« more than 100k debris »');
+  assert.equal(g.luneVaisseaux('lf', 1, 50), 51, 'un vaisseau de plus pour dépasser');
+});
+
+t('le plafond inclut 2 M pile, comme le tableau du wiki', () => {
+  const g = app();
+  assert.equal(g.luneTir('pr', 5000, 40).debris, 2000000);
+  assert.equal(g.luneTir('pr', 5000, 40).chance, 20);
+  assert.equal(g.luneVaisseaux('pr', 20, 40), 5000);
+});
+
+t('une chance visée décimale est arrondie une seule fois', () => {
+  const g = app(s => { LUNE(s); s.moonCalc.viser = 12.5; });
+  g.REFRESH.moon();
+  const out = lu(g.html().moonOut || '');
+  assert.ok(/Pour 13 %/.test(out), 'ce qui est annoncé : ' + out);
+  assert.ok(/084/.test(out), 'et le nombre qui va avec : ' + out);
+});
+
+t('un nom de planète hostile ne s\'exécute pas dans l\'avertissement', () => {
+  const g = app(s => { LUNE(s); s.planets[0].name = '<b>HQ</b>'; s.planets[0].ships = { hf: 538 }; });
+  g.REFRESH.moon();
+  const brut = g.html().moonNote || '';
+  assert.ok(/&lt;b&gt;HQ&lt;\/b&gt;/.test(brut), 'échappé comme ailleurs : ' + brut);
 });
 
 if (failures.length) {
