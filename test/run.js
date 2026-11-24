@@ -8607,6 +8607,16 @@ t('les recycleurs se ramènent après le tir, pas avant', () => {
   assert.ok(/après le tir/.test(lu(g.html().moonOut || '')), lu(g.html().moonOut || ''));
 });
 
+/* Un Oui/Non est une bascule : le select revenu en douce reprendrait deux
+   lignes et un clic de plus, et la poignée lit `checked`, pas `value`. */
+t('les réglages Oui/Non sont des bascules cochées selon le réglage', () => {
+  const h = app(s => { s.settings.geo = true; s.settings.lean = false; }).VIEWS.settings();
+  assert.ok(!/>Oui</.test(h), 'plus aucune liste Oui/Non');
+  assert.match(h, /id="sGeo" data-set="geo" checked/);
+  assert.match(h, /id="sLean" data-set="lean" >/);
+  assert.match(app().VIEWS.fleet(), /id="expoPf" data-expo="pf" checked/);
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

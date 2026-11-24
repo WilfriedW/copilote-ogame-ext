@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.63';
+const APP_VERSION = '1.53.64';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4435,6 +4435,12 @@ function lfBloc(p){
   if(!lfIds(p).length) return `<p class="note" style="margin:10px 0 0"><b>Formes de vie</b> — aucune case de forme de vie relevée ici : ouvre la page de ta forme de vie dans le jeu pour qu'elles apparaissent.</p>`;
   return `${titre}<div class="grid tight" style="margin-top:6px">${lfRows(p)}</div>`;
 }
+/* Oui/Non : une bascule, pas une liste déroulante. Deux états se lisent d'un
+   coup d'œil et tiennent sur une ligne, là où le select coûtait un titre, une
+   ligne de plus et un clic pour voir ce qu'on savait déjà. */
+const bascule = (id, attr, label, on, note='') =>
+  `<label class="f bascule"><input type="checkbox" id="${id}" ${attr} ${on?'checked':''}><span>${label}</span>${note?`<span class="note">${note}</span>`:''}</label>`;
+
 const VIEWS = {
 /* Ce que le joueur vient chercher, c'est la carte à suivre maintenant : elle
    seule reste dépliée. Le reste — la journée qui vient, les minuteurs — se
@@ -4609,7 +4615,7 @@ fleet(){
     <div class="card"><h2>Taille d'expédition</h2>
       <div class="grid">
         <label class="f">Points du n°1 de l'univers<select id="top1" data-set="top1">${EXPO_LABELS.map((l,i)=>`<option value="${i}" ${S.settings.top1==i?'selected':''}>${l}</option>`).join('')}</select>${API && API.scores ? `<span class="note">Lu dans le classement public : ${EXPO_LABELS[top1Tier()]}. Ce réglage ne sert plus.</span>` : '<span class="note">Sera lu dans le classement public dès que l\'extension aura joint l\'API du serveur.</span>'}</label>
-        <label class="f">Éclaireur dans la flotte<select id="expoPf" data-expo="pf"><option value="1" ${ex.pf?'selected':''}>Oui</option><option value="0" ${!ex.pf?'selected':''}>Non</option></select></label>
+        ${bascule('expoPf','data-expo="pf"','Éclaireur dans la flotte', ex.pf)}
       </div>
       <div class="res" id="expoOut"></div>
       <p class="note" id="expoNote"></p>
@@ -4697,17 +4703,17 @@ settings(){
     </div>
     <div class="card"><h2>Bonus</h2>
       <div class="grid">
-        <label class="f">Géologue (+10 % production)<select id="sGeo" data-set="geo"><option value="0" ${!s.geo?'selected':''}>Non</option><option value="1" ${s.geo?'selected':''}>Oui</option></select></label>
-        <label class="f">Ingénieur (+10 % énergie)<select id="sEng" data-set="eng"><option value="0" ${!s.eng?'selected':''}>Non</option><option value="1" ${s.eng?'selected':''}>Oui</option></select></label>
-        <label class="f">Foreuses en surcharge 150 %<select id="sOver" data-set="crawlerOverload"><option value="0" ${!s.crawlerOverload?'selected':''}>Non</option><option value="1" ${s.crawlerOverload?'selected':''}>Oui</option></select><span class="note">Moitié plus de bonus, énergie doublée. À régler comme dans le jeu.</span></label>
-        <label class="f">Collecteur : +25 % soute transporteurs<select id="sColCargo" data-set="colCargo"><option value="1" ${s.colCargo?'selected':''}>Oui</option><option value="0" ${!s.colCargo?'selected':''}>Non</option></select></label>
+        ${bascule('sGeo','data-set="geo"','Géologue (+10 % production)', s.geo)}
+        ${bascule('sEng','data-set="eng"','Ingénieur (+10 % énergie)', s.eng)}
+        ${bascule('sOver','data-set="crawlerOverload"','Foreuses en surcharge 150 %', s.crawlerOverload, 'Moitié plus de bonus, énergie doublée. À régler comme dans le jeu.')}
+        ${bascule('sColCargo','data-set="colCargo"','Collecteur : +25 % soute transporteurs', s.colCargo)}
         <label class="f">Ratio d'échange M:C:D<input id="sRatio" data-set="ratio" value="${s.ratio.join(':')}"></label>
       </div>
     </div>
     <div class="card"><h2>Page du jeu</h2>
       <div class="grid">
-        <label class="f">Épurer la page du jeu<select id="sLean" data-set="lean"><option value="1" ${s.lean?'selected':''}>Oui</option><option value="0" ${!s.lean?'selected':''}>Non</option></select><span class="note">Barre Gameforge, en-tête, pied de page et pub en moins ; fond sombre, menu plus grand.</span></label>
-        <label class="f">Masquer les menus payants<select id="sNoShop" data-set="noshop"><option value="1" ${s.noshop?'selected':''}>Oui</option><option value="0" ${!s.noshop?'selected':''}>Non</option></select><span class="note">Marchand, Mess des officiers, boutiques.</span></label>
+        ${bascule('sLean','data-set="lean"','Épurer la page du jeu', s.lean, 'Barre Gameforge, en-tête, pied de page et pub en moins ; fond sombre, menu plus grand.')}
+        ${bascule('sNoShop','data-set="noshop"','Masquer les menus payants', s.noshop, 'Marchand, Mess des officiers, boutiques.')}
       </div>
       <p class="note">Allure seulement : la page du jeu, pas ce panneau, ni les calculs.</p>
     </div>
@@ -5053,12 +5059,12 @@ function bind(){
     const k=el.dataset.set, s=S.settings;
     if(k==='ratio'){ const r=el.value.split(':').map(Number); if(r.length===3 && r.every(x=>x>0)) s.ratio=r; }
     else if(k==='cls') s.cls=el.value;
-    else if(['geo','eng','colCargo','lean','noshop','large','peau','clair','crawlerOverload'].includes(k)) s[k]=el.value==='1';
+    else if(['geo','eng','colCargo','lean','noshop','large','peau','clair','crawlerOverload'].includes(k)) s[k]=el.checked;
     else s[k]=Math.max(k==='top1'?0:1, parseFloat(el.value)||0);
     changed();
     if(k==='lean' || k==='noshop' || k==='large' || k==='peau' || k==='clair') pushLook();
   }));
-  view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.value==='1'; changed(); }));
+  view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.checked; changed(); }));
   view.querySelectorAll('[data-mc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.mc; S.moonCalc[k] = (k==='pid'||k==='ship') ? el.value : Math.max(0, parseInt(el.value, 10)||0); changed(); }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
   view.querySelectorAll('[data-ship]').forEach(el=>el.addEventListener('input',()=>{ S.fleetCalc.ships[el.dataset.ship]=Math.max(0,parseInt(el.value)||0); changed(); }));
