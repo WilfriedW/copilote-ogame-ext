@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.7';
+const APP_VERSION = '1.54.8';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3973,6 +3973,23 @@ function luneMorts(p, k, n, bouLvl = 0){
   return {tues, morts: tues == null ? n : Math.min(n, tues)};
 }
 
+/** La probabilité d'avoir déjà eu sa lune après `n` tirs, à la chance que la
+    configuration donne aujourd'hui. `null` quand cette chance est nulle : « 0 %
+    des joueurs auraient leur lune » est juste et illisible.
+
+    C'est le seul chiffre que la carte a le droit de tirer du passé, et il
+    regarde en arrière. Jamais « il reste N tirs » : chaque tir vaut ce qu'il
+    vaut, que ce soit le premier ou le neuvième, et la page Moonchance du wiki
+    renvoie elle-même au sophisme du joueur. Un joueur qui se croit dû continue
+    sur une promesse qui n'existe pas. */
+function luneDeja(p, n){
+  const k = moonShip(), df = moonDf();
+  const {morts} = luneMorts(p, k, Math.floor(Math.max(0, +S.moonCalc.n || 0)), moonBou());
+  const c = luneTir(k, morts, df).chance;
+  if(!c || !(n > 0)) return null;
+  return 100 * (1 - Math.pow(1 - c / 100, n));
+}
+
 /** Vrai dans l'heure qui précède l'impact. C'est la seule fenêtre où la carte
     Lune passe devant les chantiers : à ce moment-là « Monte Métal 21 » n'a rien
     à faire au-dessus de « sors ta flotte, 7 M à ta charge ». Hors fenêtre, elle
@@ -4019,13 +4036,19 @@ function luneCartes(){
          'Demande-lui aussi son niveau de Technologie Bouclier, qui change ce que ta défense tue.']}];
 
   const t = luneTir(k, morts, df), sol = luneFlotteAuSol(p);
+  /* Ce que le passé autorise à dire, et rien de plus : la part des joueurs qui
+     auraient déjà leur lune après autant de tirs. Puis ce que vaut celui qui
+     vient, qui ne doit rien aux précédents. */
+  const faits = Math.max(0, S.lune.tirs[p.id] || 0), deja = luneDeja(p, faits);
+  const passe = deja == null ? ''
+    : ` Tir ${faits + 1} : après ${faits}, ${moonPct(deja)} des joueurs auraient déjà leur lune — le tien vaut toujours ${moonPct(t.chance)}, ni plus ni moins.`;
   const quoi = sol && sol.m + sol.c > 0
     ? `${shipList(p.ships)} au sol mourraient avec, ${fmt(sol.m)} métal et ${fmt(sol.c)} cristal à ta charge${p.shipsAt ? `, flotte relevée il y a ${dur((now - p.shipsAt)/1000)}` : ''}.`
     : `Aucune flotte relevée au sol — vérifie quand même avant l'impact.`;
 
   if(imp > now) return [{id:'lune-sors', q:'Lune', every:1, sev: imp - now <= 3600e3 ? 'bad' : 'warn',
     what:`Sors ta flotte de ${ou} — impact dans ${dur((imp - now)/1000)}`,
-    why:`${quoi} Le tir vaut ${moonPct(t.chance)} de chance de lune.`,
+    why:`${quoi} Le tir vaut ${moonPct(t.chance)} de chance de lune.${passe}`,
     how:['Déploiement vers une autre de tes planètes : elle revient après le combat.',
          'Les recycleurs partent avec : s\'ils meurent, tu n\'as plus rien pour ramasser.',
          'Le copilote ne peut pas vérifier qu\'elle est partie — c\'est à toi de regarder.']}];
@@ -4033,7 +4056,7 @@ function luneCartes(){
   const rec = (p.ships || {}).rec || 0, soute = shipStats('rec').cargoEff;
   if(now - imp < 24 * 3600e3) return [{id:'lune-ramasse', q:'Lune', every:1, sev:'good',
     what:`Le tir sur ${ou} est passé — une lune est née ?`,
-    why:`${rec && soute && t.debris ? `Ramène tes recycleurs : ${fmt(Math.ceil(t.debris / (rec * soute)))} voyages pour ${fmt(t.debris)} de débris. ` : ''}Si tu es le mieux classé de vous deux, tu ne peux pas garder ses débris : les ramasser serait du pushing, préviens un Game Operator avant.`,
+    why:`${rec && soute && t.debris ? `Ramène tes recycleurs : ${fmt(Math.ceil(t.debris / (rec * soute)))} voyages pour ${fmt(t.debris)} de débris. ` : ''}Si tu es le mieux classé de vous deux, tu ne peux pas garder ses débris : les ramasser serait du pushing, préviens un Game Operator avant.${passe}`,
     how:['Réponds une fois que tu as vu le rapport de combat : le compteur en dépend.']}];
 
   return [{id:'lune-perdu', q:'Lune', every:12, sev:'warn',
