@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.2';
+const APP_VERSION = '1.54.3';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -98,6 +98,7 @@ function sample(){
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
     moonCalc:{pid:'', ship:'lf', n:0, bou:null, viser:12},
+    lune:{on:false, impact:null, tirs:{}, rendu:{coords:'', n:0, dus:0, faits:0}},
     expo:{pf:true},
     ui:{tool:'colony', fold:{}},
     day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false},
@@ -133,6 +134,10 @@ S.tech = Object.assign(sample().tech, S.tech);
 S.day = Object.assign(sample().day, S.day);
 S.ui = Object.assign(sample().ui, S.ui);
 S.lf = Object.assign(sample().lf, S.lf);
+/* `rendu` se fusionne à part : Object.assign ne descend pas d'un niveau, et une
+   sauvegarde d'avant le mode lune n'a ni l'un ni l'autre. */
+S.lune = Object.assign(sample().lune, S.lune);
+S.lune.rendu = Object.assign(sample().lune.rendu, S.lune.rendu);
 S.raids = S.raids || {};
 S.prio = Array.isArray(S.prio) ? S.prio : [];
 S.prioAsk = Array.isArray(S.prioAsk) ? S.prioAsk : [];
@@ -4510,7 +4515,7 @@ const VIEWS = {
 today(){
   const d=S.day;
   return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Maintenant</h2><div class="row" style="gap:8px"><span class="note" id="tdStamp"></span><button class="btn sm ${d.night?'primary':'ghost'}" id="dayNight">${d.night?'☀️ Mode jour':'🌙 Mode nuit'}</button></div></div><div id="tdNow"></div></div>
+    <div class="card"><div class="row spread"><h2>Maintenant</h2><div class="row" style="gap:8px"><span class="note" id="tdStamp"></span><button class="btn sm ${d.night?'primary':'ghost'}" id="dayNight">${d.night?'☀️ Mode jour':'🌙 Mode nuit'}</button><button class="btn sm ${S.lune.on?'primary':'ghost'}" id="luneBtn" title="Pendant un tir de lune, ses cartes passent devant le reste du plan">${S.lune.on?'🌕 Lune':'🌑 Lune'}</button></div></div><div id="tdNow"></div></div>
     <div id="tdAlerts"></div>
     <details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
       <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${d.nightStart}h–${d.nightEnd}h <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
@@ -5128,6 +5133,7 @@ function bind(){
   });
   view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ const p=S.planets[+b.dataset.del]; if(p) forgetPlanet(p.id); save(); render(); }));
   on('dayNight','click',()=>{ S.day.night = !S.day.night; save(); render(); });
+  on('luneBtn','click',()=>{ S.lune.on = !S.lune.on; save(); render(); });
   on('addPlanet','click',()=>{ S.planets.push(newPlanet('Colonie '+S.planets.length,'1:1:'+(S.planets.length+4),20,{})); S.sample=false; save(); render(); });
   /* « change » et non « input » comme les niveaux voisins : sur un labo 5,
      taper « 10 » passe par « 1 », que prioPose jugerait atteint avant de
@@ -5564,7 +5570,10 @@ chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioA
    Le pid est tiré au sort à la création de la planète, donc propre au poste ;
    le gid vient du jeu et vaut sur les deux. Même règle qu'à la frontière de la
    page du jeu : on traduit en sortie et en entrée, et S ne garde jamais de gid. */
-const SYNC_KEYS = ['settings','day','expo','lf','raids','daily'];
+/* `lune` voyage : une campagne de tir dure des jours, le joueur a deux postes,
+   et un compteur plus bas d'un côté ou une heure d'impact absente est
+   exactement ce que la synchronisation existe pour éviter. */
+const SYNC_KEYS = ['settings','day','expo','lf','raids','daily','lune'];
 const gidDe = pid => { const p = planetById(pid); return p && p.gid != null ? String(p.gid) : null; };
 const pidDe = gid => { const p = (S.planets || []).find(x => x.gid != null && String(x.gid) === String(gid)); return p ? p.id : null; };
 /* Une recherche ne porte pas de pid : elle voyage telle quelle.

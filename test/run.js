@@ -8649,6 +8649,30 @@ t('sans données du serveur, la carte le dit au lieu de casser', () => {
   g.REFRESH.tools();
 });
 
+/* ---------- le mode lune : l'état et l'interrupteur ---------- */
+
+t('le mode lune part éteint et se range dans l\'état', () => {
+  const g = app();
+  assert.equal(g.S.lune.on, false);
+  assert.equal(g.S.lune.impact, null);
+  assert.deepEqual(g.S.lune.tirs, {});
+  assert.equal(g.S.lune.rendu.faits, 0);
+});
+
+t('une sauvegarde d\'avant le mode lune ne lève pas', () => {
+  const g = app(s => { delete s.lune; });
+  assert.equal(g.S.lune.on, false);
+});
+
+t('le mode lune suit sur l\'autre poste', () => {
+  const g = app(s => {
+    s.lune = { on: true, impact: 1795600000000, tirs: {}, rendu: { coords: '', n: 0, dus: 0, faits: 0 } };
+  });
+  const out = g.syncOut();
+  assert.equal(out['sy:lune'].on, true);
+  assert.equal(out['sy:lune'].impact, 1795600000000);
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');
