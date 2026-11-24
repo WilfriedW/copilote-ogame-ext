@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.6';
+const APP_VERSION = '1.54.7';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3973,6 +3973,15 @@ function luneMorts(p, k, n, bouLvl = 0){
   return {tues, morts: tues == null ? n : Math.min(n, tues)};
 }
 
+/** Vrai dans l'heure qui précède l'impact. C'est la seule fenêtre où la carte
+    Lune passe devant les chantiers : à ce moment-là « Monte Métal 21 » n'a rien
+    à faire au-dessus de « sors ta flotte, 7 M à ta charge ». Hors fenêtre, elle
+    mène les missions et le plan garde sa forme — une campagne dure des jours. */
+function luneUrgent(){
+  const imp = S.lune.on ? S.lune.impact : null;
+  return !!imp && imp > Date.now() && imp - Date.now() <= 3600e3;
+}
+
 /** La fin d'un tir : le joueur dit si une lune est née. Une seule fonction,
     pour que le bouton de la carte et les tests empruntent le même chemin.
     Un oui solde la campagne de cette planète — un compteur réussi ne se lègue
@@ -4980,7 +4989,13 @@ today(){
       : `<button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${noBtn('m:'+m.id)}`;
     return `<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns">${btns}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   };
-  if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${s0.acts.map(a=>actHtml(a,true)).join('')}${nowMs.map(taskHtml).join('')}</ul>`);
+  /* Les cartes Lune mènent les missions ; dans l'heure qui précède l'impact
+     elles passent aussi devant les chantiers. Trier la liste des missions ne
+     suffisait pas : l'ordre de la page se décide ici, pas dans dailyMissions. */
+  const lun = nowMs.filter(m=>m.q === 'Lune'), reste = nowMs.filter(m=>m.q !== 'Lune');
+  const avant = luneUrgent() ? lun.map(taskHtml).join('') : '';
+  const apres = (luneUrgent() ? reste : lun.concat(reste)).map(taskHtml).join('');
+  if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${avant}${s0.acts.map(a=>actHtml(a,true)).join('')}${apres}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
   if(s0.waits.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${s0.waits.length})</summary><ul class="acts" style="margin-top:6px">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`).join('')}</ul></details>`);
