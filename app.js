@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.4';
+const APP_VERSION = '1.54.5';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3954,6 +3954,20 @@ function moonShip(){ return SHIPS[S.moonCalc.ship] ? S.moonCalc.ship : 'lf'; }
 /** Le nom du vaisseau au bon nombre, avec les tables qui l'écrivent déjà. */
 function moonNom(k, n){ return n > 1 ? SHIP_PLURAL[k] : (SHIPS[k] || {n:''}).n.toLowerCase(); }
 
+/** Ce qui meurt vraiment d'un envoi de `n` vaisseaux `k` sur la planète `p` :
+    les survivants rentrent chez l'attaquant et ne font pas de débris. `tues`
+    vaut `null` quand la défense n'a jamais été relevée — on suppose alors que
+    tout meurt, et l'appelant le dit plutôt que d'inventer un plafond.
+
+    La carte Lune et les cartes du mode passent toutes deux par ici : c'est la
+    combinaison qui décide de la chance, et elle n'avait pas à vivre en ligne
+    dans un rafraîchissement d'affichage. */
+function luneMorts(p, k, n, bouLvl = 0){
+  const d = luneDefense(p, k, bouLvl), v = luneCoque(k);
+  const tues = d && v ? Math.floor(d.tue / v) : null;
+  return {tues, morts: tues == null ? n : Math.min(n, tues)};
+}
+
 /** L'instant que désigne un champ `datetime-local`, ou `null` s'il est vide ou
     illisible. Une date-heure complète et non une heure seule : « impact à
     00:40 » saisi à 23:50 ne dit pas quel jour, et `S.lune.impact` est un
@@ -5037,9 +5051,7 @@ moon(){
      ça la carte promettait 20 % à qui envoie 1 667 chasseurs sur une défense
      qui n'en tue que mille — et une facture en dizaines de millions avec.
      Défense jamais relevée : on suppose que tout meurt, et la jauge le dit. */
-  const d = luneDefense(p, k, moonBou()), v = luneCoque(k);
-  const tues = d ? Math.floor(d.tue / v) : null;
-  const morts = tues == null ? n : Math.min(n, tues);
+  const { tues, morts } = luneMorts(p, k, n, moonBou());
   const t = luneTir(k, morts, df);
   const rec = ((p || {}).ships || {}).rec || 0, soute = shipStats('rec').cargoEff;
   const vise = Math.min(20, Math.max(1, Math.round(+m.viser || 12)));
