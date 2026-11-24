@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.56';
+const APP_VERSION = '1.53.57';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -47,20 +47,20 @@ const T = {
 };
 
 const SHIPS = {
-  sc:  {n:'Petit transporteur', cargo:5000, speed:5000, drive:'combustion', fuel:10, transporter:true},
-  lc:  {n:'Grand transporteur', cargo:25000, speed:7500, drive:'combustion', fuel:50, transporter:true},
-  pf:  {n:'Éclaireur', cargo:10000, speed:12000, drive:'hyperdrive', fuel:300},
-  lf:  {n:'Chasseur léger', cargo:50, speed:12500, drive:'combustion', fuel:20},
-  hf:  {n:'Chasseur lourd', cargo:100, speed:10000, drive:'impulse', fuel:75},
-  cr:  {n:'Croiseur', cargo:800, speed:15000, drive:'impulse', fuel:300},
-  bs:  {n:'Vaisseau de bataille', cargo:1500, speed:10000, drive:'hyperdrive', fuel:500},
-  bc:  {n:'Traqueur', cargo:750, speed:10000, drive:'hyperdrive', fuel:250},
-  bb:  {n:'Bombardier', cargo:500, speed:4000, drive:'impulse', fuel:700},
-  ds:  {n:'Destructeur', cargo:2000, speed:5000, drive:'hyperdrive', fuel:1000},
-  rp:  {n:'Faucheur', cargo:10000, speed:7000, drive:'hyperdrive', fuel:1100},
-  rec: {n:'Recycleur', cargo:20000, speed:2000, drive:'combustion', fuel:300},
-  col: {n:'Vaisseau de colonisation', cargo:7500, speed:2500, drive:'impulse', fuel:1000},
-  pr:  {n:'Sonde d\'espionnage', cargo:0, speed:100000000, drive:'combustion', fuel:1},
+  sc:  {n:'Petit transporteur', cargo:5000, speed:5000, drive:'combustion', fuel:10, transporter:true, bou:10},
+  lc:  {n:'Grand transporteur', cargo:25000, speed:7500, drive:'combustion', fuel:50, transporter:true, bou:25},
+  pf:  {n:'Éclaireur', cargo:10000, speed:12000, drive:'hyperdrive', fuel:300, bou:100},
+  lf:  {n:'Chasseur léger', cargo:50, speed:12500, drive:'combustion', fuel:20, bou:10},
+  hf:  {n:'Chasseur lourd', cargo:100, speed:10000, drive:'impulse', fuel:75, bou:25},
+  cr:  {n:'Croiseur', cargo:800, speed:15000, drive:'impulse', fuel:300, bou:50},
+  bs:  {n:'Vaisseau de bataille', cargo:1500, speed:10000, drive:'hyperdrive', fuel:500, bou:200},
+  bc:  {n:'Traqueur', cargo:750, speed:10000, drive:'hyperdrive', fuel:250, bou:400},
+  bb:  {n:'Bombardier', cargo:500, speed:4000, drive:'impulse', fuel:700, bou:500},
+  ds:  {n:'Destructeur', cargo:2000, speed:5000, drive:'hyperdrive', fuel:1000, bou:500},
+  rp:  {n:'Faucheur', cargo:10000, speed:7000, drive:'hyperdrive', fuel:1100, bou:700},
+  rec: {n:'Recycleur', cargo:20000, speed:2000, drive:'combustion', fuel:300, bou:10},
+  col: {n:'Vaisseau de colonisation', cargo:7500, speed:2500, drive:'impulse', fuel:1000, bou:100},
+  pr:  {n:'Sonde d\'espionnage', cargo:0, speed:100000000, drive:'combustion', fuel:1, bou:0.01},
 };
 const DRIVE_BONUS = {combustion:.1, impulse:.2, hyperdrive:.3};
 
@@ -3818,14 +3818,14 @@ function exploreSystems(){
    pas ; et les proportions restent celles du début de partie, celles de la fin
    supposeraient que le joueur voie passer des étoiles de la mort. */
 const DEF = {
-  rl: {n:'Lanceur de missiles', o:'lanceur de missiles',   p:'lanceurs de missiles',  c:[2000,0,0],          per:'fodder', r:{b:{shipyard:1}, t:{}}},
-  ll: {n:'Laser léger',         o:'laser léger',           p:'lasers légers',         c:[1500,500,0],        per:'fodder', r:{b:{shipyard:2}, t:{laser:3}}},
-  sd: {n:'Petit bouclier',      o:'petit bouclier',        p:'petits boucliers',      c:[10000,10000,0],     un:20,        r:{b:{shipyard:1}, t:{shielding:2}}},
-  hl: {n:'Laser lourd',         o:'laser lourd',           p:'lasers lourds',         c:[6000,2000,0],       per:1/10,     r:{b:{shipyard:4}, t:{energy:3, laser:6}}},
-  ic: {n:'Artillerie à ions',   o:'artillerie à ions',     p:'artilleries à ions',    c:[5000,3000,0],       per:1/20,     r:{b:{shipyard:4}, t:{ion:4}}},
-  gc: {n:'Canon de Gauss',      o:'canon de Gauss',        p:'canons de Gauss',       c:[20000,15000,2000],  per:1/50,     r:{b:{shipyard:6}, t:{weapons:3, energy:6, shielding:1}}},
-  ld: {n:'Grand bouclier',      o:'grand bouclier',        p:'grands boucliers',      c:[50000,50000,0],     un:100,       r:{b:{shipyard:6}, t:{shielding:6}}},
-  pt: {n:'Lanceur de plasma',   o:'lanceur de plasma',     p:'lanceurs de plasma',    c:[50000,50000,30000], per:1/100,    r:{b:{shipyard:8}, t:{plasma:7}}},
+  rl: {n:'Lanceur de missiles', o:'lanceur de missiles',   p:'lanceurs de missiles',  c:[2000,0,0], a:80,    per:'fodder', r:{b:{shipyard:1}, t:{}}},
+  ll: {n:'Laser léger',         o:'laser léger',           p:'lasers légers',         c:[1500,500,0], a:100, per:'fodder', r:{b:{shipyard:2}, t:{laser:3}}},
+  sd: {n:'Petit bouclier',      o:'petit bouclier',        p:'petits boucliers',      c:[10000,10000,0], a:1, un:20,        r:{b:{shipyard:1}, t:{shielding:2}}},
+  hl: {n:'Laser lourd',         o:'laser lourd',           p:'lasers lourds',         c:[6000,2000,0], a:250, per:1/10,     r:{b:{shipyard:4}, t:{energy:3, laser:6}}},
+  ic: {n:'Artillerie à ions',   o:'artillerie à ions',     p:'artilleries à ions',    c:[5000,3000,0], a:150, per:1/20,     r:{b:{shipyard:4}, t:{ion:4}}},
+  gc: {n:'Canon de Gauss',      o:'canon de Gauss',        p:'canons de Gauss',       c:[20000,15000,2000], a:1100, per:1/50,     r:{b:{shipyard:6}, t:{weapons:3, energy:6, shielding:1}}},
+  ld: {n:'Grand bouclier',      o:'grand bouclier',        p:'grands boucliers',      c:[50000,50000,0], a:1, un:100,       r:{b:{shipyard:6}, t:{shielding:6}}},
+  pt: {n:'Lanceur de plasma',   o:'lanceur de plasma',     p:'lanceurs de plasma',    c:[50000,50000,30000], a:3000, per:1/100,    r:{b:{shipyard:8}, t:{plasma:7}}},
 };
 /* L'ordre de construction : la chair à canon d'abord, elle protège le reste et
    c'est elle que la masse rend dissuasive ; les canons ensuite, du moins cher
@@ -3843,7 +3843,17 @@ const DEF_POURQUOI = {
   sd: 'soixante-quinze points de bouclier par millier dépensé, sept fois tout le reste, et personne n\'a de tir rapide contre lui',
   ld: 'dix mille points de bouclier d\'un bloc, sans tir rapide de personne',
 };
-const SHIP_COST = {sc:[2000,2000,0], lc:[6000,6000,0], pr:[0,1000,0], pf:[8000,15000,8000], crawl:CRAWLER_COST};
+/* Le copilote ne proposera jamais de construire une coque de combat — le wiki
+   dit le marché mauvais des deux côtés, et la demande de flotte l'a écrit une
+   fois pour toutes. Leurs coûts sont ici pour une seule raison : le tir de lune
+   les lit. Les débris valent 30 % du métal et du cristal détruits, donc chiffrer
+   un tir demande le coût de ce qui meurt, et rien d'autre ne les lit. */
+const SHIP_COST = {
+  sc:[2000,2000,0],   lc:[6000,6000,0],      pr:[0,1000,0],         pf:[8000,15000,8000],
+  lf:[3000,1000,0],   hf:[6000,4000,0],      cr:[20000,7000,2000],  bs:[45000,15000,0],
+  bc:[30000,40000,15000], bb:[50000,25000,15000], ds:[60000,50000,15000],
+  rp:[85000,55000,20000], rec:[10000,6000,2000], col:[10000,20000,10000],
+  crawl:CRAWLER_COST};
 const SHIP_REQ = {sc:{b:{shipyard:2}, t:{combustion:2}}, lc:{b:{shipyard:4}, t:{combustion:6}}, pr:{b:{shipyard:3}, t:{combustion:3, espionage:2}}, pf:{b:{shipyard:5}, t:{hyperdrive:2}}, crawl:{b:{shipyard:5}, t:{combustion:4, armour:4, laser:4}}};
 /* La défense passe par le même chantier, la même file et les mêmes wants que
    les vaisseaux : un seul endroit la nomme et la tarife. */

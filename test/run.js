@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -8175,6 +8175,55 @@ t('un fichier qui n\'est pas une sauvegarde ne remplace rien', () => {
   for (const txt of ['', 'pas du json', '{}', '{"planets":[]}', '{"settings":{}}'])
     assert.ok(!g.appliqueSauvegarde(txt), txt + ' ne devrait pas passer');
   assert.equal(g.S.planets.length, 2, 'l\'empire est resté en place');
+});
+
+/* ---------- le tir de lune : les tables ---------- */
+
+/** Coût et bouclier de base, relus sur ogame.fandom.com/wiki/Ships le
+    24 novembre 2026. La coque n'y figure pas parce qu'elle n'a pas à y être :
+    elle vaut métal + cristal, ce que les seize lignes du wiki vérifient sans
+    une exception. */
+const WIKI_VAISSEAUX = {
+  sc:  { c: [2000, 2000, 0],        bou: 10 },
+  lc:  { c: [6000, 6000, 0],        bou: 25 },
+  pf:  { c: [8000, 15000, 8000],    bou: 100 },
+  lf:  { c: [3000, 1000, 0],        bou: 10 },
+  hf:  { c: [6000, 4000, 0],        bou: 25 },
+  cr:  { c: [20000, 7000, 2000],    bou: 50 },
+  bs:  { c: [45000, 15000, 0],      bou: 200 },
+  bc:  { c: [30000, 40000, 15000],  bou: 400 },
+  bb:  { c: [50000, 25000, 15000],  bou: 500 },
+  ds:  { c: [60000, 50000, 15000],  bou: 500 },
+  rp:  { c: [85000, 55000, 20000],  bou: 700 },
+  rec: { c: [10000, 6000, 2000],    bou: 10 },
+  col: { c: [10000, 20000, 10000],  bou: 100 },
+  pr:  { c: [0, 1000, 0],           bou: 0.01 },
+};
+
+t('les quatorze vaisseaux ont le coût et le bouclier du wiki', () => {
+  const g = app();
+  assert.deepEqual(Object.keys(g.SHIPS).sort(), Object.keys(WIKI_VAISSEAUX).sort());
+  for (const [k, w] of Object.entries(WIKI_VAISSEAUX)) {
+    assert.deepEqual(g.SHIP_COST[k], w.c, 'coût de ' + k);
+    assert.equal(g.SHIPS[k].bou, w.bou, 'bouclier de ' + k);
+  }
+});
+
+t('le vaisseau de colonisation recoupe COL_SHIP_COST', () => {
+  const g = app();
+  assert.deepEqual(g.SHIP_COST.col, g.COL_SHIP_COST);
+});
+
+t('les huit attaques de défense sont celles de la revue', () => {
+  const g = app();
+  assert.deepEqual(['rl', 'll', 'hl', 'ic', 'gc', 'pt', 'sd', 'ld'].map(k => g.DEF[k].a),
+    [80, 100, 250, 150, 1100, 3000, 1, 1]);
+});
+
+t('la coque d\'une pièce de défense vaut son métal plus son cristal', () => {
+  const g = app();
+  assert.deepEqual(['rl', 'll', 'hl', 'ic', 'gc', 'pt', 'sd', 'ld'].map(k => g.DEF[k].c[0] + g.DEF[k].c[1]),
+    [2000, 2000, 8000, 8000, 35000, 100000, 20000, 100000]);
 });
 
 if (failures.length) {
