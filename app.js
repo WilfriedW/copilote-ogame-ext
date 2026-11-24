@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.12';
+const APP_VERSION = '1.54.13';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4564,13 +4564,17 @@ function centreNoteHtml(p, i, ci){
 }
 /** La vocation d'une planète, en une pastille et sa raison. Rien à dire est
     aussi une information : rien ne distingue cette planète des autres. */
-function vocHtml(v){
+function vocPill(v){
   if(!v) return `<span class="note">${S.planets.length < 2
     ? 'Une seule planète : rien à comparer pour l\'instant.'
     : 'Pas de vocation marquée : son sol ne la distingue d\'aucune autre.'}</span>`;
   const nom = v.keys.length ? v.keys.map(k=>VOC_NOM[k]).join(' et ') : 'Vocation inconnue';
-  return `<span class="pill info">${nom}</span>${v.why?`<span class="note">${esc(v.why)}</span>`:''}`;
+  return `<span class="pill info">${nom}</span>`;
 }
+/** La raison de la vocation. Elle vit dans le volet des raisons : le joueur
+    vient lire une production et poser des objectifs, pas relire pourquoi son
+    sol est ce qu'il est — mais il doit pouvoir y revenir. */
+function vocRaison(v){ return v && v.why ? `<span class="note">${esc(v.why)}</span>` : ''; }
 /** Ce qu'un centre sans labo laisse derrière lui. Le copilote obéit au joueur,
     mais il ne lui cache pas qu'un labo déjà payé ne suivra pas. */
 function labLaisse(p){
@@ -4767,7 +4771,7 @@ tools(){
 planets(){
   return `<section class="panel">
     ${S.sample ? `<div class="example">Données d'exemple : remplace-les par tes niveaux réels (planète mère, mine de métal 1). Les cases se sauvegardent dans ce navigateur.</div>` : ''}
-    <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><p class="note" id="empireMix"></p></div>
+    <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><details class="volet"${fold('mix', false)}><summary data-fold="mix">Pourquoi ce classement</summary><p class="note" id="empireMix" style="margin-top:8px"></p></details></div>
     ${(()=>{ const voc = vocations(), ci = centreIndex(), auto = centreIndex(true); return S.planets.map((p,i)=>`
     <details class="card volet" data-pi="${i}"${fold('pl:' + p.id, false)}>
       <summary data-fold="pl:${p.id}" class="plsum"><b>${esc(p.name)}</b> <span class="note">${esc(p.coords)}</span><span class="mono" id="psum-${i}"></span></summary>
@@ -4779,13 +4783,19 @@ planets(){
         ${S.planets.length>1?`<button class="btn sm ghost" data-del="${i}">Retirer</button>`:''}
       </div>
       <div class="res" id="pres-${i}"></div>
-      <div class="row" style="gap:8px"><span class="voc" id="pvoc-${i}">${vocHtml(voc[p.id])}</span>${ci<0
+      <div class="row" style="gap:8px"><span class="voc" id="pvoc-${i}">${vocPill(voc[p.id])}</span>${ci<0
         ? `<span class="note">${S.day.focus==='fleet'
             ? 'Stratégie flotte : pas de centre, tes planètes doivent rester dispersées.'
             : 'Un centre se choisit entre plusieurs planètes.'}</span>`
-        : `<label class="f coche"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>${i===ci&&centreWhy()?`<span class="note">${esc(centreWhy())}</span>`:''}`}</div>
-      <p class="note" style="margin:0" id="pctrn-${i}">${centreNoteHtml(p, i, ci)}</p>
+        : `<label class="f coche"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>`}</div>
       <p class="note" id="pfleet-${i}" style="margin:0"></p>
+      <details class="volet"${fold('pq:' + p.id, false)}><summary data-fold="pq:${p.id}">Pourquoi cette planète</summary>
+      <div class="col-notes" style="margin-top:8px">
+        <span id="pvocw-${i}">${vocRaison(voc[p.id])}</span>
+        ${ci>=0&&i===ci&&centreWhy()?`<p class="note" style="margin:0">${esc(centreWhy())}</p>`:''}
+        <p class="note" style="margin:0" id="pctrn-${i}">${centreNoteHtml(p, i, ci)}</p>
+      </div>
+      </details>
       <details class="volet"${fold('niv:' + p.id, false)}><summary data-fold="niv:${p.id}">Bâtiments et niveaux visés${prioCount(p.id) ? ` <span class="note">${prioCount(p.id)} objectif${prioCount(p.id) > 1 ? 's' : ''}</span>` : ''}</summary>
       <div class="grid tight" style="margin-top:8px">
         ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${num(p.b[k])}"${lvLu(p) ? ' readonly tabindex="-1"' : ''}><input class="prio" type="number" min="${num(p.b[k])+1}" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
@@ -5106,7 +5116,8 @@ planets(){
        et les niveaux qu'on tape dans la carte : sans ça elles restaient
        périmées jusqu'au prochain rendu complet. On ne réécrit que du texte —
        la case du centre garde son écouteur, qu'un innerHTML emporterait. */
-    const vq = document.getElementById('pvoc-'+i); if(vq) vq.innerHTML = vocHtml(voc[p.id]);
+    const vq = document.getElementById('pvoc-'+i); if(vq) vq.innerHTML = vocPill(voc[p.id]);
+    const vw = document.getElementById('pvocw-'+i); if(vw) vw.innerHTML = vocRaison(voc[p.id]);
     const cn = document.getElementById('pctrn-'+i); if(cn) cn.innerHTML = centreNoteHtml(p, i, ci);
   });
   document.getElementById('empireRes').innerHTML = gauge('m','m','Métal',fmt(tm),fmt(tm*24)+' / jour')+gauge('c','c','Cristal',fmt(tc),fmt(tc*24)+' / jour')+gauge('d','d','Deutérium',fmt(td),fmt(td*24)+' / jour')+gauge('e','e','Planètes',S.planets.length,`max ${1+Math.ceil(S.tech.astro/2)} (Astro ${S.tech.astro})`);

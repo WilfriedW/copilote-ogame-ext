@@ -167,6 +167,8 @@ details.volet>summary::after{content:"Ouvrir +";font-family:var(--f-mono);font-s
 details.volet[open]>summary::after{content:"Fermer –"}
 /* Un niveau relevé sur le jeu ne se tape pas : il ne doit pas avoir l'air
    d'un champ qu'on remplit. */
+/* Les raisons, dans leur volet : des paragraphes qui respirent, pas un bloc. */
+.col-notes{display:flex;flex-direction:column;gap:6px}
 /* Le résumé d'une planète est la ligne qu'on lit sept fois : le nom porte, et
    les chiffres de production s'alignent à droite, avant le « Ouvrir + ». */
 details.card.volet>summary.plsum{font-size:14px;gap:8px}

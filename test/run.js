@@ -8913,6 +8913,37 @@ t("le volet des bâtiments annonce combien d'objectifs sont posés", () => {
 });
 
 
+t("la raison d'une vocation se range derrière un volet, la pastille reste", () => {
+  const h = lu(app().VIEWS.planets());
+  assert.ok(/Pourquoi cette planète/.test(h), h.slice(0, 600));
+  assert.ok(/id="pvoc-0"/.test(h) && /id="pvocw-0"/.test(h), 'pastille et raison sont deux trous distincts');
+});
+
+t('la note du centre est dans le volet des raisons, pas dans le passage', () => {
+  const h = lu(app().VIEWS.planets());
+  const i = h.indexOf('Pourquoi cette planète');
+  assert.ok(i > -1 && h.indexOf('id="pctrn-0"') > i, 'pctrn doit suivre le résumé du volet');
+  assert.ok(h.indexOf('id="pfleet-0"') > -1 && h.indexOf('id="pfleet-0"') < i, 'la flotte à quai est un fait court : elle reste visible');
+});
+
+t("le pavé du mélange se replie, les jauges d'empire restent", () => {
+  const h = lu(app().VIEWS.planets());
+  assert.ok(/Pourquoi ce classement/.test(h));
+  assert.ok(/id="empireRes"/.test(h) && /id="empireFactor"/.test(h), 'les chiffres ne se replient pas');
+  const i = h.indexOf('Pourquoi ce classement');
+  assert.ok(h.indexOf('id="empireMix"') > i);
+});
+
+t('la raison de la vocation arrive dans son propre trou, pas dans la pastille', () => {
+  const g = app();
+  g.VIEWS.planets(); g.REFRESH.planets();
+  const h = g.html();
+  assert.ok(!/class="note"/.test(h['pvoc-0'] || '') || !/pill/.test(h['pvoc-0'] || ''),
+    'la pastille ne porte plus la raison : ' + (h['pvoc-0'] || ''));
+  assert.ok('pvocw-0' in h, 'REFRESH doit écrire la raison, même vide');
+});
+
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');
