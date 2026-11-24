@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.60';
+const APP_VERSION = '1.53.61';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3899,6 +3899,22 @@ function luneFacture(k, n, df = LUNE_DF){
           recupere: (tirs - 1) * t.debris};
 }
 
+/** Ce que la flotte posée sur une planète vaut en métal et en cristal, pour
+    l'avertissement : elle mourrait avec le tir, et à la charge du joueur.
+    `null` quand la flotte n'a jamais été relevée — un zéro inventé ferait
+    passer pour sûr un tir qui coûte des millions. */
+function luneFlotteAuSol(p){
+  const sh = (p || {}).ships;
+  if(!sh) return null;
+  let m = 0, c = 0;
+  for(const k of Object.keys(SHIPS)){
+    const n = Math.max(0, sh[k] || 0), cost = SHIP_COST[k] || [0, 0, 0];
+    m += n * cost[0];
+    c += n * cost[1];
+  }
+  return {m, c};
+}
+
 /** La planète que la carte Lune vise : celle que le joueur a choisie, sinon
     son centre, sinon la première. */
 function moonPlanete(){
@@ -4883,6 +4899,16 @@ moon(){
        : gauge('e','e','Ta défense', '?', 'jamais relevée')) +
     gauge('d','d','Pour ' + moonPct(vise), fmt(pour), moonNom(k, pour)) +
     (rec && soute ? gauge('m','m','Ramasser', fmt(Math.ceil(t.debris / (rec * soute))), 'voyages de recycleur') : '');
+
+  const f = luneFacture(k, n, df), sol = luneFlotteAuSol(p), av = [];
+  if(!t.chance) av.push(`Sous <b>100 000</b> de débris, le combat ne tire rien du tout : il en faut ${fmt(luneVaisseaux(k, 1, df))} au moins.`);
+  if(t.debris > 2e6) av.push(`Au-delà de <b>2 M</b> de débris le surplus est perdu : ${fmt(luneVaisseaux(k, 20, df))} suffisent pour les 20 %.`);
+  if(sol && sol.m + sol.c > 0) av.push(`Sors ta flotte de ${planetRef(p)} avant le tir : ${shipList(p.ships)} au sol mourraient avec, ${fmt(sol.m)} métal et ${fmt(sol.c)} cristal à ta charge.`);
+  document.getElementById('moonNote').innerHTML =
+    (f ? `Facture espérée d'une lune : <b>${f.tirs} tirs</b>, ${fmt(f.m)} métal et ${fmt(f.c)} cristal chez lui. Tu ramasses ${fmt(f.recupere)} de débris sur les tirs ratés. ` : '')
+    + (av.length ? av.map(x=>`<br>⚠ ${x}`).join('') + '<br>' : '')
+    + ` Les débris de <b>ses</b> vaisseaux tombent chez <b>toi</b>, et le jeu dit à qui ils reviennent : au moins bien classé de vous deux. Si c'est lui, préviens un <b>Game Operator</b> avant de lui renvoyer quoi que ce soit — remonter des ressources vers le mieux classé est du pushing.`
+    + ` <b>Estimation.</b> Seule la ligne « ta défense tue » est estimée : elle ne compte pas la règle d'explosion sous 70 % de coque, qui tue plus vite, et suppose le niveau de Bouclier saisi ci-dessus. La chance, elle, est exacte et linéaire — 1 % coûte le même poids de vaisseaux, gros tir ou petit. Le copilote ne connaît pas les lunes : il ne peut pas savoir si cette position en porte déjà une.`;
 },
 fleet(){
   const s=S.settings, cap = expoFind(S.expo.pf);

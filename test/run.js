@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -8422,6 +8422,52 @@ t('les voyages de recycleur ne sortent que s\'il y a des recycleurs', () => {
   const sans = app(s => { LUNE(s); s.planets[0].ships = {}; });
   sans.REFRESH.moon();
   assert.ok(!/voyage/i.test(lu(sans.html().moonOut || '')), 'sans recycleur');
+});
+
+/* ---------- le tir de lune : les avertissements ---------- */
+
+t('la flotte au sol est chiffrée pour l\'avertissement', () => {
+  const g = app(s => { LUNE(s); s.planets[0].ships = { lf: 240, hf: 538 }; });
+  assert.deepEqual(g.luneFlotteAuSol(g.S.planets[0]),
+    { m: 240 * 3000 + 538 * 6000, c: 240 * 1000 + 538 * 4000 });
+});
+
+t('une flotte jamais relevée n\'invente pas un zéro', () => {
+  const g = app(s => { LUNE(s); delete s.planets[0].ships; });
+  assert.equal(g.luneFlotteAuSol(g.S.planets[0]), null);
+});
+
+t('la carte avertit sous le plancher et pour la flotte au sol', () => {
+  const g = app(s => { LUNE(s); s.moonCalc.n = 83; s.planets[0].ships = { hf: 538 }; });
+  g.REFRESH.moon();
+  const note = lu(g.html().moonNote || '');
+  assert.ok(/100 000/.test(note), 'le plancher : ' + note);
+  assert.ok(/538/.test(note), 'la flotte au sol : ' + note);
+  assert.ok(/Estimation/.test(note), 'l\'estimation est nommée : ' + note);
+  assert.ok(/ne connaît pas les lunes/.test(note), 'la lune déjà là : ' + note);
+});
+
+t('au-dessus du plafond, la carte dit ce qui est perdu', () => {
+  const g = app(s => { LUNE(s); s.moonCalc.n = 3000; });
+  g.REFRESH.moon();
+  const note = lu(g.html().moonNote || '');
+  assert.ok(/perdu/.test(note), note);
+  assert.ok(/667 suffisent/.test(note), 'le nombre qui suffit : ' + note);
+});
+
+t('sans flotte relevée, aucun avertissement de flotte au sol', () => {
+  const g = app(s => { LUNE(s); delete s.planets[0].ships; });
+  g.REFRESH.moon();
+  assert.ok(!/à ta charge/.test(lu(g.html().moonNote || '')));
+});
+
+t('la note porte la règle de pushing et la facture espérée', () => {
+  const g = app(LUNE);
+  g.REFRESH.moon();
+  const note = lu(g.html().moonNote || '');
+  assert.ok(/pushing/i.test(note), 'la règle du jeu : ' + note);
+  assert.ok(/Game Operator/.test(note), 'qui prévenir : ' + note);
+  assert.ok(/9 tirs/.test(note), 'la facture espérée : ' + note);
 });
 
 if (failures.length) {
