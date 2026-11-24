@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.3';
+const APP_VERSION = '1.54.4';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1302,6 +1302,41 @@ function production(p, ov){
 }
 function mse(m,c,d){ const r=S.settings.ratio; return m + c*r[0]/r[1] + d*r[0]/r[2]; }
 
+/* ---------- ce qui manque à l'empire ---------- */
+const NOM_RES = ['métal', 'cristal', 'deutérium'];
+/**
+ * Ce que vaut une ressource à la marge, pour cet empire-là, par rapport à son cours.
+ *
+ * Le ratio d'échange dit ce qu'une ressource vaut AU TROC. Lu comme des
+ * quantités, il dit donc aussi le mélange qu'il faudrait produire pour n'avoir
+ * jamais à troquer. Un empire qui produit plus que sa part de métal n'en tire
+ * pas le prix du livre : il l'empile dans un hangar, ou il le brade. Un niveau
+ * de mine se juge sur ce que la ressource vaut ici, pas sur son cours.
+ *
+ * Bornes à 0,5 et 2 : un écart de mélange corrige un classement, il ne le
+ * retourne pas. Sans elles, une planète sans synthétiseur ferait valoir son
+ * deutérium cent fois son métal et toutes les cartes diraient « deutérium ».
+ * @returns {number[]} trois facteurs, 1 chacun quand le mélange est sur sa cible
+ *
+ * ponytail: relu à chaque appel de `rankUpgrades`, donc O(planètes²) sur une
+ * journée simulée — 19 ms à 54 ms pour douze planètes. Sans mémo parce que les
+ * niveaux bougent PENDANT la simulation et qu'un mélange figé en tête de
+ * journée mentirait le soir. À passer en paramètre depuis les appelants si le
+ * panneau devient lent.
+ */
+function besoinEmpire(){
+  const r = S.settings.ratio, som = r[0]+r[1]+r[2], P = [0,0,0];
+  for(const p of S.planets){ const pr = production(p); P[0]+=pr.m; P[1]+=pr.c; P[2]+=pr.d; }
+  /* Un deutérium net négatif — la fusion en brûle plus que le synthétiseur n'en
+     sort — n'est pas une part nulle : c'est le manque le plus franc qui soit,
+     donc le facteur haut. */
+  const tot = P.reduce((a,x)=>a+Math.max(0,x), 0);
+  if(!(tot > 0)) return [1,1,1];
+  return P.map((x,i) => x > 0 ? Math.min(Math.max((r[i]/som)/(x/tot), .5), 2) : 2);
+}
+/** Comme `mse`, mais au prix que ces ressources ont pour cet empire-là. */
+function mseW(m,c,d,w){ const r=S.settings.ratio; return m*w[0] + c*w[1]*r[0]/r[1] + d*w[2]*r[0]/r[2]; }
+
 /* ---------- la vocation d'une planète ---------- */
 /* Ce que le sol d'une planète lui donne de mieux ne se choisit pas : il se
    lit. Et il ne se lit qu'en comparant les planètes entre elles. Comparer les
@@ -1438,16 +1473,27 @@ function upLabel(u){ return u.key==='crawl' ? `${u.n} foreuse${u.n>1?'s':''} (${
 /** Ranks next building upgrades and crawlers on a planet by payback time. */
 function rankUpgrades(p){
   const base = production(p), baseV = mse(base.m, base.c, base.d), out=[];
+  /* Deux lectures du même pas. `payback` reste au cours du ratio : c'est le
+     chiffre que la carte affiche et que le joueur peut refaire de tête, et il
+     ne doit pas bouger parce qu'une autre planète a monté une mine. `score`
+     est le même calcul au prix que ces ressources ont dans CET empire, et
+     c'est lui qui classe. Les séparer est tout l'objet : le classement suit
+     le besoin, l'affichage reste vérifiable. */
+  const w = besoinEmpire(), baseW = mseW(base.m, base.c, base.d, w);
+  const scoreOf = (pr, cost, gain) => {
+    const g = mseW(pr.m, pr.c, pr.d, w) - baseW;
+    return (gain > 0 && g > 0) ? mseW(...cost, w)/g : Infinity;
+  };
   for(const k of ['metal','crystal','deut']){
     const ov = {[k]:p.b[k]+1}; let cost = levelCost(B[k], p.b[k]+1), extra=0;
     let pr = production(p, ov);
     while(pr.factor<1 && extra<15){ extra++; ov.solar = p.b.solar+extra; const sc=levelCost(B.solar, p.b.solar+extra); cost=cost.map((x,i)=>x+sc[i]); pr=production(p,ov); }
     const gain = mse(pr.m,pr.c,pr.d)-baseV;
-    out.push({key:k, lvl:p.b[k]+1, extraSolar:extra, cost, gain, payback: gain>0 ? mse(...cost)/gain : Infinity, time:buildTime(k,p.b[k]+1,p)});
+    out.push({key:k, lvl:p.b[k]+1, extraSolar:extra, cost, gain, payback: gain>0 ? mse(...cost)/gain : Infinity, score:scoreOf(pr,cost,gain), time:buildTime(k,p.b[k]+1,p)});
   }
   if(base.factor<1){
     const pr = production(p,{solar:p.b.solar+1}), cost=levelCost(B.solar,p.b.solar+1), gain=mse(pr.m,pr.c,pr.d)-baseV;
-    out.push({key:'solar', lvl:p.b.solar+1, extraSolar:0, cost, gain, payback: gain>0?mse(...cost)/gain:Infinity, time:buildTime('solar',p.b.solar+1,p)});
+    out.push({key:'solar', lvl:p.b.solar+1, extraSolar:0, cost, gain, payback: gain>0?mse(...cost)/gain:Infinity, score:scoreOf(pr,cost,gain), time:buildTime('solar',p.b.solar+1,p)});
   }
   /* Les foreuses sont une dépense productive comme une autre : elles se classent
      par amortissement, à côté des mines. Aujourd'hui loin derrière ; elles
@@ -1462,9 +1508,9 @@ function rankUpgrades(p){
     while(pr.factor<1 && extra<15){ extra++; ov.solar = p.b.solar+extra; const sc=levelCost(B.solar, p.b.solar+extra); cost=cost.map((x,i)=>x+sc[i]); pr=production(p,ov); }
     const gain = mse(pr.m,pr.c,pr.d)-baseV;
     out.push({key:'crawl', n, lvl:have+n, extraSolar:extra, cost, gain,
-              payback: gain>0 ? mse(...cost)/gain : Infinity, time:shipTime('crawl', n, p)});
+              payback: gain>0 ? mse(...cost)/gain : Infinity, score:scoreOf(pr,cost,gain), time:shipTime('crawl', n, p)});
   }
-  return out.sort((a,b)=>a.payback-b.payback);
+  return out.sort((a,b)=>a.score-b.score);
 }
 
 /* ---------- fleet formulas ---------- */
@@ -2029,7 +2075,13 @@ function colonyPayback(pos){
   for(let step = 0; step < 200; step++){
     const pr = production(colo), rate = mse(pr.m, pr.c, pr.d);
     if(rate <= 0) return null;
-    const u = rankUpgrades(colo).find(x => B[x.key] && x.payback < COLO_HORIZON_H);
+    /* Au cours du ratio, pas au besoin de l'empire : cette simulation sert à
+       comparer des POSITIONS entre elles, et une comparaison demande une règle
+       fixe. Pondérer la montée par un mélange que cette colonie n'a pas encore
+       changé mesurerait chaque position avec une règle différente — la plus
+       froide gagnerait pour la seule raison qu'il manque du deutérium ailleurs. */
+    const u = rankUpgrades(colo).sort((a,b) => a.payback - b.payback)
+      .find(x => B[x.key] && x.payback < COLO_HORIZON_H);
     if(!u) break;
     // Elle paie son niveau suivant avec sa propre production, puis le monte.
     h += mse(...u.cost)/rate + u.time/3600;
@@ -2455,6 +2507,39 @@ function prioRien(p, cost){
   return '';
 }
 
+/**
+ * Ce qui met cette mine-là devant, au-delà de son amortissement : le mélange de
+ * l'empire, et ce que le sol de cette planète donne de mieux.
+ *
+ * Les deux entrent déjà dans le calcul — le besoin par `besoinEmpire`, le sol
+ * par le bonus de position dans `production`. Ici ils se disent seulement, parce
+ * qu'une carte dont la raison ne se lit pas se fait ignorer, et c'est ce qui
+ * arrivait : « amorti en 567 h » sur une mine de métal ne dit pas pourquoi le
+ * métal, et surtout pas pourquoi pas le cristal.
+ * @param {object} p la planète
+ * @param {string} k 'metal', 'crystal' ou 'deut'
+ * @returns {string} un bout de phrase à coller derrière l'amortissement, ou ''
+ */
+function mineWhy(p, k){
+  const i = VOC_KEYS.indexOf(k);
+  if(i < 0) return '';
+  const w = besoinEmpire(), bouts = [];
+  /* Dire aussi le cas gênant — « tu en produis déjà trop, et c'est quand même
+     le meilleur pas » — est le seul moyen que le joueur distingue un classement
+     qui a vu son mélange d'un classement qui l'ignore. */
+  if(w[i] >= 1.05) bouts.push(`ton empire manque de ${NOM_RES[i]}`);
+  else if(w[i] <= .95) bouts.push(`tu produis déjà plus que ta part de ${NOM_RES[i]}`);
+  const v = vocations()[p.id], vi = v ? v.keys.indexOf(k) : -1;
+  if(vi >= 0){
+    /* `why` est le `join(' · ')` des raisons dans l'ordre de `keys` : on reprend
+       celle de CETTE ressource. Citer tout `why` collait la température de la
+       vocation deutérium derrière une mine de cristal. */
+    const sienne = String(v.why || '').split(' · ')[vi];
+    bouts.push(`c'est ta planète à ${VOC_NOM[k].toLowerCase()}${sienne ? ` (${sienne})` : ''}`);
+  }
+  return bouts.length ? ` — ${bouts.join(', et ')}` : '';
+}
+
 /** Building candidates for a simulated planet, most urgent first. */
 function pickBuildings(p, ctx){
   const pr = production(p), iv = ctx.iv, rates=[pr.m,pr.c,pr.d], sk=['smetal','scrystal','sdeut'], out=[];
@@ -2501,7 +2586,7 @@ function pickBuildings(p, ctx){
   for(const u of ranked.slice(0,2)){
     if(u.extraSolar && satsSoon) add(u.key, `Meilleur rendement, énergie fournie par les satellites`);
     else if(u.extraSolar) add('solar', `Énergie pour ${B_SHORT[u.key]} ${u.lvl}`);
-    else add(u.key, `Meilleur rendement : amorti en ${dur(u.payback*3600)}`);
+    else add(u.key, `Meilleur rendement : amorti en ${dur(u.payback*3600)}${mineWhy(p, u.key)}`);
   }
   return out;
 }
@@ -4659,7 +4744,7 @@ planets(){
       <div class="row"><button class="btn primary" id="impGo">Importer</button><span class="note" id="impMsg">${S.lastImport?`Dernier import : ${new Date(S.lastImport).toLocaleString('fr-FR')}`:''}</span></div>
       <div id="impReport"></div>
     </details>`}
-    <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div></div>
+    <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><p class="note" id="empireMix"></p></div>
     ${(()=>{ const voc = vocations(), ci = centreIndex(), auto = centreIndex(true); return S.planets.map((p,i)=>`
     <div class="card" data-pi="${i}">
       <div class="planet-head">
@@ -5008,6 +5093,17 @@ planets(){
   });
   document.getElementById('empireRes').innerHTML = gauge('m','m','Métal',fmt(tm),fmt(tm*24)+' / jour')+gauge('c','c','Cristal',fmt(tc),fmt(tc*24)+' / jour')+gauge('d','d','Deutérium',fmt(td),fmt(td*24)+' / jour')+gauge('e','e','Planètes',S.planets.length,`max ${1+Math.ceil(S.tech.astro/2)} (Astro ${S.tech.astro})`);
   document.getElementById('empireFactor').innerHTML = factorPill(worst);
+  /* Le mélange, en clair : c'est lui qui décide quelle mine passe devant, et
+     tant qu'il ne se lisait nulle part le classement avait l'air arbitraire. */
+  const mix = document.getElementById('empireMix');
+  if(mix){
+    const w = besoinEmpire(), r = S.settings.ratio, som = r[0]+r[1]+r[2];
+    const tot = Math.max(0,tm)+Math.max(0,tc)+Math.max(0,td);
+    const part = tot > 0 ? [tm,tc,td].map(x=>Math.round(Math.max(0,x)/tot*100)) : null;
+    mix.innerHTML = part
+      ? `Mélange produit <b>${part.join(' / ')} %</b> de métal / cristal / deutérium, pour une cible de <b>${[0,1,2].map(i=>Math.round(r[i]/som*100)).join(' / ')} %</b> — ton ratio d'échange ${r.join(':')} lu comme des quantités. Le classement des mines en tient compte : ${[0,1,2].map(i=>`${NOM_RES[i]} ×${w[i].toFixed(2)}`).join(', ')}. Un facteur sous 1 veut dire que tu en produis déjà plus que ta part, donc qu'un niveau de plus vaut moins qu'au cours.`
+      : 'Aucune production : rien à mélanger pour l\'instant.';
+  }
   document.getElementById('colonyNote').textContent = S.tech.astro ? '' : 'Les colonies demandent Astrophysique 1.';
 },
 research(){

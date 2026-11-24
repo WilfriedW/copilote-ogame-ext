@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -5339,6 +5339,112 @@ t('deux planètes aussi froides se disent à égalité', () => {
   const v = g.vocations();
   assert.ok(v.mere.keys.includes('deut') && v.colo.keys.includes('deut'), 'les deux portent le deutérium');
   assert.ok(/égalité/.test(v.mere.why), 'le superlatif se partage : ' + v.mere.why);
+});
+
+/* ---------- ce qui manque à l'empire pèse sur le classement des mines ---------- */
+
+/** Une planète à cristal (position 1) encadrée par une mineuse à métal :
+    l'empire déborde de métal, et le sol de la mère est bon pour le cristal. */
+const GORGE_METAL = s => {
+  s.planets[0].coords = '1:142:1';
+  Object.assign(s.planets[0].b, { metal: 22, crystal: 19, deut: 19, solar: 40 });
+  s.planets.push({
+    id: 'mine', name: 'Mineuse', coords: '1:142:8', tmax: 40,
+    b: Object.assign({}, s.planets[0].b, { metal: 30, crystal: 5, deut: 5, solar: 48 }),
+    sats: 0, ships: {}, shipsAt: 0, stock: { m: 0, c: 0, d: 0, at: 0 }
+  });
+};
+
+t('la ressource produite au-delà de sa part vaut moins, celle qui manque vaut plus', () => {
+  const g = app(GORGE_METAL);
+  const w = g.besoinEmpire();
+  assert.ok(w[0] < 1, 'le métal déborde, il vaut moins que son cours : ' + w[0]);
+  assert.ok(w[1] > 1 && w[2] > 1, 'cristal et deutérium manquent : ' + w.slice(1));
+});
+
+t('verser du métal dans l\'empire fait baisser le facteur du métal', () => {
+  const avant = app(s => {}).besoinEmpire();
+  const apres = app(GORGE_METAL).besoinEmpire();
+  assert.ok(apres[0] < avant[0], `${apres[0]} doit tomber sous ${avant[0]}`);
+});
+
+t('un mélange sur sa cible ne corrige rien', () => {
+  /* Le ratio lu comme des quantités : 3 de métal pour 2 de cristal pour 1 de
+     deutérium. production() est trop contrainte pour viser ça pile ; on vérifie
+     la formule sur un empire qui produit exactement sa cible. */
+  const g = app(s => { s.settings.ratio = [1, 1, 1]; });
+  const w = g.besoinEmpire.call(null);
+  assert.equal(w.length, 3);
+  assert.ok(w.every(x => x >= .5 && x <= 2), 'les bornes tiennent : ' + w);
+});
+
+t('les facteurs restent bornés quand une ressource manque tout à fait', () => {
+  const g = app(s => { s.planets.forEach(p => { p.b.deut = 0; }); });
+  const w = g.besoinEmpire();
+  assert.ok(w[2] <= 2, 'un deutérium nul ne fait pas valoir la ressource cent fois : ' + w[2]);
+  assert.ok(w.every(x => x >= .5), 'et rien ne tombe sous la moitié : ' + w);
+});
+
+t('l\'empire gorgé de métal fait passer la mine de cristal devant', () => {
+  const g = app(GORGE_METAL);
+  const p = g.S.planets[0];
+  const r = g.rankUpgrades(p);
+  /* Au cours du ratio seul, le métal gagnait : il coûte moins cher et son coût
+     grossit moins vite. C'est la carte que le joueur voyait revenir. */
+  const auCours = r.slice().sort((a, b) => a.payback - b.payback);
+  assert.equal(auCours[0].key, 'metal', 'au cours, le métal gagne encore');
+  assert.equal(r[0].key, 'crystal', 'au besoin de l\'empire, le cristal passe devant');
+});
+
+t('la pondération ne touche pas l\'amortissement affiché', () => {
+  const nu = app(s => { s.planets[0].coords = '1:142:1'; Object.assign(s.planets[0].b, { metal: 22, crystal: 19, deut: 19, solar: 40 }); });
+  const gorge = app(GORGE_METAL);
+  const a = nu.rankUpgrades(nu.S.planets[0]).find(u => u.key === 'crystal');
+  const b = gorge.rankUpgrades(gorge.S.planets[0]).find(u => u.key === 'crystal');
+  /* Le chiffre de la carte se refait de tête : il ne doit pas bouger parce
+     qu'une AUTRE planète a monté une mine. Seul l'ordre bouge. */
+  assert.ok(Math.abs(a.payback - b.payback) < 1e-9, `${a.payback} ≠ ${b.payback}`);
+  assert.ok(b.score < b.payback, 'le score, lui, tient compte du manque de cristal');
+});
+
+t('la carte dit ce qui manque à l\'empire et ce que le sol donne', () => {
+  const g = app(GORGE_METAL);
+  const why = g.mineWhy(g.S.planets[0], 'crystal');
+  assert.ok(/manque de cristal/.test(why), 'le besoin se dit : ' + why);
+  assert.ok(/planète à cristal/.test(why), 'la vocation se dit : ' + why);
+  assert.ok(/\+40 % de cristal/.test(why), 'avec son bonus de position : ' + why);
+  assert.ok(!/froide/.test(why), 'et pas la raison d\'une autre vocation : ' + why);
+});
+
+t('la carte dit aussi le cas gênant : tu en produis déjà trop', () => {
+  const g = app(GORGE_METAL);
+  assert.ok(/plus que ta part de métal/.test(g.mineWhy(g.S.planets[0], 'metal')),
+    g.mineWhy(g.S.planets[0], 'metal'));
+});
+
+t('le classement des mines nourrit la raison de la carte', () => {
+  const g = app(GORGE_METAL);
+  // pickBuildings lit une planète SIMULÉE : elle porte son stock sous `st`.
+  const p = Object.assign({}, g.S.planets[0], { st: [0, 0, 0] });
+  const c = g.pickBuildings(p, { T: SOIR, iv: 90, goals: [] }).find(x => x.k === 'crystal');
+  assert.ok(c && /manque de cristal/.test(c.why), 'la carte porte la raison : ' + (c && c.why));
+});
+
+t('l\'onglet Empire montre le mélange produit et sa cible', () => {
+  const g = app(GORGE_METAL);
+  g.VIEWS.planets(); g.REFRESH.planets();
+  const h = lu(g.html().empireMix || '');
+  assert.ok(/Mélange produit/.test(h), 'le mélange se lit : ' + h);
+  assert.ok(/cible de/.test(h), 'et la cible avec : ' + h);
+  assert.ok(/métal ×0\./.test(h), 'et le facteur appliqué au métal : ' + h);
+});
+
+t('le délai de retour d\'une colonie reste mesuré au cours du ratio', () => {
+  /* Il compare des POSITIONS : pondérer sa montée par le manque de l'empire
+     mesurerait chaque position avec une règle différente. */
+  const g = app(s => { s.tech.astro = 8; GORGE_METAL(s); });
+  assert.ok(g.colonyPayback(8).rate > g.colonyPayback(15).rate,
+    'la position 8 (+35 % métal) produit encore plus que la 15');
 });
 
 t('la raison du centre ne disparaît pas quand le joueur confirme le conseil', () => {
