@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.6';
+const APP_VERSION = '1.54.7';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -5388,30 +5388,49 @@ function msg(t){ const m=document.getElementById('ioMsg'); if(m) m.textContent=t
 function appliqueSauvegarde(txt){
   let d; try{ d = JSON.parse(txt); }catch(e){ return false; }
   if(!d || !Array.isArray(d.planets) || !d.settings) return false;
-  S = Object.assign(sample(), d); S.sample = false; sainSettings(); save(); render(); return true;
+  S = Object.assign(sample(), d); S.sample = false; sainEtat(); save(); render(); return true;
 }
 /**
- * Remet `S.settings` d'aplomb quand il vient d'ailleurs.
+ * Remet d'aplomb les champs de l'état qui viennent d'ailleurs.
  *
  * Deux entrées ne sont pas de la saisie : un fichier de sauvegarde rendu par
  * `appliqueSauvegarde`, et `chrome.storage.sync`. Ni l'une ni l'autre ne
- * garantit que `ratio` soit trois nombres — seul le champ des Réglages le
- * vérifiait, et il n'est pas sur ce chemin. Or le ratio s'affiche brut deux
- * fois : dans l'innerHTML de l'onglet Empire et dans l'attribut `value` des
- * Réglages. Une sauvegarde reçue d'un autre joueur pouvait donc y glisser du
- * balisage, dans un panneau qui a les droits de l'extension.
+ * garantit la forme de ce qu'elles posent dans `S` — seuls les champs des
+ * Réglages la vérifiaient, et ils ne sont pas sur ces chemins.
+ *
+ * Les textes sont déjà couverts : ce dépôt échappe au point d'affichage
+ * (`esc(p.name)`, `esc(a.what)`, `esc(x)` dans `whyParts`). Ce qui restait à
+ * découvert, ce sont les champs tenus pour des nombres et donc interpolés
+ * bruts : le ratio dans l'onglet Empire et l'attribut `value` des Réglages,
+ * l'intervalle et les heures de nuit dans la carte « Plan du jour ». Une
+ * sauvegarde reçue d'un autre joueur pouvait y glisser du balisage, dans un
+ * panneau qui a les droits de l'extension.
  *
  * Normaliser à l'entrée plutôt qu'échapper à chaque affichage : un seul garde,
- * et les deux affichages redeviennent justes par construction.
+ * et tous ces affichages redeviennent justes par construction.
  *
- * ponytail: seul `ratio` est normalisé, c'est le seul réglage qui atteint un
- * gabarit HTML sans passer par `esc`. À étendre si un autre l'y rejoint.
+ * Les bornes sont larges à dessein : elles écartent l'absurde sans rejeter ce
+ * que les menus des Réglages proposent.
+ *
+ * ponytail: la liste des champs est tenue à la main, pas dérivée d'un schéma.
+ * Le critère d'entrée est « interpolé sans `esc` dans un gabarit » ; `research`
+ * et `lf` n'y sont pas parce qu'ils ne servent qu'en comparaison (`=== k`). À
+ * relire si un nouveau champ de `S` rejoint un gabarit.
  */
-function sainSettings(){
-  const def = sample().settings;
-  if(!S.settings || typeof S.settings !== 'object') S.settings = def;
+function sainEtat(){
+  const def = sample();
+  const nb = (v, d, min, max) => { const x = Number(v); return Number.isFinite(x) && x >= min && x <= max ? x : d; };
+
+  if(!S.settings || typeof S.settings !== 'object') S.settings = def.settings;
   const r = Array.isArray(S.settings.ratio) ? S.settings.ratio.map(Number) : [];
-  S.settings.ratio = (r.length === 3 && r.every(x => Number.isFinite(x) && x > 0)) ? r : def.ratio;
+  S.settings.ratio = (r.length === 3 && r.every(x => Number.isFinite(x) && x > 0)) ? r : def.settings.ratio;
+
+  if(!S.day || typeof S.day !== 'object') S.day = def.day;
+  S.day.interval   = nb(S.day.interval,   def.day.interval,   1, 24*60);
+  S.day.horizon    = nb(S.day.horizon,    def.day.horizon,    1, 24*30);
+  S.day.nightStart = nb(S.day.nightStart, def.day.nightStart, 0, 23);
+  S.day.nightEnd   = nb(S.day.nightEnd,   def.day.nightEnd,   0, 23);
+  if(!(S.day.focus in FOCUS)) S.day.focus = def.day.focus;
 }
 function changed(){ S.sample=false; save(); refresh(); }
 
@@ -5778,7 +5797,7 @@ function syncApply(d){
   let chg = false;
   const met = (k, v) => { if(v === undefined || JSON.stringify(S[k]) === JSON.stringify(v)) return; S[k] = v; chg = true; };
   for(const k of SYNC_KEYS) met(k, d['sy:' + k]);
-  sainSettings();
+  sainEtat();
   if(d['sy:prio'] !== undefined) met('prio', prioIn(d['sy:prio']));
   if(d['sy:centre'] != null){ const pid = pidDe(d['sy:centre']); if(pid && pid !== S.centre){ S.centre = pid; chg = true; } }
   if(!chg) return;

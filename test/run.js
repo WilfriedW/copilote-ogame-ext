@@ -8283,31 +8283,50 @@ t('un fichier qui n\'est pas une sauvegarde ne remplace rien', () => {
   assert.equal(g.S.planets.length, 2, 'l\'empire est resté en place');
 });
 
-t('un ratio venu d\'ailleurs ne peut pas porter de balisage', () => {
-  /* Le champ des Réglages vérifie le ratio, mais deux entrées le contournent :
-     le fichier de sauvegarde et storage.sync. Or le ratio s'affiche brut —
-     innerHTML dans l'onglet Empire, attribut `value` dans les Réglages — donc
-     une sauvegarde reçue d'un autre joueur pouvait y glisser du balisage. */
+t('un état venu d\'ailleurs ne peut pas porter de balisage', () => {
+  /* Les champs des Réglages vérifient ce que le joueur tape, mais deux entrées
+     les contournent : le fichier de sauvegarde et storage.sync. Les textes sont
+     échappés à l'affichage ; ce qui restait à découvert, ce sont les champs tenus
+     pour des nombres et donc interpolés bruts — le ratio, l'intervalle et les
+     heures de nuit. */
   const g = app();
   const sain = JSON.parse(JSON.stringify(g.S));
-  const piege = r => JSON.stringify(Object.assign({}, sain, {
-    settings: Object.assign({}, sain.settings, { ratio: r }),
-  }));
+  const piege = part => JSON.stringify(Object.assign({}, sain, part));
+  const XSS = '<img src=x onerror=alert(1)>';
 
-  assert.ok(g.appliqueSauvegarde(piege(['<img src=x onerror=alert(1)>', 2, 1])),
-    'le fichier reste une sauvegarde recevable : c\'est le ratio seul qui est écarté');
+  // 1. le ratio, dans l'innerHTML de l'onglet Empire
+  assert.ok(g.appliqueSauvegarde(piege({ settings: Object.assign({}, sain.settings, { ratio: [XSS, 2, 1] }) })),
+    'le fichier reste une sauvegarde recevable : ce sont les champs seuls qui sont écartés');
   assert.deepEqual(g.saved().settings.ratio, [3, 2, 1], 'le ratio retombe sur sa valeur par défaut');
   g.VIEWS.planets(); g.REFRESH.planets();
-  const h = g.html().empireMix || '';
-  assert.ok(!/onerror/.test(h), 'et rien n\'atteint l\'onglet Empire : ' + h);
+  assert.ok(!/onerror/.test(g.html().empireMix || ''), 'rien n\'atteint l\'onglet Empire');
 
-  // storage.sync est l'autre chemin, et il ne passe pas par appliqueSauvegarde
-  g.syncApply({ 'sy:settings': Object.assign({}, sain.settings, { ratio: ['"><b>', 2, 1] }) });
-  assert.deepEqual(g.saved().settings.ratio, [3, 2, 1], 'le ratio reçu en synchro est écarté aussi');
+  // 2. l'intervalle et les heures de nuit, dans « Plan du jour » et les Réglages
+  assert.ok(g.appliqueSauvegarde(piege({
+    day: Object.assign({}, sain.day, { interval: XSS, nightStart: '"><b>x', nightEnd: {}, horizon: NaN, focus: XSS }),
+  })));
+  const d = g.saved().day;
+  assert.equal(d.interval, 90, 'l\'intervalle retombe sur sa valeur par défaut');
+  assert.equal(d.nightStart, 23, 'et l\'heure de début de nuit');
+  assert.equal(d.nightEnd, 7, 'et celle de fin');
+  assert.equal(d.horizon, 24, 'et l\'horizon');
+  assert.equal(d.focus, 'equi', 'et la priorité, qui n\'est pas un nombre mais une clé connue');
+  for(const h of [g.VIEWS.today(), g.VIEWS.settings()])
+    assert.ok(!/onerror|"><b>/.test(h), 'ni « Plan du jour » ni les Réglages ne portent le balisage');
 
-  // et un ratio honnête traverse toujours
-  assert.ok(g.appliqueSauvegarde(piege([2, 1, 1])));
+  // 3. storage.sync est l'autre chemin, et il ne passe pas par appliqueSauvegarde
+  g.syncApply({ 'sy:day': Object.assign({}, sain.day, { nightStart: XSS }) });
+  assert.equal(g.saved().day.nightStart, 23, 'l\'état reçu en synchro est écarté aussi');
+
+  // 4. et ce que les menus des Réglages proposent traverse toujours
+  assert.ok(g.appliqueSauvegarde(piege({
+    settings: Object.assign({}, sain.settings, { ratio: [2, 1, 1] }),
+    day: Object.assign({}, sain.day, { interval: 180, nightStart: 0, nightEnd: 6, horizon: 48, focus: 'fleet' }),
+  })));
   assert.deepEqual(g.saved().settings.ratio, [2, 1, 1], 'trois nombres > 0 passent');
+  assert.deepEqual(
+    [g.saved().day.interval, g.saved().day.nightStart, g.saved().day.nightEnd, g.saved().day.horizon, g.saved().day.focus],
+    [180, 0, 6, 48, 'fleet'], 'et les valeurs que les menus offrent ne sont pas rabotées');
 });
 
 /* ---------- le tir de lune : les tables ---------- */
