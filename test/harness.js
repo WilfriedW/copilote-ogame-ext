@@ -153,6 +153,7 @@ function fixtureState() {
     ],
     plan: [], fleetCalc: { from: '1:142:8', to: '1:142:6', pct: 100, ships: { sc: 1 } },
     expo: { pf: true }, ui: { tool: 'colony' },
+    lune: { on: false, impact: null, tirs: {}, rendu: { coords: '', n: 0, dus: 0, faits: 0 } },
     day: { interval: 90, nightStart: 23, nightEnd: 7, horizon: 24, focus: 'ecocol' },
     lf: { found: ['humans'] }, roles: {}, raid: null, raids: {}, daily: { done: {} },
     colo: { from: 0, objective: 'balanced', bonus: 0, target: '', kit: 'std', tr: 'sc', built: false, fields: '', fpos: '' },

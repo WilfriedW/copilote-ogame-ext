@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.3';
+const APP_VERSION = '1.54.4';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3954,6 +3954,22 @@ function moonShip(){ return SHIPS[S.moonCalc.ship] ? S.moonCalc.ship : 'lf'; }
 /** Le nom du vaisseau au bon nombre, avec les tables qui l'écrivent déjà. */
 function moonNom(k, n){ return n > 1 ? SHIP_PLURAL[k] : (SHIPS[k] || {n:''}).n.toLowerCase(); }
 
+/** L'instant que désigne un champ `datetime-local`, ou `null` s'il est vide ou
+    illisible. Une date-heure complète et non une heure seule : « impact à
+    00:40 » saisi à 23:50 ne dit pas quel jour, et `S.lune.impact` est un
+    instant absolu. */
+function luneQuand(txt){
+  const t = new Date(String(txt == null ? '' : txt)).getTime();
+  return isFinite(t) ? t : null;
+}
+
+/** Le même instant, dans la forme que le champ attend. */
+function luneQuandTxt(ms){
+  if(!ms) return '';
+  const d = new Date(ms), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 /** Une chance en pourcent, lisible : un chiffre après la virgule sous 10 %. */
 function moonPct(x){
   return String(x >= 10 ? Math.round(x) : Math.round(x * 10) / 10).replace('.', ',') + ' %';
@@ -4699,6 +4715,17 @@ moon(){
       <div class="res" id="moonOut"></div>
       <p class="note" id="moonNote"></p>
     </div>
+    <div class="card"><h2>Mode lune</h2>
+      <p class="note">Ces trois-là ne servent qu'au mode lune, l'interrupteur 🌑 de l'onglet Aujourd'hui. Ils vivent ici parce que la zone « Maintenant » se réécrit toute seule et perdrait ta saisie en cours de frappe.</p>
+      <div class="grid">
+        <label class="f">Heure d'impact du prochain tir<input id="lnQuand" type="datetime-local" data-lune="impact" value="${luneQuandTxt(S.lune.impact)}"><span class="note">Celle que ton camarade t'annonce. Le copilote ne voit pas l'attaque arriver.</span></label>
+        <label class="f">Sa planète, pour le tir que tu rends<input id="lnOu" data-lune="coords" value="${esc(S.lune.rendu.coords)}" placeholder="1:140:8"></label>
+      </div>
+      <div class="grid">
+        <label class="f">Chasseurs légers par tir rendu<input id="lnN" type="number" min="0" step="1" data-lune="n" value="${Math.max(0,+S.lune.rendu.n||0)}"><span class="note">Ce que <b>lui</b> te demande : le copilote ne voit pas sa défense et ne peut pas le calculer.</span></label>
+        <label class="f">Tirs promis<input id="lnDus" type="number" min="0" step="1" data-lune="dus" value="${Math.max(0,+S.lune.rendu.dus||0)}"><span class="note">${Math.max(0,+S.lune.rendu.faits||0)} déjà envoyé${(+S.lune.rendu.faits||0)>1?'s':''}.</span></label>
+      </div>
+    </div>
   </section>`;
 },
 fleet(){
@@ -5163,6 +5190,12 @@ function bind(){
   }));
   view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.checked; changed(); }));
   view.querySelectorAll('[data-mc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.mc; S.moonCalc[k] = (k==='pid'||k==='ship') ? el.value : Math.max(0, parseInt(el.value, 10)||0); changed(); }));
+  /* `impact` vit à la racine de S.lune, le reste dans `rendu`. */
+  view.querySelectorAll('[data-lune]').forEach(el=>el.addEventListener('input',()=>{ const k=el.dataset.lune;
+    if(k==='impact') S.lune.impact = luneQuand(el.value);
+    else if(k==='coords') S.lune.rendu.coords = el.value.trim();
+    else S.lune.rendu[k] = Math.max(0, parseInt(el.value, 10)||0);
+    changed(); }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
   view.querySelectorAll('[data-ship]').forEach(el=>el.addEventListener('input',()=>{ S.fleetCalc.ships[el.dataset.ship]=Math.max(0,parseInt(el.value)||0); changed(); }));
   /* Le presse-papiers du panneau latéral refuse l'écriture dès que le focus est
