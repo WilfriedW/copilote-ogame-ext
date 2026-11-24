@@ -8283,6 +8283,33 @@ t('un fichier qui n\'est pas une sauvegarde ne remplace rien', () => {
   assert.equal(g.S.planets.length, 2, 'l\'empire est resté en place');
 });
 
+t('un ratio venu d\'ailleurs ne peut pas porter de balisage', () => {
+  /* Le champ des Réglages vérifie le ratio, mais deux entrées le contournent :
+     le fichier de sauvegarde et storage.sync. Or le ratio s'affiche brut —
+     innerHTML dans l'onglet Empire, attribut `value` dans les Réglages — donc
+     une sauvegarde reçue d'un autre joueur pouvait y glisser du balisage. */
+  const g = app();
+  const sain = JSON.parse(JSON.stringify(g.S));
+  const piege = r => JSON.stringify(Object.assign({}, sain, {
+    settings: Object.assign({}, sain.settings, { ratio: r }),
+  }));
+
+  assert.ok(g.appliqueSauvegarde(piege(['<img src=x onerror=alert(1)>', 2, 1])),
+    'le fichier reste une sauvegarde recevable : c\'est le ratio seul qui est écarté');
+  assert.deepEqual(g.saved().settings.ratio, [3, 2, 1], 'le ratio retombe sur sa valeur par défaut');
+  g.VIEWS.planets(); g.REFRESH.planets();
+  const h = g.html().empireMix || '';
+  assert.ok(!/onerror/.test(h), 'et rien n\'atteint l\'onglet Empire : ' + h);
+
+  // storage.sync est l'autre chemin, et il ne passe pas par appliqueSauvegarde
+  g.syncApply({ 'sy:settings': Object.assign({}, sain.settings, { ratio: ['"><b>', 2, 1] }) });
+  assert.deepEqual(g.saved().settings.ratio, [3, 2, 1], 'le ratio reçu en synchro est écarté aussi');
+
+  // et un ratio honnête traverse toujours
+  assert.ok(g.appliqueSauvegarde(piege([2, 1, 1])));
+  assert.deepEqual(g.saved().settings.ratio, [2, 1, 1], 'trois nombres > 0 passent');
+});
+
 /* ---------- le tir de lune : les tables ---------- */
 
 /** Coût et bouclier de base, relus sur ogame.fandom.com/wiki/Ships le

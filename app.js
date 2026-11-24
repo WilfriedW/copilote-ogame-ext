@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.5';
+const APP_VERSION = '1.54.6';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -5388,7 +5388,30 @@ function msg(t){ const m=document.getElementById('ioMsg'); if(m) m.textContent=t
 function appliqueSauvegarde(txt){
   let d; try{ d = JSON.parse(txt); }catch(e){ return false; }
   if(!d || !Array.isArray(d.planets) || !d.settings) return false;
-  S = Object.assign(sample(), d); S.sample = false; save(); render(); return true;
+  S = Object.assign(sample(), d); S.sample = false; sainSettings(); save(); render(); return true;
+}
+/**
+ * Remet `S.settings` d'aplomb quand il vient d'ailleurs.
+ *
+ * Deux entrées ne sont pas de la saisie : un fichier de sauvegarde rendu par
+ * `appliqueSauvegarde`, et `chrome.storage.sync`. Ni l'une ni l'autre ne
+ * garantit que `ratio` soit trois nombres — seul le champ des Réglages le
+ * vérifiait, et il n'est pas sur ce chemin. Or le ratio s'affiche brut deux
+ * fois : dans l'innerHTML de l'onglet Empire et dans l'attribut `value` des
+ * Réglages. Une sauvegarde reçue d'un autre joueur pouvait donc y glisser du
+ * balisage, dans un panneau qui a les droits de l'extension.
+ *
+ * Normaliser à l'entrée plutôt qu'échapper à chaque affichage : un seul garde,
+ * et les deux affichages redeviennent justes par construction.
+ *
+ * ponytail: seul `ratio` est normalisé, c'est le seul réglage qui atteint un
+ * gabarit HTML sans passer par `esc`. À étendre si un autre l'y rejoint.
+ */
+function sainSettings(){
+  const def = sample().settings;
+  if(!S.settings || typeof S.settings !== 'object') S.settings = def;
+  const r = Array.isArray(S.settings.ratio) ? S.settings.ratio.map(Number) : [];
+  S.settings.ratio = (r.length === 3 && r.every(x => Number.isFinite(x) && x > 0)) ? r : def.ratio;
 }
 function changed(){ S.sample=false; save(); refresh(); }
 
@@ -5755,6 +5778,7 @@ function syncApply(d){
   let chg = false;
   const met = (k, v) => { if(v === undefined || JSON.stringify(S[k]) === JSON.stringify(v)) return; S[k] = v; chg = true; };
   for(const k of SYNC_KEYS) met(k, d['sy:' + k]);
+  sainSettings();
   if(d['sy:prio'] !== undefined) met('prio', prioIn(d['sy:prio']));
   if(d['sy:centre'] != null){ const pid = pidDe(d['sy:centre']); if(pid && pid !== S.centre){ S.centre = pid; chg = true; } }
   if(!chg) return;
