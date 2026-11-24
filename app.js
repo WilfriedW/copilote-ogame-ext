@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.8';
+const APP_VERSION = '1.54.9';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3725,7 +3725,7 @@ function dailyMissions(){
       how:['Ouvre la planète concernée et lance une construction ou une recherche.',
            'Réimporte la Vue empire pour que le relevé se mette à jour.']});
   }
-  out.push(...luneCartes());
+  out.push(...luneCartes(), ...luneCartesDette());
   /* Mode nuit : le joueur va dormir. Seule la rubrique Sécurité parle de
      mettre les ressources à l'abri ; tout le reste attendra le réveil.
 
@@ -3973,6 +3973,28 @@ function luneMorts(p, k, n, bouLvl = 0){
   return {tues, morts: tues == null ? n : Math.min(n, tues)};
 }
 
+/** Le tir que le joueur doit encore à son camarade, ou `null` quand il n'en
+    doit plus. `manque` est le nombre de chasseurs légers qu'il lui reste à
+    construire pour le prochain.
+
+    Le nombre par tir est saisi, jamais calculé : il faudrait la défense du
+    camarade, que le copilote ne voit pas. Et les chasseurs se comptent sur la
+    planète visée, celle qui porte déjà la flotte du joueur. */
+function luneDette(){
+  if(!S.lune.on) return null;
+  const r = S.lune.rendu || {};
+  const n = Math.max(0, +r.n || 0), dus = Math.max(0, +r.dus || 0), faits = Math.max(0, +r.faits || 0);
+  if(!n || !dus || faits >= dus) return null;
+  const p = moonPlanete(), au = ((p || {}).ships || {}).lf || 0;
+  return {du: faits + 1, dus, n, manque: Math.max(0, n - au), pid: (p || {}).id};
+}
+
+/** Un tir rendu de plus. Le compteur de la dette n'a rien à voir avec celui
+    des tirs reçus : l'un se vide, l'autre se remplit. */
+function luneEnvoye(){
+  if(S.lune.rendu) S.lune.rendu.faits = Math.max(0, +S.lune.rendu.faits || 0) + 1;
+}
+
 /** La probabilité d'avoir déjà eu sa lune après `n` tirs, à la chance que la
     configuration donne aujourd'hui. `null` quand cette chance est nulle : « 0 %
     des joueurs auraient leur lune » est juste et illisible.
@@ -4017,6 +4039,28 @@ function luneRepond(eutUneLune){
     Elles ne passent pas par la mise en sommeil des autres missions : leur état
     vit dans S.lune, et un « Non » de réflexe ne doit pas pouvoir éteindre
     « sors ta flotte » pour toute la campagne. */
+/** Les cartes du côté où le joueur rend : ce qu'il lui manque pour le prochain
+    tir, puis l'ordre de partir. Elles ne vivent que tant qu'une dette reste. */
+function luneCartesDette(){
+  const d = luneDette();
+  if(!d) return [];
+  const p = moonPlanete(), ou = esc(S.lune.rendu.coords || 'sa planète');
+  const rang = `tir ${d.du} sur ${d.dus}`;
+  if(d.manque > 0){
+    const c = SHIP_COST.lf, t = p ? shipTime('lf', d.manque, p) : 0;
+    return [{id:'lune-dette', q:'Lune', every:12, sev:'info',
+      what:`Il te manque ${fmt(d.manque)} ${moonNom('lf', d.manque)} pour le tir que tu lui dois (${rang})`,
+      why:`Chantier spatial : ${fmt(d.manque * c[0])} métal, ${fmt(d.manque * c[1])} cristal${t ? `, ${dur(t)}` : ''}. Tu en as ${fmt(d.n - d.manque)} sur ${fmt(d.n)}.`,
+      how:['Le copilote ne met pas ces chasseurs dans ton plan : à toi de lancer le chantier.',
+           'Ils ne servent qu\'à mourir chez lui — ne compte pas dessus pour autre chose.']}];
+  }
+  return [{id:'lune-rend', q:'Lune', every:3, sev:'good',
+    what:`Tes ${fmt(d.n)} ${moonNom('lf', d.n)} sont prêts — envoie-les sur ${ou} (${rang})`,
+    why:`Mission Attaquer. Sa défense les tuera tous, et les débris tomberont chez lui.`,
+    how:['Vérifie avec lui qu\'il a sorti sa flotte avant l\'arrivée.',
+         'Clique « Envoyé » une fois la flotte partie, pour que la dette avance.']}];
+}
+
 function luneCartes(){
   if(!S.lune.on) return [];
   const p = moonPlanete();
@@ -5008,7 +5052,7 @@ today(){
     const btns = m.q === 'Lune'
       ? (m.id === 'lune-ramasse' || m.id === 'lune-perdu'
           ? `<button class="btn sm primary" id="luneOui">Lune !</button><button class="btn sm" id="luneNon">Pas cette fois</button>`
-          : '')
+          : m.id === 'lune-rend' ? `<button class="btn sm primary" id="luneEnv">Envoyé</button>` : '')
       : `<button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${noBtn('m:'+m.id)}`;
     return `<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns">${btns}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   };
@@ -5291,6 +5335,7 @@ function bind(){
   on('luneBtn','click',()=>{ S.lune.on = !S.lune.on; save(); render(); });
   on('luneOui','click',()=>{ luneRepond(true); save(); render(); });
   on('luneNon','click',()=>{ luneRepond(false); save(); render(); });
+  on('luneEnv','click',()=>{ luneEnvoye(); save(); render(); });
   on('addPlanet','click',()=>{ S.planets.push(newPlanet('Colonie '+S.planets.length,'1:1:'+(S.planets.length+4),20,{})); S.sample=false; save(); render(); });
   /* « change » et non « input » comme les niveaux voisins : sur un labo 5,
      taper « 10 » passe par « 1 », que prioPose jugerait atteint avant de
