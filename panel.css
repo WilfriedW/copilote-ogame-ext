@@ -40,6 +40,10 @@ h3{font-family:var(--f-display);font-weight:600;font-size:16px;margin:0;text-wra
 nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:6px;padding-block:12px;overflow-x:auto;scrollbar-width:none}
 nav.tabs button{flex:0 0 auto;font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
 nav.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+/* L'engrenage : l'onglet des réglages sorti de la barre, en haut à droite.
+   Rond comme les onglets, et il s'allume quand les réglages sont ouverts. */
+.gear{border-radius:999px;padding:4px 8px;font-size:14px;line-height:1.2}
+.gear[aria-selected="true"]{background:var(--accent);border-color:var(--accent)}
 section.panel{display:flex;flex-direction:column;gap:14px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}

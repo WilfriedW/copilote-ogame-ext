@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.9';
+const APP_VERSION = '1.54.10';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1813,9 +1813,20 @@ function majBouton(){
 }
 function header(){
   const s=S.settings;
-  document.getElementById('uniBadge').textContent = `${S.syncAt ? 'synchro ' + new Date(S.syncAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) + ' · ' : 'en attente du jeu · '}éco x${s.eco} · flotte x${s.fleet} · ${({collector:'Collecteur',general:'Général',explorer:'Explorateur',none:'Sans classe'})[s.cls]}`;
+  /* L'heure de la dernière lecture et la classe, rien de plus : les deux
+     vitesses se lisent dans Outils › Serveur, qui les tient du serveur. */
+  document.getElementById('uniBadge').textContent = `${S.syncAt ? 'synchro ' + new Date(S.syncAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : 'en attente du jeu'} · ${({collector:'Collecteur',general:'Général',explorer:'Explorateur',none:'Sans classe'})[s.cls]}`;
+  /* Le mode nuit vit dans l'en-tête, à côté de l'engrenage : il tient en une
+     icône, et la carte Maintenant n'a plus à le porter. */
+  const nb = document.getElementById('nightBtn'), nuit = !!S.day.night;
+  nb.textContent = nuit ? '☀️' : '🌙';
+  nb.title = nb.ariaLabel = nuit ? 'Mode jour' : 'Mode nuit';
+  nb.classList.toggle('primary', nuit);
+  nb.classList.toggle('ghost', !nuit);
   majBouton();
-  document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.tab===tab)));
+  /* L'engrenage est un onglet comme les autres, hors de la barre : il porte le
+     même `data-tab`, donc le même état sélectionné. */
+  document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.tab===tab)));
 }
 /** Vrai tant que l'écran du relevé tient la place du contenu. */
 function enScan(){ return !!(scanEcran && releveEnCours); }
@@ -4624,7 +4635,7 @@ const VIEWS = {
 today(){
   const d=S.day;
   return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Maintenant</h2><div class="row" style="gap:8px"><span class="note" id="tdStamp"></span><button class="btn sm ${d.night?'primary':'ghost'}" id="dayNight">${d.night?'☀️ Mode jour':'🌙 Mode nuit'}</button></div></div><div id="tdNow"></div></div>
+    <div class="card"><h2>Maintenant</h2><div id="tdNow"></div></div>
     <div id="tdAlerts"></div>
     <details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
       <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${d.nightStart}h–${d.nightEnd}h <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
@@ -5002,7 +5013,6 @@ today(){
     + (plan.ups.length ? `<p class="note" style="margin-top:6px">${esc(plan.ups.join(' · '))}</p>` : '')
     + `<p class="note" style="margin-top:6px">Connexions sans action masquées. Hors plan : formes de vie, flotte, défense. Avant une longue absence, dépense ou mets tes ressources à l'abri.</p>`;
   renderTimers();
-  document.getElementById('tdStamp').textContent = S.syncAt ? `synchro ${hm(S.syncAt)}` : '';
   document.getElementById('tdDaySum').textContent = night ? 'mode nuit'
     : `${later.length} connexion${later.length>1?'s':''} à venir · production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${S.day.horizon} h`;
 },
@@ -5243,7 +5253,6 @@ function bind(){
     card.querySelectorAll('input[data-s]').forEach(el=>el.addEventListener('input',()=>{ const st=stockNow(p); p.stock={m:st[0],c:st[1],d:st[2],at:Date.now()}; p.stock[el.dataset.s]=parseFloat(el.value)||0; changed(); }));
   });
   view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ const p=S.planets[+b.dataset.del]; if(p) forgetPlanet(p.id); save(); render(); }));
-  on('dayNight','click',()=>{ S.day.night = !S.day.night; save(); render(); });
   on('addPlanet','click',()=>{ S.planets.push(newPlanet('Colonie '+S.planets.length,'1:1:'+(S.planets.length+4),20,{})); S.sample=false; save(); render(); });
   /* « change » et non « input » comme les niveaux voisins : sur un labo 5,
      taper « 10 » passe par « 1 », que prioPose jugerait atteint avant de
@@ -5444,7 +5453,12 @@ document.getElementById('majBtn').addEventListener('click', boutonMaj);
 /* L'âge du relevé vieillit tout seul : sans ce battement, le bouton n'apparaîtrait
    qu'au prochain clic du joueur — au moment où il se fie déjà au plan. */
 setInterval(header, 60000);
-document.getElementById('tabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-tab]'); if(!b) return; scanEcran=false; tab=b.dataset.tab; try{ LS.setItem(KEY+'-tab',tab); }catch(err){} render(); });
+function allerOnglet(k){ scanEcran=false; tab=k; try{ LS.setItem(KEY+'-tab',tab); }catch(err){} render(); }
+document.getElementById('tabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-tab]'); if(!b) return; allerOnglet(b.dataset.tab); });
+/* Les deux boutons de l'en-tête sont posés une fois pour toutes : ils ne sont
+   pas refaits à chaque dessin, et `bind()` les doublerait. */
+document.getElementById('gearBtn').addEventListener('click',()=>allerOnglet('settings'));
+document.getElementById('nightBtn').addEventListener('click',()=>{ S.day.night = !S.day.night; save(); render(); });
 view.addEventListener('click', e=>{
   if(e.target.id==='tmSound'){ unlockAudio(); chime(); }
   if(e.target.id==='tmAdd'){
