@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.1';
+const APP_VERSION = '1.54.2';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4500,7 +4500,7 @@ function lfBloc(p){
    coup d'œil et tiennent sur une ligne, là où le select coûtait un titre, une
    ligne de plus et un clic pour voir ce qu'on savait déjà. */
 const bascule = (id, attr, label, on, note='') =>
-  `<label class="f bascule"><input type="checkbox" id="${id}" ${attr} ${on?'checked':''}><span>${label}</span>${note?`<span class="note">${note}</span>`:''}</label>`;
+  `<label class="f bascule"><span>${label}</span><input type="checkbox" id="${id}" ${attr} ${on?'checked':''}>${note?`<span class="note">${note}</span>`:''}</label>`;
 
 const VIEWS = {
 /* Ce que le joueur vient chercher, c'est la carte à suivre maintenant : elle
@@ -4702,6 +4702,8 @@ fleet(){
     <div class="card"><h2>Taille d'expédition</h2>
       <div class="grid">
         <label class="f">Points du n°1 de l'univers<select id="top1" data-set="top1">${EXPO_LABELS.map((l,i)=>`<option value="${i}" ${S.settings.top1==i?'selected':''}>${l}</option>`).join('')}</select>${API && API.scores ? `<span class="note">Lu dans le classement public : ${EXPO_LABELS[top1Tier()]}. Ce réglage ne sert plus.</span>` : '<span class="note">Sera lu dans le classement public dès que l\'extension aura joint l\'API du serveur.</span>'}</label>
+      </div>
+      <div class="bascules">
         ${bascule('expoPf','data-expo="pf"','Éclaireur dans la flotte', ex.pf)}
       </div>
       <div class="res" id="expoOut"></div>
@@ -4789,16 +4791,18 @@ settings(){
       <p class="note">Ces trois valeurs se remplissent toutes seules : le Copilote les lit dans la page du jeu dès que tu l'ouvres. Tu n'y touches que si elles sont vides — le jeu n'a pas encore été ouvert — ou fausses. Si ta production réelle (onglet Ressources) ne correspond pas à l'onglet Empire, c'est le premier réglage à vérifier.</p>
     </div>
     <div class="card"><h2>Bonus</h2>
-      <div class="grid">
+      <div class="bascules">
         ${bascule('sGeo','data-set="geo"','Géologue (+10 % production)', s.geo)}
         ${bascule('sEng','data-set="eng"','Ingénieur (+10 % énergie)', s.eng)}
         ${bascule('sOver','data-set="crawlerOverload"','Foreuses en surcharge 150 %', s.crawlerOverload, 'Moitié plus de bonus, énergie doublée. À régler comme dans le jeu.')}
         ${bascule('sColCargo','data-set="colCargo"','Collecteur : +25 % soute transporteurs', s.colCargo)}
+      </div>
+      <div class="grid">
         <label class="f">Ratio d'échange M:C:D<input id="sRatio" data-set="ratio" value="${s.ratio.join(':')}"></label>
       </div>
     </div>
     <div class="card"><h2>Page du jeu</h2>
-      <div class="grid">
+      <div class="bascules">
         ${bascule('sLean','data-set="lean"','Épurer la page du jeu', s.lean, 'Barre Gameforge, en-tête, pied de page et pub en moins ; fond sombre, menu plus grand.')}
         ${bascule('sNoShop','data-set="noshop"','Masquer les menus payants', s.noshop, 'Marchand, Mess des officiers, boutiques.')}
       </div>
