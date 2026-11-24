@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.7';
+const APP_VERSION = '1.54.8';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -310,7 +310,8 @@ function prioIdx(kind, pid, k){
 }
 function prioLvl(kind, pid, k){
   const e = (kind === 'lf' ? priosLf().map(x => ({kind:'lf', pid:x.pid, k:x.k, lvl:x.lvl})) : prios()).find(x => x.kind === kind && x.k === k && (kind === 't' || x.pid === pid));
-  return e ? e.lvl : '';
+  /* `lvl` vient de `S.prio`, donc d'une sauvegarde : un nombre, ou la case vide. */
+  return e && Number.isFinite(Number(e.lvl)) ? Number(e.lvl) : '';
 }
 /* Le joueur écrit un niveau visé. L'ordre de pose arbitre la précédence : une
    correction met donc l'entrée à jour sur place, et seule une priorité neuve
@@ -503,6 +504,11 @@ function dur(sec){ if(!isFinite(sec)) return 'jamais'; sec=Math.max(0,Math.round
    table — y refermait l'attribut au milieu du JSON. Le bouton « Lancé » mourait
    sur la carte, et la fin du nom se retrouvait lue comme des attributs. */
 function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/* Le pendant de `esc` pour les champs tenus pour des nombres. Les textes de ce
+   panneau passent par `esc` ; les nombres n'en avaient pas besoin — sauf qu'une
+   sauvegarde peut y avoir mis une chaîne, et `value="${x}"` n'échappe rien.
+   `d` est ce qui s'affiche à défaut. */
+function num(v, d=0){ const x = Number(v); return Number.isFinite(x) ? x : d; }
 function costHtml(c){ return `<span class="cost"><span class="c-m">${fmt(c[0])}</span><span class="c-c">${fmt(c[1])}</span><span class="c-d">${fmt(c[2])}</span></span>`; }
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true,1800); }
 
@@ -1882,8 +1888,8 @@ function parseLeft(txt){
   return hit ? sec : null;
 }
 function timerOptions(){
-  const r = Object.keys(T).map(k=>`<option value="t:${k}">${T[k].n} ${S.tech[k]+1}</option>`).join('');
-  const b = S.planets.map(p=>`<optgroup label="Bâtiments · ${esc(p.name)}">${Object.keys(B).map(k=>`<option value="b:${p.id}:${k}">${B[k].n} ${p.b[k]+1}</option>`).join('')}</optgroup>`).join('');
+  const r = Object.keys(T).map(k=>`<option value="t:${k}">${T[k].n} ${num(S.tech[k])+1}</option>`).join('');
+  const b = S.planets.map(p=>`<optgroup label="Bâtiments · ${esc(p.name)}">${Object.keys(B).map(k=>`<option value="b:${p.id}:${k}">${B[k].n} ${num(p.b[k])+1}</option>`).join('')}</optgroup>`).join('');
   return `<optgroup label="Recherche">${r}</optgroup>${b}<optgroup label="Autre"><option value="x:fleet">Retour de flotte</option><option value="x:expo">Retour d'expédition</option><option value="x:other">Autre</option></optgroup>`;
 }
 function timerLabel(tm){
@@ -4566,7 +4572,7 @@ function lfIds(p){
 function lfRows(p){
   return lfIds(p).map(id=>{
     const v = (p.lf || {})[id] || {}, nom = v.nom || v.name || LF_NAMES[id] || ('Forme de vie ' + id);
-    return `<label class="f">${esc(nom)}<span class="lv"><input type="number" value="${v.lvl || 0}" readonly tabindex="-1" aria-label="${esc(nom)} : niveau relevé"><input class="prio" type="number" min="${(v.lvl||0)+1}" data-pid="${p.id}" data-prio="${id}" data-kind="lf" value="${prioLvl('lf', p.id, id)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${esc(nom)} : niveau visé"></span></label>`;
+    return `<label class="f">${esc(nom)}<span class="lv"><input type="number" value="${num(v.lvl)}" readonly tabindex="-1" aria-label="${esc(nom)} : niveau relevé"><input class="prio" type="number" min="${num(v.lvl)+1}" data-pid="${p.id}" data-prio="${id}" data-kind="lf" value="${prioLvl('lf', p.id, id)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${esc(nom)} : niveau visé"></span></label>`;
   }).join('');
 }
 /* Les paliers de population. Le wiki dit la même chose des quatre espèces :
@@ -4694,9 +4700,9 @@ explore(){
       <p class="note">${esc(S.raid.name||'')} · 1. Espionne la cible depuis Galaxie. 2. Colle le rapport <b>en entier</b> ici : flotte et défense comprises, pas seulement les ressources. Ce que le rapport ne montre pas, le copilote le dira comme manquant plutôt que de le prendre pour zéro.</p>
       <textarea id="rdPaste" data-raid="paste" placeholder="Colle ici le rapport d'espionnage entier (texte)"></textarea>
       <div class="grid tight">
-        <label class="f">Métal<input id="rdM" type="number" min="0" data-raid="m" value="${S.raid.m||0}"></label>
-        <label class="f">Cristal<input id="rdC" type="number" min="0" data-raid="c" value="${S.raid.c||0}"></label>
-        <label class="f">Deutérium<input id="rdD" type="number" min="0" data-raid="d" value="${S.raid.d||0}"></label>
+        <label class="f">Métal<input id="rdM" type="number" min="0" data-raid="m" value="${num(S.raid.m)}"></label>
+        <label class="f">Cristal<input id="rdC" type="number" min="0" data-raid="c" value="${num(S.raid.c)}"></label>
+        <label class="f">Deutérium<input id="rdD" type="number" min="0" data-raid="d" value="${num(S.raid.d)}"></label>
       </div>
       <label class="row" style="gap:8px"><input id="rdSafe" type="checkbox" data-raid="safe" ${S.raid.safe?'checked':''} style="width:auto"> <span>Le rapport ne montre ni flotte ni défense</span></label>
       <div id="rdPlan"></div>
@@ -4750,7 +4756,7 @@ planets(){
       <div class="planet-head">
         <input id="pn-${p.id}" data-p="name" value="${esc(p.name)}" aria-label="Nom de la planète">
         <input id="pc-${p.id}" class="coords" data-p="coords" value="${esc(p.coords)}" aria-label="Coordonnées" placeholder="1:1:8">
-        <input id="pt-${p.id}" class="temp" type="number" data-p="tmax" value="${p.tmax}" aria-label="Température max (°C)" title="Température max en °C (vue d'ensemble)">
+        <input id="pt-${p.id}" class="temp" type="number" data-p="tmax" value="${num(p.tmax)}" aria-label="Température max (°C)" title="Température max en °C (vue d'ensemble)">
         <span class="note">°C max</span>
         ${S.planets.length>1?`<button class="btn sm ghost" data-del="${i}">Retirer</button>`:''}
       </div>
@@ -4764,8 +4770,8 @@ planets(){
       <p class="note" id="pfleet-${i}" style="margin:0"></p>
       <details class="volet"${fold('niv:' + p.id, false)}><summary data-fold="niv:${p.id}">Bâtiments et niveaux visés</summary>
       <div class="grid tight" style="margin-top:8px">
-        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${p.b[k]}"><input class="prio" type="number" min="${(p.b[k]||0)+1}" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
-        <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${p.sats}"></label>
+        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${num(p.b[k])}"><input class="prio" type="number" min="${num(p.b[k])+1}" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
+        <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${num(p.sats)}"></label>
       </div>
       ${lfBloc(p)}
       <p class="note" style="margin:10px 0 0"><b>Stock</b> — ce que cette planète a en magasin. Il avance tout seul avec ta production ; recale-le quand tu dépenses.</p>
@@ -4783,7 +4789,7 @@ planets(){
 research(){
   return `<details class="card"><summary>Recherches et niveaux visés <span class="note">labo niveau <b id="labLv"></b></span></summary>
     <div class="tbl-wrap"><table class="tech"><thead><tr><th>Technologie</th><th class="n">Niv.</th><th class="n">Visé</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th></tr></thead><tbody>
-    ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${S.tech[k]}"></td><td class="n"><input class="prio" type="number" min="${(S.tech[k]||0)+1}" data-prio="${k}" value="${prioLvl('t', null, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${T[k].n} : niveau visé"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
+    ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${num(S.tech[k])}"></td><td class="n"><input class="prio" type="number" min="${num(S.tech[k])+1}" data-prio="${k}" value="${prioLvl('t', null, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${T[k].n} : niveau visé"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
     </tbody></table></div>
   </details>`;
 },
@@ -4832,7 +4838,7 @@ fleet(){
         <label class="f">Arrivée<input id="fTo" data-fc="to" value="${esc(fc.to)}" placeholder="1:2:8"></label>
         <label class="f">Vitesse<select id="fPct" data-fc="pct">${[100,90,80,70,60,50,40,30,20,10].map(v=>`<option ${fc.pct==v?'selected':''}>${v}</option>`).join('')}</select></label>
       </div>
-      <div class="grid tight">${Object.keys(SHIPS).map(k=>`<label class="f">${SHIPS[k].n}<input id="fs-${k}" type="number" min="0" data-ship="${k}" value="${fc.ships[k]||0}"></label>`).join('')}</div>
+      <div class="grid tight">${Object.keys(SHIPS).map(k=>`<label class="f">${SHIPS[k].n}<input id="fs-${k}" type="number" min="0" data-ship="${k}" value="${num(fc.ships[k])}"></label>`).join('')}</div>
       <div class="res" id="flightOut"></div>
       <p class="note">Pour un aller-retour, double la durée et le carburant. Une expédition ajoute son temps de stationnement (1 h par défaut) et un peu de carburant de maintien non compté ici.</p>
     </div>
@@ -4852,7 +4858,7 @@ colony(){
     <div class="card"><h2>Choisir la position</h2>
       <div class="grid">
         <label class="f">Objectif<select id="coObj" data-colo="objective">${Object.entries(OBJECTIVES).map(([k,o])=>`<option value="${k}" ${c.objective===k?'selected':''}>${o.n}</option>`).join('')}</select></label>
-        <label class="f">Cases bonus de l'univers<input id="coBonus" type="number" min="0" data-colo="bonus" value="${c.bonus}"></label>
+        <label class="f">Cases bonus de l'univers<input id="coBonus" type="number" min="0" data-colo="bonus" value="${num(c.bonus)}"></label>
       </div>
       <div class="tbl-wrap"><table><thead><tr><th>#</th><th class="n">Pos.</th><th>Cases (min–max)</th><th class="n">Temp.</th><th>Bonus</th><th class="n">Éq. métal/h</th><th class="n">Deut/h</th><th></th></tr></thead><tbody id="coPos"></tbody></table></div>
       <p class="note">Production simulée avec les niveaux de mines de ta planète de départ, à la température moyenne de chaque position. Les positions grisées demandent plus d'Astrophysique. Vérifie dans <b>Galaxie</b> que la position est libre ; sinon, essaie le même numéro dans un système voisin.</p>
@@ -5388,6 +5394,17 @@ function msg(t){ const m=document.getElementById('ioMsg'); if(m) m.textContent=t
 function appliqueSauvegarde(txt){
   let d; try{ d = JSON.parse(txt); }catch(e){ return false; }
   if(!d || !Array.isArray(d.planets) || !d.settings) return false;
+  /* Un identifiant — de planète, de minuteur — part dans une quinzaine
+     d'attributs interpolés bruts : `id="pn-${p.id}"`, `data-centre`,
+     `data-fold`, `data-tmrm`, les `<option value>`. Bruts parce qu'un
+     identifiant est un jeton engendré ici, jamais une saisie. Une sauvegarde
+     venue d'ailleurs peut mentir là-dessus, et le réécrire obligerait à suivre
+     toutes les références qui le citent (centre, colonie, priorités, minuteurs).
+     Le fichier est donc refusé en entier : une sauvegarde honnête n'a que des
+     jetons, ou pas d'identifiant du tout. */
+  const jeton = x => x == null || /^[a-z0-9]{1,24}$/i.test(String(x));
+  if(!d.planets.every(q => !q || jeton(q.id))) return false;
+  if(Array.isArray(d.timers) && !d.timers.every(x => !x || jeton(x.id))) return false;
   S = Object.assign(sample(), d); S.sample = false; sainEtat(); save(); render(); return true;
 }
 /**
@@ -5431,6 +5448,11 @@ function sainEtat(){
   S.day.nightStart = nb(S.day.nightStart, def.day.nightStart, 0, 23);
   S.day.nightEnd   = nb(S.day.nightEnd,   def.day.nightEnd,   0, 23);
   if(!(S.day.focus in FOCUS)) S.day.focus = def.day.focus;
+
+  /* Une sauvegarde d'avant les identifiants n'en porte pas : sans ça, tout
+     l'onglet Planètes s'affiche en `pn-undefined`. Même jeton que
+     `migratePlanetIds`. */
+  for(const q of S.planets || []) if(!q.id) q.id = Math.random().toString(36).slice(2,9);
 }
 function changed(){ S.sample=false; save(); refresh(); }
 

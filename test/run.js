@@ -8329,6 +8329,56 @@ t('un état venu d\'ailleurs ne peut pas porter de balisage', () => {
     [180, 0, 6, 48, 'fleet'], 'et les valeurs que les menus offrent ne sont pas rabotées');
 });
 
+t('aucun champ numérique d\'une sauvegarde n\'atteint un gabarit tel quel', () => {
+  /* Une quarantaine d'attributs interpolent l'état sans `esc`, parce que le
+     champ est tenu pour un nombre : `value`, `min`, `data-*`. `num()` est leur
+     `esc()`. On vérifie qu'aucun attribut ne se referme trop tôt — le texte
+     « onerror », lui, peut rester : échappé, il n'est qu'un mot. */
+  const g = app();
+  const sain = JSON.parse(JSON.stringify(g.S));
+  const XSS = '"><img src=x onerror=alert(1)>';
+  const piege = JSON.parse(JSON.stringify(sain));
+  piege.tech[Object.keys(piege.tech)[0]] = XSS;
+  Object.assign(piege.planets[0], { tmax: XSS, sats: XSS });
+  piege.planets[0].b.metal = XSS;
+  piege.raid = { coords: '1:1:1', m: XSS, c: XSS, d: XSS };
+  piege.fleetCalc.ships.sc = XSS;
+  piege.colo.bonus = XSS;
+  piege.prio = [{ kind: 'b', pid: sain.planets[0].id, k: 'metal', lvl: XSS }];
+
+  assert.ok(g.appliqueSauvegarde(JSON.stringify(piege)), 'le fichier reste recevable');
+  for(const v of ['planets', 'research', 'settings', 'today', 'tools', 'fleet', 'moon'])
+    assert.ok(!/"><img/.test(g.VIEWS[v]()), v + ' referme un attribut trop tôt');
+  // et le champ montre un nombre, pas une chaîne vide ni « NaN »
+  assert.match(g.VIEWS.planets(), /data-p="tmax" value="0"/);
+  assert.match(g.VIEWS.research(), /data-t="energy" value="0"/);
+});
+
+t('une sauvegarde dont les identifiants sont truqués est refusée', () => {
+  /* L'identifiant part dans une quinzaine d'attributs sans `esc`. Le réécrire
+     obligerait à suivre le centre, la colonie, les priorités et les minuteurs
+     qui le citent : le fichier est refusé en entier. */
+  const g = app();
+  const sain = JSON.parse(JSON.stringify(g.S));
+  const XSS = '"><img src=x onerror=alert(1)>';
+
+  const truque = JSON.parse(JSON.stringify(sain));
+  truque.planets[0].id = XSS;
+  assert.ok(!g.appliqueSauvegarde(JSON.stringify(truque)), 'planète truquée : refusée');
+
+  const tmTruque = JSON.parse(JSON.stringify(sain));
+  tmTruque.timers = [{ id: XSS, end: Date.now(), done: false }];
+  assert.ok(!g.appliqueSauvegarde(JSON.stringify(tmTruque)), 'minuteur truqué : refusé');
+  assert.equal(g.S.planets.length, 2, 'l\'empire est resté en place');
+
+  // une sauvegarde d'avant les identifiants reste recevable, et reçoit les siens
+  const vieille = JSON.parse(JSON.stringify(sain));
+  vieille.planets.forEach(q => delete q.id);
+  assert.ok(g.appliqueSauvegarde(JSON.stringify(vieille)), 'celle-là passe');
+  assert.ok(g.saved().planets.every(q => /^[a-z0-9]{1,24}$/i.test(q.id)),
+    'chaque planète repart avec un jeton : sinon tout l\'onglet s\'affiche en pn-undefined');
+});
+
 /* ---------- le tir de lune : les tables ---------- */
 
 /** Coût et bouclier de base, relus sur ogame.fandom.com/wiki/Ships le
