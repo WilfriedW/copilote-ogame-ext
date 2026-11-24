@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.59';
+const APP_VERSION = '1.53.60';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -45,6 +45,10 @@ const T = {
   shielding: {n:'Technologie Bouclier', c:[200,600,0], f:2, req:{lab:6,t:{energy:3}}},
   armour:    {n:'Protection des vaisseaux', c:[1000,0,0], f:2, req:{lab:2}},
 };
+
+/* Le taux de débris par défaut, en pourcent. Déclaré ici parce que sample()
+   le lit au chargement, bien avant le bloc du tir de lune. */
+const LUNE_DF = 30;
 
 const SHIPS = {
   sc:  {n:'Petit transporteur', cargo:5000, speed:5000, drive:'combustion', fuel:10, transporter:true, bou:10},
@@ -93,6 +97,7 @@ function sample(){
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
+    moonCalc:{pid:'', ship:'lf', n:0, bou:null, viser:12, df:LUNE_DF},
     expo:{pf:true},
     ui:{tool:'colony', fold:{}},
     day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false},
@@ -3864,7 +3869,6 @@ const DEF_POURQUOI = {
    L'arithmétique reste entière : `pct * 1e7 / (df * v)` plutôt que de passer
    par `df / 100`, qui n'est pas exact en binaire et ferait monter un plafond
    d'une unité au mauvais moment. */
-const LUNE_DF = 30;
 
 /** La coque d'un vaisseau : son métal plus son cristal. Les seize lignes du
     wiki le vérifient sans exception, donc aucune table ne la porte. */
@@ -3893,6 +3897,33 @@ function luneFacture(k, n, df = LUNE_DF){
   const tirs = Math.ceil(100 / t.chance), c = SHIP_COST[k] || [0, 0, 0];
   return {chance: t.chance, tirs, m: tirs * n * c[0], c: tirs * n * c[1],
           recupere: (tirs - 1) * t.debris};
+}
+
+/** La planète que la carte Lune vise : celle que le joueur a choisie, sinon
+    son centre, sinon la première. */
+function moonPlanete(){
+  return planetById(S.moonCalc.pid)
+      || (centreIndex() >= 0 ? S.planets[centreIndex()] : null)
+      || S.planets[0];
+}
+
+/** Le niveau de Bouclier du camarade. Par défaut celui du joueur : un camarade
+    de guilde est d'ordinaire comparable, et un chiffre demandé vaut mieux
+    qu'une hypothèse muette. */
+function moonBou(){
+  const b = S.moonCalc.bou;
+  return b == null ? Math.max(0, S.tech.shielding || 0) : Math.max(0, +b || 0);
+}
+
+/** Le vaisseau choisi, ramené à un vaisseau qui existe. */
+function moonShip(){ return SHIPS[S.moonCalc.ship] ? S.moonCalc.ship : 'lf'; }
+
+/** Le nom du vaisseau au bon nombre, avec les tables qui l'écrivent déjà. */
+function moonNom(k, n){ return n > 1 ? SHIP_PLURAL[k] : (SHIPS[k] || {n:''}).n.toLowerCase(); }
+
+/** Une chance en pourcent, lisible : un chiffre après la virgule sous 10 %. */
+function moonPct(x){
+  return String(x >= 10 ? Math.round(x) : Math.round(x * 10) / 10).replace('.', ',') + ' %';
 }
 
 /** Ce que la défense d'une planète tue en six manches, en métal+cristal, donc
@@ -4291,7 +4322,7 @@ function raidPlan(){
 
 /* Un outil retiré laisse son nom dans les réglages du joueur : on ne demande à
    VIEWS que ce qu'il sait encore dessiner. */
-const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte']];
+const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['moon','Lune']];
 function toolTab(){ return TOOLS.some(([k])=>k===S.ui.tool) ? S.ui.tool : 'colony'; }
 
 /** Ce que la carte du centre dit sous la case : le risque que le wiki nomme,
@@ -4517,6 +4548,30 @@ research(){
     ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${S.tech[k]}"></td><td class="n"><input class="prio" type="number" min="${(S.tech[k]||0)+1}" data-prio="${k}" value="${prioLvl('t', null, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${T[k].n} : niveau visé"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
     </tbody></table></div>
   </details>`;
+},
+moon(){
+  const m = S.moonCalc, p = moonPlanete(), k = moonShip();
+  /* ponytail: un seul type de vaisseau à la fois, parce qu'un tir de lune se
+     fait d'un seul type. Une flotte mélangée demanderait la grille de quatorze
+     champs de la carte Flotte ; le jour où quelqu'un en envoie une, elle est là
+     à copier. */
+  return `<section class="panel">
+    <div class="card"><h2>Tir de lune</h2>
+      <p class="note">Ton camarade envoie une flotte sur ta planète, ta défense la détruit, et les débris de <b>ses</b> vaisseaux tombent chez toi. Cette carte chiffre le tir avant qu'il parte.</p>
+      <div class="grid">
+        <label class="f">Planète visée<select id="mnP" data-mc="pid">${S.planets.map(q=>`<option value="${q.id}" ${p && p.id===q.id?'selected':''}>${esc(q.name)} [${esc(q.coords)}]</option>`).join('')}</select></label>
+        <label class="f">Ce qu'il envoie<select id="mnShip" data-mc="ship">${Object.keys(SHIPS).map(j=>`<option value="${j}" ${k===j?'selected':''}>${SHIPS[j].n}</option>`).join('')}</select></label>
+        <label class="f">Combien<input id="mnN" type="number" min="0" data-mc="n" value="${Math.max(0,+m.n||0)}"></label>
+      </div>
+      <div class="grid">
+        <label class="f">Chance visée<input id="mnVise" type="number" min="1" max="20" data-mc="viser" value="${Math.min(20,Math.max(1,+m.viser||12))}"><span class="note">En pourcent, 20 au plus : c'est le plafond du jeu.</span></label>
+        <label class="f">Son niveau de Bouclier<input id="mnBou" type="number" min="0" data-mc="bou" value="${moonBou()}"><span class="note">Celui de ton camarade. Proposé au tien.</span></label>
+        <label class="f">Débris de ton univers<select id="mnDf" data-mc="df">${[30,40,50,60,70].map(v=>`<option ${(+m.df||LUNE_DF)===v?'selected':''}>${v}</option>`).join('')}</select><span class="note">En pourcent, dans les paramètres de ton univers.</span></label>
+      </div>
+      <div class="res" id="moonOut"></div>
+      <p class="note" id="moonNote"></p>
+    </div>
+  </section>`;
 },
 fleet(){
   const ex=S.expo, fc=S.fleetCalc;
@@ -4809,6 +4864,26 @@ research(){
     document.getElementById('ts-'+k).innerHTML = miss.length?`<span class="pill bad">${miss.join(', ')}</span>`:`<span class="pill good">disponible</span>`;
   }
 },
+moon(){
+  const m = S.moonCalc, p = moonPlanete(), k = moonShip();
+  const n = Math.max(0, +m.n || 0), df = +m.df || LUNE_DF;
+  const out = document.getElementById('moonOut');
+  if(!n){
+    out.innerHTML = `<p class="note" style="grid-column:1/-1">Dis combien de vaisseaux il envoie, et la carte chiffre le tir.</p>`;
+    return;
+  }
+  const t = luneTir(k, n, df), d = luneDefense(p, k, moonBou());
+  const rec = ((p || {}).ships || {}).rec || 0, soute = shipStats('rec').cargoEff;
+  const vise = Math.min(20, Math.max(1, +m.viser || 12));
+  const tues = d ? Math.floor(d.tue / t.v) : 0, pour = luneVaisseaux(k, vise, df);
+  out.innerHTML =
+    gauge('m','m','Débris', fmt(t.debris), 'par tir') +
+    gauge('c','c','Chance', moonPct(t.chance), 'par tir') +
+    (d ? gauge('e','e','Ta défense tue', fmt(tues), moonNom(k, tues))
+       : gauge('e','e','Ta défense', '?', 'jamais relevée')) +
+    gauge('d','d','Pour ' + moonPct(vise), fmt(pour), moonNom(k, pour)) +
+    (rec && soute ? gauge('m','m','Ramasser', fmt(Math.ceil(t.debris / (rec * soute))), 'voyages de recycleur') : '');
+},
 fleet(){
   const s=S.settings, cap = expoFind(S.expo.pf);
   const lc=shipStats('lc'), sc=shipStats('sc'), pf=shipStats('pf');
@@ -4923,6 +4998,7 @@ function bind(){
     if(k==='lean' || k==='noshop' || k==='large' || k==='peau' || k==='clair') pushLook();
   }));
   view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.value==='1'; changed(); }));
+  view.querySelectorAll('[data-mc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.mc; S.moonCalc[k] = (k==='pid'||k==='ship') ? el.value : Math.max(0, parseFloat(el.value)||0); changed(); }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
   view.querySelectorAll('[data-ship]').forEach(el=>el.addEventListener('input',()=>{ S.fleetCalc.ships[el.dataset.ship]=Math.max(0,parseInt(el.value)||0); changed(); }));
   /* Le presse-papiers du panneau latéral refuse l'écriture dès que le focus est

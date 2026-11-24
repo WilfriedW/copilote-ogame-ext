@@ -8371,6 +8371,59 @@ t('une clé inconnue dans la défense ne compte pour rien', () => {
   assert.equal(d.tirs, 10);
 });
 
+/* ---------- le tir de lune : la carte ---------- */
+
+/** Le HQ, l'onglet Lune ouvert, et un tir de mille chasseurs légers. */
+const LUNE = s => {
+  HQ(s);
+  s.ui.tool = 'moon';
+  s.moonCalc = { pid: s.planets[0].id, ship: 'lf', n: 1000, bou: 0, viser: 12, df: 30 };
+};
+
+t('l\'onglet Lune est dans la barre d\'Outils', () => {
+  assert.ok(/Lune/.test(lu(app(LUNE).VIEWS.tools())));
+});
+
+t('la carte sort les débris, la chance et ce que la défense tue', () => {
+  const g = app(LUNE);
+  g.REFRESH.moon();
+  const out = lu(g.html().moonOut || '');
+  assert.ok(/1,20 M/.test(out), 'les débris : ' + out);
+  assert.ok(/12 %/.test(out), 'la chance : ' + out);
+  assert.ok(/999/.test(out), 'ce que la défense tue : ' + out);
+  assert.ok(/chasseurs légers/i.test(out), 'le vaisseau visé est nommé : ' + out);
+});
+
+t('sans vaisseau, la carte ne sort aucun chiffre et le dit', () => {
+  const g = app(s => { LUNE(s); s.moonCalc.n = 0; });
+  g.REFRESH.moon();
+  const out = lu(g.html().moonOut || '');
+  assert.ok(/combien/i.test(out), out);
+  assert.ok(!/%/.test(out), 'aucune chance annoncée : ' + out);
+});
+
+t('une défense jamais relevée se dit inconnue, pas nulle', () => {
+  const g = app(s => { LUNE(s); s.planets[0].defs = null; });
+  g.REFRESH.moon();
+  const out = lu(g.html().moonOut || '');
+  assert.ok(/jamais relevée/i.test(out), out);
+  assert.ok(!/\b0 chasseurs/.test(out), 'pas de zéro inventé : ' + out);
+});
+
+t('le niveau de Bouclier proposé est celui du joueur', () => {
+  const g = app(s => { LUNE(s); s.moonCalc.bou = null; s.tech.shielding = 8; });
+  assert.ok(/value="8"/.test(g.VIEWS.moon()), g.VIEWS.moon().slice(0, 600));
+});
+
+t('les voyages de recycleur ne sortent que s\'il y a des recycleurs', () => {
+  const avec = app(s => { LUNE(s); s.planets[0].ships = { rec: 31 }; });
+  avec.REFRESH.moon();
+  assert.ok(/voyage/i.test(lu(avec.html().moonOut || '')), 'avec 31 recycleurs');
+  const sans = app(s => { LUNE(s); s.planets[0].ships = {}; });
+  sans.REFRESH.moon();
+  assert.ok(!/voyage/i.test(lu(sans.html().moonOut || '')), 'sans recycleur');
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');
