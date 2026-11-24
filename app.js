@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.57';
+const APP_VERSION = '1.53.58';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3843,6 +3843,58 @@ const DEF_POURQUOI = {
   sd: 'soixante-quinze points de bouclier par millier dépensé, sept fois tout le reste, et personne n\'a de tir rapide contre lui',
   ld: 'dix mille points de bouclier d\'un bloc, sans tir rapide de personne',
 };
+/* ---------- le tir de lune ---------- */
+
+/* Un tir de lune se chiffre avant de partir, et il se chiffre exactement : la
+   chance est linéaire en débris, donc 1 % coûte le même poids de vaisseaux que
+   le tir soit gros ou petit. Les débris valent 30 % du métal et du cristal des
+   vaisseaux détruits — jamais le deutérium, et la défense détruite n'en produit
+   aucun. Chaque 100 000 de débris donne 1 % de chance, jusqu'à 20 % à 2 M.
+
+   Le plancher est dur, et c'est la règle, pas une prudence de notre part :
+   « Any time a large battle occurs leaving more than 100k debris behind, the
+   owner of the planet where the battle took place receives a moonchance »
+   (wiki/Moonchance). Sous 100 000, le combat ne tire rien du tout.
+
+   Le taux de débris, lui, est un réglage d'univers : le wiki donne des univers
+   à 30, 40, 50, 60 et 70 %, et à 70 % il faut 715 chasseurs légers au lieu de
+   1 667. Le coder en dur surestimerait la facture jusqu'à 2,3 fois, ce qu'aucune
+   note ne rattrape — d'où le `df`, en pourcent, que la carte demande au joueur.
+
+   L'arithmétique reste entière : `pct * 1e7 / (df * v)` plutôt que de passer
+   par `df / 100`, qui n'est pas exact en binaire et ferait monter un plafond
+   d'une unité au mauvais moment. */
+const LUNE_DF = 30;
+
+/** La coque d'un vaisseau : son métal plus son cristal. Les seize lignes du
+    wiki le vérifient sans exception, donc aucune table ne la porte. */
+function luneCoque(k){ const c = SHIP_COST[k] || [0, 0, 0]; return c[0] + c[1]; }
+
+/** Ce qu'un tir de `n` vaisseaux `k` laisse derrière lui, et ce qu'il vaut. */
+function luneTir(k, n, df = LUNE_DF){
+  const v = luneCoque(k), debris = df * Math.max(0, n) * v / 100;
+  return {v, debris, chance: debris < 1e5 ? 0 : Math.min(20, debris / 1e5)};
+}
+
+/** Le nombre de vaisseaux `k` qu'il faut faire mourir pour viser `pct`. */
+function luneVaisseaux(k, pct, df = LUNE_DF){
+  const v = luneCoque(k);
+  if(!v) return 0;
+  return Math.ceil(Math.min(20, Math.max(1, pct)) * 1e7 / (df * v));
+}
+
+/** Ce qu'une lune coûte en espérance, et ce que le recyclage des tirs ratés
+    rend. Le tir qui réussit consomme son champ de débris, d'où `tirs - 1`.
+    Elle refait le tir elle-même : une chance et un nombre de vaisseaux passés
+    séparément pourraient ne pas parler du même tir. */
+function luneFacture(k, n, df = LUNE_DF){
+  const t = luneTir(k, n, df);
+  if(!t.chance) return null;
+  const tirs = Math.ceil(100 / t.chance), c = SHIP_COST[k] || [0, 0, 0];
+  return {chance: t.chance, tirs, m: tirs * n * c[0], c: tirs * n * c[1],
+          recupere: (tirs - 1) * t.debris};
+}
+
 /* Le copilote ne proposera jamais de construire une coque de combat — le wiki
    dit le marché mauvais des deux côtés, et la demande de flotte l'a écrit une
    fois pour toutes. Leurs coûts sont ici pour une seule raison : le tir de lune

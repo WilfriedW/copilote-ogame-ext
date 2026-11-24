@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -8224,6 +8224,104 @@ t('la coque d\'une pièce de défense vaut son métal plus son cristal', () => {
   const g = app();
   assert.deepEqual(['rl', 'll', 'hl', 'ic', 'gc', 'pt', 'sd', 'ld'].map(k => g.DEF[k].c[0] + g.DEF[k].c[1]),
     [2000, 2000, 8000, 8000, 35000, 100000, 20000, 100000]);
+});
+
+/* ---------- le tir de lune : l'arithmétique ---------- */
+
+/** Le tableau « Probability of moon formation from ship debris » de
+    ogame.fandom.com/wiki/Moon, colonnes 1 % et 20 %, relu le 24 novembre 2026.
+    C'est la même fonction prouvée par une source extérieure.
+
+    Deux cellules de ce tableau se contredisent avec celui de /wiki/Moonchance,
+    qui dit 248 croiseurs et 90 bombardiers : 247 et 89 sont les plafonds
+    exacts (247 × 8 100 = 2 000 700, déjà au-dessus de 2 M), Moonchance arrondit
+    vers le haut. Et la ligne du chasseur léger de /wiki/Moon porte deux coquilles
+    à 2 % et 16 % (166 et 1 337, là où le petit transporteur de même coque dit
+    167 et 1 334) — d'où les colonnes 1 % et 20 % seules, où tout concorde. */
+const WIKI_LUNE = {
+  sc: [84, 1667], lc: [28, 556], lf: [84, 1667], hf: [34, 667],
+  cr: [13, 247], bs: [6, 112], col: [12, 223], rec: [21, 417],
+  pr: [334, 6667], bb: [5, 89], ds: [4, 61], bc: [5, 96],
+};
+
+t('le nombre de vaisseaux par chance est celui du tableau du wiki', () => {
+  const g = app();
+  for (const [k, [un, vingt]] of Object.entries(WIKI_LUNE)) {
+    assert.equal(g.luneVaisseaux(k, 1, 30), un, k + ' à 1 %');
+    assert.equal(g.luneVaisseaux(k, 20, 30), vingt, k + ' à 20 %');
+  }
+});
+
+/** « Amt. for a 30/40/50/60/70 % DF » de /wiki/Moonchance : le taux de débris
+    est un réglage d'univers, et le wiki en donne cinq. */
+const WIKI_DF = {
+  lf: { 30: 1667, 40: 1250, 50: 1000, 60: 834, 70: 715 },
+  bs: { 30: 112, 40: 84, 50: 67, 60: 56, 70: 48 },
+  pr: { 30: 6667, 40: 5000, 50: 4000, 60: 3334, 70: 2858 },
+};
+
+t('le taux de débris de l\'univers change le nombre de vaisseaux', () => {
+  const g = app();
+  for (const [k, par] of Object.entries(WIKI_DF))
+    for (const [df, n] of Object.entries(par))
+      assert.equal(g.luneVaisseaux(k, 20, +df), n, k + ' à 20 % sur un univers ' + df + ' %');
+});
+
+t('le taux de débris vaut 30 % quand on ne le dit pas', () => {
+  const g = app();
+  assert.equal(g.luneVaisseaux('lf', 20), 1667);
+  assert.equal(g.luneTir('lf', 1000).debris, 1200000);
+});
+
+t('mille chasseurs légers font 1,2 M de débris et 12 % de chance', () => {
+  const g = app(), r = g.luneTir('lf', 1000, 30);
+  assert.equal(r.v, 4000);
+  assert.equal(r.debris, 1200000);
+  assert.equal(r.chance, 12);
+});
+
+t('sous 100 000 de débris, la chance est nulle', () => {
+  const g = app();
+  assert.equal(g.luneTir('lf', 83, 30).debris, 99600);
+  assert.equal(g.luneTir('lf', 83, 30).chance, 0);
+  assert.ok(g.luneTir('lf', 84, 30).chance > 1);
+});
+
+t('la chance plafonne à 20 %', () => {
+  assert.equal(app().luneTir('lf', 2000, 30).chance, 20);
+});
+
+t('la chance par ressource dépensée est la même à 100 000 et à 2 M', () => {
+  const g = app();
+  const par = n => g.luneTir('lf', n, 30).chance / (n * 4000);
+  assert.ok(Math.abs(par(84) - par(1666)) < 1e-12);
+});
+
+t('une chance visée hors bornes est ramenée dans les bornes', () => {
+  const g = app();
+  assert.equal(g.luneVaisseaux('lf', 50, 30), g.luneVaisseaux('lf', 20, 30));
+  assert.equal(g.luneVaisseaux('lf', 0, 30), g.luneVaisseaux('lf', 1, 30));
+});
+
+t('la facture espérée compte les tirs et ce que le recyclage rend', () => {
+  const g = app(), f = g.luneFacture('lf', 1000, 30);
+  assert.equal(f.chance, 12);
+  assert.equal(f.tirs, 9);
+  assert.equal(f.m, 9 * 1000 * 3000);
+  assert.equal(f.c, 9 * 1000 * 1000);
+  assert.equal(f.recupere, 8 * 1200000);
+});
+
+t('un vaisseau sans coût ne sort ni débris ni NaN', () => {
+  const g = app();
+  assert.equal(g.luneTir('inconnu', 100, 30).debris, 0);
+  assert.equal(g.luneTir('inconnu', 100, 30).chance, 0);
+  assert.equal(g.luneVaisseaux('inconnu', 20, 30), 0);
+  assert.equal(g.luneFacture('inconnu', 100, 30), null);
+});
+
+t('une chance nulle ne donne pas de facture', () => {
+  assert.equal(app().luneFacture('lf', 83, 30), null);
 });
 
 if (failures.length) {
