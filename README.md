@@ -28,8 +28,7 @@ hors du Store : laisse-le, il ne casse rien.
    des **données d'exemple**, le temps qu'il lise tes vraies pages.
 3. Vérifie le bandeau en haut du panneau : il affiche `éco x… · flotte x… ·`
    ta classe. Ces trois valeurs se lisent dans la page du jeu, tu n'as rien à
-   chercher. Si l'une manque, navigue une page de plus dans le jeu. Tu peux les
-   corriger à la main dans **Réglages › Univers**, mais normalement non.
+   chercher ni à régler. Si l'une manque, navigue une page de plus dans le jeu.
 4. Clique **Actualiser** en haut du panneau : le relevé passe sur chaque page de
    chaque planète, puis te ramène où tu étais. Laisse-le finir.
 

@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -3651,26 +3651,6 @@ t('la carte Alertes affiche ce que le moteur produit', () => {
   assert.ok(/[Hh]angar/.test(html), 'et le hangar plein y figurer : ' + html.slice(0, 200));
 });
 
-t('l\'alerte de file vide reste tue quand l\'extension a lu plus recemment', () => {
-  const g = app(s => {
-    s.lastAlerts = ['Planète mère : File vide'];
-    s.lastImport = SOIR - 3600e3;
-    s.syncAt = SOIR;
-  });
-  assert.ok(!g.dailyMissions().some(m => /file vide/i.test(m.what)),
-    'un vieil import ne doit pas ressortir après une synchro');
-});
-
-t('l\'alerte de file vide est dite quand l\'import est le plus frais', () => {
-  const g = app(s => {
-    s.lastAlerts = ['Planète mère : File vide'];
-    s.lastImport = SOIR;
-    s.syncAt = SOIR - 3600e3;
-  });
-  assert.ok(g.dailyMissions().some(m => /file vide/i.test(m.what)),
-    'une file vide signalée par le dernier import doit remonter');
-});
-
 t('tous les jalons franchis, le bloc disparait', () => {
   const g = app(s => {
     Object.assign(s.planets[0].b, { lab: 3, robot: 2, shipyard: 2 });
@@ -5626,21 +5606,6 @@ t('un ancien relevé ne compte qu\'un total, et ne se perd pas en route', () => 
   const vus = acts.filter(a => a.kind === 'def').map(a => a.why).join(' | ');
   assert.ok(!/0 lanceur de missiles sur/.test(vus), 'les 300 lanceurs restent comptés : ' + vus);
   assert.equal(lanceurs.length, 0, 'et rien ne les redemande : ' + vus);
-});
-
-t('l\'import de la Vue empire range la défense par type', () => {
-  const g = app(relie);
-  g.importEmpire({
-    planets: [{
-      name: 'Planète mère', coords: '1:140:8', temp: '20 °C à 60 °C',
-      supply: { 'Mine de métal': 10 },
-      defense: { 'Lanceur de missiles': 40, 'Laser léger': 12, 'Canon de Gauss': 2, 'Lanceur de plasma': 1 }
-    }],
-    research: {}
-  });
-  const p = g.S.planets[0];
-  assert.deepEqual(p.defs, { rl: 40, ll: 12, gc: 2, pt: 1 }, JSON.stringify(p.defs));
-  assert.equal(p.def, 55, 'le total reste lisible');
 });
 
 /* ---------- inventaire des transporteurs ---------- */
@@ -7750,17 +7715,16 @@ t('une case de recherche de forme de vie, sans niveau, est refusée pour ce moti
   assert.match(p.refus, /niveau/i);
 });
 
-t('tout bâtiment modélisé a sa tuile, son nom court et son libellé d\'import', () => {
+t('tout bâtiment modélisé a sa tuile et son nom court', () => {
   const g = app();
   const { OG_BUILD } = new Function(require('fs').readFileSync(require('path').join(__dirname, '..', 'ids.js'), 'utf8')
     + '; return { OG_BUILD };')();
-  const tuiles = Object.values(OG_BUILD), importe = g.MATCH_B.map(x => x[0]);
-  /* Quatre tables à tenir ensemble : une clé qui manque à l'une passe inaperçue
+  const tuiles = Object.values(OG_BUILD);
+  /* Trois tables à tenir ensemble : une clé qui manque à l'une passe inaperçue
      jusqu'à ce que le volet Empire affiche « undefined » chez le joueur. */
   for (const k of Object.keys(g.B)) {
     assert.ok(tuiles.includes(k), k + ' n\'a pas de tuile dans OG_BUILD');
     assert.ok(g.B_SHORT[k], k + ' n\'a pas de nom court');
-    assert.ok(importe.includes(k), k + ' ne se retrouve pas à l\'import de la Vue empire');
   }
 });
 
@@ -8838,6 +8802,17 @@ t('la carte Serveur dit les faits du serveur dans ses unités', () => {
   assert.ok(/Non/.test(h), 'un drapeau à zéro se lit Non, pas 0');
 });
 
+t('la carte Serveur ne montre que quatre faits par groupe, le reste replié', () => {
+  /* Vingt faits d'affilée noyaient les quatre qui changent le plan. L'ordre de
+     SRV_ROWS décide : les quatre premiers présents restent dehors. */
+  const h = lu(app(s => { s.ui.tool = 'server'; }, SOIR, API_SERVEUR).VIEWS.server());
+  const uni = h.slice(h.indexOf('L\'univers'), h.indexOf('Vitesses'));
+  const dehors = uni.slice(0, uni.indexOf('<details'));
+  assert.equal((dehors.match(/<li>/g) || []).length, 4, 'quatre lignes dehors : ' + dehors);
+  assert.ok(/Le reste \(4\)/.test(uni), 'les autres sont comptées dans le repli : ' + uni);
+  assert.ok(uni.indexOf('Celestia') > uni.indexOf('<details'), 'et le nom, qui ne sert à rien de calculé, est dedans');
+});
+
 t('les vitesses du serveur passent devant le réglage saisi', () => {
   // réglage faux exprès : ×1 au lieu des ×8 du serveur, et la recherche y est ÷2
   const faux = s => { s.settings.eco = 1; s.settings.fleet = 1; };
@@ -8845,8 +8820,6 @@ t('les vitesses du serveur passent devant le réglage saisi', () => {
   const avec = app(faux, SOIR, API_SERVEUR).researchTime('energy', 5);
   assert.ok(Math.abs(avec - sans / 16) < 1,
     `la vitesse éco (×8) et le diviseur de recherche (÷2) s'appliquent : ${sans} / 16 ≠ ${avec}`);
-  assert.ok(/lues sur le serveur/.test(lu(app(faux, SOIR, API_SERVEUR).VIEWS.settings())),
-    'les Réglages disent que le chiffre saisi ne sert plus');
 });
 
 t('le carburant suit le facteur du serveur', () => {

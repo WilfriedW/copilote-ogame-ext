@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.8';
+const APP_VERSION = '1.54.9';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3831,17 +3831,6 @@ function dailyMissions(){
     if(exposees.length) m.how.push(`Resteront exposés au matin : ${exposees.map(x=>`${esc(planetRef(x.p))} (~${fmt(x.eq)} éq.)`).join(', ')}. ${exposees[0].p.def == null ? 'Ouvre la page Défense pour que le plan monte ce qu\'il faut.' : `Le plan monte ${esc(planetRef(exposees[0].p))} à ${esc(defMixList(exposees[0].p))} : à ce prix-là, percer coûte plus cher qu'emporter.`}`);
     out.push(m);
   }
-  /* Les files vides relevées par le dernier import de la Vue empire. Le garde
-     se lit dans l'autre sens : dès que l'extension a lu le jeu plus récemment
-     que l'import, c'est elle qui sait, et un vieux relevé ne doit pas ressortir. */
-  const importFresh = !S.syncAt || (S.lastImport||0) >= S.syncAt - 60000;
-  if(importFresh) for(const a of S.lastAlerts||[]){
-    if(!/file vide|arr[eê]t/i.test(a)) continue;
-    out.push({id:'empty-queue-'+norm(a).replace(/[^a-z0-9]+/g,'-'), info:true, q:'Empire', every:24, sev:'warn',
-      what:a, why:'Signalé par le dernier import de la Vue empire. Une file vide, c\'est du temps de production perdu.',
-      how:['Ouvre la planète concernée et lance une construction ou une recherche.',
-           'Réimporte la Vue empire pour que le relevé se mette à jour.']});
-  }
   /* Mode nuit : le joueur va dormir. Seule la rubrique Sécurité parle de
      mettre les ressources à l'abri ; tout le reste attendra le réveil. */
   return S.day.night ? out.filter(m=>m.q === 'Sécurité') : out;
@@ -4483,35 +4472,39 @@ const srvX = v => '×'+String(v).replace('.',',');
    que les réglages du copilote disent du même fait, dans la même unité, et un
    écart se signale au lieu de fausser les calculs en silence. Une clé que le
    serveur ne publie pas disparaît de la liste. */
+/* Les quatre premières lignes de chaque groupe sont celles dont le copilote se
+   sert pour calculer ; le reste est vrai mais ne change rien au plan, et se
+   replie. L'ordre est donc porteur : déplacer une ligne, c'est décider si elle
+   s'affiche d'emblée. */
 const SRV_ROWS = [
   ['L\'univers', [
+    ['galaxies', 'Galaxies'],
+    ['systems', 'Systèmes par galaxie'],
+    ['bonusFields', 'Cases bonus', null, 'Ajoutées à chaque planète en plus de sa taille.'],
+    ['topScore', 'Points du n°1', null, 'Fixe le plafond des expéditions.'],
+    ['donutGalaxy', 'Galaxies en anneau', null, 'La première galaxie touche la dernière : les temps de vol en tiennent compte.'],
+    ['donutSystem', 'Systèmes en anneau', null, 'Le système 1 touche le dernier.'],
     ['name', 'Nom', esc],
     ['number', 'Numéro', v=>String(v)],
     ['version', 'Version du jeu', esc],
     ['language', 'Langue', esc],
     ['domain', 'Adresse', esc],
     ['timezone', 'Fuseau horaire', (v,sv)=>esc(v+(sv.timezoneOffset?` (${sv.timezoneOffset})`:''))],
-    ['galaxies', 'Galaxies'],
-    ['systems', 'Systèmes par galaxie'],
-    ['donutGalaxy', 'Galaxies en anneau', null, 'La première galaxie touche la dernière : les temps de vol en tiennent compte.'],
-    ['donutSystem', 'Systèmes en anneau', null, 'Le système 1 touche le dernier.'],
-    ['bonusFields', 'Cases bonus', null, 'Ajoutées à chaque planète en plus de sa taille.'],
-    ['topScore', 'Points du n°1'],
   ]],
   ['Vitesses', [
     ['speed', 'Économie', srvX, 'Production, constructions, recherches, expéditions : le copilote calcule avec.'],
     ['speedFleetPeaceful', 'Flotte pacifique', srvX, 'Transport, colonisation, expédition, recyclage : le copilote calcule avec.'],
-    ['speedFleetWar', 'Flotte de guerre', srvX, 'Attaque et espionnage.'],
-    ['speedFleetHolding', 'Stationnement', srvX, 'Durée des missions qui attendent sur place.'],
     ['researchDurationDivisor', 'Recherche', v=>'÷'+String(v).replace('.',','), 'Diviseur des durées de recherche, en plus de la vitesse éco : le copilote calcule avec.'],
     ['globalDeuteriumSaveFactor', 'Carburant', srvX, 'Multiplie le deutérium brûlé par chaque vol : le copilote calcule avec.'],
+    ['speedFleetWar', 'Flotte de guerre', srvX, 'Attaque et espionnage.'],
+    ['speedFleetHolding', 'Stationnement', srvX, 'Durée des missions qui attendent sur place.'],
   ]],
   ['Combat, débris et lune', [
     ['debrisFactor', 'Débris des vaisseaux', srvPct, 'Part de la coque détruite qui tombe dans le champ de ruines : la carte Lune calcule avec.'],
     ['debrisFactorDef', 'Débris de la défense', srvPct],
     ['defToTF', 'Défense dans le champ de ruines'],
-    ['deuteriumInDebris', 'Deutérium dans les débris'],
     ['repairFactor', 'Défense réparée', srvPct, 'Part de la défense détruite qui se relève après le combat.'],
+    ['deuteriumInDebris', 'Deutérium dans les débris'],
     ['combatDebrisFieldLimit', 'Plafond du champ de ruines', srvPct],
     ['wfEnabled', 'Champ d\'épaves'],
     ['wfMinimumRessLost', 'Épaves : pertes minimales'],
@@ -4522,11 +4515,11 @@ const SRV_ROWS = [
     ['bashlimit', 'Attaques permises', null, 'Par cible et par vague, avant l\'avertissement.'],
   ]],
   ['Règles du serveur', [
+    ['cargoHyperspaceTechMultiplier', 'Soute par niveau d\'Hyperespace', v=>String(v).replace('.',',')+' %', 'Compté dans chaque soute annoncée par le copilote.'],
+    ['probeCargo', 'Soute des sondes'],
+    ['characterClassesEnabled', 'Classes de personnage'],
     ['newbieProtectionLimit', 'Protection débutant'],
     ['newbieProtectionHigh', 'Seuil des gros joueurs'],
-    ['probeCargo', 'Soute des sondes'],
-    ['cargoHyperspaceTechMultiplier', 'Soute par niveau d\'Hyperespace', v=>String(v).replace('.',',')+' %', 'Compté dans chaque soute annoncée par le copilote.'],
-    ['characterClassesEnabled', 'Classes de personnage'],
     ['marketplaceEnabled', 'Place de marché'],
     ['darkMatterNewAcount', 'Matière noire de départ'],
   ]],
@@ -4727,8 +4720,11 @@ server(){
       const ecart = m != null && Math.abs(m - v) > 1e-9 ? `<span class="pill warn">tes réglages : ${dit(m)}</span>` : '';
       const bas = [note || '', ecart].filter(Boolean).join(' ');
       return `<li><div>${lib}${bas?`<div class="note">${bas}</div>`:''}</div><b class="mono">${dit(v)}</b></li>`;
-    }).join('');
-    return li ? `<div class="card"><h2>${titre}</h2><ul class="list">${li}</ul></div>` : '';
+    }).filter(Boolean);
+    /* Quatre lignes montrées, le reste replié : la carte disait vingt faits
+       d'affilée, et les quatre qui changent le plan s'y perdaient. */
+    const vues = li.slice(0, 4), reste = li.slice(4);
+    return vues.length ? `<div class="card"><h2>${titre}</h2><ul class="list">${vues.join('')}</ul>${reste.length ? `<details${fold('srv:'+titre, false)}><summary class="note" data-fold="${esc('srv:'+titre)}">Le reste (${reste.length})</summary><ul class="list" style="margin-top:6px">${reste.join('')}</ul></details>` : ''}</div>` : '';
   }).join('');
   return `<section class="panel">
     <div class="card"><div class="row spread"><h2>Ton serveur</h2><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>
@@ -4744,12 +4740,6 @@ tools(){
 planets(){
   return `<section class="panel">
     ${S.sample ? `<div class="example">Données d'exemple : remplace-les par tes niveaux réels (planète mère, mine de métal 1). Les cases se sauvegardent dans ce navigateur.</div>` : ''}
-    ${`<details class="card" id="impBox"><summary>Importer depuis la Vue empire <span class="note">${IS_EXT?'optionnel':''}</span></summary>
-      <p class="note">${IS_EXT?'L\'extension lit déjà tes niveaux sur les pages Ressources, Installations et Recherche de chaque planète. L\'import met à jour toutes tes planètes d\'un coup. ':''}Dans OGame, ouvre la <b>Vue empire</b>, clique sur le favori du script, puis colle ici (Ctrl+V n'importe où sur cette page fonctionne aussi).</p>
-      <textarea id="impText" aria-label="JSON exporté par le script" placeholder='{"exportedAt": ..., "planets": [...]}'></textarea>
-      <div class="row"><button class="btn primary" id="impGo">Importer</button><span class="note" id="impMsg">${S.lastImport?`Dernier import : ${new Date(S.lastImport).toLocaleString('fr-FR')}`:''}</span></div>
-      <div id="impReport"></div>
-    </details>`}
     <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><p class="note" id="empireMix"></p></div>
     ${(()=>{ const voc = vocations(), ci = centreIndex(), auto = centreIndex(true); return S.planets.map((p,i)=>`
     <div class="card" data-pi="${i}">
@@ -4905,14 +4895,6 @@ settings(){
       <div class="chips">${lfSettingsHtml()}</div>
       <p class="note">Copilote s'en sert pour te conseiller la forme de vie de tes colonies.</p>
     </div>
-    <div class="card"><h2>Univers</h2>
-      <div class="grid">
-        <label class="f">Vitesse économie<input id="sEco" type="number" min="1" step="1" data-set="eco" value="${s.eco}"></label>
-        <label class="f">Vitesse flotte (pacifique)<input id="sFleet" type="number" min="1" step="1" data-set="fleet" value="${s.fleet}"></label>
-        <label class="f">Classe<select id="sCls" data-set="cls">${[['collector','Collecteur'],['general','Général'],['explorer','Explorateur'],['none','Aucune']].map(([v,l])=>`<option value="${v}" ${s.cls===v?'selected':''}>${l}</option>`).join('')}</select></label>
-      </div>
-      <p class="note">${srv('speed', null) != null ? `Les deux vitesses sont <b>lues sur le serveur</b> (×${ecoSpeed()} et ×${fleetSpeed()}) : ce qui est saisi ici ne sert plus qu'en secours. ` : ''}Ces trois valeurs se remplissent toutes seules : le Copilote les lit dans la page du jeu dès que tu l'ouvres. Tu n'y touches que si elles sont vides — le jeu n'a pas encore été ouvert — ou fausses. Si ta production réelle (onglet Ressources) ne correspond pas à l'onglet Empire, c'est le premier réglage à vérifier.</p>
-    </div>
     <div class="card"><h2>Bonus</h2>
       <div class="bascules">
         ${bascule('sGeo','data-set="geo"','Géologue (+10 % production)', s.geo)}
@@ -5020,7 +5002,7 @@ today(){
     + (plan.ups.length ? `<p class="note" style="margin-top:6px">${esc(plan.ups.join(' · '))}</p>` : '')
     + `<p class="note" style="margin-top:6px">Connexions sans action masquées. Hors plan : formes de vie, flotte, défense. Avant une longue absence, dépense ou mets tes ressources à l'abri.</p>`;
   renderTimers();
-  document.getElementById('tdStamp').textContent = S.syncAt ? `synchro ${hm(S.syncAt)}` : (S.lastImport ? `import ${hm(S.lastImport)}` : '');
+  document.getElementById('tdStamp').textContent = S.syncAt ? `synchro ${hm(S.syncAt)}` : '';
   document.getElementById('tdDaySum').textContent = night ? 'mode nuit'
     : `${later.length} connexion${later.length>1?'s':''} à venir · production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${S.day.horizon} h`;
 },
@@ -5283,7 +5265,6 @@ function bind(){
   view.querySelectorAll('[data-set]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k=el.dataset.set, s=S.settings;
     if(k==='ratio'){ const r=el.value.split(':').map(Number); if(r.length===3 && r.every(x=>x>0)) s.ratio=r; }
-    else if(k==='cls') s.cls=el.value;
     else if(['geo','eng','colCargo','lean','noshop','large','peau','clair','crawlerOverload'].includes(k)) s[k]=el.checked;
     else s[k]=Math.max(k==='top1'?0:1, parseFloat(el.value)||0);
     changed();
@@ -5456,95 +5437,9 @@ function sainEtat(){
 }
 function changed(){ S.sample=false; save(); refresh(); }
 
-/* ---------- import from the Empire-view bookmarklet ---------- */
 const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
-const MATCH_B = [
-  ['metal',[['mine','metal']]], ['crystal',[['mine','crist'],['mine','crystal']]], ['deut',[['synth','deut']]],
-  ['solar',[['centrale','solaire'],['solar','plant']]], ['fusion',[['fusion']]], ['robot',[['robot']]],
-  ['shipyard',[['chantier'],['shipyard']]], ['lab',[['laboratoire'],['research','lab']]], ['nanite',[['nanite']]],
-  ['smetal',[['hangar','metal'],['metal','storage']]], ['scrystal',[['hangar','crist'],['crystal','storage']]], ['sdeut',[['reservoir','deut'],['deuterium','tank']]],
-  ['depot',[['depot','ravitaillement'],['alliance','depot']]], ['silo',[['silo']]],
-  ['terra',[['terraform']]], ['dock',[['dock']]],
-];
-const MATCH_T = [
-  ['irn',[['reseau'],['intergalactic']]], ['hyperdrive',[['propulsion','hyper'],['hyperspace','drive']]], ['hyper',[['hyperespace'],['hyperspace']]],
-  ['energy',[['energ']]], ['laser',[['laser']]], ['plasma',[['plasma']]],
-  ['combustion',[['combustion']]], ['impulse',[['impulsion'],['impulse']]], ['espionage',[['espionnage'],['espionage']]],
-  ['computer',[['ordinateur'],['computer']]], ['astro',[['astro']]], ['weapons',[['arme'],['weapon']]],
-  ['shielding',[['bouclier'],['shield']]], ['armour',[['protection'],['armour']]], ['ion',[['ion']]],
-];
-const MATCH_S = [['sc',[['petit','transp'],['small','cargo']]], ['lc',[['grand','transp'],['large','cargo']]], ['lf',[['chasseur','leger'],['light','fighter']]], ['hf',[['chasseur','lourd'],['heavy','fighter']]], ['cr',[['croiseur'],['cruiser']]], ['bs',[['bataille'],['battleship']]], ['col',[['colonisation'],['colony']]], ['rec',[['recycl']]], ['pr',[['sonde'],['probe']]], ['bb',[['bombard']]], ['ds',[['destructeur'],['destroyer']]], ['bc',[['traqueur'],['battlecruiser']]], ['rp',[['faucheur'],['reaper']]], ['pf',[['eclaireur'],['pathfinder']]]];
-/* L'import de la Vue empire donne la défense par libellé : sans cette table il
-   ne resterait qu'un total, et le plan proposerait des lasers par-dessus des
-   lasers. « Lanceur de plasma » avant « lanceur de missiles » : les deux
-   contiennent « lanceur ». */
-const MATCH_DEF = [
-  ['pt',[['lanceur','plasma'],['plasma','turret']]], ['rl',[['lanceur','missile'],['rocket','launcher']]],
-  ['ll',[['laser','leger'],['light','laser']]], ['hl',[['laser','lourd'],['heavy','laser']]],
-  ['gc',[['gauss']]], ['ic',[['ion']]],
-  ['sd',[['petit','bouclier'],['small','shield']]], ['ld',[['grand','bouclier'],['large','shield']]],
-];
-/** Returns the internal key matching a translated game label, or null. */
-function matchKey(label, table){ const n=norm(label); for(const [k,alts] of table) if(alts.some(a=>a.every(w=>n.includes(w)))) return k; return null; }
-const lvlOf = v => typeof v==='object' && v ? +v.lvl||0 : +v||0;
-function tempMax(t){ const nums=String(t??'').match(/-?\d+/g); return nums ? Math.max(...nums.map(Number)) : null; }
 
-/** Applies a bookmarklet export to the state; returns a report. */
-function importEmpire(d){
-  if(!d || !Array.isArray(d.planets)) throw new Error('format');
-  const rep = {planets:0, unknown:new Set(), techs:0, alerts:[].concat(d.alerts||[])};
-  const at = Date.now();
-  const kept = [];
-  for(const src of d.planets){
-    const coords = String(src.coords||'').replace(/[\[\]\s]/g,'');
-    let p = S.planets.find(x=>x.coords===coords) || newPlanet(src.name||'Planète', coords, 20, {});
-    p.name = src.name || p.name; p.coords = coords;
-    const tm = tempMax(src.temp); if(tm!=null) p.tmax = tm;
-    for(const grp of ['supply','station']) for(const [label,v] of Object.entries(src[grp]||{})){
-      const k = matchKey(label, MATCH_B); if(k){ p.b[k]=lvlOf(v); delete p.bNeuve; } else rep.unknown.add(label);
-    }
-    for(const [label,v] of Object.entries(src.ships||{})){ if(/satellite|solar sat/i.test(norm(label))){ p.sats = lvlOf(v); continue; } const k = matchKey(label, MATCH_S); if(k){ p.ships = p.ships||{}; p.ships[k] = lvlOf(v); } }
-    if(src.defense){
-      p.def = Object.values(src.defense).reduce((a,v)=>a+lvlOf(v),0);
-      const d = {};
-      for(const [label,v] of Object.entries(src.defense)){ const k = matchKey(label, MATCH_DEF); if(k) d[k] = lvlOf(v); else rep.unknown.add(label); }
-      p.defs = d;
-    }
-    if(src.res) p.stock = {m:+src.res.metal||0, c:+src.res.crystal||0, d:+src.res.deut||0, at};
-    if(src.energy && src.energy.balance != null){ p.eAdj = 0; p.eAdj = +src.energy.balance - production(p).eBal; }
-    (src.alerts||[]).forEach(a=>rep.alerts.push(`${src.name} : ${a}`));
-    kept.push(p); rep.planets++;
-  }
-  for(const [label,v] of Object.entries(d.research||{})){
-    const k = matchKey(label, MATCH_T); if(k){ S.tech[k]=lvlOf(v); rep.techs++; } else rep.unknown.add(label);
-  }
-  S.planets = kept;
-  S.sample = false; S.lastImport = at;
-  S.lastAlerts = rep.alerts.map(a=>String(a).replace(/[\p{Extended_Pictographic}\uFE0F]/gu,'').trim());
-  save();
-  return rep;
-}
-function runImport(text){
-  let rep;
-  try{ rep = importEmpire(JSON.parse(text)); }
-  catch(e){ toast('Import impossible : colle le JSON complet copié par le script'); return false; }
-  if(tab!=='empire'){ tab='empire'; }
-  render();
-  const unk=[...rep.unknown].filter(l=>!/graviton|terraform|depot|silo|lune|lunar|phalange|phalanx|porte|jump|dock|alliance|missile/i.test(norm(l)));
-  const repEl = document.getElementById('impReport'); if(!repEl){ toast('Empire importé'); return true; }
-  repEl.innerHTML =
-    `<div class="row"><span class="pill good">${rep.planets} planète(s)</span><span class="pill good">${rep.techs} recherche(s)</span>${unk.length?`<span class="pill warn">Non reconnus : ${unk.map(esc).join(', ')}</span>`:''}</div>`+
-    (rep.alerts.length?`<ul class="list" style="margin-top:8px">${rep.alerts.map(a=>`<li><div>${esc(a)}</div></li>`).join('')}</ul>`:'');
-  const ib = document.getElementById('impBox'); if(ib) ib.open = true;
-  toast('Empire importé');
-  return true;
-}
-document.addEventListener('paste', e=>{
-  if(e.target.closest && e.target.closest('input,textarea:not(#impText)')) return;
-  const t = (e.clipboardData||window.clipboardData).getData('text');
-  if(t && t.includes('"planets"') && t.trim().startsWith('{')){ e.preventDefault(); runImport(t); }
-});
-view.addEventListener('click', e=>{ if(e.target.id==='impGo') runImport(document.getElementById('impText').value); if(e.target.id==='scanStop') boutonMaj(); });
+view.addEventListener('click', e=>{ if(e.target.id==='scanStop') boutonMaj(); });
 document.getElementById('majBtn').addEventListener('click', boutonMaj);
 /* L'âge du relevé vieillit tout seul : sans ce battement, le bouton n'apparaîtrait
    qu'au prochain clic du joueur — au moment où il se fie déjà au plan. */

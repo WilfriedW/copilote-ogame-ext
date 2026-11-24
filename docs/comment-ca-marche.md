@@ -515,21 +515,22 @@ Sert à conseiller la forme de vie d'une nouvelle colonie. Ordre de préférence
 Roctas → Humains → Mécas → Kaeleshs ; en priorité « Flotte », Mécas →
 Kaeleshs → Roctas → Humains.
 
-### 6.3 Réglages › Univers — **lus dans la page, pas à saisir**
+### 6.3 L'univers et la classe — **lus, jamais saisis**
 
-| Réglage | Clé | Valeurs | Défaut | Effet |
+| Fait | Clé | Valeurs | Défaut | Effet |
 |---|---|---|---|---|
 | Vitesse économie | `settings.eco` | entier ≥ 1 | **1** | Multiplie production, temps de chantier, gain d'expédition |
 | Vitesse flotte (pacifique) | `settings.fleet` | entier ≥ 1 | **1** | Divise les temps de vol |
 | Classe | `settings.cls` | Collecteur · Général · Explorateur · Aucune | **Collecteur** | Collecteur : +25 % production de base, bonus foreuses, +25 % soute ; Explorateur : +50 % expédition, débloque l'Éclaireur |
 
-Ces trois valeurs **se remplissent toutes seules** : chaque page du jeu les
-déclare dans son en-tête (`ogame-universe-speed`,
-`ogame-universe-speed-fleet-peaceful`, `ogame-player-characterclass-id`) et le
-copilote les reprend telles quelles. Le badge en haut du panneau les affiche
-(`éco x1 · flotte x1 · Collecteur`) : c'est là qu'on vérifie. On n'y touche à
-la main que si le badge est vide — le jeu n'a pas encore été ouvert — ou faux.
-Mal réglées, **tout l'onglet Empire est faux**.
+Aucun champ ne les saisit : chaque page du jeu les déclare dans son en-tête
+(`ogame-universe-speed`, `ogame-universe-speed-fleet-peaceful`,
+`ogame-player-characterclass-id`) et le copilote les reprend telles quelles ;
+les deux vitesses sont de toute façon écrasées par `serverData.xml` dès que
+l'API répond (voir Outils › Serveur). Le badge en haut du panneau les affiche
+(`éco x1 · flotte x1 · Collecteur`) : c'est là qu'on vérifie. Un badge vide
+veut dire que le jeu n'a pas encore été ouvert — et alors **tout l'onglet
+Empire est faux**.
 
 ### 6.4 Réglages › Bonus
 
