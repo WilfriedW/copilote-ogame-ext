@@ -6832,10 +6832,14 @@ t('le compteur du niveau visé part du niveau en place, pas de 1', () => {
   assert.match(g.VIEWS.research(), /min="8" data-prio="plasma"/, 'une recherche');
 });
 
-t('le stock dit son nom au-dessus de sa grille, et quitte le titre du volet', () => {
+/* Le stock a maintenant son propre volet : son nom est le titre de ce volet,
+   donc visible même fermé, et ses trois valeurs l'accompagnent. C'est plus que
+   ce que le libellé en gras donnait, qui ne se voyait qu'une fois ouvert. */
+t('le stock dit son nom dans le titre de son volet, et son sens juste au-dessus de sa grille', () => {
   const h = app().VIEWS.planets();
-  assert.match(h, /<b>Stock<\/b> — ce que cette planète a en magasin/);
-  assert.doesNotMatch(h, /stock et niveaux visés/, 'le titre ne le porte plus');
+  assert.match(h, /<summary data-fold="stock:[^"]*">Stock /);
+  assert.match(h, /Ce que cette planète a en magasin/);
+  assert.doesNotMatch(h, /stock et niveaux visés/, 'le titre des bâtiments ne le porte toujours pas');
 });
 
 t('l\'écho de notre propre écriture ne redessine pas la vue', () => {
@@ -8941,6 +8945,28 @@ t('la raison de la vocation arrive dans son propre trou, pas dans la pastille', 
   assert.ok(!/class="note"/.test(h['pvoc-0'] || '') || !/pill/.test(h['pvoc-0'] || ''),
     'la pastille ne porte plus la raison : ' + (h['pvoc-0'] || ''));
   assert.ok('pvocw-0' in h, 'REFRESH doit écrire la raison, même vide');
+});
+
+
+t('les stocks ont leur propre volet, hors de celui des bâtiments', () => {
+  const h = lu(app().VIEWS.planets());
+  const stk = h.indexOf('data-fold="stock:');
+  assert.ok(stk > -1, 'un volet de stock existe');
+  assert.ok(h.indexOf('data-s="m"') > stk, 'les champs de stock suivent leur propre résumé');
+});
+
+t('le résumé des stocks porte les trois valeurs, sans ouvrir', () => {
+  const g = app();
+  g.VIEWS.planets(); g.REFRESH.planets();
+  const s = lu(g.html()['pstk-0'] || '');
+  const st = g.S.planets[0].stock;
+  assert.ok(s.includes(g.fmt(st.m)) && s.includes(g.fmt(st.c)) && s.includes(g.fmt(st.d)), s);
+});
+
+t('une planète sans aucune forme de vie garde son volet de stock', () => {
+  const h = lu(app(s => { s.planets.forEach(p => { p.lf = {}; }); }).VIEWS.planets());
+  assert.ok(/data-fold="stock:/.test(h));
+  assert.ok(/aucune case de forme de vie relevée/.test(h), 'et la phrase des formes de vie tient toujours');
 });
 
 

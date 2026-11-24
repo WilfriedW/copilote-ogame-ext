@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.13';
+const APP_VERSION = '1.54.14';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4802,7 +4802,9 @@ planets(){
         <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${num(p.sats)}"${lvLu(p) ? ' readonly tabindex="-1"' : ''}></label>
       </div>
       ${lfBloc(p)}
-      <p class="note" style="margin:10px 0 0"><b>Stock</b> — ce que cette planète a en magasin. Il avance tout seul avec ta production ; recale-le quand tu dépenses.</p>
+      </details>
+      <details class="volet"${fold('stock:' + p.id, false)}><summary data-fold="stock:${p.id}">Stock <span class="mono note" id="pstk-${i}"></span></summary>
+      <p class="note" style="margin:8px 0 0">Ce que cette planète a en magasin. Il avance tout seul avec ta production ; recale-le quand tu dépenses.</p>
       <div class="grid tight" style="margin-top:6px">
           <label class="f">Métal<input id="sm-${p.id}" type="number" data-s="m" value="${Math.round(stockNow(p)[0])}"></label>
           <label class="f">Cristal<input id="sc-${p.id}" type="number" data-s="c" value="${Math.round(stockNow(p)[1])}"></label>
@@ -5111,6 +5113,10 @@ planets(){
     /* Les trois chiffres dans le résumé : c'est ce qu'on vient lire, et la
        carte reste fermée pour le lire. */
     const ps = document.getElementById('psum-'+i); if(ps) ps.innerHTML = [pr.m, pr.c, pr.d].map(fmt).join(' · ');
+    /* Le stock ne se lit en chiffres nulle part ailleurs — les jauges au-dessus
+       disent la production. Son résumé le rend lisible sans ouvrir le volet,
+       qui ne sert qu'à le recaler. */
+    const pk = document.getElementById('pstk-'+i); if(pk) pk.innerHTML = st.map(fmt).join(' · ');
     const fl = document.getElementById('pfleet-'+i); if(fl){ const l = shipList(p.ships); fl.innerHTML = l ? `<b>Flotte à quai :</b> ${esc(l)}` : (IS_EXT ? 'Flotte inconnue : ouvre la page Flotte du jeu sur cette planète.' : ''); }
     /* La vocation et la note du centre suivent les coordonnées, la température
        et les niveaux qu'on tape dans la carte : sans ça elles restaient
