@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.10';
+const APP_VERSION = '1.55.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -100,7 +100,11 @@ function sample(){
     moonCalc:{pid:'', ship:'lf', n:0, bou:null, viser:12},
     expo:{pf:true},
     ui:{tool:'colony', fold:{}},
-    day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false},
+    day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false,
+      /* Absence de jour : l'heure de retour du joueur, null quand il n'en a pas
+         donné. Et le jour civil où la question du coucher a été répondue, pour
+         ne la poser qu'une fois par nuit. */
+      backHour:null, askedOn:''},
     lf:{found:['humans','rocktal']},
     centre:null, raid:null, raids:{}, prio:[], prioAsk:[],
     daily:{done:{}, no:{}},
@@ -2256,6 +2260,10 @@ function researchMode(){ return RESEARCH_MODE[S.day.research] ? S.day.research :
  * @param {*} prev valeur en place, gardée si le mot n'est pas de la liste
  */
 function dayValue(k, v, prev){
+  if(k === 'night') return v === '1' || v === true;
+  /* Vide veut dire « je n'ai pas d'heure de retour » : le plan retombe alors
+     sur la longueur de la nuit. Zéro est une heure, pas une absence. */
+  if(k === 'backHour'){ const x = parseInt(v); return Number.isFinite(x) && x >= 0 && x <= 23 ? x : null; }
   const t = {focus:FOCUS, lf:LF_MODE, research:RESEARCH_MODE}[k];
   return t ? (t[v] ? v : prev) : Math.max(0, parseInt(v) || 0);
 }
@@ -3281,10 +3289,58 @@ const FS_SPEEDS = [100,90,80,70,60,50,40,30,20,10];
 /* En dessous, un vol coûte plus qu'il ne protège. */
 const FS_MIN = 10000;
 
-/** Fin de la prochaine nuit, ou null si la fenêtre est vide. */
+/** Longueur de la fenêtre de nuit, en heures ; huit quand elle est vide. */
+function nightLen(){ return (+S.day.nightEnd - +S.day.nightStart + 24) % 24 || 8; }
+/**
+ * Le mode nuit lancé loin de la nuit : une absence de jour, pas un coucher.
+ *
+ * Une heure de retour donnée tranche toute seule — le joueur sait mieux que le
+ * réglage quand il rentre. Sans heure, c'est la distance au coucher qui dit
+ * laquelle des deux lectures tient : plus près qu'une nuit, c'est un coucher, et
+ * la fenêtre de nuit répond mieux qu'une durée inventée ; plus loin, le joueur
+ * s'absente. Le bandeau du coucher sort une heure avant la nuit, et un « oui »
+ * y veut dire « je vais dormir » : sans ce seuil il aurait voulu dire « je
+ * m'absente huit heures », soit un retour à six heures au lieu de sept.
+ */
+function absenceJour(now){
+  if(!S.day.night || isNight(now)) return false;
+  if(S.day.backHour != null) return true;
+  const d = new Date(now); d.setHours(+S.day.nightStart, 0, 0, 0);
+  if(d.getTime() <= now) d.setDate(d.getDate()+1);
+  return d.getTime() - now > nightLen()*3600e3;
+}
+
+/**
+ * Quand le joueur revient, et donc quand la flotte peut se reposer.
+ *
+ * La fin de la nuit ne répond que pour la nuit. Le mode nuit sert aussi à
+ * partir la journée, et là elle répondait le matin SUIVANT : à 9 h, `wake`
+ * tombait au lendemain 7 h, et fsFor() ne gardait que des vols de vingt-deux
+ * heures — ou rien du tout. L'absence de jour se cale donc sur l'heure de
+ * retour donnée dans les Réglages, et à défaut sur la longueur d'une nuit :
+ * une absence sans heure reste une absence, pas une nuit de plus.
+ * @returns {number|null} l'instant du retour, null si aucune nuit n'est réglée
+ */
 function wakeTime(now){
+  if(absenceJour(now)){
+    const h = S.day.backHour;
+    if(h == null) return now + nightLen()*3600e3;
+    const d = new Date(now); d.setHours(+h, 0, 0, 0);
+    if(d.getTime() <= now) d.setDate(d.getDate()+1);
+    return d.getTime();
+  }
   const a = +S.day.nightStart, b = +S.day.nightEnd;
   if(a === b) return null;
+  /* Déjà dans la nuit : elle a commencé la veille, et la ligne d'en dessous
+     visait la nuit SUIVANTE — à minuit et demi, `wake` tombait au matin
+     d'après, et la carte conseillait un vol de trente heures pour couvrir une
+     nuit qui finissait dans six. Le mode nuit restant allumé toute la nuit,
+     c'est le cas ordinaire dès que le panneau se redessine après le coucher. */
+  if(isNight(now)){
+    const e = new Date(now); e.setHours(b, 0, 0, 0);
+    if(e.getTime() <= now) e.setDate(e.getDate()+1);
+    return e.getTime();
+  }
   const s = new Date(now); s.setHours(a,0,0,0); if(s.getTime() <= now) s.setDate(s.getDate()+1);
   const e = new Date(s); e.setHours(b,0,0,0); if(e.getTime() <= s.getTime()) e.setDate(e.getDate()+1);
   return e.getTime();
@@ -3793,12 +3849,19 @@ function dailyMissions(){
   }
   if(S.day.night || (!isNight(now) && nightAt - now <= (+S.day.horizon||24)*3600e3)){
     const fs = fleetsavePlan(now);
-    const m = {id:'night', q:'Sécurité', at:nightAt, every:24, sev:'warn',
-      what:`Avant la nuit (${ns} h) : mettre tes ressources à l'abri`,
+    /* « Avant la nuit (23 h) » à dix heures du matin ne veut rien dire : le
+       mode nuit lancé en pleine journée est une absence, et la carte doit
+       nommer le retour, pas le coucher. */
+    const abs = absenceJour(now);
+    const quand = !abs ? `Avant la nuit (${ns} h)`
+      : S.day.backHour == null ? `Absence de ${nightLen()} h`
+      : `Absence jusqu'à ${S.day.backHour} h`;
+    const m = {id:'night', q:'Sécurité', at:abs ? now : nightAt, every:24, sev:'warn',
+      what:`${quand} : mettre tes ressources à l'abri`,
       why:'Une planète pleine pendant ton sommeil est une cible.',
       how:['Dépense tout ce que tu peux (files longues, satellites).', 'Envoie le reste avec tes transporteurs en mission longue (transport vers une colonie à vitesse 10 %, ou expédition).', 'Au réveil, rappelle ou récupère la flotte.']};
     if(fs){
-      m.what = `Avant la nuit (${ns} h) : envoie ${shipList(fs.ships)} en mission ${FS_MISSION_N[fs.mission]} vers ${fs.dest}`;
+      m.what = `${quand} : envoie ${shipList(fs.ships)} en mission ${FS_MISSION_N[fs.mission]} vers ${fs.dest}`;
       m.ships = fs.ships; m.dest = fs.dest; m.p = S.planets.indexOf(fs.from);
       m.mission = FS_MISSION[fs.mission];
       m.why = `${fmt(fs.load)} ressources à l'abri sur ${fs.from.name}. Une flotte en vol ne peut pas être détruite ; ce qui dort au sol se fait prendre.`;
@@ -3818,7 +3881,9 @@ function dailyMissions(){
     /* La mise à l'abri protège la flotte et ce qu'elle emporte, pas les planètes
        qu'elle laisse derrière : elles produisent huit heures de plus. Les nommer,
        parce que c'est exactement ce que le pilleur d'inactifs vient chercher. */
-    const nuit = (+S.day.nightEnd - +S.day.nightStart + 24) % 24 || 8;
+    /* Une absence de jour n'expose pas une nuit : elle expose le temps que le
+       joueur sera parti. */
+    const nuit = abs ? Math.max(1, Math.round((wakeTime(now) - now)/3600e3)) : nightLen();
     /* Ce que la mise à l'abri emporte ne reste pas exposé. Le compter quand
        même annonçait au joueur qu'il laissait derrière lui le stock qu'on
        venait de lui dire de charger : sur une planète vidée, il ne reste que
@@ -4207,7 +4272,7 @@ function defMix(p){
   if(!chair.length) return null;
   const poids = k => DEF[k].per==='fodder' ? 1/chair.length : DEF[k].per;
   const paquet = types.filter(k=>DEF[k].per).reduce((a,k)=>a + poids(k)*mse(...DEF[k].c), 0);
-  const nuit = (+S.day.nightEnd - +S.day.nightStart + 24) % 24 || 8;
+  const nuit = nightLen();
   const pr = production(p);
   const butin = mse(pr.m, pr.c, pr.d) * nuit / 2;
   const n = Math.max(1, Math.ceil(butin / paquet));
@@ -4898,6 +4963,8 @@ settings(){
         <label class="f">à (heure)<input id="dNe" type="number" min="0" max="23" data-day="nightEnd" value="${d.nightEnd}"></label>
         <label class="f">Recherche<select id="dRes" data-day="research">${Object.entries(RESEARCH_MODE).map(([k,l])=>`<option value="${k}" ${researchMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
         <label class="f">Formes de vie<select id="dLf" data-day="lf">${Object.entries(LF_MODE).map(([k,l])=>`<option value="${k}" ${lfMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
+        <label class="f">Mise à l'abri (nuit, absence)<select id="dNight" data-day="night"><option value="0" ${d.night?'':'selected'}>non</option><option value="1" ${d.night?'selected':''}>oui</option></select></label>
+        <label class="f">Retour vers (heure)<input id="dBack" type="number" min="0" max="23" data-day="backHour" value="${d.backHour==null?'':d.backHour}" placeholder="dans ${nightLen()} h"></label>
         <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
       </div>
       <p class="note" id="daySum"></p>
@@ -5238,7 +5305,13 @@ function bind(){
   view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ applyReport(el.value); save(); render(); return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); if(k!=='safe') S.raid.at=Date.now(); save(); REFRESH.explore(); }));
   view.querySelectorAll('[data-lf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.lf, f=new Set(S.lf.found); el.checked ? f.add(k) : f.delete(k); S.lf.found=[...f]; save(); render(); }));
   view.querySelectorAll('[data-day]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
-    const k = el.dataset.day; S.day[k] = dayValue(k, el.value, S.day[k]); save(); refresh();
+    const k = el.dataset.day; S.day[k] = dayValue(k, el.value, S.day[k]); save();
+    /* L'alarme du coucher vit dans le navigateur : elle se repose dès que
+       l'heure de nuit change, sinon elle sonnerait à l'ancienne. */
+    if(k === 'nightStart' || k === 'nightEnd') armeNuit();
+    /* Le mode nuit filtre les cartes et change l'en-tête : il faut tout
+       redessiner, pas seulement rafraîchir le volet. */
+    k === 'night' ? render() : refresh();
   }));
   view.querySelectorAll('[data-colo]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k = el.dataset.colo;
@@ -5438,6 +5511,12 @@ function sainEtat(){
   S.day.nightStart = nb(S.day.nightStart, def.day.nightStart, 0, 23);
   S.day.nightEnd   = nb(S.day.nightEnd,   def.day.nightEnd,   0, 23);
   if(!(S.day.focus in FOCUS)) S.day.focus = def.day.focus;
+  S.day.night = !!S.day.night;
+  /* `backHour` est interpolé dans un `value=""` sans esc, et `askedOn` se
+     compare à une date : une sauvegarde ou une synchro peut y mettre n'importe
+     quoi. Null et chaîne vide sont les seules absences. */
+  S.day.backHour = S.day.backHour == null || S.day.backHour === '' ? null : nb(S.day.backHour, null, 0, 23);
+  if(typeof S.day.askedOn !== 'string') S.day.askedOn = '';
 
   /* Une sauvegarde d'avant les identifiants n'en porte pas : sans ça, tout
      l'onglet Planètes s'affiche en `pn-undefined`. Même jeton que
@@ -5458,7 +5537,14 @@ document.getElementById('tabs').addEventListener('click',e=>{ const b=e.target.c
 /* Les deux boutons de l'en-tête sont posés une fois pour toutes : ils ne sont
    pas refaits à chaque dessin, et `bind()` les doublerait. */
 document.getElementById('gearBtn').addEventListener('click',()=>allerOnglet('settings'));
-document.getElementById('nightBtn').addEventListener('click',()=>{ S.day.night = !S.day.night; save(); render(); });
+document.getElementById('nightBtn').addEventListener('click',()=>{
+  S.day.night = !S.day.night; save(); render();
+  /* Allumé en pleine journée, le bouton vaut « je m'absente » : sans ce mot le
+     joueur ne sait pas sur quelle heure de retour le plan vient de se caler. */
+  if(absenceJour(Date.now())) toast(S.day.backHour == null
+    ? `Absence de ${nightLen()} h supposée — Réglages pour l'heure de retour`
+    : `Absence jusqu'à ${S.day.backHour} h`);
+});
 view.addEventListener('click', e=>{
   if(e.target.id==='tmSound'){ unlockAudio(); chime(); }
   if(e.target.id==='tmAdd'){
@@ -5478,7 +5564,7 @@ view.addEventListener('click', e=>{
 setInterval(tickTimers, 1000);
 /* publieLePlan est sans effet sur Aujourd'hui, qui se publie en se dessinant ;
    sur Empire, REFRESH.empire ne publie rien : sans cet appel la tuile resterait muette. */
-setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); publieLePlan(); }, 30000);
+setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); publieLePlan(); nightBar(); }, 30000);
 /** Recalcule le plan du jour pour la page du jeu, sans rien afficher.
     `today` le publie en se dessinant ; ailleurs, c'est à nous de le faire.
     Le dessin qui suit la publication écrit dans des éléments de l'onglet
@@ -5761,3 +5847,103 @@ function mirrorAlerts(items){
 document.getElementById('bigAlertOk').addEventListener('click', ()=>chrome.storage.local.set({pendingAlerts: []}));
 chrome.storage.local.get('pendingAlerts', d=>mirrorAlerts(d.pendingAlerts));
 chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.pendingAlerts) mirrorAlerts(ch.pendingAlerts.newValue); });
+
+/* ---------- la question du coucher ---------- */
+/* Le joueur ne doit pas avoir à se souvenir de basculer : une heure avant sa
+   nuit, le copilote demande s'il passe en sauvegarde des ressources. La
+   question sonne deux fois, par deux chemins qui n'ont pas le même angle mort :
+   une notification du navigateur, qui marche panneau fermé, et un bandeau dans
+   le panneau, qui marche quand la notification a été manquée ou refusée. Les
+   deux aboutissent à `repondNuit`.
+
+   Le service worker ne peut pas poser l'heure lui-même : les réglages vivent
+   dans le stockage local du panneau, qu'il ne lit pas. C'est donc le panneau
+   qui arme l'alarme, et l'alarme survit à sa fermeture. */
+
+/** Le jour civil d'un instant : la clé qui dit « déjà demandé cette nuit ». */
+function jourCivil(ms){ const d = new Date(ms); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+
+/**
+ * Pose l'alarme du coucher, une heure avant la nuit, et la répète chaque jour.
+ * Même nom, donc même alarme : l'appeler deux fois ne l'empile pas.
+ */
+function armeNuit(){
+  if(!IS_EXT || typeof chrome === 'undefined' || !chrome.alarms) return;
+  if(+S.day.nightStart === +S.day.nightEnd){ chrome.alarms.clear('nuit'); return; }
+  const d = new Date(); d.setHours(+S.day.nightStart, 0, 0, 0);
+  let t = d.getTime() - 3600e3;
+  while(t <= Date.now()) t += 864e5;
+  chrome.alarms.create('nuit', {when:t, periodInMinutes:1440});
+}
+
+/**
+ * Faut-il poser la question ? Dans l'heure qui précède la nuit et les deux
+ * heures qui la suivent — assez large pour qu'un panneau ouvert en retard la
+ * pose encore, assez étroit pour qu'elle ne traîne pas jusqu'au matin.
+ * @param {number} now horodatage courant
+ */
+function nightDue(now){
+  if(S.day.night) return false;                                  // déjà à l'abri
+  if(+S.day.nightStart === +S.day.nightEnd) return false;        // aucune nuit réglée
+  if(S.day.askedOn === jourCivil(now)) return false;             // répondu cette nuit
+  const d = new Date(now); d.setHours(+S.day.nightStart, 0, 0, 0);
+  return now >= d.getTime() - 3600e3 && now < d.getTime() + 2*3600e3;
+}
+
+/** Montre ou cache le bandeau de la question. */
+function nightBar(){
+  const box = document.getElementById('nightAsk');
+  if(box) box.hidden = !nightDue(Date.now());
+}
+
+/**
+ * « On fait les mouvements » : le jeu remplit lui-même son formulaire de flotte
+ * depuis l'URL — vaisseaux, destination, mission. Le chargement des ressources
+ * et la vitesse n'y passent pas, et le copilote ne clique jamais à la place du
+ * joueur. Il ouvre donc la page prête du plus gros lot ; les lots suivants
+ * restent en cartes dans Sécurité.
+ */
+function ouvreAbri(){
+  const fs = fleetsavePlan(Date.now());
+  if(!fs){ toast('Rien à mettre à l\'abri : aucune planète ne porte assez de stock'); return; }
+  const url = fleetUrl({dest:fs.dest, mission:FS_MISSION[fs.mission], ships:fs.ships, p:S.planets.indexOf(fs.from)});
+  if(!url){ toast('Serveur inconnu : ouvre une page du jeu, puis la carte Sécurité'); return; }
+  if(IS_EXT) chrome.runtime.sendMessage({type:'go', url});
+  else window.open(url, '_blank', 'noopener');
+  toast(`Vitesse ${fs.pct} % et chargement : à régler à la main`);
+}
+
+/**
+ * La réponse du joueur, d'où qu'elle vienne. Oui bascule en mode nuit et ouvre
+ * la page de flotte ; non classe la question pour la nuit. Dans les deux cas
+ * elle ne revient pas : `askedOn` la retient.
+ * @param {boolean} oui
+ */
+function repondNuit(oui){
+  S.day.askedOn = jourCivil(Date.now());
+  /* Une nuit n'est pas une absence de jour : l'heure de retour donnée pour une
+     absence ne doit pas décider du vol de cette nuit. */
+  if(oui){ S.day.night = true; S.day.backHour = null; }
+  save();
+  const box = document.getElementById('nightAsk'); if(box) box.hidden = true;
+  render();
+  if(oui) ouvreAbri();
+}
+
+/* La réponse donnée sur la notification arrive par le stockage. Périmée, elle
+   ne décide rien : un « oui » d'hier soir retrouvé au matin mettrait le joueur
+   à l'abri alors qu'il vient de se lever. */
+function consommeReponseNuit(r){
+  if(!r || typeof r !== 'object' || !Number.isFinite(+r.at) || Date.now() - +r.at > 4*3600e3) return;
+  try{ chrome.storage.local.remove('nightAnswer'); }catch(e){}
+  repondNuit(!!r.oui);
+}
+const nightAskEl = document.getElementById('nightAsk');
+if(nightAskEl) nightAskEl.addEventListener('click', e=>{
+  const b = e.target.closest('[data-nuit]'); if(!b) return;
+  repondNuit(b.dataset.nuit === 'oui');
+});
+chrome.storage.local.get('nightAnswer', d=>consommeReponseNuit(d.nightAnswer));
+chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.nightAnswer) consommeReponseNuit(ch.nightAnswer.newValue); });
+armeNuit();
+nightBar();

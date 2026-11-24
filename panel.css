@@ -143,11 +143,19 @@ details.card summary{cursor:pointer;font-family:var(--f-display);font-weight:600
 .timer-form{display:grid;grid-template-columns:2fr 1fr auto;gap:8px;align-items:end}
 @media (max-width:520px){.timer-form{grid-template-columns:1fr 1fr}.timer-form .btn{grid-column:1/-1}}
 .big-alert{position:fixed;z-index:30;top:calc(env(safe-area-inset-top,0px) + 10px);left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));display:flex;justify-content:center;pointer-events:none}
+/* Deux bandeaux peuvent sortir ensemble — une file finie à 22 h et la question
+   du coucher. Posés tous deux en `fixed` au même point, ils se recouvraient :
+   la pile porte la position, les bandeaux ne portent plus que leur boîte. */
+.alertes{position:fixed;z-index:30;top:calc(env(safe-area-inset-top,0px) + 10px);left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.alertes .big-alert{position:static;inset:auto}
 .big-alert .box{pointer-events:auto;background:var(--good);color:var(--accent-ink);border-radius:14px;padding:12px 14px;max-width:560px;width:100%;display:flex;align-items:center;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .big-alert .box h2{color:inherit;font-size:11px;margin:0}
 .big-alert .box .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .big-alert .box .msg{font-family:var(--f-display);font-weight:700;font-size:17px;line-height:1.25;overflow-wrap:anywhere}
 .big-alert .box .btn{background:var(--accent-ink);color:var(--good);border:none;flex:0 0 auto}
+/* Deux boutons dans un bandeau, identiques : le joueur clique au hasard. Le
+   « non » recule d'un cran, le « oui » garde le contraste plein. */
+.big-alert .box .btn.ghost{background:transparent;color:var(--accent-ink);box-shadow:inset 0 0 0 1px var(--accent-ink)}
 @media (prefers-reduced-motion: no-preference){.big-alert .box{animation:pulse 1.2s ease-in-out infinite alternate}}
 @keyframes pulse{from{filter:brightness(1)}to{filter:brightness(1.15)}}
 .seg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px;overflow-x:auto;scrollbar-width:none}
