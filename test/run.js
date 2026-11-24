@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'luneQuand', 'luneMorts', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'luneQuand', 'luneMorts', 'luneRepond', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -8704,6 +8704,79 @@ t('sans défense relevée, tout meurt et on le dit', () => {
   const r = g.luneMorts(g.S.planets[0], 'lf', 1667, 0);
   assert.equal(r.tues, null);
   assert.equal(r.morts, 1667);
+});
+
+/* ---------- le mode lune : les cartes du côté reçu ---------- */
+
+/** Le mode allumé sur le HQ du relevé, un impact dans `dans` millisecondes.
+    L'instant se compte depuis SOIR, l'horloge que le harnais donne à l'appli,
+    et non depuis la vraie : les deux sont à quinze jours l'une de l'autre.
+    La flotte au sol est celle du vrai HQ : c'est elle que la carte chiffre. */
+const MODE = dans => s => {
+  HQ(s);
+  s.planets[0].ships = { lf: 240, hf: 538, pr: 372, rec: 31 };
+  s.ui.tool = 'today';
+  s.moonCalc = { pid: s.planets[0].id, ship: 'lf', n: 900, bou: 12, viser: 12 };
+  s.lune = { on: true, impact: SOIR + dans, tirs: {},
+             rendu: { coords: '', n: 0, dus: 0, faits: 0 } };
+};
+const cartes = g => g.dailyMissions().filter(m => m.q === 'Lune');
+const txtDe = c => lu(c.what + ' ' + c.why + ' ' + (c.how || []).join(' '));
+
+t('avant l\'impact, la carte dit de sortir la flotte et ce qu\'elle vaut', () => {
+  const g = app(MODE(3600e3)), c = cartes(g);
+  assert.equal(c.length, 1);
+  assert.ok(/sors ta flotte/i.test(txtDe(c[0])), txtDe(c[0]));
+  assert.ok(/4,26 M/.test(txtDe(c[0])), 'ce qu\'elle vaut : ' + txtDe(c[0]));
+});
+
+t('après l\'impact, la carte envoie ramasser et rappelle le pushing', () => {
+  const g = app(MODE(-600e3)), c = cartes(g);
+  assert.ok(/recycleur/i.test(txtDe(c[0])), txtDe(c[0]));
+  assert.ok(/pushing/i.test(txtDe(c[0])), 'la règle du jeu : ' + txtDe(c[0]));
+});
+
+t('un impact passé de plus de 24 h demande ce qui s\'est passé', () => {
+  const g = app(MODE(-25 * 3600e3)), c = cartes(g);
+  assert.ok(/passé|confirme/i.test(lu(c[0].what)), lu(c[0].what));
+  assert.ok(!/recycleur/i.test(lu(c[0].what)), 'plus de débris à ramasser');
+});
+
+t('sans heure d\'impact, la carte demande le nombre et l\'heure', () => {
+  const g = app(s => { MODE(0)(s); s.lune.impact = null; }), c = cartes(g);
+  assert.equal(c.length, 1);
+  assert.ok(/quand|heure/i.test(txtDe(c[0])), txtDe(c[0]));
+});
+
+t('le mode éteint ne sort aucune carte Lune', () => {
+  const g = app(s => { MODE(3600e3)(s); s.lune.on = false; });
+  assert.equal(cartes(g).length, 0);
+});
+
+t('le mode nuit ne fait pas disparaître la carte Lune', () => {
+  const g = app(s => { MODE(3600e3)(s); s.day.night = true; });
+  assert.equal(cartes(g).length, 1, 'un impact à 2 h du matin reste dit');
+});
+
+t('un Non ne tue pas la carte Lune pour la campagne', () => {
+  const g = app(s => { MODE(3600e3)(s); s.daily = { done: {}, no: { 'm:lune-sors': true } }; });
+  g.REFRESH.today();
+  assert.ok(/sors ta flotte/i.test(lu(g.html().tdNow || '')), lu(g.html().tdNow || ''));
+});
+
+t('répondre non compte le tir et rouvre l\'attente', () => {
+  const g = app(MODE(-600e3));
+  g.luneRepond(false);
+  assert.equal(g.S.lune.tirs[g.S.planets[0].id], 1);
+  assert.equal(g.S.lune.impact, null);
+  assert.equal(g.S.lune.on, true);
+});
+
+t('répondre oui solde la campagne et éteint le mode', () => {
+  const g = app(s => { MODE(-600e3)(s); s.lune.tirs = { [s.planets[0].id]: 8 }; });
+  g.luneRepond(true);
+  assert.equal(g.S.lune.tirs[g.S.planets[0].id], 0);
+  assert.equal(g.S.lune.on, false);
 });
 
 if (failures.length) {

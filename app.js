@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.5';
+const APP_VERSION = '1.54.6';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3725,9 +3725,14 @@ function dailyMissions(){
       how:['Ouvre la planète concernée et lance une construction ou une recherche.',
            'Réimporte la Vue empire pour que le relevé se mette à jour.']});
   }
+  out.push(...luneCartes());
   /* Mode nuit : le joueur va dormir. Seule la rubrique Sécurité parle de
-     mettre les ressources à l'abri ; tout le reste attendra le réveil. */
-  return S.day.night ? out.filter(m=>m.q === 'Sécurité') : out;
+     mettre les ressources à l'abri ; tout le reste attendra le réveil.
+
+     La rubrique Lune y échappe aussi, et pour la même raison : sortir sa flotte
+     avant un impact *est* de la mise à l'abri. Un tir qui tombe à 2 h du matin
+     ferait sinon disparaître la carte la plus critique de toutes. */
+  return S.day.night ? out.filter(m=>m.q === 'Sécurité' || m.q === 'Lune') : out;
 }
 /* Le copilote ne voit pas ce que le joueur décide dans le jeu : une carte qu'il
    a choisi de ne pas suivre revient au plan suivant, et au suivant — cinq fois
@@ -3966,6 +3971,67 @@ function luneMorts(p, k, n, bouLvl = 0){
   const d = luneDefense(p, k, bouLvl), v = luneCoque(k);
   const tues = d && v ? Math.floor(d.tue / v) : null;
   return {tues, morts: tues == null ? n : Math.min(n, tues)};
+}
+
+/** La fin d'un tir : le joueur dit si une lune est née. Une seule fonction,
+    pour que le bouton de la carte et les tests empruntent le même chemin.
+    Un oui solde la campagne de cette planète — un compteur réussi ne se lègue
+    pas à la suivante — et éteint le mode. */
+function luneRepond(eutUneLune){
+  const p = moonPlanete();
+  if(p) S.lune.tirs[p.id] = eutUneLune ? 0 : (S.lune.tirs[p.id] || 0) + 1;
+  S.lune.impact = null;
+  if(eutUneLune) S.lune.on = false;
+}
+
+/** Les cartes du tir de lune, du côté où le joueur reçoit. Un seul état à la
+    fois, décidé par l'heure d'impact : rien de saisi, un tir qui vient, un tir
+    qui est passé, un tir oublié.
+
+    Elles ne passent pas par la mise en sommeil des autres missions : leur état
+    vit dans S.lune, et un « Non » de réflexe ne doit pas pouvoir éteindre
+    « sors ta flotte » pour toute la campagne. */
+function luneCartes(){
+  if(!S.lune.on) return [];
+  const p = moonPlanete();
+  if(!p) return [];
+  const k = moonShip(), df = moonDf(), now = Date.now(), imp = S.lune.impact;
+  const n = Math.floor(Math.max(0, +S.moonCalc.n || 0));
+  const {tues, morts} = luneMorts(p, k, n, moonBou());
+  const vise = Math.min(20, Math.max(1, Math.round(+S.moonCalc.viser || 12)));
+  const pour = luneVaisseaux(k, vise, df);
+  const dem = tues == null ? pour : Math.min(pour, tues);
+  const ou = esc(planetRef(p));
+
+  if(!imp) return [{id:'lune-attente', q:'Lune', every:6, sev:'info',
+    what:`Tir de lune sur ${ou} : demande-lui ${fmt(dem)} ${moonNom(k, dem)}`,
+    why:`${tues == null ? 'La défense de cette planète n\'a jamais été relevée : ouvre sa page Défense pour que le chiffre tienne.' : `Au-delà de ${fmt(tues)}, les survivants rentrent chez lui sans rien laisser.`}`,
+    how:['Quand il te donne son heure d\'arrivée, saisis-la dans Outils › Lune : le copilote ne voit pas l\'attaque venir.',
+         'Demande-lui aussi son niveau de Technologie Bouclier, qui change ce que ta défense tue.']}];
+
+  const t = luneTir(k, morts, df), sol = luneFlotteAuSol(p);
+  const quoi = sol && sol.m + sol.c > 0
+    ? `${shipList(p.ships)} au sol mourraient avec, ${fmt(sol.m)} métal et ${fmt(sol.c)} cristal à ta charge${p.shipsAt ? `, flotte relevée il y a ${dur((now - p.shipsAt)/1000)}` : ''}.`
+    : `Aucune flotte relevée au sol — vérifie quand même avant l'impact.`;
+
+  if(imp > now) return [{id:'lune-sors', q:'Lune', every:1, sev: imp - now <= 3600e3 ? 'bad' : 'warn',
+    what:`Sors ta flotte de ${ou} — impact dans ${dur((imp - now)/1000)}`,
+    why:`${quoi} Le tir vaut ${moonPct(t.chance)} de chance de lune.`,
+    how:['Déploiement vers une autre de tes planètes : elle revient après le combat.',
+         'Les recycleurs partent avec : s\'ils meurent, tu n\'as plus rien pour ramasser.',
+         'Le copilote ne peut pas vérifier qu\'elle est partie — c\'est à toi de regarder.']}];
+
+  const rec = (p.ships || {}).rec || 0, soute = shipStats('rec').cargoEff;
+  if(now - imp < 24 * 3600e3) return [{id:'lune-ramasse', q:'Lune', every:1, sev:'good',
+    what:`Le tir sur ${ou} est passé — une lune est née ?`,
+    why:`${rec && soute && t.debris ? `Ramène tes recycleurs : ${fmt(Math.ceil(t.debris / (rec * soute)))} voyages pour ${fmt(t.debris)} de débris. ` : ''}Si tu es le mieux classé de vous deux, tu ne peux pas garder ses débris : les ramasser serait du pushing, préviens un Game Operator avant.`,
+    how:['Réponds une fois que tu as vu le rapport de combat : le compteur en dépend.']}];
+
+  return [{id:'lune-perdu', q:'Lune', every:12, sev:'warn',
+    what:`Le tir sur ${ou} date de ${dur((now - imp)/1000)} — que s'est-il passé ?`,
+    why:`Les débris ne sont plus là, et le copilote ne sait pas si la lune est née. Confirme pour que le compteur reprenne.`,
+    how:['Si tu as eu ta lune, réponds oui : la campagne est soldée.',
+         'Sinon réponds non, et saisis l\'heure du prochain tir.']}];
 }
 
 /** L'instant que désigne un champ `datetime-local`, ou `null` s'il est vide ou
@@ -4889,7 +4955,10 @@ today(){
      le vider ici ne perd rien. */
   if(night) for(const x of plan.sessions){ x.acts = []; x.waits = []; }
   const nowParts = [];
-  const missions = dailyMissions().filter(m=>!missionDone(m) && !refused('m:'+m.id));
+  /* Les cartes Lune ne se mettent pas en sommeil : leur état vient de S.lune,
+     et un « Non » de réflexe éteindrait « sors ta flotte » pour toute la
+     campagne — sur la seule carte qui vaut des millions. */
+  const missions = dailyMissions().filter(m=>m.q === 'Lune' || (!missionDone(m) && !refused('m:'+m.id)));
   /* La page du jeu surligne ce que le plan recommande et pose la bande du bas.
      Elle n'en fait rien d'autre : aucun clic, aucun envoi, ce sont des repères.
      Publié ici, après les missions, parce que la bande les porte. */
@@ -4900,7 +4969,16 @@ today(){
   const infoMs = missions.filter(m=>m.info);
   const taskHtml = m=>{
     const [wi, wb] = whyParts([m.why]), meta = (m.tags||[]).map(planetTag).join('') + copyChips(m);
-    return `<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns"><button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${noBtn('m:'+m.id)}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
+    /* Les cartes Lune portent leurs propres boutons : leur état vit dans
+       S.lune, pas dans une mise en sommeil, et « Fait » n'y voudrait rien
+       dire. Celle d'avant-impact n'en a aucun — le copilote ne peut pas
+       vérifier que la flotte est partie, donc il ne fait pas semblant. */
+    const btns = m.q === 'Lune'
+      ? (m.id === 'lune-ramasse' || m.id === 'lune-perdu'
+          ? `<button class="btn sm primary" id="luneOui">Lune !</button><button class="btn sm" id="luneNon">Pas cette fois</button>`
+          : '')
+      : `<button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${noBtn('m:'+m.id)}`;
+    return `<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns">${btns}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   };
   if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${s0.acts.map(a=>actHtml(a,true)).join('')}${nowMs.map(taskHtml).join('')}</ul>`);
   const RN = ['métal','cristal','deutérium'];
@@ -5173,6 +5251,8 @@ function bind(){
   view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ const p=S.planets[+b.dataset.del]; if(p) forgetPlanet(p.id); save(); render(); }));
   on('dayNight','click',()=>{ S.day.night = !S.day.night; save(); render(); });
   on('luneBtn','click',()=>{ S.lune.on = !S.lune.on; save(); render(); });
+  on('luneOui','click',()=>{ luneRepond(true); save(); render(); });
+  on('luneNon','click',()=>{ luneRepond(false); save(); render(); });
   on('addPlanet','click',()=>{ S.planets.push(newPlanet('Colonie '+S.planets.length,'1:1:'+(S.planets.length+4),20,{})); S.sample=false; save(); render(); });
   /* « change » et non « input » comme les niveaux voisins : sur un labo 5,
      taper « 10 » passe par « 1 », que prioPose jugerait atteint avant de
