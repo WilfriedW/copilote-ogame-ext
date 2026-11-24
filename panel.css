@@ -167,6 +167,10 @@ details.volet>summary::after{content:"Ouvrir +";font-family:var(--f-mono);font-s
 details.volet[open]>summary::after{content:"Fermer –"}
 /* Un niveau relevé sur le jeu ne se tape pas : il ne doit pas avoir l'air
    d'un champ qu'on remplit. */
+/* Le résumé d'une planète est la ligne qu'on lit sept fois : le nom porte, et
+   les chiffres de production s'alignent à droite, avant le « Ouvrir + ». */
+details.card.volet>summary.plsum{font-size:14px;gap:8px}
+summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 .lv input[readonly]{color:var(--muted);background:transparent;border-style:dashed}
 .acts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .acts li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;align-items:center;background:var(--surface-2);border-radius:var(--r-sm);padding:9px 12px}

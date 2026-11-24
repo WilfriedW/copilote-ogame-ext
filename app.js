@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.10';
+const APP_VERSION = '1.54.11';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4753,7 +4753,8 @@ planets(){
     ${S.sample ? `<div class="example">Données d'exemple : remplace-les par tes niveaux réels (planète mère, mine de métal 1). Les cases se sauvegardent dans ce navigateur.</div>` : ''}
     <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><p class="note" id="empireMix"></p></div>
     ${(()=>{ const voc = vocations(), ci = centreIndex(), auto = centreIndex(true); return S.planets.map((p,i)=>`
-    <div class="card" data-pi="${i}">
+    <details class="card volet" data-pi="${i}"${fold('pl:' + p.id, false)}>
+      <summary data-fold="pl:${p.id}" class="plsum"><b>${esc(p.name)}</b> <span class="note">${esc(p.coords)}</span><span class="mono" id="psum-${i}"></span></summary>
       <div class="planet-head">
         <input id="pn-${p.id}" data-p="name" value="${esc(p.name)}" aria-label="Nom de la planète">
         <input id="pc-${p.id}" class="coords" data-p="coords" value="${esc(p.coords)}" aria-label="Coordonnées" placeholder="1:1:8">
@@ -4782,7 +4783,7 @@ planets(){
           <label class="f">Deutérium<input id="sd-${p.id}" type="number" data-s="d" value="${Math.round(stockNow(p)[2])}"></label>
       </div>
       </details>
-    </div>`).join(''); })()}
+    </details>`).join(''); })()}
     <div class="row"><button class="btn" id="addPlanet">Ajouter une colonie</button>
     <span class="note" id="colonyNote"></span></div>
   </section>`;
@@ -5081,6 +5082,9 @@ planets(){
       gauge('m','m','Métal',fmt(pr.m),full(0)) + gauge('c','c','Cristal',fmt(pr.c),full(1)) + gauge('d','d','Deutérium',fmt(pr.d),full(2)) +
       gauge('e','e','Énergie',(pr.eBal>=0?'+':'')+fmt(pr.eBal), `${fmt(pr.eProd)} produits / ${fmt(pr.eCons)}${p.eAdj<0?` · dont ${fmt(p.eAdj)} formes de vie`:''}`) +
       crawlerPill(p);
+    /* Les trois chiffres dans le résumé : c'est ce qu'on vient lire, et la
+       carte reste fermée pour le lire. */
+    const ps = document.getElementById('psum-'+i); if(ps) ps.innerHTML = [pr.m, pr.c, pr.d].map(fmt).join(' · ');
     const fl = document.getElementById('pfleet-'+i); if(fl){ const l = shipList(p.ships); fl.innerHTML = l ? `<b>Flotte à quai :</b> ${esc(l)}` : (IS_EXT ? 'Flotte inconnue : ouvre la page Flotte du jeu sur cette planète.' : ''); }
     /* La vocation et la note du centre suivent les coordonnées, la température
        et les niveaux qu'on tape dans la carte : sans ça elles restaient
