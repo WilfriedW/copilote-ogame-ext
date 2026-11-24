@@ -1,6 +1,7 @@
 # Copilote OGame — comment il marche, pourquoi, et tous ses réglages
 
-Revue du 20 novembre 2026, version 1.53.36. Écrit pour être lu sans ouvrir le
+Revue du 20 novembre 2026, version 1.53.36, complétée le 24 novembre pour
+l'onglet Outils › Lune (1.53.63). Écrit pour être lu sans ouvrir le
 code. Trois questions : qu'est-ce qu'il fait, est-ce taillé pour toi seul, et
 qu'est-ce qui cloche dans Réglages.
 
@@ -557,7 +558,21 @@ Allure seulement : ni le panneau ni les calculs ne changent.
 | Cases de la nouvelle planète | `colo.fields` | entier ≥ 1 | *(vide)* | À relever après l'arrivée, pour savoir si la colonie vaut d'être gardée |
 | Position | `colo.fpos` | 1–15 | *(déduite)* | Idem, pour la température et les bonus |
 
-### 6.9 Empire — par planète
+### 6.9 Outils › Lune
+
+| Réglage | Clé | Valeurs | Défaut | Effet |
+|---|---|---|---|---|
+| Planète visée | `moonCalc.pid` | une planète | *(ton centre)* | Celle qui reçoit le tir : c'est sa défense qu'on chiffre et sa flotte qu'on avertit de sortir |
+| Ce qu'il envoie | `moonCalc.ship` | un des 14 vaisseaux | **Chasseur léger** | Décide le coût d'une coque, donc les débris qu'elle laisse |
+| Combien | `moonCalc.n` | entier ≥ 0 | **0** | À 0, la carte ne sort aucun chiffre et demande le nombre |
+| Chance visée | `moonCalc.viser` | 1 à 20 | **12** | Sert à la jauge inverse « pour X %, N vaisseaux ». 20 est le plafond du jeu |
+| Son niveau de Bouclier | `moonCalc.bou` | entier ≥ 0 | *(le tien)* | Celui de ton camarade : il monte le bouclier de ses vaisseaux, donc baisse ce que ta défense tue |
+| Débris de ton univers | `settings.debris` | 30 · 40 · 50 · 60 · 70 | **30** | En pourcent. Le seul des six qui **se synchronise** entre tes deux postes, parce que c'est un fait du serveur et pas un brouillon de calcul. À lire dans les paramètres de ton univers : il change le nombre de vaisseaux jusqu'à 2,3 fois |
+
+Rien dans cette carte n'influence le plan du jour ni quoi que ce soit d'autre :
+c'est une calculatrice, comme Outils › Flotte.
+
+### 6.10 Empire — par planète
 
 | Champ | Valeurs | Effet |
 |---|---|---|
@@ -574,14 +589,14 @@ Dépôt de ravitaillement, Silo, Terraformeur et Dock ne produisent ni ne
 stockent : **le classement par amortissement ne les propose jamais de
 lui-même**. Ils sont là pour que tu puisses les viser.
 
-### 6.10 Empire — recherches
+### 6.11 Empire — recherches
 
 15 technologies, chacune avec son **niveau** et son **niveau visé** : Énergie,
 Laser, Ions, Hyperespace, Plasma, Combustion, Impulsion, Propulsion
 hyperespace, Espionnage, Ordinateur, Astrophysique, Réseau intergalactique,
 Armes, Bouclier, Protection des vaisseaux.
 
-### 6.11 Réglages implicites (par clic, pas par formulaire)
+### 6.12 Réglages implicites (par clic, pas par formulaire)
 
 | Geste | Où | Ce que ça règle |
 |---|---|---|
@@ -592,7 +607,7 @@ Armes, Bouclier, Protection des vaisseaux.
 | Replier / déplier une carte | Aujourd'hui | Mémorisé (`ui.fold`) |
 | Onglet d'Outils | Outils | Mémorisé (`ui.tool`) |
 
-### 6.12 Ce qui n'est pas réglable — les choix figés
+### 6.13 Ce qui n'est pas réglable — les choix figés
 
 À connaître, parce que ce sont eux qui décident quand aucun réglage ne parle :
 
@@ -614,7 +629,7 @@ Armes, Bouclier, Protection des vaisseaux.
 | Sondes au centre | 5 | Pour espionner les inactifs |
 | Seuil de rapatriement | 5 000 ressources, ou hangar à plus de 70 % | En dessous, aucun vol |
 
-### 6.13 Fiabilité annoncée des calculs
+### 6.14 Fiabilité annoncée des calculs
 
 Le panneau le dit lui-même, dernière carte de Réglages : les formules viennent
 du wiki et du forum officiel. **Stables** : production, coûts, temps de vol.

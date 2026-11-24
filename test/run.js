@@ -8377,7 +8377,7 @@ t('une clé inconnue dans la défense ne compte pour rien', () => {
 const LUNE = s => {
   HQ(s);
   s.ui.tool = 'moon';
-  s.moonCalc = { pid: s.planets[0].id, ship: 'lf', n: 1000, bou: 0, viser: 12, df: 30 };
+  s.moonCalc = { pid: s.planets[0].id, ship: 'lf', n: 1000, bou: 0, viser: 12 };
 };
 
 t('l\'onglet Lune est dans la barre d\'Outils', () => {
@@ -8570,6 +8570,41 @@ t('un nom de planète hostile ne s\'exécute pas dans l\'avertissement', () => {
   g.REFRESH.moon();
   const brut = g.html().moonNote || '';
   assert.ok(/&lt;b&gt;HQ&lt;\/b&gt;/.test(brut), 'échappé comme ailleurs : ' + brut);
+});
+
+/* ---------- le tir de lune : le rangement d'après revue ---------- */
+
+t('le taux de débris est un réglage d\'univers, donc il se synchronise', () => {
+  const g = app(s => { LUNE(s); s.settings.debris = 50; });
+  assert.equal(g.syncOut()['sy:settings'].debris, 50, 'il part vers l\'autre poste');
+  g.REFRESH.moon();
+  const out = lu(g.html().moonOut || '');
+  assert.ok(/2,00 M/.test(out), 'la carte le lit : ' + out);
+  assert.ok(!/1,20 M/.test(out), 'et pas les 30 % par défaut : ' + out);
+});
+
+t('le coût du vaisseau de colonisation n\'a qu\'une source', () => {
+  const g = app();
+  assert.strictEqual(g.SHIP_COST.col, g.COL_SHIP_COST, 'la même table, pas une copie');
+});
+
+t('l\'avertissement de flotte dit de quand date le relevé', () => {
+  const g = app(s => { LUNE(s); s.planets[0].ships = { hf: 538 };
+    s.planets[0].shipsAt = Date.now() - 3 * 24 * 3600e3; });
+  g.REFRESH.moon();
+  assert.ok(/relevée il y a/.test(lu(g.html().moonNote || '')), lu(g.html().moonNote || ''));
+});
+
+t('une flotte jamais datée ne se vieillit pas', () => {
+  const g = app(s => { LUNE(s); s.planets[0].ships = { hf: 538 }; s.planets[0].shipsAt = 0; });
+  g.REFRESH.moon();
+  assert.ok(!/relevée il y a/.test(lu(g.html().moonNote || '')));
+});
+
+t('les recycleurs se ramènent après le tir, pas avant', () => {
+  const g = app(s => { LUNE(s); s.planets[0].ships = { rec: 31 }; });
+  g.REFRESH.moon();
+  assert.ok(/après le tir/.test(lu(g.html().moonOut || '')), lu(g.html().moonOut || ''));
 });
 
 if (failures.length) {

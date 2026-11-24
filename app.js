@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.62';
+const APP_VERSION = '1.53.63';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -93,11 +93,11 @@ function expoFind(pf){ return EXPO_CAPS[top1Tier()][1]*S.settings.eco*(S.setting
 function sample(){
   return {
     v:1, sample:true,
-    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false},
+    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, debris:LUNE_DF},
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
-    moonCalc:{pid:'', ship:'lf', n:0, bou:null, viser:12, df:LUNE_DF},
+    moonCalc:{pid:'', ship:'lf', n:0, bou:null, viser:12},
     expo:{pf:true},
     ui:{tool:'colony', fold:{}},
     day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false},
@@ -3936,6 +3936,13 @@ function moonBou(){
   return b == null ? Math.max(0, S.tech.shielding || 0) : Math.max(0, +b || 0);
 }
 
+/** Le taux de débris de l'univers, en pourcent. C'est un fait du serveur et
+    non un brouillon de calcul, donc il vit dans S.settings à côté des vitesses
+    éco et flotte — et il passe ainsi d'un poste à l'autre par la synchro, là où
+    moonCalc resterait sur place. Une sauvegarde d'avant n'a pas la clé : le
+    défaut la remplace sans rien casser. */
+function moonDf(){ return Math.max(1, +(S.settings.debris) || LUNE_DF); }
+
 /** Le vaisseau choisi, ramené à un vaisseau qui existe. */
 function moonShip(){ return SHIPS[S.moonCalc.ship] ? S.moonCalc.ship : 'lf'; }
 
@@ -3988,7 +3995,7 @@ const SHIP_COST = {
   sc:[2000,2000,0],   lc:[6000,6000,0],      pr:[0,1000,0],         pf:[8000,15000,8000],
   lf:[3000,1000,0],   hf:[6000,4000,0],      cr:[20000,7000,2000],  bs:[45000,15000,0],
   bc:[30000,40000,15000], bb:[50000,25000,15000], ds:[60000,50000,15000],
-  rp:[85000,55000,20000], rec:[10000,6000,2000], col:[10000,20000,10000],
+  rp:[85000,55000,20000], rec:[10000,6000,2000], col:COL_SHIP_COST,
   crawl:CRAWLER_COST};
 const SHIP_REQ = {sc:{b:{shipyard:2}, t:{combustion:2}}, lc:{b:{shipyard:4}, t:{combustion:6}}, pr:{b:{shipyard:3}, t:{combustion:3, espionage:2}}, pf:{b:{shipyard:5}, t:{hyperdrive:2}}, crawl:{b:{shipyard:5}, t:{combustion:4, armour:4, laser:4}}};
 /* La défense passe par le même chantier, la même file et les mêmes wants que
@@ -4589,7 +4596,7 @@ moon(){
       <div class="grid">
         <label class="f">Chance visée<input id="mnVise" type="number" min="1" max="20" data-mc="viser" step="1" value="${Math.min(20,Math.max(1,Math.round(+m.viser||12)))}"><span class="note">En pourcent, 20 au plus : c'est le plafond du jeu.</span></label>
         <label class="f">Son niveau de Bouclier<input id="mnBou" type="number" min="0" data-mc="bou" step="1" value="${moonBou()}"><span class="note">Celui de ton camarade. Proposé au tien.</span></label>
-        <label class="f">Débris de ton univers<select id="mnDf" data-mc="df">${[30,40,50,60,70].map(v=>`<option ${(+m.df||LUNE_DF)===v?'selected':''}>${v}</option>`).join('')}</select><span class="note">En pourcent, dans les paramètres de ton univers.</span></label>
+        <label class="f">Débris de ton univers<select id="mnDf" data-set="debris">${[30,40,50,60,70].map(v=>`<option ${moonDf()===v?'selected':''}>${v}</option>`).join('')}</select><span class="note">En pourcent, dans les paramètres de ton univers. Il suit sur ton autre poste.</span></label>
       </div>
       <div class="res" id="moonOut"></div>
       <p class="note" id="moonNote"></p>
@@ -4889,7 +4896,7 @@ research(){
 },
 moon(){
   const m = S.moonCalc, p = moonPlanete(), k = moonShip();
-  const n = Math.floor(Math.max(0, +m.n || 0)), df = +m.df || LUNE_DF;
+  const n = Math.floor(Math.max(0, +m.n || 0)), df = moonDf();
   const out = document.getElementById('moonOut'), noteEl = document.getElementById('moonNote');
   if(!n){
     out.innerHTML = `<p class="note" style="grid-column:1/-1">Dis combien de vaisseaux il envoie, et la carte chiffre le tir.</p>`;
@@ -4914,7 +4921,7 @@ moon(){
     (tues == null ? gauge('e','e','Ta défense', '?', 'jamais relevée')
                   : gauge('e','e','Ta défense tue', fmt(tues), moonNom(k, tues))) +
     gauge('d','d','Pour ' + moonPct(vise), fmt(pour), moonNom(k, pour)) +
-    (rec && soute && t.debris ? gauge('m','m','Ramasser', fmt(Math.ceil(t.debris / (rec * soute))), 'voyages de recycleur') : '');
+    (rec && soute && t.debris ? gauge('m','m','Ramasser', fmt(Math.ceil(t.debris / (rec * soute))), 'voyages, après le tir') : '');
 
   const f = luneFacture(k, morts, df), sol = luneFlotteAuSol(p), av = [];
   if(tues === 0)
@@ -4928,7 +4935,9 @@ moon(){
   if(!t.chance && tues !== 0)
     av.push(`Sous <b>100 000</b> de débris, le combat ne tire rien du tout : il faut ${fmt(luneVaisseaux(k, 1, df))} morts au moins.`);
   if(sol && sol.m + sol.c > 0)
-    av.push(`Sors ta flotte de ${esc(planetRef(p))} avant le tir : ${shipList(p.ships)} au sol mourraient avec, ${fmt(sol.m)} métal et ${fmt(sol.c)} cristal à ta charge.`);
+    /* Le relevé vieillit, et c'est une flotte qu'on engage : on dit de quand il
+       date plutôt que de laisser croire que c'est l'état d'aujourd'hui. */
+    av.push(`Sors ta flotte de ${esc(planetRef(p))} avant le tir : ${shipList(p.ships)} au sol mourraient avec, ${fmt(sol.m)} métal et ${fmt(sol.c)} cristal à ta charge${p.shipsAt ? `, flotte relevée il y a ${dur((Date.now() - p.shipsAt) / 1000)}` : ''}.`);
 
   noteEl.innerHTML =
     (f ? `Facture espérée d'une lune : <b>${f.tirs} tirs</b>, ${fmt(f.m)} métal, ${fmt(f.c)} cristal${f.deut ? ` et ${fmt(f.deut)} deutérium` : ''} chez lui. Tu ramasses ${fmt(f.recupere)} de débris sur les tirs ratés. C'est une <b>moyenne, pas une promesse</b> : environ un joueur sur sept n'a toujours pas sa lune après le double de tirs. ` : '')
