@@ -5891,6 +5891,28 @@ t('un joueur à l\'heure du serveur ne voit rien changer', () => {
   assert.equal(r.heures[0].cls, 'arrivalTime', 'et rien ne le marque');
 });
 
+t('la date d\'un message se relit à la montre du joueur', () => {
+  // 23.11.2026 08:20:27 au serveur (UTC+1) : 22.11.2026 21:20:27 à Tahiti.
+  const r = runPage({ skin: null, heures: { ...HEURES, messages: ['23.11.2026 08:20:27'] } });
+  assert.equal(r.dates[0].txt, '22.11.2026 21:20:27', 'onze heures de moins, la veille');
+  assert.equal(r.dates[0].titre, 'heure du serveur : 23.11.2026 08:20:27', 'et le serveur à portée de souris');
+  assert.ok(/copilote-heure/.test(r.dates[0].cls), 'marquée comme traduite');
+});
+
+t('l\'horloge du jeu garde l\'heure du serveur', () => {
+  const r = runPage({ skin: null, heures: { ...HEURES, messages: ['23.11.2026 08:20:27'] } });
+  assert.equal(r.horloge, HEURES.horloge, 'le repère en heure serveur ne bouge pas');
+});
+
+t('une date déjà traduite ne se décale pas à chaque passage', () => {
+  /* Le script repeint plusieurs fois une même page : sans la marque, la date
+     reculerait d'onze heures de plus à chaque fois. */
+  const r = runPage({ skin: null, heures: { ...HEURES, messages: ['23.11.2026 08:20:27'] } });
+  r.secousse();
+  r.secousse();
+  assert.equal(r.read().dates[0].txt, '22.11.2026 21:20:27', 'traduite une fois, pas trois');
+});
+
 t('un texte qui n\'est pas l\'heure de cet instant n\'est pas touché', () => {
   /* Le garde-fou : la cellule dit autre chose que ce que le serveur dirait
      de cet instant — une durée, un reste de compte à rebours. On passe. */

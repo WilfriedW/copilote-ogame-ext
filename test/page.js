@@ -85,6 +85,7 @@ function el(tag, attrs = {}) {
  * @param {string} opts.stockageCasse 'get' : le stockage lève en lecture ; 'lastError' : l'écriture finit sur une erreur
  * @param {object[]} opts.askAvant ce que `prioAsk` contient déjà au chargement
  * @param {boolean} opts.getDiffere le `get('prioAsk')` ne répond qu'à `livre()` : le vrai est asynchrone
+ * @param {object} opts.heures `{ epoch, horloge, arrivees, messages }` : ce qui date la page, en heure serveur
  * @param {object} opts.noms par tuile : le nom que le jeu écrit dans son étiquette
  * @param {string} opts.prodHref href du lien du jeu vers « Paramétrage de la production », absent par défaut
  * @param {boolean} opts.menuLf le menu du jeu offre les pages de forme de vie (univers qui en a)
@@ -180,6 +181,16 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   cadre.appendChild(milieu);
   cadre.appendChild(colPlanetes);
   body.appendChild(cadre);
+
+  /* L'horloge et les messages vivent dans la page, pas seulement au bout d'un
+     sélecteur : le balayage des dates part du corps et doit les y trouver —
+     l'une pour la laisser tranquille, les autres pour les traduire. */
+  if (horloge) body.appendChild(horloge);
+  const messages = ((heures && heures.messages) || []).map(txt => {
+    const d = el('span', { className: 'msg_date', textContent: txt });
+    body.appendChild(d);
+    return d;
+  });
 
   /* Le dedans d'une page à cases, relevé sur le jeu : le titre, l'illustration
      avec son panneau de détail, puis les cases. La bande se pose entre les deux
@@ -410,6 +421,9 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     return {
       /** Les heures d'arrivée, telles qu'elles se lisent après passage. */
       heures: arrivees.map(c => ({ txt: c.textContent, titre: c.title, cls: c.className })),
+      /** Les dates des messages, et l'horloge, telles qu'elles se lisent après passage. */
+      dates: messages.map(c => ({ txt: c.textContent, titre: c.title, cls: c.className })),
+      horloge: horloge ? horloge.textContent : null,
       /** Ce que notre dessin de la page a posé. */
       peau: { posee: !!panneau, racine: html.className,
         cases: grilles.reduce((t, g) => t + g.children.length, 0),

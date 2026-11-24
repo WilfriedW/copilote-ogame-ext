@@ -442,6 +442,21 @@ html.copilote-large ul.icons{width:auto !important;max-width:none !important}`;
       + (avecSec ? ':' + d2(d.getSeconds()) : '');
   }
 
+  /** La date complète que le jeu écrit en heure serveur : jour, mois, seconde. */
+  const DATE_JEU = /^(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2}):(\d{2})$/;
+
+  /** L'instant que désigne une date écrite à l'heure du serveur. */
+  function epochDeDate(m, dec) {
+    return Date.UTC(+m[3], m[2] - 1, +m[1], +m[4], +m[5], +m[6]) / 1000 - dec;
+  }
+
+  /** La même date, à la montre du joueur. */
+  function dateIci(epoch) {
+    const d = new Date(epoch * 1000);
+    return d2(d.getDate()) + '.' + d2(d.getMonth() + 1) + '.' + d.getFullYear()
+      + ' ' + d2(d.getHours()) + ':' + d2(d.getMinutes()) + ':' + d2(d.getSeconds());
+  }
+
   /** Réécrit à l'heure du joueur ce que le jeu date d'un instant précis. */
   function heuresIci() {
     const dec = decalageServeur();
@@ -464,6 +479,26 @@ html.copilote-large ul.icons{width:auto !important;max-width:none !important}`;
         n.classList.add('copilote-heure');
       }
     });
+    /* Les messages. Le jeu n'y date rien d'un attribut : la seule source est
+       le texte, qu'on n'accepte donc que dans sa forme entière — jour, mois,
+       année, heure à la seconde. Rien d'autre dans le jeu ne s'écrit ainsi,
+       et une durée ou un compte à rebours ne peut pas lui ressembler.
+
+       Deux exclusions. L'horloge, qui porte la même forme et reste le repère
+       en heure serveur. Et ce qu'on a déjà traduit : sans cette marque, chaque
+       passage décalerait la date un peu plus. */
+    (function balaye(p) {
+      for (const n of p.children) {
+        if (n.classList.contains('OGameClock')) continue;
+        if (n.children.length) { balaye(n); continue; }
+        if (n.classList.contains('copilote-heure')) continue;
+        const m = DATE_JEU.exec((n.textContent || '').trim());
+        if (!m) continue;
+        n.textContent = dateIci(epochDeDate(m, dec));
+        n.title = 'heure du serveur : ' + m[0];
+        n.classList.add('copilote-heure');
+      }
+    })(document.body);
   }
 
   /* Le menu du jeu. Trois gestes, et rien d'autre : une entrée de plus vers
