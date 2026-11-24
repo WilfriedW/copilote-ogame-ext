@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -8322,6 +8322,53 @@ t('un vaisseau sans coût ne sort ni débris ni NaN', () => {
 
 t('une chance nulle ne donne pas de facture', () => {
   assert.equal(app().luneFacture('lf', 83, 30), null);
+});
+
+/* ---------- le tir de lune : ce que la défense tue ---------- */
+
+/** La défense du HQ au relevé du 24 novembre 2026, et Armes 8.
+    Les tâches suivantes réemploient cette fixture. */
+const HQ = s => {
+  s.planets[0].defs = { rl: 3077, ll: 511, hl: 351, ic: 213, gc: 51, pt: 11, sd: 1, ld: 1 };
+  s.tech.weapons = 8;
+};
+
+t('la défense du HQ tue environ un millier de chasseurs légers', () => {
+  const g = app(HQ), d = g.luneDefense(g.S.planets[0], 'lf', 0);
+  assert.equal(d.tirs, 4216, 'les huit pièces tirent, boucliers compris');
+  assert.ok(d.puissance > 700000 && d.puissance < 715000, 'puissance : ' + d.puissance);
+  assert.ok(d.tue / 4000 > 950 && d.tue / 4000 < 1050, 'chasseurs tués : ' + d.tue / 4000);
+});
+
+t('le niveau de Bouclier du camarade baisse ce qui est tué', () => {
+  const g = app(HQ), p = g.S.planets[0];
+  assert.ok(g.luneDefense(p, 'lf', 8).tue < g.luneDefense(p, 'lf', 0).tue);
+});
+
+t('la Technologie Armes monte ce que la défense tue', () => {
+  const sans = app(s => { HQ(s); s.tech.weapons = 0; });
+  const avec = app(HQ);
+  assert.ok(avec.luneDefense(avec.S.planets[0], 'lf', 0).puissance
+          > sans.luneDefense(sans.S.planets[0], 'lf', 0).puissance);
+});
+
+t('une défense jamais relevée ne rend aucun verdict', () => {
+  const g = app(s => { HQ(s); s.planets[0].defs = null; });
+  assert.equal(g.luneDefense(g.S.planets[0], 'lf', 0), null);
+});
+
+t('une défense rasée rend un verdict franc, pas un inconnu', () => {
+  const g = app(s => { HQ(s); s.planets[0].defs = {}; });
+  const d = g.luneDefense(g.S.planets[0], 'lf', 0);
+  assert.notEqual(d, null, 'relevée et vide, ce n\'est pas inconnu');
+  assert.equal(d.tue, 0);
+  assert.equal(d.tirs, 0);
+});
+
+t('une clé inconnue dans la défense ne compte pour rien', () => {
+  const g = app(s => { HQ(s); s.planets[0].defs = { rl: 10, __proto__: 5, zz: 99 }; });
+  const d = g.luneDefense(g.S.planets[0], 'lf', 0);
+  assert.equal(d.tirs, 10);
 });
 
 if (failures.length) {

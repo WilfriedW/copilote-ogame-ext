@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.53.58';
+const APP_VERSION = '1.53.59';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3893,6 +3893,36 @@ function luneFacture(k, n, df = LUNE_DF){
   const tirs = Math.ceil(100 / t.chance), c = SHIP_COST[k] || [0, 0, 0];
   return {chance: t.chance, tirs, m: tirs * n * c[0], c: tirs * n * c[1],
           recupere: (tirs - 1) * t.debris};
+}
+
+/** Ce que la défense d'une planète tue en six manches, en métal+cristal, donc
+    directement comparable à ce qu'un tir fait mourir. C'est le seul chiffre
+    estimé de la carte Lune, et la note le nomme comme tel.
+
+    Deux écarts assumés, qui tirent en sens contraires. La règle d'explosion
+    n'est pas comptée — dès que la coque passe sous 70 %, chaque tir reçu a une
+    chance de faire sauter la pièce, ce qui tue plus vite que la somme des
+    dégâts : on sous-estime. Le rebond non plus — un tir sous 1 % du bouclier
+    de la cible ne fait rien : on surestime, mais sans portée ici, où le plus
+    faible des tirs vaut 80 contre des boucliers de 10 à 700.
+
+    Les clés se lisent sur DEF, jamais sur p.defs : une clé venue du stockage
+    ne doit pas pouvoir compter. Et p.defs == null veut dire « jamais relevée »,
+    jamais zéro — le même partage que defsOf, et pour la même raison : annoncer
+    qu'une défense inconnue tue mille chasseurs ferait brûler une flotte.
+
+    Le +5 % par niveau d'Armes et de Bouclier vient du wiki, pas de la revue. */
+function luneDefense(p, k, bouLvl = 0){
+  if(!p || p.defs == null) return null;
+  let brut = 0, tirs = 0;
+  for(const j of Object.keys(DEF)){
+    const n = Math.max(0, p.defs[j] || 0);
+    brut += n * DEF[j].a;
+    tirs += n;
+  }
+  const puissance = brut * (1 + .05 * Math.max(0, S.tech.weapons || 0));
+  const bou = ((SHIPS[k] || {}).bou || 0) * (1 + .05 * Math.max(0, bouLvl));
+  return {puissance, tirs, tue: Math.max(0, 6 * puissance - 6 * tirs * bou)};
 }
 
 /* Le copilote ne proposera jamais de construire une coque de combat — le wiki
