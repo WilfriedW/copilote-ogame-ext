@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.2';
+const APP_VERSION = '1.54.3';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -88,7 +88,7 @@ function top1Tier(){
   return i<0 ? EXPO_CAPS.length-1 : i;
 }
 /** Trouvaille maximale d'une expédition, en équivalent métal. Estimation. */
-function expoFind(pf){ return EXPO_CAPS[top1Tier()][1]*S.settings.eco*(S.settings.cls==='explorer'?1.5:1)*(pf?2:1); }
+function expoFind(pf){ return EXPO_CAPS[top1Tier()][1]*ecoSpeed()*(S.settings.cls==='explorer'?1.5:1)*(pf?2:1); }
 
 function sample(){
   return {
@@ -463,6 +463,37 @@ function migratePlanetIds(){
 
 const IS_EXT = !!(window.chrome && window.chrome.runtime && window.chrome.runtime.id);
 let API = window.__api || null;
+
+/* ---------- ce que le serveur sait mieux que nous ---------- */
+
+/** Un fait publié par le serveur, ou la valeur de secours. Le panneau tourne
+    aussi hors extension et avant la première réponse de l'API : le secours est
+    ce que le copilote savait faire avant de la lire. */
+function srv(cle, secours){ const v = API && API.server ? API.server[cle] : null; return v == null ? secours : v; }
+
+/** Vitesse économie : production, constructions, recherches, expéditions.
+    Le serveur la publie ; la page du jeu la pose aussi dans les réglages, et
+    c'est elle qui sert tant que l'API n'a pas répondu. */
+function ecoSpeed(){ return Math.max(1, srv('speed', S.settings.eco) || 1); }
+
+/** Vitesse des missions pacifiques : transport, colonisation, expédition,
+    recyclage. Le copilote ne chiffre pas de vol d'attaque, dont le serveur
+    publie la vitesse à part (`speedFleetWar`). */
+function fleetSpeed(){ return Math.max(1, srv('speedFleetPeaceful', S.settings.fleet) || 1); }
+
+/** Ce que le serveur fait payer en deutérium, par rapport à la formule de
+    base. Un univers à 0,6 brûle 40 % de moins que ce que la formule annonce :
+    sans ce facteur, chaque vol était surévalué et le copilote renonçait à des
+    livraisons rentables. */
+function fuelFactor(){ return Math.max(0, srv('globalDeuteriumSaveFactor', 1)); }
+
+/** Diviseur des durées de recherche, en plus de la vitesse économie. Il vaut
+    1 là où le serveur ne dit rien : la formule d'avant, inchangée. */
+function researchDiv(){ return Math.max(1, srv('researchDurationDivisor', 1)); }
+
+/** Soute gagnée par niveau d'Hyperespace, en pourcent. */
+function hyperCargoPct(){ return srv('cargoHyperspaceTechMultiplier', 5); }
+
 /* ---------- formatting ---------- */
 const nf = new Intl.NumberFormat('fr-FR');
 function fmt(n){ if(!isFinite(n)) return '∞'; const a=Math.abs(n); if(a>=1e9) return (n/1e9).toFixed(2).replace('.',',')+' G'; if(a>=1e6) return (n/1e6).toFixed(2).replace('.',',')+' M'; if(a>=1e5) return (n/1e3).toFixed(0)+' k'; return nf.format(Math.round(n)); }
@@ -487,7 +518,7 @@ function rangeCost(def, from, to){ const t=[0,0,0]; for(let L=from+1; L<=to; L++
 function buildTime(key, L, p){
   const c = levelCost(B[key], L);
   const lowLvl = (key==='nanite') ? 1 : Math.max(4 - L/2, 1);
-  const h = (c[0]+c[1]) / (2500 * lowLvl * (1+p.b.robot) * Math.pow(2,p.b.nanite) * S.settings.eco);
+  const h = (c[0]+c[1]) / (2500 * lowLvl * (1+p.b.robot) * Math.pow(2,p.b.nanite) * ecoSpeed());
   return Math.max(1, h*3600);
 }
 /**
@@ -1108,7 +1139,7 @@ function labEffectif(){
 /** Research time in seconds. */
 function researchTime(key, L){
   const c = levelCost(T[key], L);
-  let h = (c[0]+c[1]) / (1000 * (1+labEffectif()) * S.settings.eco);
+  let h = (c[0]+c[1]) / (1000 * (1+labEffectif()) * ecoSpeed() * researchDiv());
   if(S.settings.cls==='explorer') h *= .75;
   return Math.max(1, h*3600);
 }
@@ -1239,7 +1270,7 @@ function bridage(p){
 
 /** Hourly production and energy balance for a planet, with optional level overrides. */
 function production(p, ov){
-  const b = Object.assign({}, p.b, ov||{}), s=S.settings, e=S.settings.eco, t=S.tech;
+  const b = Object.assign({}, p.b, ov||{}), s=S.settings, e=ecoSpeed(), t=S.tech;
   const g = L => L*Math.pow(1.1,L);
   /* Une foreuse produit et consomme comme une mine : elle entre dans le même
      bilan, sinon son bonus serait gratuit et le classement la mettrait en tête
@@ -1460,18 +1491,18 @@ function shipStats(k){
   if(k==='bb' && t.hyperdrive>=8){ sh.speed=5000; sh.drive='hyperdrive'; sh.fuel=1000; }
   if(k==='rec'){ if(t.hyperdrive>=15){ sh.speed=6000; sh.drive='hyperdrive'; sh.fuel=900; } else if(t.impulse>=17){ sh.speed=4000; sh.drive='impulse'; sh.fuel=600; } }
   sh.speedEff = sh.speed*(1 + t[sh.drive]*DRIVE_BONUS[sh.drive] + ((sh.transporter && S.settings.cls==='collector') ? 1 : 0));
-  sh.cargoEff = Math.floor(sh.cargo*(1 + .05*t.hyper + ((sh.transporter && S.settings.cls==='collector' && S.settings.colCargo) ? .25 : 0)));
+  sh.cargoEff = Math.floor(sh.cargo*(1 + hyperCargoPct()/100*t.hyper + ((sh.transporter && S.settings.cls==='collector' && S.settings.colCargo) ? .25 : 0)));
   return sh;
 }
 function flight(from, to, ships, pct){
   const a=parseC(from), b=parseC(to); if(!a||!b) return null;
   const list = Object.entries(ships).filter(([,n])=>n>0).map(([k,n])=>({...shipStats(k),k,n}));
   if(!list.length) return null;
-  const D = distance(a,b), V = Math.min(...list.map(s=>s.speedEff)), fs=S.settings.fleet;
+  const D = distance(a,b), V = Math.min(...list.map(s=>s.speedEff)), fs=fleetSpeed();
   const secs = (10 + 35000/(pct/10)*Math.sqrt(10*D/V))/fs;
   let cons = 0;
   for(const s of list){ const spd = 35000/(secs*fs - 10)*Math.sqrt(D*10/s.speedEff); cons += s.n*s.fuel*D/35000*Math.pow(spd/10+1,2); }
-  const fuel = Math.round(cons)+1;
+  const fuel = Math.round(cons * fuelFactor())+1;
   return {D, V, secs:Math.round(secs), fuel, cargo:souteUtile(list.reduce((x,s)=>x+s.n*s.cargoEff,0), fuel), slowest:SHIPS[list.find(s=>s.speedEff===V).k].n};
 }
 
@@ -1969,7 +2000,7 @@ function coloFleet(){
   const fuel = (leg1 ? leg1.fuel : 0) + (leg2 ? leg2.fuel*2 : 0);
   const ship = colBuilt() ? [0,0,0] : COL_SHIP_COST;
   const need = [ship[0]+kitCost[0], ship[1]+kitCost[1], ship[2]+kitCost[2]+fuel];
-  const shipTime = colBuilt() ? 0 : (COL_SHIP_COST[0]+COL_SHIP_COST[1]) / (2500*(1+dp.b.shipyard)*Math.pow(2,dp.b.nanite)*S.settings.eco) * 3600;
+  const shipTime = colBuilt() ? 0 : (COL_SHIP_COST[0]+COL_SHIP_COST[1]) / (2500*(1+dp.b.shipyard)*Math.pow(2,dp.b.nanite)*ecoSpeed()) * 3600;
   return {dp, kit, kitCost, colLoad, rest, n, tr, col, leg1, leg2, fuel, need, shipTime, target, wait:waitFor(dp, need)};
 }
 /** Verdict on a freshly colonized planet's size. */
@@ -2749,7 +2780,7 @@ function simulateDay(){
       tryResearch('pre');
       if(wantColony && !sim.colShip && sim.tech.impulse>=3 && dep.b.shipyard>=4 && dep.sq<=Tm && !(dep.bq>Tm && dep.bqKey==='shipyard')){
         const c = COL_SHIP_COST, key='ship:col', mine = goals.find(g=>g.key===key);
-        if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*S.settings.eco)*3600; dep.sq=Tm+d; sim.colShip=true; sim.colReady=Tm+d; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'', cost:c, dur:d, end:Tm+d, kind:'ship', p:dep.i}); }
+        if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*ecoSpeed())*3600; dep.sq=Tm+d; sim.colShip=true; sim.colReady=Tm+d; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'', cost:c, dur:d, end:Tm+d, kind:'ship', p:dep.i}); }
         else {
           /* La carte que la priorité écarte le plus souvent : sans `heldBy`,
              le vaisseau n'était jamais construit et sa ligne ne disait pas un
@@ -2908,7 +2939,7 @@ function simulateDay(){
         const solarAlt = rangeCost(B.solar, p.b.solar, p.b.solar + Math.max(1, best ? best.extraSolar : 1));
         if(mse(...c) >= mse(...solarAlt)) continue;
         if(can(p,c,reserveOf(p,Tm))){
-          pay(p,c); const d = n*2000/(2500*(1+p.b.shipyard)*Math.pow(2,p.b.nanite)*S.settings.eco)*3600, pp=p;
+          pay(p,c); const d = n*2000/(2500*(1+p.b.shipyard)*Math.pow(2,p.b.nanite)*ecoSpeed())*3600, pp=p;
           pp.sq=Tm+d; pp.satPending=Tm+d; sim.ev.push({at:Tm+d, fn:()=>{ pp.sats+=n; pp.satPending=0; }});
           acts.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, why:`+${Math.round(n*satE)} énergie, ${Math.round(mse(...solarAlt)/Math.max(1,mse(...c)))}x moins cher que la centrale`, cost:c, dur:d, end:Tm+d, kind:'sats', n, p:p.i});
         } else { const e=wait(p,c); soft.push({p, cost:c, eta:e}); waits.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, eta:e, miss:missOf(p,c), kind:'sats', p:p.i}); }
@@ -3936,12 +3967,11 @@ function moonBou(){
   return b == null ? Math.max(0, S.tech.shielding || 0) : Math.max(0, +b || 0);
 }
 
-/** Le taux de débris de l'univers, en pourcent. C'est un fait du serveur et
-    non un brouillon de calcul, donc il vit dans S.settings à côté des vitesses
-    éco et flotte — et il passe ainsi d'un poste à l'autre par la synchro, là où
-    moonCalc resterait sur place. Une sauvegarde d'avant n'a pas la clé : le
-    défaut la remplace sans rien casser. */
-function moonDf(){ return Math.max(1, +(S.settings.debris) || LUNE_DF); }
+/** Le taux de débris de l'univers, en pourcent. Le serveur le publie, donc
+    c'est lui qui tranche : le réglage manuel ne sert plus qu'en secours, hors
+    extension ou avant la première réponse de l'API. Il reste dans S.settings à
+    côté des vitesses, et passe ainsi d'un poste à l'autre par la synchro. */
+function moonDf(){ const d = srv('debrisFactor', null); return d != null ? Math.max(1, d*100) : Math.max(1, +(S.settings.debris) || LUNE_DF); }
 
 /** Le vaisseau choisi, ramené à un vaisseau qui existe. */
 function moonShip(){ return SHIPS[S.moonCalc.ship] ? S.moonCalc.ship : 'lf'; }
@@ -4056,7 +4086,7 @@ const SE_BAT = {};
 for(const k of Object.values(REPORT_WORDS)) SE_BAT[k] = true;
 for(const k of ['sat','crawl','pr','abm','ipm']) delete SE_BAT[k];
 function shipReqOk(k, p){ const r = SHIP_REQ[k]; return Object.entries(r.b).every(([b,l])=>p.b[b]>=l) && Object.entries(r.t).every(([t,l])=>S.tech[t]>=l); }
-function shipTime(k, n, p){ const c = SHIP_COST[k]; return n*(c[0]+c[1])/(2500*(1+p.b.shipyard)*Math.pow(2,p.b.nanite)*S.settings.eco)*3600; }
+function shipTime(k, n, p){ const c = SHIP_COST[k]; return n*(c[0]+c[1])/(2500*(1+p.b.shipyard)*Math.pow(2,p.b.nanite)*ecoSpeed())*3600; }
 /* Le relevé d'avant ne donnait qu'un total et le comptait en lanceurs : on lui
    laisse ce sens plutôt que de le jeter, sinon une défense déjà construite
    disparaît le jour de la mise à jour et le plan la redemande. */
@@ -4378,15 +4408,15 @@ const SRV_ROWS = [
     ['topScore', 'Points du n°1'],
   ]],
   ['Vitesses', [
-    ['speed', 'Économie', srvX, 'Multiplie production, coûts de temps et recherches.', ()=>S.settings.eco],
-    ['speedFleetPeaceful', 'Flotte pacifique', srvX, 'Transport, colonisation, expédition, recyclage.', ()=>S.settings.fleet],
+    ['speed', 'Économie', srvX, 'Production, constructions, recherches, expéditions : le copilote calcule avec.'],
+    ['speedFleetPeaceful', 'Flotte pacifique', srvX, 'Transport, colonisation, expédition, recyclage : le copilote calcule avec.'],
     ['speedFleetWar', 'Flotte de guerre', srvX, 'Attaque et espionnage.'],
     ['speedFleetHolding', 'Stationnement', srvX, 'Durée des missions qui attendent sur place.'],
-    ['researchDurationDivisor', 'Recherche', v=>'÷'+String(v).replace('.',','), 'Diviseur appliqué à la durée des recherches, en plus de la vitesse éco.'],
-    ['globalDeuteriumSaveFactor', 'Carburant', srvX, 'Multiplie le deutérium brûlé par chaque vol.'],
+    ['researchDurationDivisor', 'Recherche', v=>'÷'+String(v).replace('.',','), 'Diviseur des durées de recherche, en plus de la vitesse éco : le copilote calcule avec.'],
+    ['globalDeuteriumSaveFactor', 'Carburant', srvX, 'Multiplie le deutérium brûlé par chaque vol : le copilote calcule avec.'],
   ]],
   ['Combat, débris et lune', [
-    ['debrisFactor', 'Débris des vaisseaux', srvPct, 'Part de la coque détruite qui tombe dans le champ de ruines.', ()=>moonDf()/100],
+    ['debrisFactor', 'Débris des vaisseaux', srvPct, 'Part de la coque détruite qui tombe dans le champ de ruines : la carte Lune calcule avec.'],
     ['debrisFactorDef', 'Débris de la défense', srvPct],
     ['defToTF', 'Défense dans le champ de ruines'],
     ['deuteriumInDebris', 'Deutérium dans les débris'],
@@ -4404,7 +4434,7 @@ const SRV_ROWS = [
     ['newbieProtectionLimit', 'Protection débutant'],
     ['newbieProtectionHigh', 'Seuil des gros joueurs'],
     ['probeCargo', 'Soute des sondes'],
-    ['cargoHyperspaceTechMultiplier', 'Soute par niveau d\'Hyperespace', v=>String(v).replace('.',',')+' %'],
+    ['cargoHyperspaceTechMultiplier', 'Soute par niveau d\'Hyperespace', v=>String(v).replace('.',',')+' %', 'Compté dans chaque soute annoncée par le copilote.'],
     ['characterClassesEnabled', 'Classes de personnage'],
     ['marketplaceEnabled', 'Place de marché'],
     ['darkMatterNewAcount', 'Matière noire de départ'],
@@ -4611,7 +4641,7 @@ server(){
   }).join('');
   return `<section class="panel">
     <div class="card"><div class="row spread"><h2>Ton serveur</h2><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>
-      <p class="note">Les paramètres publics de <b>${esc(sv.name||'ton univers')}</b>${sv.number?` (n°${esc(String(sv.number))})`:''}, lus dans <span class="mono">serverData.xml</span>${at?` à ${hm(at)}`:''}. Ce sont des faits du serveur, pas des réglages : le copilote s'en sert pour les vols et les positions libres, et signale ici ce que tes réglages contredisent.</p>
+      <p class="note">Les paramètres publics de <b>${esc(sv.name||'ton univers')}</b>${sv.number?` (n°${esc(String(sv.number))})`:''}, lus dans <span class="mono">serverData.xml</span>${at?` à ${hm(at)}`:''}. Ce sont des faits du serveur, pas des réglages : ce que le copilote calcule en part — vitesses, carburant, débris, soute — sans que tu aies à le recopier nulle part.</p>
     </div>
     ${cards}
   </section>`;
@@ -4689,7 +4719,9 @@ moon(){
       <div class="grid">
         <label class="f">Chance visée<input id="mnVise" type="number" min="1" max="20" data-mc="viser" step="1" value="${Math.min(20,Math.max(1,Math.round(+m.viser||12)))}"><span class="note">En pourcent, 20 au plus : c'est le plafond du jeu.</span></label>
         <label class="f">Son niveau de Bouclier<input id="mnBou" type="number" min="0" data-mc="bou" step="1" value="${moonBou()}"><span class="note">Celui de ton camarade. Proposé au tien.</span></label>
-        <label class="f">Débris de ton univers<select id="mnDf" data-set="debris">${[30,40,50,60,70].map(v=>`<option ${moonDf()===v?'selected':''}>${v}</option>`).join('')}</select><span class="note">En pourcent, dans les paramètres de ton univers. Il suit sur ton autre poste.</span></label>
+        ${srv('debrisFactor', null) != null
+          ? `<label class="f">Débris de ton univers<b class="mono">${moonDf()} %</b><span class="note">Lu sur le serveur : rien à régler.</span></label>`
+          : `<label class="f">Débris de ton univers<select id="mnDf" data-set="debris">${[30,40,50,60,70].map(v=>`<option ${moonDf()===v?'selected':''}>${v}</option>`).join('')}</select><span class="note">En pourcent, dans les paramètres de ton univers. Le copilote le lira tout seul dès que le serveur aura répondu.</span></label>`}
       </div>
       <div class="res" id="moonOut"></div>
       <p class="note" id="moonNote"></p>
@@ -4788,7 +4820,7 @@ settings(){
         <label class="f">Vitesse flotte (pacifique)<input id="sFleet" type="number" min="1" step="1" data-set="fleet" value="${s.fleet}"></label>
         <label class="f">Classe<select id="sCls" data-set="cls">${[['collector','Collecteur'],['general','Général'],['explorer','Explorateur'],['none','Aucune']].map(([v,l])=>`<option value="${v}" ${s.cls===v?'selected':''}>${l}</option>`).join('')}</select></label>
       </div>
-      <p class="note">Ces trois valeurs se remplissent toutes seules : le Copilote les lit dans la page du jeu dès que tu l'ouvres. Tu n'y touches que si elles sont vides — le jeu n'a pas encore été ouvert — ou fausses. Si ta production réelle (onglet Ressources) ne correspond pas à l'onglet Empire, c'est le premier réglage à vérifier.</p>
+      <p class="note">${srv('speed', null) != null ? `Les deux vitesses sont <b>lues sur le serveur</b> (×${ecoSpeed()} et ×${fleetSpeed()}) : ce qui est saisi ici ne sert plus qu'en secours. ` : ''}Ces trois valeurs se remplissent toutes seules : le Copilote les lit dans la page du jeu dès que tu l'ouvres. Tu n'y touches que si elles sont vides — le jeu n'a pas encore été ouvert — ou fausses. Si ta production réelle (onglet Ressources) ne correspond pas à l'onglet Empire, c'est le premier réglage à vérifier.</p>
     </div>
     <div class="card"><h2>Bonus</h2>
       <div class="bascules">
