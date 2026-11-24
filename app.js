@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.11';
+const APP_VERSION = '1.54.12';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -308,6 +308,22 @@ function prioRecoit(neuves){
 function prioIdx(kind, pid, k){
   return (S.prio || []).findIndex(e => e && e.kind === kind && e.k === k && (kind === 't' || e.pid === pid));
 }
+/** Le jeu a-t-il réellement lu les niveaux de cette planète ? Hors extension
+    rien ne se relève, sans `gid` le jeu ne connaît pas cette planète, et
+    `bNeuve` dit que son nom est lu mais pas ses niveaux. Dans ces trois cas le
+    joueur doit pouvoir les taper ; ailleurs, les taper ne servirait à rien —
+    le prochain relevé les réécrit. */
+function lvLu(p){ return IS_EXT && !!p.gid && !p.bNeuve; }
+
+/** Combien d'objectifs sont posés sur cette planète, bâtiments et formes de
+    vie confondus : une case de forme de vie est un objectif comme un autre.
+    Les recherches en sont exclues — `prios()` les range sous la planète du
+    labo, mais elles se visent dans la carte des recherches, pas ici. */
+function prioCount(pid){
+  return prios().filter(x => x.kind === 'b' && x.pid === pid).length
+       + priosLf().filter(x => x.pid === pid).length;
+}
+
 function prioLvl(kind, pid, k){
   const e = (kind === 'lf' ? priosLf().map(x => ({kind:'lf', pid:x.pid, k:x.k, lvl:x.lvl})) : prios()).find(x => x.kind === kind && x.k === k && (kind === 't' || x.pid === pid));
   /* `lvl` vient de `S.prio`, donc d'une sauvegarde : un nombre, ou la case vide. */
@@ -4770,10 +4786,10 @@ planets(){
         : `<label class="f coche"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>${i===ci&&centreWhy()?`<span class="note">${esc(centreWhy())}</span>`:''}`}</div>
       <p class="note" style="margin:0" id="pctrn-${i}">${centreNoteHtml(p, i, ci)}</p>
       <p class="note" id="pfleet-${i}" style="margin:0"></p>
-      <details class="volet"${fold('niv:' + p.id, false)}><summary data-fold="niv:${p.id}">Bâtiments et niveaux visés</summary>
+      <details class="volet"${fold('niv:' + p.id, false)}><summary data-fold="niv:${p.id}">Bâtiments et niveaux visés${prioCount(p.id) ? ` <span class="note">${prioCount(p.id)} objectif${prioCount(p.id) > 1 ? 's' : ''}</span>` : ''}</summary>
       <div class="grid tight" style="margin-top:8px">
-        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${num(p.b[k])}"><input class="prio" type="number" min="${num(p.b[k])+1}" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
-        <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${num(p.sats)}"></label>
+        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${num(p.b[k])}"${lvLu(p) ? ' readonly tabindex="-1"' : ''}><input class="prio" type="number" min="${num(p.b[k])+1}" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
+        <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${num(p.sats)}"${lvLu(p) ? ' readonly tabindex="-1"' : ''}></label>
       </div>
       ${lfBloc(p)}
       <p class="note" style="margin:10px 0 0"><b>Stock</b> — ce que cette planète a en magasin. Il avance tout seul avec ta production ; recale-le quand tu dépenses.</p>

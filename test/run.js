@@ -8880,6 +8880,39 @@ t('le bouton Retirer est dans le corps, pas dans le résumé qui bascule le vole
 });
 
 
+t('les niveaux lus dans le jeu ne se tapent plus', () => {
+  const h = lu(app(RELEVE, SOIR, null, true).VIEWS.planets());
+  assert.ok(/data-b="metal"[^>]*readonly/.test(h) || /readonly[^>]*data-b="metal"/.test(h), h.slice(0, 800));
+});
+
+t("hors extension, les niveaux restent saisissables : rien ne les relève", () => {
+  const h = lu(app(RELEVE, SOIR, null, false).VIEWS.planets());
+  assert.ok(/data-b="metal"/.test(h), 'la grille existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(h));
+});
+
+t('une planète que le jeu a nommée sans la visiter garde ses niveaux saisissables', () => {
+  const h = lu(app(s => { RELEVE(s); s.planets[1].bNeuve = 1; }, SOIR, null, true).VIEWS.planets());
+  const carte = h.slice(h.indexOf('data-pi="1"'));
+  assert.ok(/data-b="metal"/.test(carte), 'la grille de la colonie existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(carte), 'bNeuve : aucun niveau lu, il faut pouvoir les taper');
+});
+
+t("sur les données d'exemple, tout se tape", () => {
+  const h = lu(app(s => { s.sample = true; s.planets.forEach(p => { delete p.gid; }); }, SOIR, null, true).VIEWS.planets());
+  assert.ok(/data-b="metal"/.test(h), 'la grille existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(h));
+});
+
+t("le volet des bâtiments annonce combien d'objectifs sont posés", () => {
+  const g = app(s => { RELEVE(s); });
+  g.prioPose('b', g.S.planets[0].id, 'metal', g.S.planets[0].b.metal + 3);
+  const h = lu(g.VIEWS.planets());
+  const resume = h.slice(h.indexOf('data-fold="niv:'));
+  assert.ok(/1 objectif/.test(resume.slice(0, 200)), resume.slice(0, 200));
+});
+
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');
