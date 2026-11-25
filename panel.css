@@ -171,7 +171,10 @@ details.volet[open]>summary::after{content:"Fermer –"}
 .col-notes{display:flex;flex-direction:column;gap:6px}
 /* Le résumé d'une planète est la ligne qu'on lit sept fois : le nom porte, et
    les chiffres de production s'alignent à droite, avant le « Ouvrir + ». */
-details.card.volet>summary.plsum{font-size:14px;gap:8px}
+/* Un nom de planète est un nom propre, pas un titre de section : il garde la
+   casse que le joueur a tapée, contrairement aux titres de carte. */
+details.card.volet{padding:8px}
+details.card.volet>summary.plsum{font-size:14px;gap:8px;text-transform:none;letter-spacing:0}
 summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 /* Le niveau visé est le seul champ de la ligne où le joueur tape : il porte
    l'accent, le niveau relevé d'à côté reste muet. */
