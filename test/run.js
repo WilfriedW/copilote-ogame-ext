@@ -10447,6 +10447,42 @@ t('une recherche sans nom occupe quand même le laboratoire', () => {
   assert.ok(j.busy.some(b => /Recherche/.test(b.q)), JSON.stringify(j.busy));
 });
 
+/* ---------- aucune file ne se double, sur la journée entière ---------- */
+/* L'invariant que les deux défauts du 25 novembre enfreignaient chacun à sa
+   façon. Il se vérifie sur les cinq files et sur les vingt-quatre heures, pas
+   sur la première session : c'est en fin de journée que les écarts se voient. */
+
+const FILE_DE = (g, a) => a.kind === 'b' ? 'building' : a.kind === 't' ? 'research'
+  : a.kind === 'lf' ? g.lfQueue(a.id)
+  : ['sats', 'ship', 'shipbuild', 'def'].includes(a.kind) ? 'shipyard' : null;
+
+/** Les trois files de la planète mère déjà prises, pour des heures. */
+const FILES_PRISES = s => { s.timers = [
+  { id: 'f1', game: true, kind: 'b', k: 'metal', lvl: 15, pid: 'mere', queue: 'building', end: JOUR + 5 * 3600e3, done: false },
+  { id: 'f2', game: true, kind: 't', k: 'energy', lvl: 4, queue: 'research', end: JOUR + 4 * 3600e3, done: false },
+  { id: 'f3', game: true, kind: 'x', k: 'shipyard', pid: 'mere', queue: 'shipyard', label: 'Chantier', end: JOUR + 3 * 3600e3, done: false }
+]; };
+
+t('le plan ne double jamais une file de la journée', () => {
+  const g = app(FILES_PRISES, JOUR);
+  const libre = new Map(), fautes = [];
+  for (const tm of g.S.timers) {
+    const q = tm.kind === 't' ? 'research' : tm.queue;
+    libre.set(q + '|' + (q === 'research' ? '*' : tm.pid), tm.end);
+  }
+  let vus = 0;
+  for (const s of g.simulateDay().sessions) for (const a of s.acts) {
+    const q = FILE_DE(g, a); if (!q) continue;
+    const cle = q + '|' + (q === 'research' ? '*' : g.S.planets[a.p].id);
+    const fin = libre.get(cle) || 0;
+    vus++;
+    if (s.T < fin) fautes.push(`${a.what} : ${q} prise encore ${Math.round((fin - s.T) / 60e3)} min`);
+    libre.set(cle, s.T + a.dur * 1000);
+  }
+  assert.ok(vus > 20, 'la journée doit proposer de quoi vérifier : ' + vus);
+  assert.deepEqual(fautes, []);
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');
