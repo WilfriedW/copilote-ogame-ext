@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.63.5';
+const APP_VERSION = '1.63.6';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3086,6 +3086,22 @@ function simulateDay(){
           const sien = `t:${R.k}${R.lvl}`;
           prioRang.set(sien, rang);
           prioEtat.push({id, key:sien, pi:pp.i, tk:R.k});
+          continue;
+        }
+        /* Une seule file de recherche pour tout l'empire, et le jeu refuse de
+           monter un laboratoire — n'importe lequel, pas seulement celui d'où
+           l'on cherche — tant qu'elle tourne : la tuile affiche « Une
+           recherche est en cours ! ». Le plan ne connaissait cette règle que
+           du labo qu'il choisit lui-même (`researchRunning`, plus bas dans
+           `pickBuildings`). Depuis qu'une priorité se pose sur toutes les
+           planètes d'un coup, il envoyait le joueur se heurter au jeu, planète
+           après planète. C'est le pas qu'on retient, pas la priorité : quand
+           `prioStep` a fait un détour par un hangar, le hangar part. */
+        if(pas.k === 'lab' && sim.rq > Tm){
+          const dit = `Le jeu ne monte aucun laboratoire tant qu'une recherche tourne : celle-ci finit à ${hm(sim.rq)}.`;
+          waits.push({q:'Bâtiment · '+planetRef(pp), what:`${B.lab.n} ${pas.lvl}`, why:`${pas.why} ${dit}`,
+            eta:(sim.rq-Tm)/1000, miss:[0,0,0], kind:'b', k:'lab', p:pp.i});
+          prioEtat.push({id, etat:dit});
           continue;
         }
         prioPas.set(pp.id, pas);

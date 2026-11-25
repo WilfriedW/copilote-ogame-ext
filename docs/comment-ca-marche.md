@@ -776,6 +776,13 @@ vide ne pose donc rien non plus.
 La mémoire des planètes décochées est **locale à ce navigateur** : elle ne
 voyage pas d'un poste à l'autre, contrairement aux priorités elles-mêmes.
 
+**Le laboratoire est le cas particulier.** Il n'y a qu'une file de recherche
+pour tout l'empire, et le jeu refuse de monter un laboratoire — n'importe
+lequel, pas seulement celui d'où partent tes recherches — tant qu'elle tourne :
+la tuile affiche « Une recherche est en cours ! ». Poser « Labo 10 » sur huit
+planètes est donc permis, mais aucune des huit cartes ne sort avant la fin de
+la recherche en cours. Chacune le dit, avec l'heure.
+
 ### 6.14 Empire — recherches
 
 15 technologies, chacune avec son **niveau** et son **niveau visé** : Énergie,

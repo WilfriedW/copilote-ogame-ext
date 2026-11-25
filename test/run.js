@@ -10483,6 +10483,46 @@ t('le plan ne double jamais une file de la journée', () => {
   assert.deepEqual(fautes, []);
 });
 
+/* ---------- un labo ne monte pas pendant qu'une recherche tourne ---------- */
+/* Une seule file de recherche pour tout l'empire, et le jeu refuse de monter
+   un laboratoire — n'importe lequel, pas seulement celui d'où l'on cherche —
+   tant qu'elle tourne : la tuile affiche « Une recherche est en cours ! ». Le
+   plan ne connaissait cette règle que du labo qu'il choisit lui-même. Depuis
+   qu'une priorité se pose sur toutes les planètes d'un coup, il envoyait le
+   joueur se heurter au jeu, planète après planète. */
+
+/** Labo 10 en priorité sur la colonie, et une recherche qui tourne deux heures. */
+const LABO_PENDANT_RECHERCHE = s => {
+  s.prio = [{ kind: 'b', pid: 'colo', k: 'lab', lvl: 10 }];
+  // De quoi payer, et des hangars qui ne débordent pas : sinon la carte
+  // attend faute d'argent, ou le hangar de secours passe devant, et le test
+  // ne prouverait rien de la règle du jeu.
+  Object.assign(s.planets[1].b, { smetal: 4, scrystal: 4, sdeut: 4 });
+  s.planets[1].stock = { m: 20000, c: 20000, d: 5000, at: JOUR };
+  s.timers = [{ id: 'r9', game: true, kind: 't', k: 'energy', lvl: 4,
+    queue: 'research', end: JOUR + 2 * 3600e3, done: false }];
+};
+
+t('aucun labo ne se propose pendant qu\'une recherche tourne', () => {
+  const s0 = app(LABO_PENDANT_RECHERCHE, JOUR).simulateDay().sessions[0];
+  assert.deepEqual(s0.acts.filter(a => a.kind === 'b' && a.k === 'lab').map(a => a.q + ' ' + a.what), []);
+});
+
+t('le labo retenu par une recherche dit pourquoi, et jusqu\'à quand', () => {
+  const s0 = app(LABO_PENDANT_RECHERCHE, JOUR).simulateDay().sessions[0];
+  const w = s0.waits.find(x => x.kind === 'b' && x.k === 'lab');
+  assert.ok(w, 'la priorité ne doit pas se taire : ' + JSON.stringify(s0.waits.map(x => x.what)));
+  assert.match(w.why, /recherche/i);
+});
+
+t('le labo repart dès que la recherche est finie', () => {
+  const j = app(LABO_PENDANT_RECHERCHE, JOUR).simulateDay();
+  const labo = j.sessions.flatMap(s => s.acts.filter(a => a.kind === 'b' && a.k === 'lab').map(a => s.T));
+  assert.ok(labo.length, 'le labo finit par se lancer');
+  assert.ok(labo[0] >= JOUR + 2 * 3600e3,
+    'pas avant la fin de la recherche : ' + new Date(labo[0]).toISOString());
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');
