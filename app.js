@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.62.4';
+const APP_VERSION = '1.62.5';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -493,11 +493,14 @@ function prioRetire(ref){
    vient qu'en ouvrant la case dans le jeu), elle est en tête de sa file, ou
    elle attend son tour. Dans les deux derniers, le réglage des formes de vie
    est nommé : c'est lui qui décide du moment, et le taire laisserait croire
-   à une priorité ignorée. */
+   à une priorité ignorée. Un sixième, la population trop faible, dit où aller
+   la chercher : rien d'autre dans le panneau ne relie cette case au bouton des
+   paliers. */
 function prioLfEtat(p, x, nuit){
   const v = (p.lf || {})[x.k];
   if(!v) return 'Le relevé n\'a jamais vu cette case : ouvre la page de ta forme de vie dans le jeu pour qu\'elle apparaisse.';
   if(v.state === 'locked') return 'Verrouillée : un prérequis manque dans le jeu.';
+  if(v.state === 'pop') return 'La population de la planète est trop faible : le jeu refuse de la construire, et le plan ne sait pas dire quand ça changera. Monte la nourriture puis le logement — le bouton « Poser les paliers de population », sous les niveaux de cette planète, pose les deux.';
   const l = lfCandidates(p, lfQueue(x.k));
   if(!l.some(c => c.id === x.k)) return 'Pas encore chiffrée : ouvre-la dans le jeu pour que le plan connaisse son prix.';
   if(nuit) return '';
@@ -790,6 +793,15 @@ function lfPriced(v){
     && v.next === (v.lvl || 0) + 1);
 }
 
+/* Une case que le jeu refuse de construire, et que le plan ne sait pas
+   débloquer : prérequis absent, ou population trop faible. Un seul garde, parce
+   que trois appelants l'oubliaient chacun de leur côté — le plan, le relevé qui
+   va ouvrir une case pour la chiffrer, et la carte qui réclame un prix — et
+   qu'un état de plus devait les corriger tous les trois d'un coup.
+   Le manque de ressources, lui, n'est pas un mur : le plan sait quand le stock
+   sera là, c'est tout son intérêt. La population, il ne la modélise pas. */
+const lfBloquee = v => !v || v.state === 'locked' || v.state === 'pop';
+
 /* Bornes de bon sens sur ce que le jeu publie : un niveau de case et un prix
    lus sur une page ne doivent jamais faire grossir la mémoire ni les calculs. */
 const LF_LVL_MAX = 1000;
@@ -938,7 +950,7 @@ const LF_RES_NOM = ['métal', 'cristal', 'deutérium'];
  * @returns {object[]} candidats triés
  */
 function lfCandidates(p, queue){
-  const libres = Object.entries(p.lf || {}).filter(([id,v]) => lfQueue(id) === queue && v && v.state !== 'locked');
+  const libres = Object.entries(p.lf || {}).filter(([id,v]) => lfQueue(id) === queue && !lfBloquee(v));
   const out = libres.flatMap(([id,v]) => {
     const next = (v.lvl||0) + 1, c = lfCost(v, next);
     if(!c || !(v.secs > 0)) return [];
@@ -1786,7 +1798,7 @@ const LF_FILE = {lfbuildings:'lfbuilding', lfresearch:'lfresearch'};
  */
 function lfAOuvrir(p, file){
   const e = Object.entries(p.lf || {}).find(([id,v]) =>
-    lfQueue(id) === file && v && v.state !== 'locked'
+    lfQueue(id) === file && !lfBloquee(v)
     && (!(v.secs > 0) || !lfCost(v, (v.lvl||0)+1)));
   return e ? e[0] : null;
 }
@@ -3962,7 +3974,7 @@ function dailyMissions(){
       // Page déjà ouverte et vide : la file demande un bâtiment que le joueur
       // n'a pas encore. Rien à relever, donc rien à lui rappeler.
       if(!cases.length) return {need:(p.lfSeen||{})[q] ? null : 'page', n:0};
-      const libres = cases.filter(([,v])=>v && v.state !== 'locked');
+      const libres = cases.filter(([,v])=>!lfBloquee(v));
       if(lfCandidates(p, q).length) return {need:null, n:cases.length};
       return {need: libres.length ? 'prix' : null, n:cases.length};
     };

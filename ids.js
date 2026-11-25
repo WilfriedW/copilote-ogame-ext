@@ -73,6 +73,28 @@ function lfRes(cls){
   return /\bmetal\b/.test(c) ? 0 : /\bcrystal\b/.test(c) ? 1 : /deuter/.test(c) ? 2 : -1;
 }
 /**
+ * L'état d'une case de forme de vie, lu dans l'infobulle de sa tuile. Le jeu y
+ * écrit le nom sur la première ligne et la raison du refus sur la suivante
+ * (« Académie des sciences », puis « La population est trop faible. ») : seule
+ * la raison est examinée, sinon un nom qui contiendrait le mot suffirait à
+ * classer la case.
+ * Trois refus, et le plan ne les traite pas pareil : « pas assez de ressources »
+ * est une attente qu'il sait combler en épargnant, un prérequis manquant et une
+ * population trop faible sont des murs. Les confondre coûtait une carte par
+ * jour sur une case que le jeu refuse — le plan ne modélise ni la population ni
+ * la nourriture, il ne saura jamais de lui-même quand le mur tombe.
+ * ponytail: reconnu en français seulement, comme lfEffect ; une autre langue
+ * rend « ok », donc le comportement d'avant.
+ * @param {string} tip attribut data-tooltip-title de la tuile
+ * @returns {string} ok | short | locked | pop
+ */
+function lfState(tip){
+  const raison = String(tip || '').split(/<br\s*\/?>|\n/i).slice(1).join(' ');
+  return /population/i.test(raison) ? 'pop'
+    : /pas assez/i.test(raison) ? 'short'
+    : /pr[ée]requis/i.test(raison) ? 'locked' : 'ok';
+}
+/**
  * La ressource dont une case de forme de vie augmente la production, lue dans
  * la phrase d'effet du panneau de détail du jeu. Rien d'autre ne le dit : la
  * liste n'affiche qu'une vignette, un nom et un niveau, et le classement se

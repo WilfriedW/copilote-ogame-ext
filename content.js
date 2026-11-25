@@ -113,7 +113,6 @@
     document.querySelectorAll('li.technology[data-technology]').forEach(li => {
       const id = +li.dataset.technology;
       if (id < 11000) return;
-      const tip = String(li.dataset.tooltipTitle || '');
       /* Le nom vient de l'étiquette de la tuile, comme pour lireTuile : le jeu
          l'y écrit dans la langue du joueur, et il nomme les quatre espèces là
          où notre table ne connaît que les Humains. Le panneau de détail ne
@@ -123,7 +122,7 @@
         lvl: +(li.querySelector('.level[data-value]')?.dataset.value) || 0,
         // valeur de frontière : plafonnée comme le nom que reçoit prioDrain
         nom: clean(String(li.getAttribute('aria-label') || '').split('(')[0]).slice(0, 80) || undefined,
-        state: /pas assez/i.test(tip) ? 'short' : /pr[ée]requis/i.test(tip) ? 'locked' : 'ok'
+        state: lfState(li.dataset.tooltipTitle)
       };
     });
     // Être passé sur une page vide est une information : la file demande un
