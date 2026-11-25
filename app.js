@@ -412,6 +412,16 @@ function poseLignes(){
             coche, agit: coche && vise > actuel};
   });
 }
+/** Pose le niveau visé sur les planètes cochées, et rend combien en ont reçu.
+    Seules les lignes qui agissent passent par prioPose : pour lui, un niveau
+    qui n'est pas au-dessus de l'actuel est un retrait. Lui donner les autres —
+    une planète déjà arrivée, ou le champ laissé vide — effacerait d'un clic
+    tout ce que le joueur a posé tuile par tuile. */
+function posePartout(){
+  const k = poseK(), lvl = parseInt((S.ui.pose || {}).lvl), agissent = poseLignes().filter(x => x.agit);
+  for(const x of agissent) prioPose('b', x.pid, k, lvl);
+  return agissent.length;
+}
 /* Ce qu'une ligne du bloc ajoute quand un second palier attend derrière. */
 function prioSuite(kind, pid, k, lvl){
   const e = (S.prio || []).find(x => x && x.kind === kind && x.k === k && (kind === 't' || x.pid === pid));
