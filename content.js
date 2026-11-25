@@ -333,7 +333,7 @@
   /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On
      n'ajoute qu'une classe et une étiquette inerte : rien n'est cliqué, rien
      n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
-  let prio = {}, asks = [], hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {}, noshop = false, large = false, peau = false, clair = false, colonne = [], teintes = {};
+  let prio = {}, asks = [], hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {}, noshop = false, large = false, peau = false, clair = false, colonne = [], teintes = {}, panneau = 'relief';
   /* Chaque règle vise un bloc nommé, repéré sur la page, et ne fait que le
      masquer. Elles ne s'appliquent que si le joueur a coché « Épurer », et
      décocher les retire toutes d'un coup. */
@@ -669,7 +669,10 @@ html{--cp-fond:#070b16;--cp-surface:#101a2b;--cp-surface2:#131c30;
 --cp-bon:#4fdeb0;--cp-bon-fond:rgba(79,222,176,.14);
 --cp-attention:#ffc95c;--cp-mauvais:#ff7a8a;
 --cp-voile:rgba(12,17,32,.85);--cp-ombre:rgba(6,9,18,.72);
---cp-ombre-portee:rgba(0,0,0,.6)}
+--cp-ombre-portee:rgba(0,0,0,.6);
+/* L'encre posée sur l'accent : tout ce qui s'écrit dans une pastille pleine.
+   Elle vit à part de --cp-texte, qui va sur le fond. */
+--cp-encre:#0c1120}
 html.copilote-peau.copilote-clair{--cp-fond:#eef1f8;--cp-surface:#ffffff;--cp-surface2:#f3f5fb;
 --cp-creux:#e9edf7;--cp-survol:#e3e9f8;--cp-ligne:#d6dcec;
 --cp-texte:#141a2c;--cp-doux:#4a5570;--cp-faible:#6b7389;
@@ -677,7 +680,53 @@ html.copilote-peau.copilote-clair{--cp-fond:#eef1f8;--cp-surface:#ffffff;--cp-su
 --cp-bon:#0f9a70;--cp-bon-fond:rgba(15,154,112,.12);
 --cp-attention:#b07800;--cp-mauvais:#c8354a;
 --cp-voile:rgba(255,255,255,.85);--cp-ombre:rgba(20,26,44,.45);
---cp-ombre-portee:rgba(20,26,44,.22)}
+--cp-ombre-portee:rgba(20,26,44,.22);--cp-encre:#ffffff}
+
+/* Les habillages du panneau, repris ici : la bande, les pastilles et la peau
+   prennent les couleurs du panneau d'à côté, pour que ce soit visiblement le
+   même copilote des deux côtés de l'écran. Relief est le défaut au-dessus.
+   Ces blocs passent après le clair : une peau sombre reste sombre, comme dans
+   le panneau, où seul Relief suit le thème du système. */
+html[data-cp-skin=domaine]{--cp-accent:#8aa9ff;--cp-accent-vif:#c3d4ff}
+/* « Une couleur par page » : dans le jeu, la page est celle du jeu. */
+html[data-cp-skin=domaine][data-cp-page=supplies]{--cp-accent:#ffb155;--cp-accent-vif:#ffd0a0;--cp-encre:#2a1400}
+html[data-cp-skin=domaine][data-cp-page=lfbuildings]{--cp-accent:#ffb155;--cp-accent-vif:#ffd0a0;--cp-encre:#2a1400}
+html[data-cp-skin=domaine][data-cp-page=facilities]{--cp-accent:#c4a0ff;--cp-accent-vif:#ddc7ff;--cp-encre:#1b0f33}
+html[data-cp-skin=domaine][data-cp-page=research]{--cp-accent:#5ec9ff;--cp-accent-vif:#a7e2ff;--cp-encre:#042030}
+html[data-cp-skin=domaine][data-cp-page=lfresearch]{--cp-accent:#5ec9ff;--cp-accent-vif:#a7e2ff;--cp-encre:#042030}
+html[data-cp-skin=domaine][data-cp-page=shipyard]{--cp-accent:#4fdeb0;--cp-accent-vif:#9df0d6;--cp-encre:#03251b}
+html[data-cp-skin=domaine][data-cp-page=defenses]{--cp-accent:#ff8fb1;--cp-accent-vif:#ffc2d4;--cp-encre:#2e0a18}
+html[data-cp-skin=domaine][data-cp-page=fleetdispatch]{--cp-accent:#ffe066;--cp-accent-vif:#fff0ad;--cp-encre:#2b2300}
+html[data-cp-skin=domaine][data-cp-page=movement]{--cp-accent:#ffe066;--cp-accent-vif:#fff0ad;--cp-encre:#2b2300}
+
+html[data-cp-skin=hud]{--cp-fond:#04070d;--cp-surface:#0a1420;--cp-surface2:#0f1d2a;
+--cp-creux:#02140f;--cp-survol:#122a24;--cp-ligne:#1d5f56;
+--cp-texte:#d7f5ee;--cp-doux:#6f9a93;--cp-faible:#5c837d;
+--cp-accent:#39e6c3;--cp-accent-vif:#9ff6e3;--cp-encre:#02140f;
+--cp-bon:#39e6c3;--cp-bon-fond:rgba(57,230,195,.14);
+--cp-attention:#ffb23d;--cp-mauvais:#ff5f7a}
+/* Les angles coupés et la lueur du panneau, sur les deux nœuds qui portent la
+   bande. Le reste de la page du jeu n'est pas à nous : on ne l'entaille pas. */
+html[data-cp-skin=hud] .copilote-bande,html[data-cp-skin=hud] .copilote-eta,html[data-cp-skin=hud] .copilote-tour{
+border-radius:0;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));
+box-shadow:0 0 18px color-mix(in srgb,var(--cp-accent) 10%,transparent)}
+html[data-cp-skin=hud] .copilote-pin,html[data-cp-skin=hud] .copilote-tag,html[data-cp-skin=hud] .copilote-go{border-radius:0}
+html[data-cp-skin=hud] .copilote-zone::before{font-family:ui-monospace,Menlo,monospace;letter-spacing:.18em}
+
+html[data-cp-skin=arcade]{--cp-fond:#0c0719;--cp-surface:#1b1033;--cp-surface2:#241546;
+--cp-creux:#120a24;--cp-survol:#2c1a52;--cp-ligne:#3a2563;
+--cp-texte:#f3efff;--cp-doux:#a79cc9;--cp-faible:#8d82b0;
+--cp-accent:#ff5fa2;--cp-accent-vif:#ffa6cb;--cp-encre:#2a0a1a;
+--cp-bon:#5ef0b8;--cp-bon-fond:rgba(94,240,184,.14);
+--cp-attention:#ffd166;--cp-mauvais:#ff6b8b;
+/* Le second ton du dégradé, et l'encre qui se lit dessus : deux jetons de
+   plus, parce qu'une pastille d'Arcade est un dégradé, pas un aplat. */
+--cp-accent2:#8b5cf6;--cp-encre-vive:#ffffff}
+html[data-cp-skin=arcade] .copilote-bande,html[data-cp-skin=arcade] .copilote-eta,html[data-cp-skin=arcade] .copilote-tour{
+border-radius:14px}
+html[data-cp-skin=arcade] .copilote-pin,html[data-cp-skin=arcade] .copilote-go{border-radius:9px}
+html[data-cp-skin=arcade] .copilote-pin:not(.copilote-ici):not(.copilote-gris){
+background:linear-gradient(135deg,var(--cp-accent),var(--cp-accent2));color:var(--cp-encre-vive) !important}
 html.copilote-peau body{background-image:none !important;background-color:var(--cp-fond) !important}
 html.copilote-peau .copilote-rail-hote > *:not(.cp-rail),
 html.copilote-peau .copilote-col-menu > *:not(.copilote-chemin),
@@ -2149,15 +2198,15 @@ width:auto !important;max-width:none !important;background-image:none !important
   }
 
   const STYLE = `.copilote-heure{text-decoration:underline dotted;text-underline-offset:3px}
-li.technology.copilote-next{position:relative;outline:2px solid #8aa9ff;outline-offset:2px;border-radius:4px}
+li.technology.copilote-next{position:relative;outline:2px solid var(--cp-accent);outline-offset:2px;border-radius:4px}
 .copilote-tag{position:absolute;top:3px;right:3px;z-index:5;pointer-events:none;max-width:calc(100% - 6px);
-overflow:hidden;background:#8aa9ff;color:#0c1120;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
-border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}
+overflow:hidden;background:var(--cp-accent);color:var(--cp-encre) !important;font:700 11px/1.5 Arial,sans-serif;padding:0 5px;
+border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px var(--cp-ombre-portee)}
 /* Deux teintes : la cible du plan est bleue, ta priorité est ambre ; ta demande
    que le panneau n'a pas encore reprise garde l'ambre, mais en retrait : cerclée
    et atténuée, pour qu'on la voie comme provisoire. */
-.copilote-tag.cp-tag-prio{background:#ffc95c}
-.copilote-tag.cp-tag-attente{background:#ffc95c;box-shadow:inset 0 0 0 1px #0c1120,0 1px 3px rgba(0,0,0,.5);opacity:.8}
+.copilote-tag.cp-tag-prio{background:var(--cp-attention)}
+.copilote-tag.cp-tag-attente{background:var(--cp-attention);box-shadow:inset 0 0 0 1px var(--cp-encre),0 1px 3px var(--cp-ombre-portee);opacity:.8}
 /* Le champ du clic droit et son refus : posés sur la tuile, retirés après.
    Tout est en !important, et la tuile est hissée tant que le champ est ouvert.
    Nos nœuds vivent dans le DOM du jeu, dont la feuille est plus spécifique que
@@ -2173,28 +2222,28 @@ border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5)}
 bottom:2px !important;width:auto !important;height:auto !important;min-width:0 !important;max-width:none !important;
 z-index:2147483000 !important;box-sizing:border-box !important;
 margin:0 !important;padding:3px 5px !important;border-radius:3px !important;font:12px/1.3 Arial,sans-serif !important}
-.cp-prio-champ{border:1px solid #6f9fff !important;background:#0c1120 !important;color:#e8eefc !important;
+.cp-prio-champ{border:1px solid var(--cp-accent) !important;background:var(--cp-creux) !important;color:var(--cp-texte) !important;
 -webkit-appearance:none !important;appearance:none !important;text-align:left !important}
-.cp-prio-refus{border:1px solid #6f9fff !important;background:#0c1120 !important;color:#e8eefc !important;
+.cp-prio-refus{border:1px solid var(--cp-accent) !important;background:var(--cp-creux) !important;color:var(--cp-texte) !important;
 pointer-events:none !important;bottom:auto !important;top:2px !important}
 .copilote-eta{position:relative;z-index:2;margin:8px 0;padding:8px 10px;white-space:pre-line;
-border:1px solid rgba(138,169,255,.45);border-left:3px solid #8aa9ff;border-radius:4px;
-background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55);
-color:#e4edff;font:700 12px/1.5 Arial,sans-serif;text-shadow:none}
+border:1px solid color-mix(in srgb,var(--cp-accent) 45%,transparent);border-left:3px solid var(--cp-accent);border-radius:4px;
+background:var(--cp-surface);box-shadow:0 2px 10px var(--cp-ombre-portee);
+color:var(--cp-texte);font:700 12px/1.5 Arial,sans-serif;text-shadow:none}
 .copilote-eta .copilote-go{display:inline-block;margin-top:6px;padding:3px 9px;border-radius:3px;
-background:#8aa9ff;color:#0c1120;font-weight:700;text-decoration:none}
-.copilote-eta .copilote-go:hover{background:#c3d4ff;color:#0c1120}
+background:var(--cp-accent);color:var(--cp-encre) !important;font-weight:700;text-decoration:none}
+.copilote-eta .copilote-go:hover{background:var(--cp-accent-vif);color:var(--cp-encre) !important}
 .copilote-tour{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px;padding:8px 10px;
-border:1px solid rgba(138,169,255,.45);border-left:3px solid #8aa9ff;border-radius:4px;
-background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55)}
-.copilote-pin{display:inline-block;padding:3px 9px;border-radius:3px;background:#8aa9ff;
-color:#0c1120;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shadow:none}
-.copilote-pin:hover{background:#c3d4ff;color:#0c1120}
-.copilote-pin.copilote-ici{background:transparent;color:#e4edff;box-shadow:inset 0 0 0 1px #8aa9ff}
-.copilote-pin.copilote-gris{background:transparent;color:#9fb2d4;font-weight:400;
-box-shadow:inset 0 0 0 1px rgba(138,169,255,.3)}
-.copilote-pin.copilote-gris:hover{background:rgba(138,169,255,.14);color:#e4edff}
-.copilote-bande .cb-l.copilote-gris{color:#9fb2d4;font-weight:400}
+border:1px solid color-mix(in srgb,var(--cp-accent) 45%,transparent);border-left:3px solid var(--cp-accent);border-radius:4px;
+background:var(--cp-surface);box-shadow:0 2px 10px var(--cp-ombre-portee)}
+.copilote-pin{display:inline-block;padding:3px 9px;border-radius:3px;background:var(--cp-accent);
+color:var(--cp-encre) !important;font:700 12px/1.5 Arial,sans-serif;text-decoration:none;text-shadow:none}
+.copilote-pin:hover{background:var(--cp-accent-vif);color:var(--cp-encre) !important}
+.copilote-pin.copilote-ici{background:transparent;color:var(--cp-texte) !important;box-shadow:inset 0 0 0 1px var(--cp-accent)}
+.copilote-pin.copilote-gris{background:transparent;color:var(--cp-doux) !important;font-weight:400;
+box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cp-accent) 30%,transparent)}
+.copilote-pin.copilote-gris:hover{background:color-mix(in srgb,var(--cp-accent) 14%,transparent);color:var(--cp-texte) !important}
+.copilote-bande .cb-l.copilote-gris{color:var(--cp-doux) !important;font-weight:400}
 /* Le panneau de détail d'une case n'est pas dans le flux : le jeu le pose en
    absolu sur le bandeau de titre, toujours 300 px de haut. Les pages dont le
    bandeau en fait 250 lui laissent donc 50 px de trop, qui retombaient sur le
@@ -2205,21 +2254,21 @@ box-shadow:inset 0 0 0 1px rgba(138,169,255,.3)}
 .maincontent:has(#technologydetails_wrapper.slide-up) > div > header{min-height:300px}
 .copilote-bande{display:flex;flex-wrap:wrap;gap:14px;width:100%;box-sizing:border-box;
 flex-basis:100%;grid-column:1/-1;
-margin:10px 0 18px;padding:10px 12px;border:1px solid rgba(138,169,255,.45);
-border-left:3px solid #8aa9ff;background:#101a2b;box-shadow:0 2px 10px rgba(0,0,0,.55);
-font:400 12px/1.6 Arial,sans-serif;color:#e4edff;text-shadow:none}
+margin:10px 0 18px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--cp-accent) 45%,transparent);
+border-left:3px solid var(--cp-accent);background:var(--cp-surface);box-shadow:0 2px 10px var(--cp-ombre-portee);
+font:400 12px/1.6 Arial,sans-serif;color:var(--cp-texte);text-shadow:none}
 .copilote-zone{min-width:0}
 .copilote-zone[data-zone="ici"]{flex:1 1 340px}
 .copilote-zone[data-zone="tour"]{flex:1 1 340px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
 .copilote-zone[data-zone="tour"]::before{flex:0 0 100%}
-.copilote-zone + .copilote-zone{border-left:1px solid rgba(138,169,255,.18);padding-left:14px}
+.copilote-zone + .copilote-zone{border-left:1px solid color-mix(in srgb,var(--cp-accent) 18%,transparent);padding-left:14px}
 .copilote-zone::before{content:attr(data-titre);display:block;margin-bottom:4px;
-font-size:11px;letter-spacing:.08em;color:#8aa9ff}
-.copilote-bande .cb-f{font-weight:700;color:#e4edff}
-.copilote-bande .cb-n{color:#9fb2d4}
-.copilote-bande .cb-a{color:#f0997b}
-.copilote-bande .cb-l{display:block;color:#8aa9ff;text-decoration:none;font-weight:700}
-.copilote-bande .cb-l:hover{color:#c3d4ff}`;
+font-size:11px;letter-spacing:.08em;color:var(--cp-accent)}
+.copilote-bande .cb-f{font-weight:700;color:var(--cp-texte)}
+.copilote-bande .cb-n{color:var(--cp-doux)}
+.copilote-bande .cb-a{color:var(--cp-attention)}
+.copilote-bande .cb-l{display:block;color:var(--cp-accent) !important;text-decoration:none;font-weight:700}
+.copilote-bande .cb-l:hover{color:var(--cp-accent-vif) !important}`;
 
   /* Recharger l'extension sans recharger la page réinjecte ce script : le code
      est neuf, mais le <style> posé par la version d'avant est toujours dans la
@@ -2241,6 +2290,10 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
       document.head.appendChild(st);
     }
     document.documentElement.classList.toggle('copilote-lean', lean);
+    /* L'habillage choisi dans le panneau, et la page du jeu ouverte : les
+       couleurs de nos nœuds en découlent, et rien d'autre. */
+    document.documentElement.dataset.cpSkin = panneau;
+    document.documentElement.dataset.cpPage = pageCourante();
     /* Le menu vit sur toutes les pages du jeu, celles que le copilote ne
        connaît pas comprises : c'est un moyen d'en partir, pas un conseil. */
     try { peintMenu(); } catch (e) {}
@@ -2324,6 +2377,7 @@ font-size:11px;letter-spacing:.08em;color:#8aa9ff}
       large = !!(skin && skin.large);
       peau = !!(skin && skin.peau);
       clair = !!(skin && skin.clair);
+      panneau = (skin && skin.panneau) || 'relief';
       colonne = (skin && skin.colonne) || [];
       teintes = (skin && skin.teintes) || {};
       tour = (skin && skin.tour) || {};

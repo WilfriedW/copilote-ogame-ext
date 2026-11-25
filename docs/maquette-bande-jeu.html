@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maquettes — la bande dans la page du jeu</title>
+<style>
+/* ===================================================================
+   Ce que le copilote pose DANS la page du jeu : la bande, ses deux
+   zones, ses pastilles. L'état d'aujourd'hui, puis trois propositions.
+   Les couleurs sont les jetons --cp-* de content.js, donc la dernière
+   bande montre les quatre habillages tels qu'ils tombent vraiment.
+   =================================================================== */
+*{box-sizing:border-box}
+html{--cp-fond:#070b16;--cp-surface:#101a2b;--cp-surface2:#131c30;--cp-creux:#0c1120;
+--cp-ligne:#28335a;--cp-texte:#e4edff;--cp-doux:#9fb2d4;--cp-faible:#8e98b8;
+--cp-accent:#8aa9ff;--cp-accent-vif:#c3d4ff;--cp-encre:#0c1120;
+--cp-bon:#4fdeb0;--cp-attention:#ffc95c;--cp-mauvais:#ff7a8a;--cp-ombre-portee:rgba(0,0,0,.6)}
+body{margin:0;background:#06080e;color:#dfe4f2;font:14px/1.55 "IBM Plex Sans",system-ui,sans-serif}
+.gal{padding:26px 22px 90px;max-width:1340px;margin:0 auto}
+h1.g{font:800 23px/1.2 system-ui;letter-spacing:.01em;margin:0 0 6px}
+h1.g span{color:#8aa9ff}
+p.lede{color:#8e98b8;margin:0 0 22px;max-width:78ch}
+.tour{border:1px solid #1b2238;border-radius:12px;padding:14px 16px;margin:0 0 30px;background:#0a0f1b}
+.tour h2{font:700 12px/1 system-ui;letter-spacing:.12em;text-transform:uppercase;color:#8aa9ff;margin:0 0 10px}
+.tour dl{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;margin:0;font-size:13px}
+.tour dt{font-weight:700;color:#dfe4f2;white-space:nowrap}
+.tour dd{margin:0;color:#8e98b8}
+.tour dd b{color:#c9d2e8;font-weight:600}
+.prop{margin:0 0 34px;border-top:1px solid #1b2238;padding-top:18px}
+.prop>.hd{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 12px}
+.prop>.hd .no{font:800 12px/1 ui-monospace,monospace;color:#06080e;background:#8aa9ff;border-radius:6px;padding:5px 8px}
+.prop>.hd .no.now{background:#5b6788;color:#fff}
+.prop>.hd h2{font:700 18px/1.2 system-ui;margin:0}
+.prop>.hd .pitch{color:#8e98b8;font-size:13px;flex:1 1 340px;min-width:0}
+ul.gain{margin:8px 0 0;padding-left:18px;color:#8e98b8;font-size:12.5px}
+ul.gain li{margin:2px 0}
+ul.gain b{color:#c9d2e8}
+/* le décor : un bout de page de jeu autour de la bande */
+.jeu{background:linear-gradient(180deg,#0a0f1a,#070b12);border:1px solid #141c30;border-radius:10px;padding:14px}
+.jeu .faux-titre{font:700 15px/1 system-ui;color:#8ea2c6;text-align:center;letter-spacing:.04em;
+border:1px solid #1a2338;border-radius:6px;padding:10px;margin:0 0 12px;background:#0d1322}
+.jeu .faux-cases{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
+.jeu .faux-case{height:62px;border:1px solid #1a2338;border-radius:6px;background:#0d1322;
+display:flex;align-items:flex-end;justify-content:center;padding-bottom:6px;font:600 10px/1 system-ui;color:#4d5775}
+
+/* ---------- la bande, telle qu'elle est aujourd'hui ---------- */
+.cp-bande{display:flex;flex-wrap:wrap;gap:14px;width:100%;margin:0;padding:10px 12px;
+border:1px solid color-mix(in srgb,var(--cp-accent) 45%,transparent);border-left:3px solid var(--cp-accent);
+background:var(--cp-surface);box-shadow:0 2px 10px var(--cp-ombre-portee);
+font:400 12px/1.6 Arial,sans-serif;color:var(--cp-texte)}
+.cp-zone{min-width:0;flex:1 1 340px}
+.cp-zone+.cp-zone{border-left:1px solid color-mix(in srgb,var(--cp-accent) 18%,transparent);padding-left:14px}
+.cp-zone>.t{display:block;margin-bottom:4px;font-size:11px;letter-spacing:.08em;color:var(--cp-accent)}
+.cp-zone.tour{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start}
+.cp-zone.tour>.t{flex:0 0 100%}
+.cp-l{display:block;color:var(--cp-accent);text-decoration:none;font-weight:700}
+.cp-l.gris{color:var(--cp-doux);font-weight:400}
+.cp-pin{display:inline-block;padding:3px 9px;border-radius:3px;background:var(--cp-accent);
+color:var(--cp-encre);font:700 12px/1.5 Arial,sans-serif;text-decoration:none}
+.cp-pin.ici{background:transparent;color:var(--cp-texte);box-shadow:inset 0 0 0 1px var(--cp-accent)}
+.cp-pin.gris{background:transparent;color:var(--cp-doux);font-weight:400;
+box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cp-accent) 30%,transparent)}
+/* le bug de contraste d'aujourd'hui, montré tel quel */
+.bug .cp-pin:not(.ici):not(.gris){color:#9a7b3c}
+
+/* ---------- A · hiérarchie ---------- */
+.a-pin{display:inline-flex;align-items:baseline;gap:6px;padding:3px 9px;border-radius:3px;
+background:var(--cp-accent);color:var(--cp-encre);font:400 12px/1.5 Arial,sans-serif;text-decoration:none}
+.a-pin .ou{font-weight:700}
+.a-pin .lv{font-family:ui-monospace,Menlo,monospace;font-size:11px;opacity:.75}
+.a-pin.bloq{background:transparent;color:var(--cp-doux);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cp-accent) 28%,transparent)}
+.a-pin.bloq .ou{color:var(--cp-texte)}
+.a-pin.ici{background:transparent;color:var(--cp-texte);box-shadow:inset 0 0 0 1px var(--cp-accent)}
+.a-pin .et{font-size:11px;padding-left:6px;border-left:1px solid currentColor;opacity:.85}
+.a-pin .et.file{color:var(--cp-attention)}
+.cp-zone>.t em{font-style:normal;color:var(--cp-texte);font-weight:700;letter-spacing:0;font-size:12px}
+.cp-zone>.t .cpt{float:right;color:var(--cp-doux);letter-spacing:0}
+
+/* ---------- B · colonnes alignées ---------- */
+.b-tbl{display:grid;grid-template-columns:auto auto 1fr auto;gap:0 12px;width:100%;font:400 12px/1.5 Arial,sans-serif}
+.b-tbl>div{padding:3px 0;border-top:1px solid color-mix(in srgb,var(--cp-accent) 12%,transparent)}
+.b-tbl>.h{border-top:0;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--cp-faible);padding-bottom:2px}
+.b-ou{font-weight:700;color:var(--cp-texte)}
+.b-lv{font-family:ui-monospace,Menlo,monospace;color:var(--cp-doux)}
+.b-et{color:var(--cp-doux)}
+.b-et.file{color:var(--cp-attention)}
+.b-et.ok{color:var(--cp-bon)}
+.b-go{color:var(--cp-accent);text-decoration:none;font-weight:700;text-align:right}
+.b-row-ici .b-ou::after{content:" · ici";color:var(--cp-faible);font-weight:400;font-size:11px}
+
+/* ---------- C · groupée par état ---------- */
+.c-grp{flex:0 0 100%;display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+.c-grp>.lab{flex:0 0 100%;font:700 10px/1.6 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.c-grp.ok>.lab{color:var(--cp-bon)}
+.c-grp.att>.lab{color:var(--cp-attention)}
+.c-grp.non>.lab{color:var(--cp-faible)}
+.c-pin{display:inline-block;padding:3px 9px;border-radius:3px;font:700 12px/1.5 Arial,sans-serif;text-decoration:none}
+.c-grp.ok .c-pin{background:var(--cp-accent);color:var(--cp-encre)}
+.c-grp.att .c-pin{background:transparent;color:var(--cp-texte);box-shadow:inset 0 0 0 1px var(--cp-attention)}
+.c-grp.non .c-pin{background:transparent;color:var(--cp-doux);font-weight:400;
+box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cp-accent) 25%,transparent)}
+.c-pin small{font-weight:400;opacity:.8;font-size:11px}
+.c-res{flex:0 0 100%;margin-top:8px;padding-top:7px;border-top:1px solid color-mix(in srgb,var(--cp-accent) 14%,transparent);
+font:400 11px/1.5 Arial,sans-serif;color:var(--cp-doux)}
+.c-res b{color:var(--cp-texte)}
+
+/* ---------- les quatre habillages ---------- */
+.skins{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.skins>section{min-width:0}
+.skins h3{font:700 11px/1 ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#6f7b9d;margin:0 0 7px}
+[data-cp-skin=domaine]{--cp-accent:#ffb155;--cp-accent-vif:#ffd0a0;--cp-encre:#2a1400}
+[data-cp-skin=hud]{--cp-fond:#04070d;--cp-surface:#0a1420;--cp-creux:#02140f;--cp-ligne:#1d5f56;
+--cp-texte:#d7f5ee;--cp-doux:#6f9a93;--cp-faible:#5c837d;--cp-accent:#39e6c3;--cp-accent-vif:#9ff6e3;
+--cp-encre:#02140f;--cp-bon:#39e6c3;--cp-attention:#ffb23d;--cp-mauvais:#ff5f7a}
+[data-cp-skin=hud] .cp-bande{border-radius:0;clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));
+box-shadow:0 0 18px color-mix(in srgb,var(--cp-accent) 10%,transparent)}
+[data-cp-skin=hud] .a-pin{border-radius:0}
+[data-cp-skin=hud] .cp-zone>.t{font-family:ui-monospace,Menlo,monospace;letter-spacing:.18em}
+[data-cp-skin=arcade]{--cp-fond:#0c0719;--cp-surface:#1b1033;--cp-creux:#120a24;--cp-ligne:#3a2563;
+--cp-texte:#f3efff;--cp-doux:#a79cc9;--cp-faible:#8d82b0;--cp-accent:#ff5fa2;--cp-accent-vif:#ffa6cb;
+--cp-encre:#2a0a1a;--cp-accent2:#8b5cf6;--cp-bon:#5ef0b8;--cp-attention:#ffd166;--cp-mauvais:#ff6b8b}
+[data-cp-skin=arcade] .cp-bande{border-radius:14px}
+[data-cp-skin=arcade] .a-pin{border-radius:9px}
+[data-cp-skin=arcade] .a-pin:not(.bloq):not(.ici){background:linear-gradient(135deg,var(--cp-accent),var(--cp-accent2));color:#fff}
+</style></head><body>
+<div class="gal">
+<h1 class="g">La bande du <span>copilote</span> dans la page du jeu</h1>
+<p class="lede">Ce que l'extension pose dans la page d'OGame — pas le panneau latéral. L'état d'aujourd'hui, puis trois façons d'afficher la même chose. Les couleurs sont les jetons de <code>content.js</code> : la dernière bande montre les quatre habillages tels qu'ils tombent vraiment depuis le réglage du panneau.</p>
+
+<div class="tour">
+  <h2>Le tour de ce qui est visible dans la page du jeu</h2>
+  <dl>
+    <dt>Bande, zone « ici »</dt><dd>Jusqu'à <b>4 lignes</b> : ce que le plan veut lancer sur <b>cette page</b>. Chaque ligne dit <b>quoi · où · quand</b>, c'est un lien, et le pourquoi est dans l'infobulle. Grisée quand le stock ne paie pas encore.</dd>
+    <dt>Bande, zone « tour »</dt><dd>Une pastille par planète qui connaît la tuile ouverte : <b>nom · niveau → niveau+1 · état</b>. L'état est soit <b>file Xh</b>, soit <b>manque N ressource · payable dans X</b>. Pleine = lançable, cerclée = ici, atténuée = bloquée.</dd>
+    <dt>Pastille sur la tuile</dt><dd>Le niveau visé, en haut à droite de la case, plus un liseré autour de la case conseillée. Bleue = le plan, ambre = ta priorité, ambre cerclée = ta demande pas encore reprise.</dd>
+    <dt>Encadré d'attente</dt><dd>Sur la page d'une action qui attend : ce qui manque, quand ce sera payé, et un bouton vers la bonne page.</dd>
+    <dt>Heures du jeu</dt><dd>Soulignées en pointillé quand le copilote les a relues pour les dire dans ton fuseau.</dd>
+    <dt>Colonne de droite</dt><dd>Seulement avec « peau complète » : les mêmes lignes qu'Aujourd'hui, en cartes.</dd>
+  </dl>
+</div>
+
+<section class="prop">
+  <div class="hd"><span class="no now">0</span><h2>Aujourd'hui</h2>
+    <span class="pitch">Deux zones côte à côte, une rangée de pastilles qui se ressemblent toutes. Le texte en or sur le bleu est le vrai rendu : le CSS du jeu gagnait sur la couleur de nos liens — corrigé depuis.</span></div>
+  <div class="jeu">
+    <div class="faux-titre">Ressources</div>
+    <div class="cp-bande bug">
+      <div class="cp-zone"><span class="t">à faire sur cette page</span>
+        <a class="cp-l">Mine de cristal 9 · HQ 88 4 · vers 14 h 10</a>
+        <a class="cp-l gris">Hangar de cristal 9 · M 79 8 · vers 16 h 40</a>
+      </div>
+      <div class="cp-zone tour"><span class="t">la même tuile ailleurs</span>
+        <a class="cp-pin gris">HQ 88 4 · 8 → 9 · file 2h</a>
+        <a class="cp-pin">M 79 8 · 8 → 9</a>
+        <a class="cp-pin gris">L 90 3 · 8 → 9 · file 4h</a>
+        <a class="cp-pin">C 90 3 · 8 → 9</a>
+        <a class="cp-pin gris">D 90 3 · 8 → 9 · file 2h</a>
+        <a class="cp-pin">C 85 3 · 8 → 9</a>
+        <a class="cp-pin">C 88 1 · 5 → 6</a>
+      </div>
+    </div>
+    <div class="faux-cases"><div class="faux-case">Mine de métal</div><div class="faux-case">Mine de cristal</div><div class="faux-case">Synthé. deutérium</div><div class="faux-case">Centrale solaire</div><div class="faux-case">Hangar métal</div></div>
+  </div>
+  <ul class="gain">
+    <li>Le titre ne dit pas <b>de quelle tuile</b> il s'agit : il faut se souvenir de ce qu'on a ouvert.</li>
+    <li>Trois faits au même poids dans chaque pastille : où, quel saut, pourquoi c'est bloqué.</li>
+    <li>Lançables et bloquées dans le désordre : <b>rien ne répond à « où est-ce que je lance maintenant ? »</b></li>
+  </ul>
+</section>
+
+<section class="prop">
+  <div class="hd"><span class="no">A</span><h2>Hiérarchiser, sans rien déplacer</h2>
+    <span class="pitch">La même rangée de pastilles, mais le nom porte, le saut de niveau passe en mono atténué, l'état se détache derrière un filet. Le titre nomme la tuile et compte. Les lançables d'abord.</span></div>
+  <div class="jeu">
+    <div class="faux-titre">Ressources</div>
+    <div class="cp-bande">
+      <div class="cp-zone"><span class="t">à faire ici · <em>Ressources</em></span>
+        <a class="cp-l">Mine de cristal 9 · HQ 88 4 · vers 14 h 10</a>
+        <a class="cp-l gris">Hangar de cristal 9 · M 79 8 · vers 16 h 40</a>
+      </div>
+      <div class="cp-zone tour"><span class="t"><em>Mine de cristal</em> ailleurs<span class="cpt">4 lançables sur 7</span></span>
+        <a class="a-pin"><span class="ou">M 79 8</span><span class="lv">8→9</span></a>
+        <a class="a-pin"><span class="ou">C 90 3</span><span class="lv">8→9</span></a>
+        <a class="a-pin"><span class="ou">C 85 3</span><span class="lv">8→9</span></a>
+        <a class="a-pin"><span class="ou">C 88 1</span><span class="lv">5→6</span></a>
+        <a class="a-pin ici"><span class="ou">HQ 88 4</span><span class="lv">8→9</span><span class="et file">file 2 h</span></a>
+        <a class="a-pin bloq"><span class="ou">L 90 3</span><span class="lv">8→9</span><span class="et file">file 4 h</span></a>
+        <a class="a-pin bloq"><span class="ou">D 90 3</span><span class="lv">8→9</span><span class="et file">file 2 h</span></a>
+      </div>
+    </div>
+  </div>
+  <ul class="gain">
+    <li>Les quatre pleines en tête : <b>où lancer se lit sans lire</b>.</li>
+    <li>Le nom de la tuile dans le titre, et le compte à droite.</li>
+    <li>Change seulement du CSS et l'ordre du tableau : <b>la plus petite des trois</b>.</li>
+  </ul>
+</section>
+
+<section class="prop">
+  <div class="hd"><span class="no">B</span><h2>Une ligne par planète, en colonnes</h2>
+    <span class="pitch">Les pastilles deviennent un tableau compact : nom, saut, état, lien. L'œil descend une colonne au lieu de traverser sept pastilles. Coûte de la hauteur, la gagne en lisibilité dès cinq planètes.</span></div>
+  <div class="jeu">
+    <div class="faux-titre">Ressources</div>
+    <div class="cp-bande">
+      <div class="cp-zone"><span class="t">à faire ici · <em>Ressources</em></span>
+        <a class="cp-l">Mine de cristal 9 · HQ 88 4 · vers 14 h 10</a>
+        <a class="cp-l gris">Hangar de cristal 9 · M 79 8 · vers 16 h 40</a>
+      </div>
+      <div class="cp-zone tour"><span class="t"><em>Mine de cristal</em> ailleurs<span class="cpt">4 lançables sur 7</span></span>
+        <div class="b-tbl">
+          <div class="h">Planète</div><div class="h">Niveau</div><div class="h">État</div><div class="h"></div>
+          <div class="b-ou">M 79 8</div><div class="b-lv">8 → 9</div><div class="b-et ok">prête</div><a class="b-go">ouvrir ›</a>
+          <div class="b-ou">C 90 3</div><div class="b-lv">8 → 9</div><div class="b-et ok">prête</div><a class="b-go">ouvrir ›</a>
+          <div class="b-ou">C 85 3</div><div class="b-lv">8 → 9</div><div class="b-et ok">prête</div><a class="b-go">ouvrir ›</a>
+          <div class="b-ou">C 88 1</div><div class="b-lv">5 → 6</div><div class="b-et ok">prête</div><a class="b-go">ouvrir ›</a>
+          <div class="b-ou b-row-ici">HQ 88 4</div><div class="b-lv">8 → 9</div><div class="b-et file">file 2 h 04</div><div></div>
+          <div class="b-ou">L 90 3</div><div class="b-lv">8 → 9</div><div class="b-et file">file 4 h 11</div><a class="b-go">ouvrir ›</a>
+          <div class="b-ou">D 90 3</div><div class="b-lv">8 → 9</div><div class="b-et file">file 2 h 46</div><a class="b-go">ouvrir ›</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="gain">
+    <li>Les états s'alignent : <b>deux files qui finissent à deux heures d'écart se comparent d'un coup</b>.</li>
+    <li>Place pour un vrai état — « manque 48 k cristal · payable dans 1 h 20 » tient sans casser la rangée.</li>
+    <li>Sept lignes prennent ~150 px de haut, contre ~60 pour les pastilles.</li>
+  </ul>
+</section>
+
+<section class="prop">
+  <div class="hd"><span class="no">C</span><h2>Groupée par état, avec le compte</h2>
+    <span class="pitch">Trois groupes nommés — prêtes, en file, à payer — et une ligne de résumé en bas. La bande répond à la question avant qu'on la pose, au prix d'une ligne de plus.</span></div>
+  <div class="jeu">
+    <div class="faux-titre">Ressources</div>
+    <div class="cp-bande">
+      <div class="cp-zone"><span class="t">à faire ici · <em>Ressources</em></span>
+        <a class="cp-l">Mine de cristal 9 · HQ 88 4 · vers 14 h 10</a>
+        <a class="cp-l gris">Hangar de cristal 9 · M 79 8 · vers 16 h 40</a>
+      </div>
+      <div class="cp-zone tour"><span class="t"><em>Mine de cristal</em> ailleurs<span class="cpt">7 planètes</span></span>
+        <div class="c-grp ok"><span class="lab">prêtes à lancer — 4</span>
+          <a class="c-pin">M 79 8 <small>8→9</small></a><a class="c-pin">C 90 3 <small>8→9</small></a>
+          <a class="c-pin">C 85 3 <small>8→9</small></a><a class="c-pin">C 88 1 <small>5→6</small></a>
+        </div>
+        <div class="c-grp att"><span class="lab">file occupée — 3</span>
+          <a class="c-pin">HQ 88 4 <small>2 h 04 · ici</small></a><a class="c-pin">D 90 3 <small>2 h 46</small></a>
+          <a class="c-pin">L 90 3 <small>4 h 11</small></a>
+        </div>
+        <div class="c-grp non"><span class="lab">à payer — 0</span><span style="color:var(--cp-faible);font-size:11px">aucune</span></div>
+        <div class="c-res">La première file se libère <b>dans 2 h 04</b> sur <b>HQ 88 4</b> · tournée complète en <b>4 h 11</b></div>
+      </div>
+    </div>
+  </div>
+  <ul class="gain">
+    <li>Le compte par état, en toutes lettres, avant les pastilles.</li>
+    <li>La ligne de résumé dit <b>quand revenir</b> — rien ne le dit aujourd'hui.</li>
+    <li>Un groupe vide se dit au lieu de disparaître : on sait que rien n'y manque.</li>
+  </ul>
+</section>
+
+<section class="prop">
+  <div class="hd"><span class="no">✓</span><h2>La proposition A, dans les quatre habillages</h2>
+    <span class="pitch">Ce qui est déjà en place : la bande prend les couleurs du thème choisi dans le panneau. En « une couleur par page », c'est la page du jeu ouverte qui donne la teinte — ambre sur Ressources, cyan sur Recherche.</span></div>
+  <div class="skins">
+    <section><h3>relief (défaut)</h3><div class="jeu">
+      <div class="cp-bande"><div class="cp-zone tour"><span class="t"><em>Mine de cristal</em> ailleurs<span class="cpt">4 / 7</span></span>
+        <a class="a-pin"><span class="ou">M 79 8</span><span class="lv">8→9</span></a><a class="a-pin"><span class="ou">C 90 3</span><span class="lv">8→9</span></a>
+        <a class="a-pin ici"><span class="ou">HQ 88 4</span><span class="lv">8→9</span><span class="et file">file 2 h</span></a>
+        <a class="a-pin bloq"><span class="ou">L 90 3</span><span class="lv">8→9</span><span class="et file">file 4 h</span></a></div></div></div></section>
+    <section data-cp-skin="domaine"><h3>une couleur par page — ici, Ressources</h3><div class="jeu">
+      <div class="cp-bande"><div class="cp-zone tour"><span class="t"><em>Mine de cristal</em> ailleurs<span class="cpt">4 / 7</span></span>
+        <a class="a-pin"><span class="ou">M 79 8</span><span class="lv">8→9</span></a><a class="a-pin"><span class="ou">C 90 3</span><span class="lv">8→9</span></a>
+        <a class="a-pin ici"><span class="ou">HQ 88 4</span><span class="lv">8→9</span><span class="et file">file 2 h</span></a>
+        <a class="a-pin bloq"><span class="ou">L 90 3</span><span class="lv">8→9</span><span class="et file">file 4 h</span></a></div></div></div></section>
+    <section data-cp-skin="hud"><h3>console de bord</h3><div class="jeu">
+      <div class="cp-bande"><div class="cp-zone tour"><span class="t"><em>Mine de cristal</em> ailleurs<span class="cpt">4 / 7</span></span>
+        <a class="a-pin"><span class="ou">M 79 8</span><span class="lv">8→9</span></a><a class="a-pin"><span class="ou">C 90 3</span><span class="lv">8→9</span></a>
+        <a class="a-pin ici"><span class="ou">HQ 88 4</span><span class="lv">8→9</span><span class="et file">file 2 h</span></a>
+        <a class="a-pin bloq"><span class="ou">L 90 3</span><span class="lv">8→9</span><span class="et file">file 4 h</span></a></div></div></div></section>
+    <section data-cp-skin="arcade"><h3>arcade</h3><div class="jeu">
+      <div class="cp-bande"><div class="cp-zone tour"><span class="t"><em>Mine de cristal</em> ailleurs<span class="cpt">4 / 7</span></span>
+        <a class="a-pin"><span class="ou">M 79 8</span><span class="lv">8→9</span></a><a class="a-pin"><span class="ou">C 90 3</span><span class="lv">8→9</span></a>
+        <a class="a-pin ici"><span class="ou">HQ 88 4</span><span class="lv">8→9</span><span class="et file">file 2 h</span></a>
+        <a class="a-pin bloq"><span class="ou">L 90 3</span><span class="lv">8→9</span><span class="et file">file 4 h</span></a></div></div></div></section>
+  </div>
+</section>
+</div>
+</body></html>

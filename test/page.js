@@ -426,6 +426,9 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
       horloge: horloge ? horloge.textContent : null,
       /** Ce que notre dessin de la page a posé. */
       peau: { posee: !!panneau, racine: html.className,
+        /* L'habillage choisi dans le panneau et la page du jeu ouverte :
+           c'est d'eux que toutes nos couleurs découlent. */
+        habillage: html.dataset.cpSkin || '', pageVue: html.dataset.cpPage || '',
         cases: grilles.reduce((t, g) => t + g.children.length, 0),
         grilles: grilles.length,
         groupes: panneau ? panneau.children.filter(c => c.className === 'cp-groupe').map(c => c.textContent) : [],

@@ -1774,6 +1774,17 @@ t('le thème clair se pose et se retire avec la peau', () => {
   assert.ok(!/copilote-clair/.test(clair.read().peau.racine), 'et rien ne reste');
 });
 
+/* Le panneau et la page du jeu sont le même copilote : la peau choisie dans
+   l'un habille ce que l'autre pose. Elle voyage dans le même objet que les
+   autres réglages d'allure, et se pose sur <html>, d'où les jetons tombent. */
+t("l'habillage du panneau habille aussi la page du jeu", () => {
+  const r = runPage({ ...SUR_RESSOURCES, skin: { ...AVEC_PEAU, panneau: 'hud' } });
+  assert.equal(r.peau.habillage, 'hud');
+  assert.equal(r.peau.pageVue, 'supplies', 'la page ouverte, dont « une couleur par page » tire sa teinte');
+  // rien de publié : on retombe sur Relief, comme le panneau
+  assert.equal(runPage({ ...SUR_RESSOURCES, skin: AVEC_PEAU }).peau.habillage, 'relief');
+});
+
 t('la feuille ne connaît plus aucune couleur en dur', () => {
   /* Deux thèmes ne tiennent que si les règles parlent de jetons. Une couleur
      écrite au milieu d'une règle serait juste dans l'un et fausse dans

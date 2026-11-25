@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.58.0';
+const APP_VERSION = '1.58.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1100,7 +1100,7 @@ function pushLook(){
   if(!IS_EXT) return;
   try{ chrome.storage.local.get('skin', v => chrome.storage.local.set({
     skin: Object.assign({}, (v && v.skin) || {}, {lean: !!S.settings.lean, noshop: !!S.settings.noshop, large: !!S.settings.large,
-      peau: !!S.settings.peau, clair: !!S.settings.clair})
+      peau: !!S.settings.peau, clair: !!S.settings.clair, panneau: habillage()})
   })); }catch(e){}
 }
 /* Ce que le panneau sait, mis à plat pour la colonne de droite de la page :
@@ -1144,7 +1144,7 @@ function gameSkin(acts, missions, waits){
           colonne: colonneData(acts, missions, waits),
           cargo: [shipStats('lc').cargoEff, shipStats('sc').cargoEff],
           lean: !!S.settings.lean, noshop: !!S.settings.noshop, large: !!S.settings.large,
-          peau: !!S.settings.peau, clair: !!S.settings.clair};
+          peau: !!S.settings.peau, clair: !!S.settings.clair, panneau: habillage()};
 }
 /* Le centre d'abord : une recherche se lance depuis une planète, et c'est son
    labo à elle qui en fixe la durée et les prérequis. Sans centre — joueur de
@@ -5712,7 +5712,7 @@ function bind(){
     changed();
     /* `changed()` ne redessine pas : la peau se pose sur <html>, pas dans la vue. */
     if(k==='skin') header();
-    if(k==='lean' || k==='noshop' || k==='large' || k==='peau' || k==='clair') pushLook();
+    if(k==='lean' || k==='noshop' || k==='large' || k==='peau' || k==='clair' || k==='skin') pushLook();
   }));
   view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.checked; changed(); }));
   view.querySelectorAll('[data-mc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.mc; S.moonCalc[k] = (k==='pid'||k==='ship') ? el.value : Math.max(0, parseInt(el.value, 10)||0); changed(); }));
