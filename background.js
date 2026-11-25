@@ -276,7 +276,18 @@ chrome.storage.onChanged.addListener(async (ch, area) => {
   chrome.notifications.getAll(all => Object.keys(all || {}).forEach(id => chrome.notifications.clear(id)));
 });
 
-chrome.notifications.onClicked.addListener(() => chrome.storage.local.set({ pendingAlerts: [] }));
+/* Le corps d'une notification de file finie vaut « OK, vu ». Celle du coucher
+   n'est pas une file : la vider effaçait les alertes du joueur sans répondre à
+   la question. */
+chrome.notifications.onClicked.addListener(id => {
+  if (id === 'nuit') return;
+  chrome.storage.local.set({ pendingAlerts: [] });
+});
+chrome.notifications.onButtonClicked.addListener((id, idx) => {
+  if (id !== 'nuit') return;
+  chrome.notifications.clear(id);
+  chrome.storage.local.set({ nightAnswer: { at: Date.now(), oui: idx === 0 } });
+});
 
 const API_TTL = { server: 20 * 3600e3, players: 20 * 3600e3, universe: 24 * 3600e3, scores: 55 * 60e3 };
 const attrs = s => Object.fromEntries([...s.matchAll(/([\w-]+)="([^"]*)"/g)].map(m => [m[1], m[2].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>')]));
@@ -334,6 +345,22 @@ async function apiRefresh(force) {
 chrome.alarms.create('api', { periodInMinutes: 30 });
 chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name === 'api') { apiRefresh(false); return; }
+  /* La question du coucher. Le panneau pose l'heure — il est le seul à lire les
+     réglages — et le service worker sonne, même panneau fermé. Il ne décide
+     rien : le plan de mise à l'abri vit dans le panneau, qui recueille la
+     réponse par le stockage. */
+  if (alarm.name === 'nuit') {
+    chrome.notifications.create('nuit', {
+      type: 'basic',
+      iconUrl: 'icon128.png',
+      title: 'Copilote OGame',
+      message: 'On passe en mode sauvegarde des ressources ?',
+      buttons: [{ title: 'Oui' }, { title: 'Non' }],
+      requireInteraction: true,
+      priority: 2
+    });
+    return;
+  }
   if (!alarm.name.startsWith('tm|')) return;
   const { game = {} } = await chrome.storage.local.get('game');
   const t = (game.timers || []).find(x => 'tm|' + timerKey(x) === alarm.name);

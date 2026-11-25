@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'luneIn', 'luneOut', 'gidDe', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'luneOut', 'gidDe', 'luneIn', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -6832,10 +6832,14 @@ t('le compteur du niveau visé part du niveau en place, pas de 1', () => {
   assert.match(g.VIEWS.research(), /min="8" data-prio="plasma"/, 'une recherche');
 });
 
-t('le stock dit son nom au-dessus de sa grille, et quitte le titre du volet', () => {
+/* Le stock a maintenant son propre volet : son nom est le titre de ce volet,
+   donc visible même fermé, et ses trois valeurs l'accompagnent. C'est plus que
+   ce que le libellé en gras donnait, qui ne se voyait qu'une fois ouvert. */
+t('le stock dit son nom dans le titre de son volet, et son sens juste au-dessus de sa grille', () => {
   const h = app().VIEWS.planets();
-  assert.match(h, /<b>Stock<\/b> — ce que cette planète a en magasin/);
-  assert.doesNotMatch(h, /stock et niveaux visés/, 'le titre ne le porte plus');
+  assert.match(h, /<summary data-fold="stock:[^"]*">Stock /);
+  assert.match(h, /Ce que cette planète a en magasin/);
+  assert.doesNotMatch(h, /stock et niveaux visés/, 'le titre des bâtiments ne le porte toujours pas');
 });
 
 t('l\'écho de notre propre écriture ne redessine pas la vue', () => {
@@ -7359,7 +7363,7 @@ t('le champ du volet Empire republie le plan après avoir posé', () => {
 t('la minuterie de 30 s republie le plan aussi sur Empire', () => {
   /* setInterval est neutralisé dans le harnais : on épingle la source. */
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
-  assert.match(src, /REFRESH\[tab\]\(\);\s*publieLePlan\(\);\s*\}, 30000\)/);
+  assert.match(src, /REFRESH\[tab\]\(\);\s*publieLePlan\(\);\s*finDeNuit\(\);\s*nightBar\(\);\s*\}, 30000\)/);
 });
 
 t('le changement que provoque l\'effacement lui-même ne rejoue rien', () => {
@@ -8848,6 +8852,401 @@ t('sans données du serveur, la carte le dit au lieu de casser', () => {
   assert.ok(/serveur/i.test(h));
   g.REFRESH.tools();
 });
+
+/* ---------- la question du coucher, et l'absence de jour ---------- */
+
+/** 10 h du matin : en plein jour, hors de la fenêtre de nuit 23 h – 7 h. */
+const MATIN = new Date(2026, 10, 8, 10, 0, 0).getTime();
+/** 22 h : une heure avant la nuit, l'instant où la question se pose. */
+const AVANT = new Date(2026, 10, 8, 22, 0, 0).getTime();
+
+t('la nuit finie, le retour reste la fin de la nuit', () => {
+  const g = app(null, SOIR);
+  assert.equal(g.wakeTime(SOIR), REVEIL, 'le soir, on rentre au matin');
+  assert.equal(g.absenceJour(SOIR), false, 'mode nuit éteint : aucune absence');
+});
+
+t('mode nuit lancé le matin : la flotte rentre à l\'heure de retour donnée', () => {
+  const g = app(s => { s.day.night = true; s.day.backHour = 19; }, MATIN);
+  assert.ok(g.absenceJour(MATIN), 'hors de la fenêtre de nuit, c\'est une absence');
+  assert.equal(g.wakeTime(MATIN), new Date(2026, 10, 8, 19, 0, 0).getTime());
+});
+
+t('absence sans heure de retour : une nuit de durée, pas le matin suivant', () => {
+  const g = app(s => { s.day.night = true; }, MATIN);
+  assert.equal(g.nightLen(), 8, 'la fenêtre 23 h – 7 h fait huit heures');
+  assert.equal(g.wakeTime(MATIN), MATIN + 8 * 3600e3, '18 h, pas 7 h demain');
+});
+
+t('une heure de retour déjà passée vise le lendemain', () => {
+  const g = app(s => { s.day.night = true; s.day.backHour = 9; }, MATIN);
+  assert.equal(g.wakeTime(MATIN), new Date(2026, 10, 9, 9, 0, 0).getTime());
+});
+
+/* C'est le trou que l'absence de jour vient boucher : à 10 h, `wake` tombait au
+   lendemain 7 h, et fsFor() ne gardait que des vols de vingt-deux heures. */
+t('une absence de jour propose une mise à l\'abri qui rentre dans la journée', () => {
+  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30, sc: 6 }; s.day.night = true; s.day.backHour = 19; }, MATIN);
+  const fs = g.fleetsavePlan(MATIN);
+  assert.ok(fs, 'un plan est proposé');
+  assert.ok(fs.back > g.wakeTime(MATIN), 'la flotte rentre après le retour du joueur');
+  assert.ok(fs.back < MATIN + 15 * 3600e3, 'et pas le lendemain matin');
+});
+
+t('la carte nomme le retour, pas le coucher, quand c\'est une absence', () => {
+  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30, sc: 6 }; s.day.night = true; s.day.backHour = 19; }, MATIN);
+  const w = g.dailyMissions().find(m => m.id === 'night').what;
+  assert.ok(/^Absence jusqu'à 19 h/.test(w), w);
+  assert.ok(!/Avant la nuit/.test(w), 'à 10 h du matin, « avant la nuit » ne veut rien dire');
+});
+
+t('sans heure donnée, la carte dit dans combien de temps elle croit le retour', () => {
+  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30, sc: 6 }; s.day.night = true; }, MATIN);
+  const w = g.dailyMissions().find(m => m.id === 'night').what;
+  assert.ok(/^Absence de 8 h/.test(w), w);
+});
+
+t('la question se pose une heure avant la nuit, et pas avant', () => {
+  const g = app(null, AVANT);
+  assert.ok(g.nightDue(AVANT), 'à 22 h pour une nuit à 23 h');
+  assert.equal(g.nightDue(AVANT - 3600e3), false, 'à 21 h, trop tôt');
+  assert.equal(g.nightDue(AVANT + 4 * 3600e3), false, 'à 2 h du matin, trop tard');
+});
+
+t('déjà à l\'abri, ou déjà répondu : la question ne revient pas', () => {
+  assert.equal(app(s => { s.day.night = true; }, AVANT).nightDue(AVANT), false);
+  const g = app(null, AVANT);
+  assert.equal(g.nightDue(AVANT), true);
+  g.S.day.askedOn = g.jourCivil(AVANT);
+  assert.equal(g.nightDue(AVANT), false, 'un « non » tient pour la nuit');
+});
+
+/* Le mode nuit reste allumé toute la nuit : dès que le panneau se redessine
+   après le coucher, c'est ce chemin-là qui répond. */
+t('appelée dans la nuit, elle vise le matin qui vient, pas celui d\'après', () => {
+  const minuit = new Date(2026, 10, 9, 0, 30, 0).getTime();
+  const g = app(s => { s.day.night = true; }, minuit);
+  assert.equal(g.absenceJour(minuit), false, 'minuit et demi, c\'est la nuit, pas une absence');
+  assert.equal(g.wakeTime(minuit), new Date(2026, 10, 9, 7, 0, 0).getTime(), 'sept heures, pas trente');
+});
+
+t('à 22 h, « oui » veut dire « je vais dormir », pas « je m\'absente 8 h »', () => {
+  const g = app(s => { s.day.night = true; }, AVANT);
+  assert.equal(g.absenceJour(AVANT), false, 'le coucher est à une heure : c\'est un coucher');
+  assert.equal(g.wakeTime(AVANT), REVEIL, 'fin de nuit, pas 6 h du matin');
+});
+
+/* ---------- le plan revient tout seul ---------- */
+
+t('allumée le soir, la mise à l\'abri se donne la fin de nuit pour terme', () => {
+  const g = app(null, AVANT, null, true);
+  g.repondNuit(true);
+  assert.equal(g.saved().day.until, REVEIL, 'elle vaut jusqu\'à sept heures');
+});
+
+t('allumée le matin sans heure de retour, elle vaut une nuit', () => {
+  const g = app(null, MATIN);
+  g.modeNuit(true);
+  assert.equal(g.S.day.until, MATIN + 8 * 3600e3);
+});
+
+t('l\'heure de retour donnée fixe le terme, et la déplacer le déplace', () => {
+  const g = app(s => { s.day.night = true; s.day.backHour = 19; }, MATIN);
+  g.modeNuit(true);
+  assert.equal(g.S.day.until, new Date(2026, 10, 8, 19, 0, 0).getTime());
+  g.S.day.backHour = 15; g.modeNuit(true);
+  assert.equal(g.S.day.until, new Date(2026, 10, 8, 15, 0, 0).getTime(), 'le terme suit le retour');
+});
+
+t('avant le terme, rien ne bouge', () => {
+  const g = app(s => { s.day.night = true; s.day.until = MATIN + 60e3; }, MATIN);
+  assert.equal(g.finDeNuit(), false);
+  assert.equal(g.S.day.night, true, 'le plan reste en veille');
+});
+
+/* Le panneau appelle finDeNuit() en se chargeant : le joueur qui l'ouvre après
+   son réveil retrouve son plan sans avoir rien à cliquer. */
+t('le terme passé, le mode jour revient au chargement, sans un clic', () => {
+  const g = app(s => { s.day.night = true; s.day.backHour = 9; s.day.until = MATIN; }, MATIN);
+  assert.equal(g.S.day.night, false, 'le plan est revenu');
+  assert.equal(g.S.day.until, 0);
+  assert.equal(g.S.day.backHour, null, 'elle appartenait à cette absence-là');
+  assert.equal(g.saved().day.night, false, 'et c\'est enregistré');
+});
+
+t('éteindre à la main efface le terme comme l\'heure de retour', () => {
+  const g = app(s => { s.day.night = true; s.day.backHour = 19; s.day.until = MATIN + 3600e3; }, MATIN);
+  g.modeNuit(false);
+  assert.equal(g.S.day.until, 0);
+  assert.equal(g.S.day.backHour, null);
+});
+
+/* Le mode nuit traverse la nuit allumé : c'est au matin que le terme tombe, et
+   le battement de trente secondes est le seul à repasser par là. */
+t('une veille d\'avant le terme reçoit le sien au lieu de durer toujours', () => {
+  const g = app(s => { s.day.night = true; delete s.day.until; }, AVANT);
+  assert.equal(g.finDeNuit(), false, 'on ne l\'éteint pas sur un champ manquant');
+  assert.equal(g.S.day.until, REVEIL, 'on lui donne son terme');
+  assert.equal(g.saved().day.until, REVEIL);
+});
+
+t('un terme truqué par une synchro ne fige pas le plan en veille', () => {
+  const g = app();
+  g.S.day.until = '"><b>x';
+  g.syncApply({ 'sy:day': g.S.day });
+  assert.equal(g.S.day.until, 0);
+});
+
+t('sans nuit réglée, aucune question', () => {
+  const g = app(s => { s.day.nightStart = 7; s.day.nightEnd = 7; }, AVANT);
+  assert.equal(g.nightDue(AVANT), false);
+});
+
+t('le bandeau sort tout seul quand l\'heure vient', () => {
+  const g = app(null, AVANT);
+  assert.equal(g.el('nightAsk').hidden, false, 'armé au chargement du panneau');
+  assert.equal(app(null, MATIN).el('nightAsk').hidden, true, 'et reste caché le matin');
+});
+
+t('« oui » bascule en mode nuit et ouvre la page de flotte prête', () => {
+  const g = app(s => { loin(s); s.host = 's1-fr.ogame.gameforge.com'; s.planets[0].gid = '101';
+    s.planets[0].ships = { lc: 30, sc: 6 }; }, AVANT, null, true);
+  g.repondNuit(true);
+  assert.equal(g.saved().day.night, true, 'le mode nuit est enregistré');
+  assert.equal(g.saved().day.askedOn, g.jourCivil(AVANT), 'et la question ne reviendra pas');
+  const go = g.sent().filter(m => m.type === 'go').pop();
+  assert.ok(go, 'une page du jeu est ouverte');
+  assert.ok(/component=fleetdispatch/.test(go.url), go && go.url);
+  assert.ok(/mission=4/.test(go.url), 'en déploiement, comme le plan le dit');
+  assert.ok(/am20[36]=/.test(go.url), 'avec les transporteurs déjà cochés : ' + go.url);
+});
+
+t('« non » laisse le jour en place et ne rouvre rien', () => {
+  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30 }; }, AVANT, null, true);
+  const avant = g.sent().length;
+  g.repondNuit(false);
+  assert.equal(g.saved().day.night, false, 'on reste en mode jour');
+  assert.equal(g.saved().day.askedOn, g.jourCivil(AVANT));
+  assert.equal(g.sent().length, avant, 'aucune page ouverte');
+});
+
+t('« oui » oublie une heure de retour laissée d\'une absence passée', () => {
+  const g = app(s => { s.day.backHour = 19; }, AVANT, null, true);
+  g.repondNuit(true);
+  assert.equal(g.saved().day.backHour, null, 'une nuit se cale sur la fin de nuit');
+});
+
+t('la réponse donnée sur la notification arrive par le stockage', () => {
+  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30 }; }, AVANT, null, true);
+  g.fire({ nightAnswer: { newValue: { at: AVANT, oui: true } } });
+  assert.equal(g.saved().day.night, true);
+  assert.ok(g.removed().includes('nightAnswer'), 'et elle est consommée une seule fois');
+});
+
+t('une réponse vieille de la veille ne met personne à l\'abri', () => {
+  const g = app(null, AVANT, null, true);
+  g.fire({ nightAnswer: { newValue: { at: AVANT - 12 * 3600e3, oui: true } } });
+  assert.equal(g.S.day.night, false, 'un « oui » d\'hier soir ne décide pas ce matin');
+});
+
+t('le panneau arme l\'alarme une heure avant la nuit, et la répète', () => {
+  const g = app(null, MATIN, null, true);
+  const a = g.alarmes().filter(x => x[0] === 'nuit').pop();
+  assert.ok(a, 'une alarme « nuit » est posée');
+  assert.equal(a[1].when, new Date(2026, 10, 8, 22, 0, 0).getTime());
+  assert.equal(a[1].periodInMinutes, 1440, 'elle revient chaque jour');
+});
+
+t('alarme posée au lendemain quand l\'heure du jour est passée', () => {
+  const g = app(null, new Date(2026, 10, 8, 23, 30, 0).getTime(), null, true);
+  const a = g.alarmes().filter(x => x[0] === 'nuit').pop();
+  assert.equal(a[1].when, new Date(2026, 10, 9, 22, 0, 0).getTime());
+});
+
+t('sans nuit réglée, l\'alarme est effacée au lieu d\'être posée', () => {
+  const g = app(s => { s.day.nightStart = 7; s.day.nightEnd = 7; }, MATIN, null, true);
+  const a = g.alarmes().filter(x => x[0] === 'nuit').pop();
+  assert.ok(a, 'l\'alarme est touchée');
+  assert.equal(a[1], null, 'et effacée');
+});
+
+t('l\'heure de retour n\'accepte qu\'une heure, et le vide vaut « aucune »', () => {
+  const g = app();
+  assert.equal(g.dayValue('backHour', '19', null), 19);
+  assert.equal(g.dayValue('backHour', '0', null), 0, 'minuit est une heure');
+  assert.equal(g.dayValue('backHour', '', 19), null, 'vidé, le champ n\'impose plus rien');
+  assert.equal(g.dayValue('backHour', '24', null), null, 'hors des heures du jour');
+  assert.equal(g.dayValue('backHour', '"><b>x', null), null, 'et rien qui vienne baliser un gabarit');
+  assert.equal(g.dayValue('night', '1', false), true);
+  assert.equal(g.dayValue('night', '0', true), false);
+});
+
+t('une heure de retour truquée par une synchro est refusée à l\'entrée', () => {
+  const g = app();
+  g.S.day.backHour = '"><b>x'; g.S.day.askedOn = { toString() { return 'x'; } };
+  g.syncApply({ 'sy:day': g.S.day });
+  assert.equal(g.S.day.backHour, null);
+  assert.equal(g.S.day.askedOn, '');
+});
+
+/* ---------- la page Empire se lit d'un coup d'œil ---------- */
+
+t('chaque planète est une carte repliée qui porte son nom et ses coordonnées', () => {
+  const h = lu(app().VIEWS.planets());
+  assert.ok(/<details class="card volet"[^>]*data-pi="0"/.test(h), h.slice(0, 600));
+  assert.ok(/data-fold="pl:/.test(h), 'le repli se souvient, par planète');
+});
+
+t('les cartes de planète partent fermées, même sans clé de repli en mémoire', () => {
+  const h = app(s => { s.ui.fold = {}; }).VIEWS.planets();
+  assert.ok(/<details class="card volet"/.test(h), 'encore faut-il que la carte soit un volet');
+  assert.ok(!/<details class="card volet"[^>]* open/.test(h));
+});
+
+t('le résumé porte la production des trois ressources, sans rien déplier', () => {
+  const g = app();
+  g.VIEWS.planets(); g.REFRESH.planets();
+  const s = lu(g.html()['psum-0'] || '');
+  const pr = g.production(g.S.planets[0]);
+  assert.ok(s.includes(g.fmt(pr.m)) && s.includes(g.fmt(pr.c)) && s.includes(g.fmt(pr.d)), s);
+});
+
+t('le bouton Retirer est dans le corps, pas dans le résumé qui bascule le volet', () => {
+  const h = lu(app().VIEWS.planets());
+  const d = h.indexOf('<summary data-fold="pl:');
+  assert.ok(d > -1, 'encore faut-il que la carte ait un résumé');
+  const resume = h.slice(d, h.indexOf('</summary>', d));
+  assert.ok(!/data-del=/.test(resume), 'un bouton dans le résumé ouvrirait la carte au lieu de retirer');
+});
+
+
+t('les niveaux lus dans le jeu ne se tapent plus', () => {
+  const g = app(null, SOIR, null, true);
+  g.applyGame({ meta: { host: 's1.ogame.gameforge.com' }, planets: {
+    '101': { name: 'Planète mère', coords: '1:142:8', b: { metal: 14 } }
+  } });
+  const h = lu(g.VIEWS.planets());
+  assert.ok(/data-b="metal"[^>]*readonly/.test(h), h.slice(0, 800));
+});
+
+/* Un `gid` dit que le jeu nomme cette planète, pas qu'il a lu ses niveaux :
+   `applyGame` retrouve par coordonnées une planète saisie à la main et lui
+   pose un `gid`, sans rien lire de sa grille. */
+t('un gid posé sans niveaux lus ne verrouille rien', () => {
+  const g = app(null, SOIR, null, true);
+  g.applyGame({ meta: { host: 's1.ogame.gameforge.com' }, planets: {
+    '101': { name: 'Planète mère', coords: '1:142:8' }
+  } });
+  const h = lu(g.VIEWS.planets());
+  assert.ok(/data-b="metal"/.test(h), 'la grille existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(h), 'le jeu a nommé la planète, il n\'a pas lu ses niveaux');
+});
+
+/* La première frappe sur une colonie neuve efface `bNeuve` (app.js, bind) :
+   si le verrou tenait à ce drapeau, taper un niveau figerait les quinze
+   autres à zéro. */
+t('taper un niveau sur une colonie neuve ne fige pas les quinze autres', () => {
+  const g = app(s => { RELEVE(s); s.planets[1].bNeuve = 1; }, SOIR, null, true);
+  delete g.S.planets[1].bNeuve;
+  const h = lu(g.VIEWS.planets());
+  const carte = h.slice(h.indexOf('data-pi="1"'));
+  assert.ok(/data-b="metal"/.test(carte), 'la grille de la colonie existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(carte), 'une frappe efface bNeuve, elle ne doit rien verrouiller');
+});
+
+t("hors extension, les niveaux restent saisissables : rien ne les relève", () => {
+  const h = lu(app(RELEVE, SOIR, null, false).VIEWS.planets());
+  assert.ok(/data-b="metal"/.test(h), 'la grille existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(h));
+});
+
+t('une planète que le jeu a nommée sans la visiter garde ses niveaux saisissables', () => {
+  const h = lu(app(s => { RELEVE(s); s.planets[1].bNeuve = 1; }, SOIR, null, true).VIEWS.planets());
+  const carte = h.slice(h.indexOf('data-pi="1"'));
+  assert.ok(/data-b="metal"/.test(carte), 'la grille de la colonie existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(carte), 'bNeuve : aucun niveau lu, il faut pouvoir les taper');
+});
+
+t("sur les données d'exemple, tout se tape", () => {
+  const h = lu(app(s => { s.sample = true; s.planets.forEach(p => { delete p.gid; }); }, SOIR, null, true).VIEWS.planets());
+  assert.ok(/data-b="metal"/.test(h), 'la grille existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(h));
+});
+
+/* Le joueur pose un niveau visé : l'écouteur rafraîchit sans redessiner, pour
+   ne pas refermer le volet sous ses doigts. Un compte calculé dans le gabarit
+   mentirait donc jusqu'au prochain rendu complet — c'est un trou. */
+t('le volet des bâtiments annonce les priorités posées, et les suit', () => {
+  const g = app(s => { RELEVE(s); });
+  g.VIEWS.planets(); g.REFRESH.planets();
+  assert.equal(lu(g.html()['pobj-0'] || ''), '', 'rien de posé, rien d\'annoncé');
+  g.prioPose('b', g.S.planets[0].id, 'metal', g.S.planets[0].b.metal + 3);
+  g.REFRESH.planets();
+  assert.match(lu(g.html()['pobj-0'] || ''), /1 priorité/, 'le mot du glossaire, et le compte à jour');
+});
+
+/* Le volet promet une explication : sans vocation marquée et hors du centre,
+   il n'en a aucune, et un « Ouvrir + » sur du vide est le bruit qu'on retire. */
+t("le volet des raisons se cache quand il n'a rien à dire", () => {
+  const g = app();
+  g.VIEWS.planets(); g.REFRESH.planets();
+  assert.equal(g.el('pq-0').hidden, false, 'le centre a ses raisons');
+  assert.equal(g.el('pq-1').hidden, true, 'sans vocation ni centre, rien à ouvrir');
+});
+
+
+t("la raison d'une vocation se range derrière un volet, la pastille reste", () => {
+  const h = lu(app().VIEWS.planets());
+  assert.ok(/Pourquoi cette planète/.test(h), h.slice(0, 600));
+  assert.ok(/id="pvoc-0"/.test(h) && /id="pvocw-0"/.test(h), 'pastille et raison sont deux trous distincts');
+});
+
+t('la note du centre est dans le volet des raisons, pas dans le passage', () => {
+  const h = lu(app().VIEWS.planets());
+  const i = h.indexOf('Pourquoi cette planète');
+  assert.ok(i > -1 && h.indexOf('id="pctrn-0"') > i, 'pctrn doit suivre le résumé du volet');
+  assert.ok(h.indexOf('id="pfleet-0"') > -1 && h.indexOf('id="pfleet-0"') < i, 'la flotte à quai est un fait court : elle reste visible');
+});
+
+t("le pavé du mélange se replie, les jauges d'empire restent", () => {
+  const h = lu(app().VIEWS.planets());
+  assert.ok(/Pourquoi ce classement/.test(h));
+  assert.ok(/id="empireRes"/.test(h) && /id="empireFactor"/.test(h), 'les chiffres ne se replient pas');
+  const i = h.indexOf('Pourquoi ce classement');
+  assert.ok(h.indexOf('id="empireMix"') > i);
+});
+
+t('la raison de la vocation arrive dans son propre trou, pas dans la pastille', () => {
+  const g = app();
+  g.VIEWS.planets(); g.REFRESH.planets();
+  const h = g.html();
+  assert.ok(!/class="note"/.test(h['pvoc-0'] || '') || !/pill/.test(h['pvoc-0'] || ''),
+    'la pastille ne porte plus la raison : ' + (h['pvoc-0'] || ''));
+  assert.ok('pvocw-0' in h, 'REFRESH doit écrire la raison, même vide');
+});
+
+
+t('les stocks ont leur propre volet, hors de celui des bâtiments', () => {
+  const h = lu(app().VIEWS.planets());
+  const stk = h.indexOf('data-fold="stock:');
+  assert.ok(stk > -1, 'un volet de stock existe');
+  assert.ok(h.indexOf('data-s="m"') > stk, 'les champs de stock suivent leur propre résumé');
+});
+
+t('le résumé des stocks porte les trois valeurs, sans ouvrir', () => {
+  const g = app();
+  g.VIEWS.planets(); g.REFRESH.planets();
+  const s = lu(g.html()['pstk-0'] || '');
+  const st = g.S.planets[0].stock;
+  assert.ok(s.includes(g.fmt(st.m)) && s.includes(g.fmt(st.c)) && s.includes(g.fmt(st.d)), s);
+});
+
+t('une planète sans aucune forme de vie garde son volet de stock', () => {
+  const h = lu(app(s => { s.planets.forEach(p => { p.lf = {}; }); }).VIEWS.planets());
+  assert.ok(/data-fold="stock:/.test(h));
+  assert.ok(/aucune case de forme de vie relevée/.test(h), 'et la phrase des formes de vie tient toujours');
+});
+
 
 /* ---------- le mode lune : l'état et l'interrupteur ---------- */
 

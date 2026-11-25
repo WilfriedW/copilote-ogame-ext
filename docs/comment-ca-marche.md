@@ -344,8 +344,38 @@ il le fait à la main et le copilote suit.
    carte de plus chaque soir. Elle disparaît si on met nuit début = nuit fin
    (voir § 5.4), mais on perd alors toute la notion de nuit.
 
-Le **mode nuit** (bouton 🌙 dans Aujourd'hui) vide le plan et ne laisse que la
-sécurité. C'est l'inverse du besoin ici.
+Le **mode nuit** (bouton 🌙 de l'en-tête, ou Réglages › Plan du jour › « Mise à
+l'abri ») vide le plan et ne laisse que la sécurité. C'est l'inverse du besoin
+ici.
+
+**Depuis la v1.55, il se propose tout seul.** Une heure avant `nightStart`, une
+alarme du navigateur sonne — notification avec deux boutons *Oui* / *Non*, qui
+marche panneau fermé — et le panneau affiche le même bandeau. *Oui* bascule en
+mode nuit et ouvre aussitôt la page de flotte déjà remplie (vaisseaux,
+destination, mission) du plus gros lot ; les autres lots restent en cartes dans
+Sécurité. Le **chargement des ressources et la vitesse** ne passent pas par
+l'URL : le jeu ne les accepte pas en paramètre, et le copilote ne clique jamais
+à ta place. *Non* classe la question pour la nuit ; elle ne revient pas avant
+le lendemain.
+
+**Et il s'éteint tout seul.** L'allumage retient l'instant où la mise à l'abri
+cesse de valoir — le même `wakeTime` qui choisit la vitesse de la flotte, donc
+*le plan revient quand la flotte revient* : fin de nuit pour un coucher, heure
+de retour pour une absence. Au battement de trente secondes et au chargement du
+panneau, le terme passé rend le mode jour, efface l'heure de retour et le dit
+par un bandeau. Avant, le mode nuit ne s'éteignait qu'au clic : au matin le
+joueur retrouvait un plan vide et croyait le copilote en panne. Le réveil ne se
+devine pas — « il est 7 h » ne distingue pas un réveil d'une absence qui
+commence.
+
+Allumé **en pleine journée**, le mode nuit ne veut plus dire « je dors » mais
+« je m'absente ». La fin de la nuit ne répondait alors plus rien d'utile : à
+9 h du matin, le retour tombait au lendemain 7 h et la mise à l'abri ne
+proposait que des vols de vingt-deux heures, voire rien du tout. Le réglage
+**« Retour vers (heure) »** donne l'heure du retour ; laissé vide, le copilote
+suppose une absence de la longueur d'une nuit. Le seuil : tant que le coucher
+est plus proche qu'une nuit, c'est un coucher et la fenêtre de nuit répond ;
+au-delà, c'est une absence.
 
 ### Verdict
 
@@ -503,7 +533,10 @@ et le Dock spatial dans le modèle. Le code est bon, le commentaire trompe.
 | Recherche | `day.research` | À son tour · Avant les bâtiments | **À son tour** | « Avant » rend critique la tête de liste : elle passe devant les chantiers et pose aussitôt sa réserve |
 | Formes de vie | `day.lf` | Après les bâtiments · Avant tout le reste · Ne pas s'en occuper | **Après les bâtiments** | Place des deux files de forme de vie ; « avant » ignore ce qu'un bâtiment épargne |
 | Horizon | `day.horizon` | 12 · 24 · 48 h | **24 h** | Durée simulée, et période du « Production +X % » |
-| *(bouton 🌙, onglet Aujourd'hui)* | `day.night` | oui / non | **non** | Mode nuit : vide le plan, ne garde que la sécurité |
+| Mise à l'abri (nuit, absence) | `day.night` | oui / non | **non** | Mode nuit : vide le plan, ne garde que la sécurité. Aussi sur le bouton 🌙 de l'en-tête, et proposé tout seul une heure avant `nightStart` |
+| Retour vers (heure) | `day.backHour` | 0–23 ou vide | **vide** | Heure de retour d'une absence de jour ; vide = absence de la longueur d'une nuit. Ignoré quand le coucher est plus proche qu'une nuit |
+| *(interne)* | `day.askedOn` | jour civil | **vide** | Le jour où la question du coucher a reçu sa réponse, pour ne pas la reposer |
+| *(interne)* | `day.until` | horodatage | **0** | Instant où la mise à l'abri cesse de valoir ; passé, le mode jour revient seul |
 
 ### 6.2 Réglages › Formes de vie découvertes
 

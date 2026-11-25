@@ -77,6 +77,8 @@ function loadApp(state, nowMs, want, api, ext, prioAsk) {
   const shared = {};
   // les fichiers que le panneau a fait écrire sur le disque
   const telecharges = [];
+  // les alarmes que le panneau a posées dans le navigateur
+  const alarmes = [];
   const chrome = {
     storage: {
       local: { get(k, cb) { if (cb) cb({}); }, set(v) { Object.assign(written, v); },
@@ -85,7 +87,10 @@ function loadApp(state, nowMs, want, api, ext, prioAsk) {
       onChanged: { addListener(fn) { listeners.push(fn); } }
     },
     runtime: { sendMessage(m) { sent.push(m); }, id: ext ? 'test-extension' : undefined },
-    downloads: { download(o, cb) { telecharges.push(o); if (cb) cb(1); } }
+    downloads: { download(o, cb) { telecharges.push(o); if (cb) cb(1); } },
+    alarms: { create(name, opts) { alarmes.push([name, opts]); }, clear(name) { alarmes.push([name, null]); } },
+    notifications: { create() {}, clear() {}, getAll(cb) { if (cb) cb({}); },
+      onClicked: { addListener() {} }, onButtonClicked: { addListener() {} } }
   };
 
   // IS_EXT se lit sur window.chrome.runtime.id : seuls les tests qui veulent
@@ -111,6 +116,8 @@ function loadApp(state, nowMs, want, api, ext, prioAsk) {
   out.shared = () => shared;
   /** Les fichiers que le panneau a fait enregistrer. */
   out.telecharges = () => telecharges;
+  /** Les alarmes que le panneau a posées : [nom, options], options null = effacée. */
+  out.alarmes = () => alarmes;
   /** L'état tel que le panneau l'a sauvegardé. */
   out.saved = () => JSON.parse(store['ogame-copilot-v1']);
   /** Les clés que le panneau a effacées du stockage. */
