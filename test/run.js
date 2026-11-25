@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -89,6 +89,17 @@ t('le relevé va page par page, pas planète par planète', () => {
   const e = g.releveEtapes();
   assert.deepEqual(e.slice(0, 4).map(x => `${x.page}:${x.gid}`),
     ['supplies:101', 'supplies:102', 'resourcesettings:101', 'resourcesettings:102']);
+});
+
+t('le relevé du coucher ne lit que le sol, la soute et les vols', () => {
+  /* Une cinquantaine d'arrêts de quatre secondes devant un joueur qui veut
+     aller dormir : la nuit ne regarde ni les niveaux de bâtiments ni la
+     recherche. Elle regarde ce qu'il y a au sol et ce qui peut le lever. */
+  const g = app(RELEVE);
+  const nuit = g.releveEtapes(g.RELEVE_NUIT);
+  assert.deepEqual([...new Set(nuit.map(e => e.page))], ['supplies', 'shipyard', 'movement']);
+  assert.ok(nuit.length * 2 < g.releveEtapes().length,
+    `${nuit.length} arrêts contre ${g.releveEtapes().length} : le relevé du coucher doit être court`);
 });
 
 t('chaque page porte son domaine, et une seule fois par planète', () => {
@@ -457,6 +468,19 @@ t('le rappel du soir nomme la flotte au lieu de rester vague', () => {
   assert.ok(/1:\d+:(6|16)\b/.test(nuit.how.join(' ')), 'et la destination : ' + nuit.how.join(' '));
 });
 
+t('la carte du soir chiffre les trois ressources, pas seulement leur somme', () => {
+  /* « 540 k au sol » ne dit pas s'il faut un hangar à métal ou un plein de
+     deutérium — et c'est ce que le joueur vérifie avant de charger. */
+  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30, sc: 6 }; });
+  const n = g.dailyMissions().find(m => m.id === 'night');
+  const st = g.S.planets[0].stock;
+  for (const [v, nom] of [[st.m, 'métal'], [st.c, 'cristal'], [st.d, 'deutérium']])
+    assert.ok(n.sol.includes(`${g.fmt(v)} ${nom}`), `${nom} manque : ${n.sol}`);
+  // et sans cliquer : la ligne est sur la carte fermée, pas derrière le ⓘ
+  g.REFRESH.today();
+  assert.ok(lu(g.html().tdNow || '').includes(n.sol), 'la ligne n\'est pas rendue');
+});
+
 t('ce que la flotte emporte n\'est plus compté comme exposé au matin', () => {
   // Annoncer « resteront exposés : 237 k » juste après avoir dit de charger ces
   // 237 k, c'est se contredire dans la même carte.
@@ -483,6 +507,22 @@ t('l\'écran Réglages dit ce que le plan du jour devient', () => {
   assert.ok(/Économie pure/.test(txt), 'la priorité choisie est nommée : ' + txt);
   assert.ok(/en 48 h/.test(txt), 'l\'horizon choisi est dit : ' + txt);
   assert.ok(/production [+-]/.test(txt), 'le plan recalculé se voit : ' + txt);
+});
+
+/* Trois menus qui se ressemblent : sans phrase sous chacun, on cherchait la
+   recherche dans l'objectif du plan. */
+t('chaque menu du plan dit ce que le choix en place fait', () => {
+  const dit = focus => { const g = app(s => { s.day.focus = focus; s.day.research = 'first'; }); g.REFRESH.settings(); return lu(g.html().aideJour || ''); };
+  const eco = dit('eco'), col = dit('ecocol');
+  assert.ok(/ne colonise pas/.test(eco), 'l\'économie pure dit qu\'elle ne colonise pas : ' + eco);
+  assert.ok(/colonie/.test(col), 'économie + colonie parle de la colonie : ' + col);
+  assert.notEqual(eco, col, 'la phrase suit le choix');
+  /* Le nom du menu et le choix en place, puisque l'aide a quitté la case du
+     menu : sans eux, trois phrases se suivent sans qu'on sache laquelle répond
+     à quoi. */
+  assert.ok(/Ce que le plan vise/.test(eco) && /Économie pure/.test(eco), 'le menu et le choix sont nommés : ' + eco);
+  assert.ok(/devant les chantiers/.test(eco), 'la place de la recherche est dite : ' + eco);
+  assert.ok(/Place des formes de vie/.test(eco), 'celle des formes de vie aussi : ' + eco);
 });
 
 t('deux heures de nuit égales s\'annoncent comme aucune nuit', () => {
@@ -5756,6 +5796,39 @@ t('la soute partie sur la colonie est inventoriée, pas ignorée', () => {
   assert.equal(trous[0].p.name, 'Caribou');
   assert.ok(trous[0].cargo === 0 && trous[0].manque > 0, 'le manque est chiffré');
   assert.equal(trous[0].ailleurs[0].p.name, 'Colonie', 'et on sait où est la flotte');
+});
+
+t('la carte dit combien de chaque ressource charger, le plus cher d\'abord', () => {
+  /* Le jeu demande trois nombres. Sans eux, le joueur clique « tout » sur le
+     métal — ce qu'il a en plus grande quantité, et ce qui vaut le moins. */
+  const g = nue(s => { s.planets[0].ships = { pr: 4, lc: 2 }; });
+  const n = g.dailyMissions().find(m => /^night/.test(m.id) && /Caribou/.test(m.what));
+  assert.ok(n && n.res, 'Caribou a sa carte, et elle porte les trois nombres');
+  const r = n.res;
+  const st = g.S.planets[0].stock;
+  assert.ok(r[2] > 0 && r[2] < st.d, 'le deutérium part en premier, moins le plein : ' + JSON.stringify(r));
+  assert.equal(r[0], 0, 'et le métal reste au sol tant que la soute est courte : ' + JSON.stringify(r));
+});
+
+t('soute suffisante : les pastilles portent tout le stock', () => {
+  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30, sc: 6 }; });
+  const n = g.dailyMissions().find(m => m.id === 'night');
+  const st = g.S.planets[0].stock;
+  assert.equal(n.res[0], st.m, 'tout le métal : ' + JSON.stringify(n.res));
+  assert.equal(n.res[1], st.c, 'tout le cristal');
+  assert.ok(n.res[2] >= st.d - 3000 && n.res[2] <= st.d, 'tout le deutérium sauf le plein : ' + n.res[2]);
+});
+
+t('ce que la soute ne lève pas est dit sur la carte, avec où la trouver', () => {
+  /* Le joueur doit savoir qu'il y a un mouvement à faire AVANT de charger :
+     sinon il envoie sa flotte à moitié pleine et laisse le reste au sol. */
+  const g = nue(s => { s.planets[0].ships = { pr: 4, lc: 2 }; });
+  const n = g.dailyMissions().find(m => m.id === 'night');
+  assert.ok(/Caribou/.test(n.what), 'la carte de tête est celle de Caribou : ' + n.what);
+  const how = n.how.join(' ');
+  assert.match(how, /restent au sol faute de soute/, how);
+  assert.match(how, /Colonie/, 'et l\'endroit où la soute dort est nommé : ' + how);
+  assert.match(how, /Ramène/, 'avec la carte qui l\'amène : ' + how);
 });
 
 t('une carte dit de ramener les transporteurs, en Stationner', () => {

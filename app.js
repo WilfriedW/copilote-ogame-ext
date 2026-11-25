@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.60.4';
+const APP_VERSION = '1.61.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1657,6 +1657,12 @@ const RELEVE_PAGES = ['supplies', 'resourcesettings', 'shipyard', 'defenses', 'f
 /* Ce qui ne dépend pas de la planète se lit une fois, à la fin, sur la planète
    de départ — ainsi le dernier arrêt est déjà celui du retour. */
 const RELEVE_GLOBAL = ['research', 'movement'];
+/* Ce que le coucher demande, et rien d'autre : ce qu'il y a au sol, ce qui peut
+   le lever, et ce qui est déjà en vol. Le relevé complet fait une cinquantaine
+   d'arrêts de quatre secondes — trois minutes devant un joueur qui veut aller
+   dormir, dont les trois quarts pour des niveaux de bâtiments que la nuit ne
+   regarde pas. Celui-ci en fait deux par planète, plus un. */
+const RELEVE_NUIT = ['supplies', 'shipyard', 'movement'];
 /**
  * La planète d'où part le relevé, et où il ramène : celle que le joueur regarde.
  * `S.cur` se teste avant de chercher — sans lui, l'égalité trouvait la première
@@ -1708,7 +1714,7 @@ function lfAOuvrir(p, file){
   return e ? e[0] : null;
 }
 /** Les arrêts du relevé complet : {gid, page, url}, dans l'ordre. */
-function releveEtapes(){
+function releveEtapes(filtre){
   /* Les pages de formes de vie n'existent que pour qui en a : sans jamais en
      avoir lu une, le relevé irait attendre quatre secondes devant une page qui
      ne se nomme pas, deux fois par planète. Le panneau demande déjà d'en
@@ -1720,7 +1726,8 @@ function releveEtapes(){
      le relevé retomberait sur ce qu'il a vu plutôt que de s'arrêter. */
   const avecLf = !!S.lfMenu
     || S.planets.some(p=>Object.keys(p.lfSeen||{}).length || Object.keys(p.lf||{}).length);
-  const pages = avecLf ? RELEVE_PAGES : RELEVE_PAGES.filter(c=>!c.startsWith('lf'));
+  const garde = c => !filtre || filtre.includes(c);
+  const pages = (avecLf ? RELEVE_PAGES : RELEVE_PAGES.filter(c=>!c.startsWith('lf'))).filter(garde);
   const out = [];
   for(const page of pages) S.planets.forEach((p,i)=>{
     let url = p.gid ? (page === 'resourcesettings' ? prodUrl(i) : goUrl(page, i)) : null;
@@ -1733,7 +1740,7 @@ function releveEtapes(){
   });
   if(!out.length) return out;
   const i = releveDepart(), gid = (S.planets[i]||{}).gid;
-  for(const page of RELEVE_GLOBAL){ const url = goUrl(page, i); if(url) out.push({gid, page, url, global:true}); }
+  for(const page of RELEVE_GLOBAL.filter(garde)){ const url = goUrl(page, i); if(url) out.push({gid, page, url, global:true}); }
   return out;
 }
 /**
@@ -1805,8 +1812,8 @@ function relevePas(gid, page, tuile){
   });
 }
 /** Le relevé complet : passe sur chaque page de chaque planète, puis ramène l'onglet. */
-async function faitLeReleve(){
-  const etapes = releveEtapes();
+async function faitLeReleve(filtre){
+  const etapes = releveEtapes(filtre);
   if(releveEnCours || !etapes.length) return;
   /* Le point de départ se note avant le relevé : chaque page visitée déplace la
      planète courante, et à la fin S.cur serait le dernier arrêt. */
@@ -2321,6 +2328,29 @@ const RESEARCH_MODE = {normal:'À son tour', first:'Avant les bâtiments'};
 const HABILLAGES = {relief:'Relief — sobre (par défaut)', domaine:'Une couleur par page', hud:'Console de bord', arcade:'Arcade'};
 const habillage = () => HABILLAGES[S.settings.skin] ? S.settings.skin : 'relief';
 function researchMode(){ return RESEARCH_MODE[S.day.research] ? S.day.research : 'normal'; }
+/* Les trois menus du haut se ressemblent et ne disent pas la même chose : le
+   premier dit ce que le plan vise, les deux autres seulement quand la recherche
+   et les formes de vie passent dans la journée. Rien à l'écran ne le disait, et
+   on cherchait la recherche dans la priorité. Chaque menu porte donc, sous lui,
+   ce que le choix en place fait vraiment — c'est la phrase, pas l'étiquette,
+   qui répond à « c'est quoi ce réglage ». */
+const AIDE_JOUR = {
+  focus: {t:'Ce que le plan vise', v:{
+    equi: 'Les paliers qui servent l\'économie et la flotte à la fois, et d\'abord les plafonds que tu touches tous les jours : expéditions, emplacements de flotte.',
+    ecocol: 'Des mines, et une planète de plus dès qu\'Astrophysique l\'autorise : une colonie rapporte alors plus qu\'un niveau de recherche.',
+    eco: 'Des mines, rien d\'autre : le plan ne colonise pas, et la recherche vise la production — Énergie, Laser, Ion, Plasma.',
+    fleet: 'Combustion, Impulsion, Ordinateur, Hyperespace : de quoi faire voler plus d\'expéditions et de pillages. Le plan colonise encore.',
+  }},
+  research: {t:'Place de la recherche', v:{
+    normal: 'La recherche attend son tour : le plan n\'épargne pour elle que si la feuille de route la juge critique.',
+    first: 'La prochaine recherche passe devant les chantiers : les bâtiments de la planète du labo attendent.',
+  }},
+  lf: {t:'Place des formes de vie', v:{
+    after: 'Les formes de vie passent après les bâtiments, et s\'effacent devant un chantier proche.',
+    first: 'Les formes de vie passent avant tout le reste.',
+    off: 'Le plan ne propose aucune forme de vie.',
+  }},
+};
 /**
  * Ce qu'un réglage de journée vaut, d'après son contrôle. Les modes sont des
  * mots d'une liste fermée, tout le reste est un nombre d'heures ou de minutes.
@@ -3451,6 +3481,25 @@ const FS_MISSION = {deployment:4, expedition:15};
 const FS_MISSION_N = {deployment:'Stationner', expedition:'Expédition'};
 
 /**
+ * Ce qu'on charge de chaque ressource quand la soute ne prend pas tout.
+ *
+ * Le jeu demande trois nombres, pas un total : sans eux le joueur répartit au
+ * jugé, et le plus souvent il clique « tout » sur le métal, qui est ce qu'il a
+ * en plus grande quantité et ce qui vaut le moins. Le deutérium passe donc en
+ * premier — trois métaux au taux par défaut — puis le cristal. Le plein de la
+ * flotte reste au sol : chargé, il manquerait au départ.
+ * @param {number[]} st stock sur place [m, c, d]
+ * @param {number} cap ce que la soute peut lever
+ * @param {number} fuel deutérium que le vol coûte
+ * @returns {number[]} [m, c, d] à charger
+ */
+function partAbri(st, cap, fuel){
+  const dispo = [st[0], st[1], Math.max(0, st[2] - fuel)], out = [0,0,0];
+  let reste = cap;
+  for(const j of [2,1,0]){ out[j] = Math.floor(Math.max(0, Math.min(dispo[j], reste))); reste -= out[j]; }
+  return out;
+}
+/**
  * La mise à l'abri d'une seule planète, avec ce qu'elle a sur place.
  *
  * Le wiki OGame ne laisse pas le choix sur le seul cas que l'extension
@@ -3945,19 +3994,40 @@ function dailyMissions(){
        sans « Fait » à cocher. Chaque lot a donc sa carte, son formulaire déjà
        rempli et son propre état. Le plus gros garde l'identifiant `night`, et
        avec lui l'état des soirs passés et les avertissements d'empire. */
+    /* Les trous de soute sont comptés une fois pour toute la rubrique : chaque
+       carte y lit le sien, et les lignes d'empire le reste. */
+    const trous = cargoGaps();
     const carteLot = (r, tete) => {
       /* Ce qui part vraiment : la soute plafonne le stock, et l'annoncer entier
          mettrait à l'abri, sur le papier, ce qui passe la nuit au sol. */
       const porte = Math.min(r.load, r.cargo);
+      /* « 1,58 M au sol » ne dit pas s'il faut un hangar à métal ou un plein de
+         deutérium, et c'est la première chose que le joueur vérifie dans le jeu
+         avant de charger. Les trois chiffres, donc, à l'endroit où il regarde. */
+      const st = stockNow(r.from);
+      /* Ce que la soute ne lève pas reste au sol toute la nuit. Le dire ici, sur
+         la carte de la planète concernée, avec l'endroit où la soute dort. */
+      const manque = r.load - porte, trou = manque > 0 ? trous.find(x=>x.p === r.from) : null;
+      const don = trou && trou.ailleurs[0];
       return {id: tete ? 'night' : 'night:' + r.from.id, q:'Sécurité', at:S.day.night ? now : nightAt,
         every:24, sev:'warn', tags:[planetRef(r.from)],
         what:`${quand} : envoie ${shipList(r.ships)} de ${planetRef(r.from)} en mission ${FS_MISSION_N[r.mission]} vers ${r.dest}`,
         ships:r.ships, dest:r.dest, p:S.planets.indexOf(r.from), mission:FS_MISSION[r.mission],
+        /* Les trois nombres à taper dans le formulaire de chargement, en
+           pastilles copiables : c'est la seule chose que le lien ne prépare
+           pas, avec la vitesse. */
+        res:partAbri(st, porte, r.fuel),
         why:`${fmt(porte)} ressources à l'abri sur ${r.from.name}${porte < r.load ? `, sur ${fmt(r.load)} au sol` : ''}. Une flotte en vol ne peut pas être détruite ; ce qui dort au sol se fait prendre.`,
+        /* Carte fermée, le joueur ne lit que le titre, la pastille et cette
+           ligne : c'est le seul endroit où « j'ai un million de métal » se voit
+           sans cliquer. Le ⓘ et le « Comment faire » demandent tous deux un
+           geste, et un total ne dit pas s'il faut un hangar ou un plein. */
+        sol:`au sol : ${fmt(st[0])} métal · ${fmt(st[1])} cristal · ${fmt(st[2])} deutérium`,
         /* « Dépense d'abord » ne vaut qu'une fois : répété sur chaque carte, il
            rallongeait quatre « Comment faire » pour un seul geste. */
         how:(tete ? ['Dépense d\'abord ce que tu peux : lance une construction longue et une recherche.'] : []).concat([
-          `Charge ${porte < r.load ? `${fmt(porte)} sur ${fmt(r.load)}` : `<b>tout</b> le stock`} dans ${shipList(r.ships)} sur ${esc(r.from.name)}, destination ${esc(r.dest)}, mission ${FS_MISSION_N[r.mission]}. ${porte < r.load ? 'La soute ne lève pas le reste : il passe la nuit au sol.' : 'Ne laisse rien de valeur au sol.'}`,
+          `Charge ${porte < r.load ? `${fmt(porte)} sur ${fmt(r.load)}` : `<b>tout</b> le stock`} dans ${shipList(r.ships)} sur ${esc(r.from.name)}, destination ${esc(r.dest)}, mission ${FS_MISSION_N[r.mission]}. ${porte < r.load ? 'La soute ne lève pas le reste : il passe la nuit au sol. Les pastilles disent quoi charger — le deutérium d\'abord, il vaut trois métaux.' : 'Ne laisse rien de valeur au sol.'}`
+        ].concat(manque > 0 ? [`${fmt(manque)} restent au sol faute de soute${don ? ` : ${fmt(don.dispo)} de soute libre dorment sur ${esc(planetRef(don.p))}, et la carte « Ramène… » plus haut l'amène ici. Fais-la avant de charger.` : `, et toute la soute libre de l'empire est déjà promise ailleurs : il faut en construire ici.`}`] : []).concat([
           `Règle la vitesse sur ${r.pct} % — c'est la seule chose que le lien ne prépare pas, et elle change d'un jour à l'autre exprès : une routine se chronomètre. ${r.oneWay ? `La flotte se pose vers ${hm(r.arrive)}` : `La flotte rentre vers ${hm(r.back)}`}, après ton réveil. Coût : ${fmt(r.fuel)} deutérium.`,
           /* Le pourquoi de la méthode, et pas seulement le quoi : c'est lui qui
              évite au joueur de « simplifier » en Transporter le soir où il est
@@ -3965,7 +4035,7 @@ function dailyMissions(){
              d'un lot à l'autre. */
           r.mission === 'deployment'
             ? `Sois en ligne <b>avant l'arrivée</b> : si une attaque se présente, <b>rappelle</b> le déploiement. Un déploiement rappelé est la seule mission vers une planète qu'une phalange ne voie pas — c'est ce qui en fait la seule mise à l'abri sûre tant que tu n'as pas de lune. Un Transporter, lui, se voit, et une fois le retour commencé tu ne peux plus rien.`
-            : `La position 16 n'accepte que l'Expédition : la flotte revient chargée, rien ne se pose ailleurs. C'est un pis-aller — le wiki ne la compte pas parmi les mises à l'abri, et un mauvais événement peut te coûter les vaisseaux et ce qu'ils portent. ${r.ships.pr ? 'La sonde à bord double ce qu\'elle rapporte.' : 'Une sonde à bord doublerait ce qu\'elle rapporte.'} Le déploiement ne vaudra mieux que vers une planète assez loin pour se poser après ton réveil.`])};
+            : `La position 16 n'accepte que l'Expédition : la flotte revient chargée, rien ne se pose ailleurs. C'est un pis-aller — le wiki ne la compte pas parmi les mises à l'abri, et un mauvais événement peut te coûter les vaisseaux et ce qu'ils portent. ${r.ships.pr ? 'La sonde à bord double ce qu\'elle rapporte.' : 'Une sonde à bord doublerait ce qu\'elle rapporte.'} Le déploiement ne vaudra mieux que vers une planète assez loin pour se poser après ton réveil.`]))};
     };
     const m = fs ? carteLot(fs, true) : {id:'night', q:'Sécurité', at:S.day.night ? now : nightAt, every:24, sev:'warn',
       what:`${quand} : mettre tes ressources à l'abri`,
@@ -3993,7 +4063,7 @@ function dailyMissions(){
     /* Une planète sans donneur n'a pas de carte « Ramène… » : l'envoyer la
        chercher serait l'envoyer vers rien. Elle est nommée à part, avec le
        seul geste qui lui reste. */
-    const trous = cargoGaps(), ligne = x=>`${esc(planetRef(x.p))} (${fmt(x.load)}, il manque ${fmt(x.manque)} de soute)`;
+    const ligne = x=>`${esc(planetRef(x.p))} (${fmt(x.load)}, il manque ${fmt(x.manque)} de soute)`;
     const aides = trous.filter(x=>x.ailleurs[0]), seules = trous.filter(x=>!x.ailleurs[0]);
     if(aides.length) m.how.push(`Sans soute pour les lever : ${aides.map(ligne).join(', ')}. Les cartes « Ramène… » disent d'où la faire venir.`);
     if(seules.length) m.how.push(`Sans soute pour les lever, et plus rien à emprunter : ${seules.map(ligne).join(', ')}. Toute la soute libre de l'empire est déjà promise ailleurs — il faut en construire sur place.`);
@@ -5312,16 +5382,17 @@ settings(){
   return `<section class="panel">
     <div class="card"><h2>Plan du jour</h2>
       <div class="grid">
-        <label class="f">Priorité<select id="dFocus" data-day="focus">${Object.entries(FOCUS).map(([k,l])=>`<option value="${k}" ${d.focus===k?'selected':''}>${l}</option>`).join('')}</select></label>
+        <label class="f">Ce que le plan vise<select id="dFocus" data-day="focus">${Object.entries(FOCUS).map(([k,l])=>`<option value="${k}" ${d.focus===k?'selected':''}>${l}</option>`).join('')}</select></label>
+        <label class="f">Place de la recherche<select id="dRes" data-day="research">${Object.entries(RESEARCH_MODE).map(([k,l])=>`<option value="${k}" ${researchMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
+        <label class="f">Place des formes de vie<select id="dLf" data-day="lf">${Object.entries(LF_MODE).map(([k,l])=>`<option value="${k}" ${lfMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
         <label class="f">Je me connecte toutes les<select id="dInt" data-day="interval">${[30,60,90,120,180].map(v=>`<option value="${v}" ${+d.interval===v?'selected':''}>${v} min</option>`).join('')}</select></label>
+        <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
         <label class="f">Nuit : de (heure)<input id="dNs" type="number" min="0" max="23" data-day="nightStart" value="${d.nightStart}"></label>
         <label class="f">à (heure)<input id="dNe" type="number" min="0" max="23" data-day="nightEnd" value="${d.nightEnd}"></label>
-        <label class="f">Recherche<select id="dRes" data-day="research">${Object.entries(RESEARCH_MODE).map(([k,l])=>`<option value="${k}" ${researchMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
-        <label class="f">Formes de vie<select id="dLf" data-day="lf">${Object.entries(LF_MODE).map(([k,l])=>`<option value="${k}" ${lfMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
         <label class="f">Mise à l'abri (nuit, absence)<select id="dNight" data-day="night"><option value="0" ${d.night?'':'selected'}>non</option><option value="1" ${d.night?'selected':''}>oui</option></select></label>
         <label class="f">Retour vers (heure)<input id="dBack" type="number" min="0" max="23" data-day="backHour" value="${d.backHour==null?'':d.backHour}" placeholder="dans ${nightLen()} h"></label>
-        <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
       </div>
+      <p class="note" id="aideJour"></p>
       <p class="note" id="daySum"></p>
     </div>
     <div class="card"><h2>Formes de vie découvertes</h2>
@@ -5400,7 +5471,8 @@ today(){
   const nowMs = missions.filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
   const infoMs = missions.filter(m=>m.info);
   const taskHtml = m=>{
-    const [wi, wb] = whyParts([m.why]), meta = (m.tags||[]).map(planetTag).join('') + copyChips(m);
+    const [wi, wb] = whyParts([m.why]);
+    const meta = (m.tags||[]).map(planetTag).join('') + (m.sol ? `<span>${esc(m.sol)}</span>` : '') + copyChips(m);
     /* Les cartes Lune portent leurs propres boutons : leur état vit dans
        S.lune, pas dans une mise en sommeil, et « Fait » n'y voudrait rien
        dire. Celle d'avant-impact n'en a aucun — le copilote ne peut pas
@@ -5471,6 +5543,14 @@ empire(){ REFRESH.planets(); REFRESH.research(); },
 settings(){
   const el = document.getElementById('daySum'); if(!el) return;
   const d = S.day;
+  /* Avant le retour du mode nuit : les menus restent à l'écran la nuit, et une
+     phrase qui disparaît quand le plan dort n'explique plus rien. */
+  const choix = {focus: [d.focus, FOCUS], research: [researchMode(), RESEARCH_MODE], lf: [lfMode(), LF_MODE]};
+  const aide = document.getElementById('aideJour');
+  if(aide) aide.innerHTML = Object.keys(AIDE_JOUR).map(k=>{
+    const [v, table] = choix[k];
+    return `<b>${esc(AIDE_JOUR[k].t)}</b> · ${esc(table[v] || '')} — ${esc(AIDE_JOUR[k].v[v] || '')}`;
+  }).join('<br>');
   if(d.night){ el.textContent = 'Mode nuit : le plan est en pause, seule la mise à l\'abri compte.'; return; }
   const plan = simulateDay();
   /* Les connexions qui portent quelque chose, dites comme telles : le résumé
@@ -5965,7 +6045,13 @@ document.getElementById('tabs').addEventListener('click',e=>{ const b=e.target.c
    pas refaits à chaque dessin, et `bind()` les doublerait. */
 document.getElementById('gearBtn').addEventListener('click',()=>allerOnglet('settings'));
 document.getElementById('nightBtn').addEventListener('click',()=>{
-  modeNuit(!S.day.night); save(); render();
+  const allume = !S.day.night;
+  modeNuit(allume); save(); render();
+  /* La carte du coucher chiffre ce qui part et ce qui reste : sur un stock lu
+     il y a deux heures, elle charge des transporteurs sur des ressources
+     dépensées depuis, et oublie celles qui se sont accumulées. Le coucher est
+     justement le moment où le joueur accepte d'attendre une relecture. */
+  if(allume && IS_EXT) faitLeReleve(RELEVE_NUIT);
   /* Allumé en pleine journée, le bouton vaut « je m'absente » : sans ce mot le
      joueur ne sait pas sur quelle heure de retour le plan vient de se caler. */
   if(absenceJour(Date.now())) toast(S.day.backHour == null
