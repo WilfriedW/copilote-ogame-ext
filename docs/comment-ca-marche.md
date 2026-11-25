@@ -560,9 +560,17 @@ et le Dock spatial dans le modèle. Le code est bon, le commentaire trompe.
 |---|---|---|---|
 | Cases à cocher | `lf.found` | Humains · Roctas · Mécas · Kaeleshs | Humains + Roctas *(données d'exemple)* |
 
-Sert à conseiller la forme de vie d'une nouvelle colonie. Ordre de préférence :
-Roctas → Humains → Mécas → Kaeleshs ; en priorité « Flotte », Mécas →
-Kaeleshs → Roctas → Humains.
+Sert à conseiller la forme de vie d'une planète. Le conseil se décide sur
+l'emplacement : à partir du 13 — froid, donc deutérium — Mécas → Kaeleshs →
+Roctas → Humains, le même ordre qu'en priorité « Flotte » ; ailleurs Roctas →
+Humains → Mécas → Kaeleshs. La carte cite ce que vaut l'emplacement : son
+bonus de production, sa température, et l'énergie qu'un satellite y rend.
+
+La carte sort d'elle-même quand la page des bâtiments de forme de vie d'une
+planète a été ouverte sans montrer une seule case : le jeu les montre toutes
+dès qu'une espèce y habite, donc aucune ne sort quand il n'y en a pas encore.
+Tant qu'aucune case de bâtiment n'est lue sur une planète, la page des
+*recherches* n'est plus réclamée : cette file n'existe pas avant l'espèce.
 
 ### 6.3 L'univers et la classe — **lus, jamais saisis**
 
