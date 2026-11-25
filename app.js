@@ -100,7 +100,7 @@ function sample(){
     moonCalc:{pid:'', ship:'lf', n:0, bou:null, viser:12},
     lune:{on:false, impact:null, tirs:{}, tirsAttente:{}, maj:0, rendu:{coords:'', n:0, dus:0, faits:0}},
     expo:{pf:true},
-    ui:{tool:'colony', fold:{}},
+    ui:{tool:'colony', fold:{}, pose:{k:'metal', lvl:'', hors:{}}},
     day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false,
       /* Absence de jour : l'heure de retour du joueur, null quand il n'en a pas
          donné. Et le jour civil où la question du coucher a été répondue, pour
@@ -384,6 +384,33 @@ function prioPalier(kind, pid, k, lvl, puis){
   prioPose(kind, pid, k, lvl);
   const i = prioIdx(kind, pid, k);
   if(i >= 0 && Number.isInteger(puis) && puis > lvl) S.prio[i].puis = puis;
+}
+/* Le joueur veut « mine de métal 43 » sur tout l'empire, sauf sur la planète
+   qui ne sert qu'à la logistique. Poser la même priorité dix fois, une tuile
+   après l'autre, est le geste que cette carte remplace — elle n'invente rien,
+   elle appelle prioPose autant de fois qu'il y a de planètes cochées.
+   Les décochées se rangent par bâtiment, et non en une seule liste de
+   planètes : décocher la logistique pour la mine ne doit pas la décocher pour
+   le labo, qu'on veut peut-être partout. */
+function poseK(){
+  const k = (S.ui.pose || {}).k;
+  /* hasOwnProperty et non `in` : « __proto__ » appartient à tout objet, et une
+     sauvegarde abîmée ferait lire p.b['__proto__'] — jamais un niveau. */
+  return Object.prototype.hasOwnProperty.call(B, k) ? k : 'metal';
+}
+/** Ce que la pose ferait, planète par planète, dans l'ordre de l'empire.
+    `agit` est la seule chose que posePartout et le bouton regardent : une
+    planète décochée, ou déjà au niveau visé, n'agit pas. */
+function poseLignes(){
+  const k = poseK(), hors = ((S.ui.pose || {}).hors || {})[k] || [];
+  const vise = parseInt((S.ui.pose || {}).lvl);
+  return S.planets.map(p => {
+    const actuel = p.b[k] || 0, coche = !hors.includes(p.id);
+    const deja = prioLvl('b', p.id, k);
+    return {pid: p.id, name: p.name, coords: p.coords, actuel,
+            deja: deja === '' ? null : deja,
+            coche, agit: coche && vise > actuel};
+  });
 }
 /* Ce qu'une ligne du bloc ajoute quand un second palier attend derrière. */
 function prioSuite(kind, pid, k, lvl){
