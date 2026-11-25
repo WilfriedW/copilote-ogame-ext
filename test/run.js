@@ -9943,6 +9943,29 @@ t('une chance nulle dit pourquoi au lieu d\'annoncer 0 % tout court', () => {
   assert.ok(/Outils . Lune|combien/i.test(c.why), 'et la raison : ' + c.why);
 });
 
+t('des survivants au combat : la carte chiffre ce qu\'il pillera', () => {
+  /* Trois mille chasseurs contre une défense qui en tue un millier : il gagne,
+     et ce qui dort au sol part avec lui. */
+  const g = app(s => { MODE(3600e3)(s); s.moonCalc.n = 3000;
+                       s.planets[0].stock = { m: 4e6, c: 2e6, d: 1e6, at: Date.now() }; });
+  const c = cartes(g).find(x => x.id === 'lune-sors');
+  const tues = g.luneMorts(g.S.planets[0], 'lf', 3000, 12).tues;
+  assert.ok(tues < 3000, 'le cas testé est bien celui de survivants : ' + tues);
+  assert.ok(/ressources/i.test(c.why), 'le stock est nommé : ' + c.why);
+  /* 7 M seraient pillables, mais la soute des survivants plafonne à 102 k :
+     c'est elle qui décide, pas la moitié du stock. */
+  assert.ok(/102 k/.test(lu(c.why)), 'et chiffré : ' + lu(c.why));
+  assert.ok((c.how || []).some(h => /Charge/.test(h)), 'le geste : ' + (c.how || []).join(' | '));
+});
+
+t('une défense qui tue tout ne fait pas déménager le stock pour rien', () => {
+  const g = app(s => { MODE(3600e3)(s); s.moonCalc.n = 50;
+                       s.planets[0].stock = { m: 4e6, c: 2e6, d: 1e6, at: Date.now() }; });
+  const c = cartes(g).find(x => x.id === 'lune-sors');
+  assert.ok(/ne risque rien/.test(c.why), 'le stock est hors de danger : ' + c.why);
+  assert.ok(!(c.how || []).some(h => /Charge/.test(h)), 'et pas de geste inutile');
+});
+
 t('la nuit ne garde que la carte qui met à l\'abri', () => {
   const g = app(s => { DETTE(s); s.day.night = true; });
   const ids = cartes(g).map(m => m.id);

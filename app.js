@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.63.1';
+const APP_VERSION = '1.63.2';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4688,12 +4688,26 @@ function luneCartes(){
     ? `${shipList(p.ships)} au sol mourraient avec, ${fmt(sol.m)} métal et ${fmt(sol.c)} cristal à ta charge${p.shipsAt ? `, flotte relevée il y a ${dur((now - p.shipsAt)/1000)}` : ''}.`
     : `Aucune flotte relevée au sol — vérifie quand même avant l'impact.`;
 
+  /* Ce qu'il emporte s'il gagne : la moitié du stock, plafonnée par la soute
+     des survivants. Approximation — le jeu pille chaque ressource à part et
+     remplit la soute dans un ordre — mais l'ordre de grandeur suffit à décider
+     du geste, qui est le même de toute façon : les ressources montent dans la
+     flotte qui sort déjà. Défense jamais relevée, `tues` nul : on ne dit rien
+     plutôt que de promettre que le stock ne risque rien. */
+  const stk = stockNow(p), tot = Math.floor(stk[0] + stk[1] + stk[2]);
+  const vivants = tues == null ? 0 : Math.max(0, n - tues);
+  const emporte = vivants ? Math.min(Math.floor(tot / 2), vivants * shipStats(k).cargoEff) : 0;
+  const pille = emporte > 0
+    ? ` Charge aussi tes ressources : ${fmt(vivants)} ${moonNom(k, vivants)} survivent au combat et repartent avec ${fmt(emporte)} de ton stock.`
+    : tues != null && n > 0 ? ` Ta défense les tue tous : ton stock au sol, lui, ne risque rien.` : '';
+
   if(imp > now) return [{id:'lune-sors', q:'Lune', every:1, sev: imp - now <= 3600e3 ? 'bad' : 'warn',
     what:`Sors ta flotte de ${ou} — impact dans ${dur((imp - now)/1000)}`,
-    why:`${quoi} ${t.chance ? `Le tir vaut ${moonPct(t.chance)} de chance de lune.` : morts * luneCoque(k) * df / 100 > 0 ? `Ce tir ne vaut rien : sous 100 000 de débris le combat ne donne aucune chance de lune. Il en faut ${fmt(luneVaisseaux(k, 1, df))} morts au moins.` : `Dis dans Outils › Lune combien de vaisseaux il envoie — sans ce nombre, le copilote ne peut rien chiffrer.`}${passe}`,
-    how:['Déploiement vers une autre de tes planètes : elle revient après le combat.',
-         'Les recycleurs partent avec : s\'ils meurent, tu n\'as plus rien pour ramasser.',
-         'Le copilote ne peut pas vérifier qu\'elle est partie — c\'est à toi de regarder.']}];
+    why:`${quoi} ${t.chance ? `Le tir vaut ${moonPct(t.chance)} de chance de lune.` : morts * luneCoque(k) * df / 100 > 0 ? `Ce tir ne vaut rien : sous 100 000 de débris le combat ne donne aucune chance de lune. Il en faut ${fmt(luneVaisseaux(k, 1, df))} morts au moins.` : `Dis dans Outils › Lune combien de vaisseaux il envoie — sans ce nombre, le copilote ne peut rien chiffrer.`}${passe}${pille}`,
+    how:['Déploiement vers une autre de tes planètes : elle revient après le combat.']
+      .concat(emporte > 0 ? ['Charge le métal, le cristal et le deutérium dans cette même flotte : en vol, rien n\'est détruit ni pillé.'] : [])
+      .concat(['Les recycleurs partent avec : s\'ils meurent, tu n\'as plus rien pour ramasser.',
+         'Le copilote ne peut pas vérifier qu\'elle est partie — c\'est à toi de regarder.'])}];
 
   const rec = (p.ships || {}).rec || 0, soute = shipStats('rec').cargoEff;
   if(now - imp < 24 * 3600e3) return [{id:'lune-ramasse', q:'Lune', every:1, sev:'good',
@@ -5915,7 +5929,7 @@ moon(){
   if(tues === 0)
     av.push(`Ta défense <b>n'en tue aucun</b> : la flotte repart entière, il n'y a aucun débris, et il te pille au passage.`);
   else if(tues != null && tues < n)
-    av.push(`Ta défense n'en tue que <b>${fmt(tues)}</b> sur ${fmt(n)} : les survivants rentrent chez lui. Les chiffres ci-dessus ne comptent que les morts.`);
+    av.push(`Ta défense n'en tue que <b>${fmt(tues)}</b> sur ${fmt(n)} : les survivants rentrent chez lui, et <b>pillent ton stock au passage</b>. Les chiffres ci-dessus ne comptent que les morts.`);
   if(tues != null && tues > 0 && pour > tues)
     av.push(`Pour ${moonPct(vise)} il faudrait ${fmt(pour)} ${moonNom(k, pour)} morts, mais ta défense n'en tue que ${fmt(tues)} : c'est elle qui <b>plafonne</b> ta chance, à ${moonPct(luneTir(k, tues, df).chance)} par tir.`);
   if(t.debris > 2e6)
