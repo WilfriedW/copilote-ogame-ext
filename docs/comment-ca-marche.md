@@ -632,7 +632,11 @@ Allure seulement : ni le panneau ni les calculs ne changent.
 | Combien | `moonCalc.n` | entier ≥ 0 | **0** | À 0, la carte ne sort aucun chiffre et demande le nombre |
 | Chance visée | `moonCalc.viser` | 1 à 20 | **12** | Sert à la jauge inverse « pour X %, N vaisseaux ». 20 est le plafond du jeu |
 | Son niveau de Bouclier | `moonCalc.bou` | entier ≥ 0 | *(le tien)* | Celui de ton camarade : il monte le bouclier de ses vaisseaux, donc baisse ce que ta défense tue |
-| Débris de ton univers | `settings.debris` | 30 · 40 · 50 · 60 · 70 | **30** | En pourcent. Le seul des six qui **se synchronise** entre tes deux postes, parce que c'est un fait du serveur et pas un brouillon de calcul. À lire dans les paramètres de ton univers : il change le nombre de vaisseaux jusqu'à 2,3 fois |
+| Débris de ton univers | `settings.debris` | 30 · 40 · 50 · 60 · 70 | **30** | En pourcent, un fait du serveur. À lire dans les paramètres de ton univers : il change le nombre de vaisseaux jusqu'à 2,3 fois |
+
+Les cinq premiers **suivent sur ton autre poste** avec l'état du mode, dès que
+ta planète visée porte un identifiant de jeu — voir la section suivante. Le
+sixième suit de toute façon, c'est un réglage d'univers.
 
 Rien dans cette carte n'influence le plan du jour ni quoi que ce soit d'autre :
 c'est une calculatrice, comme Outils › Flotte. Le **mode lune**, lui, s'en sert
@@ -657,13 +661,20 @@ Le compteur de tirs reçus, `lune.tirs`, est tenu **par planète** et avance qua
 tu réponds « Pas cette fois ». Un « Lune ! » le remet à zéro et éteint le mode :
 une campagne réussie ne lègue pas son compteur à la suivante.
 
-**Rien de tout cela ne voyage entre tes deux postes**, contrairement au taux de
-débris. `lune.tirs` est indexé par identifiant de planète, et ces identifiants
-sont tirés au sort sur chaque machine : envoyé tel quel, le compteur du PC
-désignerait une planète qui n'existe pas sur le Mac, et la carte te ferait
-évacuer la mauvaise. Chaque poste tient donc sa campagne jusqu'à ce que la
-traduction pid↔gid, que le copilote fait déjà pour tes priorités, soit faite
-ici aussi.
+**La campagne entière suit d'un poste à l'autre** : l'interrupteur, l'heure
+d'impact, le compteur de tirs, la dette, et les réglages de la carte dont le
+mode dépend. Elle voyage en **identifiants de jeu**, les seuls que tes deux
+postes nomment pareil — tes identifiants de planète, eux, sont tirés au sort
+sur chaque machine.
+
+Deux garde-fous, et ils comptent. **Rien ne part** si une planète nommée dans
+la campagne n'a pas encore d'identifiant de jeu : mieux vaut ne rien envoyer
+qu'un paquet que l'autre poste lirait de travers. Et **rien n'est appliqué** si
+la planète visée est inconnue sur le poste d'arrivée — sans cette règle, la
+carte t'aurait dit d'évacuer ta planète mère pour un tir visant une colonie.
+
+Un compteur dont la planète n'est pas encore relevée ici n'est pas perdu : il
+attend le prochain échange, comme une priorité dans le même cas.
 
 **Quatre choses que ce mode ne fait pas**, et chacune pour une raison :
 

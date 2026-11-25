@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -9553,6 +9553,133 @@ t("le résumé du stock s'écrit comme le champ qu'il sert à recaler", () => {
   assert.ok(!/\bk\b|\bM\b|\bG\b/.test(resume), 'un « 1,20 M » au-dessus d\'un champ qui dit 1200000 : ' + resume);
 });
 
+/* ---------- la campagne de lune d'un poste à l'autre ---------- */
+
+/** Deux planètes que le jeu nomme, et une campagne en cours sur la première. */
+const CAMPAGNE = s => {
+  s.planets[0].gid = '101'; s.planets[1].gid = '102';
+  s.moonCalc = { pid: s.planets[0].id, ship: 'lf', n: 900, bou: 12, viser: 12 };
+  s.lune = { on: true, impact: 1795600000000, tirs: { [s.planets[0].id]: 5 },
+             rendu: { coords: '1:140:8', n: 900, dus: 9, faits: 3 } };
+};
+
+t('la campagne part avec des identifiants de jeu, pas des identifiants locaux', () => {
+  const g = app(CAMPAGNE), p = g.luneOut();
+  assert.equal(p.cible, '101');
+  assert.deepEqual(p.tirs, { '101': 5 });
+  assert.equal(p.impact, 1795600000000);
+  assert.equal(p.on, true);
+  assert.equal(p.n, 900);
+  assert.equal(p.rendu.faits, 3);
+});
+
+t('une planète que le jeu ne nomme pas retient tout le paquet', () => {
+  const g = app(s => { CAMPAGNE(s); delete s.planets[0].gid; });
+  assert.equal(g.luneOut(), undefined, 'mieux vaut ne rien envoyer qu\'un paquet à moitié traduit');
+});
+
+t('un poste neuf, sans aucun identifiant de jeu, n\'envoie rien et ne lève pas', () => {
+  const g = app(s => { CAMPAGNE(s); delete s.planets[0].gid; delete s.planets[1].gid; });
+  assert.equal(g.luneOut(), undefined);
+});
+
+t('deux planètes au même identifiant de jeu ne perdent pas le compteur', () => {
+  const g = app(s => { CAMPAGNE(s); s.planets[1].gid = '101';
+    s.lune.tirs[s.planets[1].id] = 2; });
+  const p = g.luneOut();
+  assert.equal(Object.keys(p.tirs).length, 1, 'les deux se rangent sous le même gid');
+  assert.equal(p.tirs['101'], 7, 'les deux compteurs s\'additionnent plutôt que l\'un efface l\'autre');
+});
+
+t('syncOut emporte la campagne', () => {
+  const g = app(CAMPAGNE);
+  assert.equal(g.syncOut()['sy:lune'].cible, '101');
+});
+
+/* ---------- la campagne de lune qui arrive ---------- */
+
+t('la campagne revient sur les identifiants de ce poste', () => {
+  const g = app(CAMPAGNE), r = g.luneIn(g.luneOut());
+  assert.equal(r.moonCalc.pid, g.S.planets[0].id);
+  assert.deepEqual(r.lune.tirs, { [g.S.planets[0].id]: 5 });
+  assert.equal(r.lune.impact, 1795600000000);
+});
+
+t('une cible que ce poste ne connaît pas n\'écrit rien', () => {
+  const g = app(CAMPAGNE);
+  assert.equal(g.luneIn({ cible: '999', tirs: {}, on: true, impact: 1, rendu: {} }), null,
+    'c\'est ce qui faisait évacuer la mauvaise planète');
+});
+
+t('un paquet sans cible n\'écrit rien et ne lève pas', () => {
+  assert.equal(app(CAMPAGNE).luneIn({ tirs: {}, on: true }), null);
+  assert.equal(app(CAMPAGNE).luneIn(null), null);
+});
+
+t('un compteur venu d\'une planète inconnue ici est laissé de côté', () => {
+  const g = app(CAMPAGNE);
+  const p = g.luneOut(); p.tirs['999'] = 7;
+  const r = g.luneIn(p);
+  assert.deepEqual(r.lune.tirs, { [g.S.planets[0].id]: 5 }, 'le connu passe, l\'inconnu attend');
+});
+
+t('le paquet qu\'on vient d\'écrire ne change rien', () => {
+  const g = app(CAMPAGNE);
+  const avant = JSON.stringify(g.S.lune) + JSON.stringify(g.S.moonCalc);
+  g.syncApply(g.syncOut());
+  assert.equal(JSON.stringify(g.S.lune) + JSON.stringify(g.S.moonCalc), avant);
+});
+
+t('une campagne reçue remplace celle d\'ici', () => {
+  const g = app(s => { CAMPAGNE(s); s.lune.tirs = {}; s.lune.impact = null; });
+  g.syncApply({ 'sy:lune': { on: true, impact: 1795600000000, cible: '101',
+    tirs: { '101': 5 }, rendu: { coords: '1:140:8', n: 900, dus: 9, faits: 3 },
+    n: 900, ship: 'lf', bou: 12, viser: 12 } });
+  assert.equal(g.S.lune.impact, 1795600000000);
+  assert.equal(g.S.lune.tirs[g.S.planets[0].id], 5);
+  assert.equal(g.S.moonCalc.pid, g.S.planets[0].id);
+});
+
+/* ---------- la synchro de campagne : ce que la revue a trouvé ---------- */
+
+t('la campagne part même si la planète visée n\'a jamais été choisie à la main', () => {
+  /* `moonCalc.pid` vaut '' par défaut, mais la liste déroulante montre déjà
+     `moonPlanete()` comme sélectionnée : un joueur qui tire sur celle-là ne
+     touche jamais le champ, et rien ne partait. */
+  const g = app(s => { CAMPAGNE(s); s.moonCalc.pid = ''; });
+  const p = g.luneOut();
+  assert.notEqual(p, undefined, 'elle part');
+  assert.equal(p.cible, '101', 'celle que la carte montre déjà');
+});
+
+t('un poste qui n\'a pas pu lire la campagne n\'écrase pas la plus récente', () => {
+  const g = app(CAMPAGNE);
+  const paquet = g.luneOut();
+  g.S.lune.maj = 2000;
+  assert.equal(g.luneIn(Object.assign({}, paquet, { maj: 1000 })), null,
+    'plus vieille que la nôtre : refusée');
+  assert.notEqual(g.luneIn(Object.assign({}, paquet, { maj: 3000 })), null,
+    'plus récente : acceptée');
+});
+
+t('oublier une planète n\'empêche plus la campagne de partir', () => {
+  const g = app(s => { CAMPAGNE(s); s.lune.tirs[s.planets[1].id] = 2; });
+  g.forgetPlanet(g.S.planets[1].id);
+  assert.notEqual(g.luneOut(), undefined, 'son compteur part avec elle');
+});
+
+t('un compteur mis de côté revient au prochain échange', () => {
+  const g = app(CAMPAGNE);
+  const p = g.luneOut(); p.tirs['999'] = 3;
+  const r = g.luneIn(p);
+  g.S.lune = r.lune; g.S.moonCalc = r.moonCalc;
+  assert.equal(g.luneOut().tirs['999'], 3, 'il repart tel quel, il ne s\'efface pas');
+});
+
+t('un moonCalc abîmé ne fait pas taire toute la synchro', () => {
+  const g = app(s => { CAMPAGNE(s); s.moonCalc = null; });
+  assert.doesNotThrow(() => g.syncOut(), 'priorités, centre et réglages continuent de partir');
+});
 
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
