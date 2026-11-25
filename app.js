@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.56.5';
+const APP_VERSION = '1.56.6';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3990,7 +3990,27 @@ function noRestore(){
   return n ? `<button class="btn sm ghost" data-noclear="1">Remettre ${n} carte${n>1?'s':''} refusée${n>1?'s':''}</button>` : '';
 }
 
-function missionDone(m){ const d = S.daily.done[m.id]; return d && (Date.now() - d) < m.every*3600e3 && (m.every<24 || new Date(d).toDateString()===new Date().toDateString()); }
+/* Une carte de flotte dit d'envoyer des vaisseaux quelque part. Quand le
+   joueur l'a fait dans le jeu, le mouvement est là, dans les mouvements de
+   flotte : le lui faire confirmer d'un clic, c'est lui demander de répéter ce
+   que le copilote voit déjà. Même règle que la sonde d'espionnage posée par
+   applyGame.
+   Transporter et Stationner se valent ici : tous deux livrent la soute là où
+   elle manque, et le joueur qui prend l'un pour l'autre a fait le geste.
+   L'expédition est hors du compte : rien ne distingue une mise à l'abri d'une
+   expédition ordinaire — même mission, même position 16 — et la confondre
+   éteindrait la carte du soir tous les jours sans que rien ne soit à l'abri. */
+function flotteEnVol(m){
+  if(!m.dest || !m.mission || m.mission === 15) return false;
+  const vaut = (a, b) => a === b || ((a === 3 || a === 4) && (b === 3 || b === 4));
+  return (S.moves || []).some(v => !v.ret && v.dest === m.dest && vaut(v.mission, m.mission));
+}
+function missionDone(m){
+  /* Noté, pas seulement constaté : le mouvement disparaît des mouvements de
+     flotte dès l'arrivée, et la carte reviendrait alors que le geste est fait.
+     Un « Fait » posé ici tient le même temps qu'un « Fait » cliqué. */
+  if(!S.daily.done[m.id] && flotteEnVol(m)){ S.daily.done[m.id] = Date.now(); save(); }
+  const d = S.daily.done[m.id]; return d && (Date.now() - d) < m.every*3600e3 && (m.every<24 || new Date(d).toDateString()===new Date().toDateString()); }
 
 /* ---------- targets from the official OGame API ---------- */
 function sysDiff(a, b){ let d = Math.abs(a-b); const sv = API && API.server; if(sv && sv.donutSystem) d = Math.min(d, sv.systems - d); return d; }
