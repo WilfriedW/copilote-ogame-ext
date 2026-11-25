@@ -10417,6 +10417,36 @@ t('une recherche attend la fin de la précédente', () => {
   assert.deepEqual(fautes, []);
 });
 
+/* ---------- un chantier que le relevé n'a pas su nommer ---------- */
+/* Le jeu n'écrit pas toujours l'identifiant de ce qu'il construit : le minuteur
+   arrive alors sans technologie, et il ne vaut plus que par sa file. Les tuiles
+   du jeu la lisent — elles disent « file occupée ». Le plan, lui, ne lisait que
+   les minuteurs qu'il avait su nommer : il relançait sur une planète prise. */
+
+/** Un minuteur de bâtiment dont on ne sait rien, sinon qu'il occupe la file. */
+const CHANTIER_ANONYME = s => { s.timers = [{ id: 'a1', game: true, kind: 'x', k: 'other',
+  queue: 'building', pid: 'mere', label: 'Construction', end: JOUR + 2 * 3600e3, done: false }]; };
+
+t('un chantier sans nom occupe quand même la file de sa planète', () => {
+  const j = app(CHANTIER_ANONYME, JOUR).simulateDay();
+  assert.deepEqual(j.sessions[0].acts.filter(a => a.kind === 'b' && a.p === 0).map(a => a.what), [],
+    'rien ne se lance sur une planète qui construit déjà');
+});
+
+t('un chantier sans nom se dit « déjà en cours »', () => {
+  const j = app(CHANTIER_ANONYME, JOUR).simulateDay();
+  assert.ok(j.busy.some(b => /Bâtiment · Planète mère/.test(b.q)),
+    'le joueur doit lire pourquoi sa planète ne reçoit rien : ' + JSON.stringify(j.busy));
+});
+
+t('une recherche sans nom occupe quand même le laboratoire', () => {
+  const j = app(s => { s.timers = [{ id: 'a2', game: true, kind: 'x', k: 'other',
+    queue: 'research', label: 'Recherche', end: JOUR + 2 * 3600e3, done: false }]; }, JOUR).simulateDay();
+  assert.deepEqual(j.sessions[0].acts.filter(a => a.kind === 't').map(a => a.what), [],
+    'une seule file de recherche pour tout l\'empire');
+  assert.ok(j.busy.some(b => /Recherche/.test(b.q)), JSON.stringify(j.busy));
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

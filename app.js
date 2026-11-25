@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.63.3';
+const APP_VERSION = '1.63.4';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -2862,6 +2862,15 @@ function simulateDay(){
     else if(t.kind==='x' && (t.queue==='lfbuilding' || t.queue==='lfresearch') && P[pi]){ const p=P[pi]; p.lfq[t.queue]=Math.max(p.lfq[t.queue],t.end); busy.push({q:'Forme de vie · '+planetRef(p), what:timerLabel(t), end:t.end}); }
     else if(t.kind==='x' && t.k==='sats' && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
     else if(t.kind==='x' && t.k==='colship'){ const p=P[planetIndexById(S.colo.fromId)]||P[0]; p.sq=t.end; sim.colShip=true; sim.colReady=t.end; busy.push({q:'Chantier spatial', what:'Vaisseau de colonisation', end:t.end}); }
+    /* Un chantier que le relevé n'a pas su nommer : le jeu n'écrit pas toujours
+       l'identifiant de ce qu'il construit, et le minuteur arrive alors sans
+       technologie. Il ne vaut plus que par sa file — et sa file suffit. Sans
+       ces deux lignes il n'existait que pour les tuiles du jeu, qui se fient à
+       `queue`, pendant que le plan, qui se fiait à `kind`, relançait sur une
+       planète déjà prise. On ne sait pas ce qui monte : la file est occupée,
+       aucun niveau ne s'ajoute à la fin. */
+    else if(t.kind==='x' && t.queue==='building' && P[pi]){ const p=P[pi]; p.bq=Math.max(p.bq,t.end); busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end}); }
+    else if(t.kind==='x' && t.queue==='research'){ sim.rq=Math.max(sim.rq,t.end); busy.push({q:'Recherche · '+planetRef(labPlanet()), what:timerLabel(t), end:t.end}); }
   }
   /* Les expéditions en vol, prises sur les mouvements de flotte du jeu
      (mission 15, trajet de retour). Les compter sur les seuls minuteurs les
