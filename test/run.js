@@ -10523,6 +10523,33 @@ t('le labo repart dès que la recherche est finie', () => {
     'pas avant la fin de la recherche : ' + new Date(labo[0]).toISOString());
 });
 
+/* ---------- et la règle miroir : un labo qui monte ---------- */
+/* Confirmée dans le jeu par le joueur le 2026-11-25 : un laboratoire en
+   chantier empêche de chercher **depuis cette planète-là**, et depuis elle
+   seule. Un labo qui monte sur une colonie ne retient pas les recherches du
+   centre. Le copilote l'appliquait déjà — `labBusy` n'interroge que la planète
+   d'où partent ses recherches — mais rien ne le disait : ces deux
+   vérifications tiennent la règle des deux côtés, pour qu'une correction
+   future ne l'élargisse pas « par prudence ». */
+
+/** Un labo en chantier jusqu'à trois heures d'ici, sur la planète choisie. */
+const LABO_MONTE = pid => s => { s.timers = [{ id: 'L1', game: true, kind: 'b',
+  k: 'lab', lvl: 6, pid, queue: 'building', end: JOUR + 3 * 3600e3, done: false }]; };
+
+t('une recherche attend le labo du centre qui monte', () => {
+  const j = app(LABO_MONTE('mere'), JOUR).simulateDay();
+  const quand = j.sessions.flatMap(s => s.acts.filter(a => a.kind === 't').map(() => s.T));
+  assert.ok(quand.length, 'la journée finit par chercher');
+  assert.ok(quand[0] >= JOUR + 3 * 3600e3,
+    'pas avant la fin du labo : ' + new Date(quand[0]).toLocaleTimeString('fr-FR'));
+});
+
+t('un labo qui monte ailleurs ne retient aucune recherche', () => {
+  const s0 = app(LABO_MONTE('colo'), JOUR).simulateDay().sessions[0];
+  assert.ok(s0.acts.some(a => a.kind === 't'),
+    'le centre cherche pendant qu\'une colonie monte son labo');
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

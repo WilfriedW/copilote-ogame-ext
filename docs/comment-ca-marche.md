@@ -783,6 +783,11 @@ la tuile affiche « Une recherche est en cours ! ». Poser « Labo 10 » sur hui
 planètes est donc permis, mais aucune des huit cartes ne sort avant la fin de
 la recherche en cours. Chacune le dit, avec l'heure.
 
+La règle joue aussi dans l'autre sens, mais **planète par planète** : un
+laboratoire en chantier empêche de chercher depuis cette planète-là, et depuis
+elle seule. Un labo qui monte sur une colonie ne retient donc pas les
+recherches de ton centre ; c'est le labo du centre qui les retient.
+
 ### 6.14 Empire — recherches
 
 15 technologies, chacune avec son **niveau** et son **niveau visé** : Énergie,
