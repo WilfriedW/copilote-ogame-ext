@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.56.2';
+const APP_VERSION = '1.56.3';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -525,6 +525,13 @@ function hyperCargoPct(){ return srv('cargoHyperspaceTechMultiplier', 5); }
 
 /* ---------- formatting ---------- */
 const nf = new Intl.NumberFormat('fr-FR');
+/** Les chiffres d'une ligne repliée, jamais abrégés. `fmt` bascule en « k » à
+    cent mille : une colonne de sept planètes qui produisent dans le même ordre
+    de grandeur y mélangeait « 112 k » et « 82 951 », deux écritures du même
+    nombre, que l'œil ne compare plus. Et au-dessus d'un champ de stock qui dit
+    `1200000`, un « 1,20 M » n'aide pas à le recaler. La place ne manque pas
+    sur cette ligne : on les écrit en entier. */
+const fmtLigne = n => isFinite(n) ? nf.format(Math.round(n)) : '∞';
 function fmt(n){ if(!isFinite(n)) return '∞'; const a=Math.abs(n); if(a>=1e9) return (n/1e9).toFixed(2).replace('.',',')+' G'; if(a>=1e6) return (n/1e6).toFixed(2).replace('.',',')+' M'; if(a>=1e5) return (n/1e3).toFixed(0)+' k'; return nf.format(Math.round(n)); }
 function dur(sec){ if(!isFinite(sec)) return 'jamais'; sec=Math.max(0,Math.round(sec)); const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60), s=sec%60; if(d) return `${d}j ${h}h`; if(h) return `${h}h ${String(m).padStart(2,'0')}m`; if(m) return `${m}m ${String(s).padStart(2,'0')}s`; return `${s}s`; }
 /* L'apostrophe compte autant que le guillemet : data-launch est un attribut
@@ -5402,11 +5409,11 @@ planets(){
       crawlerPill(p);
     /* Les trois chiffres dans le résumé : c'est ce qu'on vient lire, et la
        carte reste fermée pour le lire. */
-    const ps = document.getElementById('psum-'+i); if(ps) ps.innerHTML = [pr.m, pr.c, pr.d].map(fmt).join(' · ');
+    const ps = document.getElementById('psum-'+i); if(ps) ps.innerHTML = [pr.m, pr.c, pr.d].map(fmtLigne).join(' · ');
     /* Le stock ne se lit en chiffres nulle part ailleurs — les jauges au-dessus
        disent la production. Son résumé le rend lisible sans ouvrir le volet,
        qui ne sert qu'à le recaler. */
-    const pk = document.getElementById('pstk-'+i); if(pk) pk.innerHTML = st.map(fmt).join(' · ');
+    const pk = document.getElementById('pstk-'+i); if(pk) pk.innerHTML = st.map(fmtLigne).join(' · ');
     const fl = document.getElementById('pfleet-'+i); if(fl){ const l = shipList(p.ships); fl.innerHTML = l ? `<b>Flotte à quai :</b> ${esc(l)}` : (IS_EXT ? 'Flotte inconnue : ouvre la page Flotte du jeu sur cette planète.' : ''); }
     /* La vocation et la note du centre suivent les coordonnées, la température
        et les niveaux qu'on tape dans la carte : sans ça elles restaient

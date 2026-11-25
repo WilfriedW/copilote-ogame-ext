@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -9108,7 +9108,7 @@ t('le résumé porte la production des trois ressources, sans rien déplier', ()
   g.VIEWS.planets(); g.REFRESH.planets();
   const s = lu(g.html()['psum-0'] || '');
   const pr = g.production(g.S.planets[0]);
-  assert.ok(s.includes(g.fmt(pr.m)) && s.includes(g.fmt(pr.c)) && s.includes(g.fmt(pr.d)), s);
+  assert.ok(s.includes(g.fmtLigne(pr.m)) && s.includes(g.fmtLigne(pr.c)) && s.includes(g.fmtLigne(pr.d)), s);
 });
 
 t('le bouton Retirer est dans le corps, pas dans le résumé qui bascule le volet', () => {
@@ -9238,7 +9238,7 @@ t('le résumé des stocks porte les trois valeurs, sans ouvrir', () => {
   g.VIEWS.planets(); g.REFRESH.planets();
   const s = lu(g.html()['pstk-0'] || '');
   const st = g.S.planets[0].stock;
-  assert.ok(s.includes(g.fmt(st.m)) && s.includes(g.fmt(st.c)) && s.includes(g.fmt(st.d)), s);
+  assert.ok(s.includes(g.fmtLigne(st.m)) && s.includes(g.fmtLigne(st.c)) && s.includes(g.fmtLigne(st.d)), s);
 });
 
 t('une planète sans aucune forme de vie garde son volet de stock', () => {
@@ -9514,6 +9514,29 @@ t('dans la fenêtre, seule la carte du tir passe devant les chantiers', () => {
   assert.ok(h.indexOf('ors ta flotte') < ch, 'le tir devant');
   assert.ok(h.indexOf('Il te manque') > ch, 'la dette derrière');
 });
+
+/* `fmt` bascule en « k » à cent mille. Sur une colonne de sept planètes qui
+   produisent toutes dans le même ordre de grandeur, elle écrivait « 112 k »
+   au-dessus de « 82 951 » : deux écritures du même nombre de chiffres, que
+   l'œil ne compare plus. La ligne repliée n'abrège donc rien. */
+t("les lignes repliées ne mélangent pas les unités : elles se comparent", () => {
+  const g = app(s => { s.planets[0].b.metal = 45; s.planets[0].b.solar = 50; });
+  g.VIEWS.planets(); g.REFRESH.planets();
+  const h = g.html();
+  const grosse = lu(h['psum-0'] || ''), petite = lu(h['psum-1'] || '');
+  assert.ok(g.production(g.S.planets[0]).m >= 1e5, 'la grosse planète passe bien le seuil du k');
+  assert.ok(g.production(g.S.planets[1]).m < 1e5, 'la petite reste en dessous');
+  assert.ok(!/\bk\b|\bM\b|\bG\b/.test(grosse), "rien d'abrégé sur la grosse : " + grosse);
+  assert.ok(!/\bk\b|\bM\b|\bG\b/.test(petite), "ni sur la petite : " + petite);
+});
+
+t("le résumé du stock s'écrit comme le champ qu'il sert à recaler", () => {
+  const g = app(s => { s.planets[0].stock = {m: 1200000, c: 60000, d: 18000, at: SOIR}; });
+  g.VIEWS.planets(); g.REFRESH.planets();
+  const resume = lu(g.html()['pstk-0'] || '');
+  assert.ok(!/\bk\b|\bM\b|\bG\b/.test(resume), 'un « 1,20 M » au-dessus d\'un champ qui dit 1200000 : ' + resume);
+});
+
 
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
