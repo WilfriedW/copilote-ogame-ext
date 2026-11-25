@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.54.10';
+const APP_VERSION = '1.54.11';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3726,13 +3726,19 @@ function dailyMissions(){
            'Réimporte la Vue empire pour que le relevé se mette à jour.']});
   }
   out.push(...luneCartes(), ...luneCartesDette());
+  /* La carte du tir mène la liste, et pas seulement à l'écran : la colonne
+     publiée dans la page du jeu lit cette liste-ci. Trier plus loin, dans le
+     rafraîchissement, laissait « Hangar de métal 1 » au-dessus de « sors ta
+     flotte » là où le joueur regarde vraiment. */
+  out.sort((a, b) => (a.id === 'lune-sors' ? 0 : 1) - (b.id === 'lune-sors' ? 0 : 1));
   /* Mode nuit : le joueur va dormir. Seule la rubrique Sécurité parle de
      mettre les ressources à l'abri ; tout le reste attendra le réveil.
 
-     La rubrique Lune y échappe aussi, et pour la même raison : sortir sa flotte
+     Une seule carte Lune y échappe, et pour la même raison : sortir sa flotte
      avant un impact *est* de la mise à l'abri. Un tir qui tombe à 2 h du matin
-     ferait sinon disparaître la carte la plus critique de toutes. */
-  return S.day.night ? out.filter(m=>m.q === 'Sécurité' || m.q === 'Lune') : out;
+     ferait sinon disparaître la carte la plus critique de toutes. La dette et
+     les débris, eux, attendent le réveil comme le reste. */
+  return S.day.night ? out.filter(m=>m.q === 'Sécurité' || m.id === 'lune-sors') : out;
 }
 /* Le copilote ne voit pas ce que le joueur décide dans le jeu : une carte qu'il
    a choisi de ne pas suivre revient au plan suivant, et au suivant — cinq fois
@@ -4044,7 +4050,9 @@ function luneRepond(eutUneLune){
 function luneCartesDette(){
   const d = luneDette();
   if(!d) return [];
-  const p = moonPlanete(), ou = esc(S.lune.rendu.coords || 'sa planète');
+  /* `what` et `why` repassent par esc() dans taskHtml et whyParts : échapper
+     ici donnerait « L&#39;Oasis » sous les yeux du joueur. */
+  const p = moonPlanete(), ou = S.lune.rendu.coords || 'sa planète';
   const rang = `tir ${d.du} sur ${d.dus}`;
   if(d.manque > 0){
     const c = SHIP_COST.lf, t = p ? shipTime('lf', d.manque, p) : 0;
@@ -4071,7 +4079,7 @@ function luneCartes(){
   const vise = Math.min(20, Math.max(1, Math.round(+S.moonCalc.viser || 12)));
   const pour = luneVaisseaux(k, vise, df);
   const dem = tues == null ? pour : Math.min(pour, tues);
-  const ou = esc(planetRef(p));
+  const ou = planetRef(p);
 
   if(!imp) return [{id:'lune-attente', q:'Lune', every:6, sev:'info',
     what:`Tir de lune sur ${ou} : demande-lui ${fmt(dem)} ${moonNom(k, dem)}`,
@@ -4092,7 +4100,7 @@ function luneCartes(){
 
   if(imp > now) return [{id:'lune-sors', q:'Lune', every:1, sev: imp - now <= 3600e3 ? 'bad' : 'warn',
     what:`Sors ta flotte de ${ou} — impact dans ${dur((imp - now)/1000)}`,
-    why:`${quoi} Le tir vaut ${moonPct(t.chance)} de chance de lune.${passe}`,
+    why:`${quoi} ${t.chance ? `Le tir vaut ${moonPct(t.chance)} de chance de lune.` : morts * luneCoque(k) * df / 100 > 0 ? `Ce tir ne vaut rien : sous 100 000 de débris le combat ne donne aucune chance de lune. Il en faut ${fmt(luneVaisseaux(k, 1, df))} morts au moins.` : `Dis dans Outils › Lune combien de vaisseaux il envoie — sans ce nombre, le copilote ne peut rien chiffrer.`}${passe}`,
     how:['Déploiement vers une autre de tes planètes : elle revient après le combat.',
          'Les recycleurs partent avec : s\'ils meurent, tu n\'as plus rien pour ramasser.',
          'Le copilote ne peut pas vérifier qu\'elle est partie — c\'est à toi de regarder.']}];
@@ -5051,15 +5059,15 @@ today(){
        vérifier que la flotte est partie, donc il ne fait pas semblant. */
     const btns = m.q === 'Lune'
       ? (m.id === 'lune-ramasse' || m.id === 'lune-perdu'
-          ? `<button class="btn sm primary" id="luneOui">Lune !</button><button class="btn sm" id="luneNon">Pas cette fois</button>`
-          : m.id === 'lune-rend' ? `<button class="btn sm primary" id="luneEnv">Envoyé</button>` : '')
+          ? `<button class="btn sm primary" data-lune-do="oui">Lune !</button><button class="btn sm" data-lune-do="non">Pas cette fois</button>`
+          : m.id === 'lune-rend' ? `<button class="btn sm primary" data-lune-do="env">Envoyé</button>` : '')
       : `<button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${noBtn('m:'+m.id)}`;
     return `<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns">${btns}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   };
   /* Les cartes Lune mènent les missions ; dans l'heure qui précède l'impact
      elles passent aussi devant les chantiers. Trier la liste des missions ne
      suffisait pas : l'ordre de la page se décide ici, pas dans dailyMissions. */
-  const lun = nowMs.filter(m=>m.q === 'Lune'), reste = nowMs.filter(m=>m.q !== 'Lune');
+  const lun = nowMs.filter(m=>m.id === 'lune-sors'), reste = nowMs.filter(m=>m.id !== 'lune-sors');
   const avant = luneUrgent() ? lun.map(taskHtml).join('') : '';
   const apres = (luneUrgent() ? reste : lun.concat(reste)).map(taskHtml).join('');
   if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${avant}${s0.acts.map(a=>actHtml(a,true)).join('')}${apres}</ul>`);
@@ -5333,9 +5341,6 @@ function bind(){
   view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ const p=S.planets[+b.dataset.del]; if(p) forgetPlanet(p.id); save(); render(); }));
   on('dayNight','click',()=>{ S.day.night = !S.day.night; save(); render(); });
   on('luneBtn','click',()=>{ S.lune.on = !S.lune.on; save(); render(); });
-  on('luneOui','click',()=>{ luneRepond(true); save(); render(); });
-  on('luneNon','click',()=>{ luneRepond(false); save(); render(); });
-  on('luneEnv','click',()=>{ luneEnvoye(); save(); render(); });
   on('addPlanet','click',()=>{ S.planets.push(newPlanet('Colonie '+S.planets.length,'1:1:'+(S.planets.length+4),20,{})); S.sample=false; save(); render(); });
   /* « change » et non « input » comme les niveaux voisins : sur un labo 5,
      taper « 10 » passe par « 1 », que prioPose jugerait atteint avant de
@@ -5429,6 +5434,12 @@ view.addEventListener('click', e=>{
     // Fait sur un espionnage : les cibles nommées sortent de la liste pour un jour.
     if(dn.dataset.mark) dn.dataset.mark.split(',').forEach(c=>{ S.raids[c] = {at:Date.now(), probe:true}; }); save(); refresh(); toast('Bien joué'); return; }
   const no = e.target.closest('[data-no]'); if(no){ S.daily.no[no.dataset.no] = Date.now(); save(); refresh(); toast('Mis de côté'); return; }
+  /* Les boutons du mode lune vivent dans #tdNow, que REFRESH réécrit sans
+     repasser par bind() : un on('id') ne les verrait jamais. Ils passent donc
+     par la délégation, comme data-done et data-launch. */
+  const ln = e.target.closest('[data-lune-do]'); if(ln){ const a = ln.dataset.luneDo;
+    if(a === 'env') luneEnvoye(); else luneRepond(a === 'oui');
+    save(); render(); toast(a === 'oui' ? 'Belle lune' : a === 'env' ? 'Tir envoyé' : 'Tir compté'); return; }
   const pd = e.target.closest('[data-prio-del]'); if(pd){ prioRetire(pd.dataset.prioDel); save(); render(); return; }
   const lp = e.target.closest('[data-lfpaliers]');
   if(lp){ const p = planetById(lp.dataset.lfpaliers);
@@ -5778,10 +5789,14 @@ chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioA
    Le pid est tiré au sort à la création de la planète, donc propre au poste ;
    le gid vient du jeu et vaut sur les deux. Même règle qu'à la frontière de la
    page du jeu : on traduit en sortie et en entrée, et S ne garde jamais de gid. */
-/* `lune` voyage : une campagne de tir dure des jours, le joueur a deux postes,
-   et un compteur plus bas d'un côté ou une heure d'impact absente est
-   exactement ce que la synchronisation existe pour éviter. */
-const SYNC_KEYS = ['settings','day','expo','lf','raids','daily','lune'];
+/* `lune` ne voyage PAS, contrairement à ce que la conception prévoyait.
+   `lune.tirs` est indexé par identifiant de planète, et ces identifiants sont
+   tirés au sort par poste : la clé du PC ne désigne rien sur le Mac. Envoyée
+   telle quelle, la carte évacuait la mauvaise planète et annonçait 0 %. Le
+   dépôt traduit déjà pid↔gid pour les priorités et le centre ; faire pareil
+   ici demande ses propres tests. En attendant, chaque poste tient sa campagne,
+   ce qui est seulement gênant là où l'autre était faux. */
+const SYNC_KEYS = ['settings','day','expo','lf','raids','daily'];
 const gidDe = pid => { const p = planetById(pid); return p && p.gid != null ? String(p.gid) : null; };
 const pidDe = gid => { const p = (S.planets || []).find(x => x.gid != null && String(x.gid) === String(gid)); return p ? p.id : null; };
 /* Une recherche ne porte pas de pid : elle voyage telle quelle.

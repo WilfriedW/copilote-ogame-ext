@@ -8664,15 +8664,6 @@ t('une sauvegarde d\'avant le mode lune ne lève pas', () => {
   assert.equal(g.S.lune.on, false);
 });
 
-t('le mode lune suit sur l\'autre poste', () => {
-  const g = app(s => {
-    s.lune = { on: true, impact: 1795600000000, tirs: {}, rendu: { coords: '', n: 0, dus: 0, faits: 0 } };
-  });
-  const out = g.syncOut();
-  assert.equal(out['sy:lune'].on, true);
-  assert.equal(out['sy:lune'].impact, 1795600000000);
-});
-
 /* ---------- le mode lune : la saisie ---------- */
 
 t('une date-heure saisie devient un instant, et le vide l\'efface', () => {
@@ -8870,6 +8861,59 @@ t('envoyer un tir avance la dette et pas le compteur des tirs reçus', () => {
   g.luneEnvoye();
   assert.equal(g.S.lune.rendu.faits, 4);
   assert.equal(g.S.lune.tirs[g.S.planets[0].id] || 0, 0);
+});
+
+/* ---------- le mode lune : ce que la revue de branche a trouvé ---------- */
+
+t('les boutons du mode passent par la délégation, pas par un id', () => {
+  /* bind() tourne avant refresh(), et la vue Aujourd'hui ne porte qu'un
+     #tdNow vide : un bouton branché par son id n'existe pas encore au moment
+     du bind, et ne serait jamais écouté dans un vrai navigateur. */
+  const g = app(MODE(-600e3));
+  g.REFRESH.today();
+  const h = g.html().tdNow || '';
+  assert.ok(/data-lune-do="oui"/.test(h), 'délégué : ' + h.slice(0, 300));
+  assert.ok(!/id="luneOui"/.test(h), 'et pas branché par un id');
+});
+
+t('un nom de planète à apostrophe se lit tel quel sur la carte', () => {
+  const g = app(s => { MODE(3600e3)(s); s.planets[0].name = 'L\'Oasis'; });
+  const c = cartes(g).find(x => x.id === 'lune-sors');
+  assert.ok(/L'Oasis/.test(c.what), 'taskHtml échappe déjà what : ' + c.what);
+  assert.ok(!/&#39;/.test(c.what), c.what);
+});
+
+t('la carte du tir mène la liste des missions, pour la page du jeu aussi', () => {
+  const g = app(MODE(30 * 60e3));
+  const ms = g.dailyMissions();
+  assert.equal(ms[0].id, 'lune-sors', 'en tête : ' + ms.slice(0, 3).map(m => m.id).join(', '));
+});
+
+t('le mode lune ne voyage pas entre les postes', () => {
+  const g = app();
+  assert.ok(!('sy:lune' in g.syncOut()), 'tirs est indexé par un id tiré au sort par poste');
+});
+
+t('une chance nulle dit pourquoi au lieu d\'annoncer 0 % tout court', () => {
+  const g = app(s => { MODE(3600e3)(s); s.moonCalc.n = 0; });
+  const c = cartes(g).find(x => x.id === 'lune-sors');
+  assert.ok(!/0 % de chance/.test(c.why), 'pas de 0 % nu : ' + c.why);
+  assert.ok(/Outils . Lune|combien/i.test(c.why), 'et la raison : ' + c.why);
+});
+
+t('la nuit ne garde que la carte qui met à l\'abri', () => {
+  const g = app(s => { DETTE(s); s.day.night = true; });
+  const ids = cartes(g).map(m => m.id);
+  assert.deepEqual(ids, ['lune-sors'], 'la dette n\'est pas de la mise à l\'abri : ' + ids.join(', '));
+});
+
+t('dans la fenêtre, seule la carte du tir passe devant les chantiers', () => {
+  const g = app(s => { DETTE(s); s.planets[0].ships = { lf: 560 }; });
+  g.REFRESH.today();
+  const h = lu(g.html().tdNow || ''), ch = h.indexOf('data-launch');
+  assert.ok(ch >= 0, 'un chantier est proposé');
+  assert.ok(h.indexOf('ors ta flotte') < ch, 'le tir devant');
+  assert.ok(h.indexOf('Il te manque') > ch, 'la dette derrière');
 });
 
 if (failures.length) {

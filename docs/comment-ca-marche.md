@@ -582,7 +582,7 @@ se réécrit toutes les 30 secondes et perdrait une saisie en cours de frappe.
 
 | Réglage | Clé | Valeurs | Défaut | Effet |
 |---|---|---|---|---|
-| *(l'interrupteur 🌑)* | `lune.on` | oui / non | **non** | Allume le mode. Les cartes `Lune` sortent, et **échappent au filtre du mode nuit** : un impact à 2 h du matin reste dit |
+| *(l'interrupteur 🌑)* | `lune.on` | oui / non | **non** | Allume le mode. Les cartes `Lune` sortent, et celle du tir **échappe au filtre du mode nuit** : un impact à 2 h du matin reste dit. Les autres attendent le réveil |
 | Heure d'impact du prochain tir | `lune.impact` | date et heure | *(vide)* | Décide laquelle des quatre cartes sort. Dans l'heure qui précède, la carte passe **devant les chantiers** |
 | Sa planète | `lune.rendu.coords` | coordonnées | *(vide)* | Où part le tir que tu rends |
 | Chasseurs légers par tir rendu | `lune.rendu.n` | entier ≥ 0 | **0** | Ce que **ton camarade** demande. Le copilote ne voit pas sa défense et ne peut pas le calculer |
@@ -592,9 +592,15 @@ Le compteur de tirs reçus, `lune.tirs`, est tenu **par planète** et avance qua
 tu réponds « Pas cette fois ». Un « Lune ! » le remet à zéro et éteint le mode :
 une campagne réussie ne lègue pas son compteur à la suivante.
 
-Tout l'état se synchronise entre tes deux postes — une campagne dure des jours.
+**Rien de tout cela ne voyage entre tes deux postes**, contrairement au taux de
+débris. `lune.tirs` est indexé par identifiant de planète, et ces identifiants
+sont tirés au sort sur chaque machine : envoyé tel quel, le compteur du PC
+désignerait une planète qui n'existe pas sur le Mac, et la carte te ferait
+évacuer la mauvaise. Chaque poste tient donc sa campagne jusqu'à ce que la
+traduction pid↔gid, que le copilote fait déjà pour tes priorités, soit faite
+ici aussi.
 
-**Trois choses que ce mode ne fait pas**, et chacune pour une raison :
+**Quatre choses que ce mode ne fait pas**, et chacune pour une raison :
 
 - **Il ne voit pas l'attaque arriver.** `content.js` lit tes propres mouvements
   de flotte, jamais la boîte d'événements du jeu. C'est toi qui saisis l'heure.

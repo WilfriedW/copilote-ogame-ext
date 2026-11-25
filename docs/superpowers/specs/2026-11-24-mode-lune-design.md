@@ -172,10 +172,14 @@ divergent feraient chiffrer deux planètes différentes dans deux onglets. Le
 mode lit `moonPlanete()`, point. Et comme le joueur peut en changer, `tirs` est
 une table par planète plutôt qu'un compteur unique.
 
-**`lune` entre dans `SYNC_KEYS`.** Une campagne dure des jours et le joueur a
-deux postes ; une heure d'impact absente ou un compteur plus bas d'un côté est
-précisément ce que la synchronisation existe pour éviter. `on` voyage avec : un
-mode allumé décrit la même campagne des deux côtés.
+**`lune` devait entrer dans `SYNC_KEYS`. Il n'y entre pas** — corrigé après la
+revue de branche, qui a montré pourquoi : `tirs` est indexé par identifiant de
+planète, et ces identifiants sont tirés au sort par poste. Envoyé tel quel, le
+mode désignait sur le second poste une planète que la clé ne nomme pas : la
+carte faisait évacuer la mauvaise et annonçait 0 %. Le dépôt traduit déjà
+pid↔gid pour les priorités et le centre ; le faire ici demande ses propres
+tests, et c'est le prochain pas. En attendant, chaque poste tient sa campagne —
+gênant là où la synchro naïve était fausse.
 
 ### Nuit et lune
 
@@ -269,10 +273,14 @@ Deux cartes de plus, qui ne vivent que tant que `rendu.faits < rendu.dus` :
 `Envoyé` → `rendu.faits++`. Quand `faits` atteint `dus`, les deux cartes
 s'effacent et le mode dit la dette soldée.
 
-**Le plan construit vraiment ces chasseurs.** C'est la seule chose que le mode
-change à ce que le joueur bâtit, et elle ne vaut que tant qu'une dette reste :
-le chantier passe par le même chemin que les transporteurs et les sondes
-(`app.js:3051`), à la planète qui porte déjà la flotte.
+**Le plan devait construire vraiment ces chasseurs. Il ne le fait pas** —
+réduit à l'exécution, et la carte le dit au joueur. Faire entrer des coques de
+combat dans l'arbitrage des ressources touche la fonction qui décide tout le
+plan, et aucun test de ce document ne couvre cet effet. La carte donne le
+nombre manquant, le coût et la durée de chantier ; le joueur lance le chantier,
+ce qu'il fait de toute façon puisque le copilote ne clique jamais. La règle
+« aucun chasseur dans le plan » du 18 novembre reste donc entière, au lieu
+d'être levée à l'aveugle : c'est la section ci-dessus qui attend son tour.
 
 **Le copilote ne dit jamais combien envoyer.** `rendu.n` est ce que le camarade
 a demandé, saisi dans l'onglet Lune à côté de ses coordonnées. Le copilote ne
