@@ -23,7 +23,7 @@ Quatre onglets :
 | Onglet | Ce qu'on y trouve |
 |---|---|
 | **Aujourd'hui** | La ou les actions à lancer maintenant, les alertes, la journée à venir heure par heure, les minuteurs |
-| **Empire** | Production par planète, niveaux de tous les bâtiments, niveaux visés, recherches, le centre |
+| **Empire** | Production par planète, niveaux de tous les bâtiments, niveaux visés — un par un ou posés sur toutes les planètes d'un coup —, recherches, le centre |
 | **Outils** | Cibles (inactifs à piller, positions libres, systèmes à explorer) · Colonie · Flotte (calculatrice) |
 | **Réglages** | Plan du jour, formes de vie, univers, bonus, page du jeu, sauvegarde |
 
@@ -743,14 +743,39 @@ Dépôt de ravitaillement, Silo, Terraformeur et Dock ne produisent ni ne
 stockent : **le classement par amortissement ne les propose jamais de
 lui-même**. Ils sont là pour que tu puisses les viser.
 
-### 6.13 Empire — recherches
+### 6.13 Empire — poser sur toutes les planètes
+
+Une carte repliée, en haut d'Empire, qui pose le **même niveau visé** sur
+plusieurs planètes d'un coup. Elle ne remplace pas le clic droit dans le jeu ni
+le champ « → » par planète : elle appelle exactement la même pose, autant de
+fois qu'il y a de planètes cochées. Ensuite chaque planète vit sa vie, et le
+clic droit la corrige comme avant.
+
+| Champ | Valeurs | Effet |
+|---|---|---|
+| Bâtiment | les 17 bâtiments | Celui que la pose vise |
+| Niveau visé | entier ≥ 1, vide tant que rien n'est tapé | Le niveau posé sur chaque planète cochée |
+| Une case par planète | cochée par défaut | Décochée, la planète ne reçoit rien — **et le reste pour ce bâtiment-là seulement** |
+| Poser sur N planètes | bouton | Pose, et dit combien |
+
+Chaque ligne annonce ce que la pose lui ferait avant le clic : son niveau
+actuel, puis `→ 43` si elle monte, « déjà à 45 » si elle y est, « déjà visé
+50 » si elle vise aussi haut ou plus haut, « décochée » sinon. Les trois
+derniers cas **ne sont pas posés et ne comptent pas** : la carte ne fait que
+monter un niveau visé, jamais le descendre, et ne retire jamais rien. Un champ
+vide ne pose donc rien non plus.
+
+La mémoire des planètes décochées est **locale à ce navigateur** : elle ne
+voyage pas d'un poste à l'autre, contrairement aux priorités elles-mêmes.
+
+### 6.14 Empire — recherches
 
 15 technologies, chacune avec son **niveau** et son **niveau visé** : Énergie,
 Laser, Ions, Hyperespace, Plasma, Combustion, Impulsion, Propulsion
 hyperespace, Espionnage, Ordinateur, Astrophysique, Réseau intergalactique,
 Armes, Bouclier, Protection des vaisseaux.
 
-### 6.14 Réglages implicites (par clic, pas par formulaire)
+### 6.15 Réglages implicites (par clic, pas par formulaire)
 
 | Geste | Où | Ce que ça règle |
 |---|---|---|
@@ -762,7 +787,7 @@ Armes, Bouclier, Protection des vaisseaux.
 | Replier / déplier une carte | Aujourd'hui | Mémorisé (`ui.fold`) |
 | Onglet d'Outils | Outils | Mémorisé (`ui.tool`) |
 
-### 6.15 Ce qui n'est pas réglable — les choix figés
+### 6.16 Ce qui n'est pas réglable — les choix figés
 
 À connaître, parce que ce sont eux qui décident quand aucun réglage ne parle :
 
@@ -784,7 +809,7 @@ Armes, Bouclier, Protection des vaisseaux.
 | Sondes au centre | 5 | Pour espionner les inactifs |
 | Seuil de rapatriement | 5 000 ressources, ou hangar à plus de 70 % | En dessous, aucun vol |
 
-### 6.16 Fiabilité annoncée des calculs
+### 6.17 Fiabilité annoncée des calculs
 
 Le panneau le dit lui-même, dernière carte de Réglages : les formules viennent
 du wiki et du forum officiel. **Stables** : production, coûts, temps de vol.
