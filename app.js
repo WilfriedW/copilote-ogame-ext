@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.56.8';
+const APP_VERSION = '1.57.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4026,11 +4026,17 @@ function flotteEnVol(m){
     && S.planets.some(p => p.coords === v.origin));
 }
 function missionDone(m){
-  /* Noté, pas seulement constaté : le mouvement disparaît des mouvements de
+  /* Une marque périmée est une marque morte : la carte est revenue, et c'est
+     tout l'intérêt de sa période. Ne poser la marque que sur une case vide
+     laissait donc la carte éteinte une fois, jamais deux — le rapatriement
+     d'hier gardait la place, et la flotte envoyée aujourd'hui ne pouvait plus
+     rien éteindre. On regarde donc si la marque vit encore, pas si elle existe.
+     Noté, pas seulement constaté : le mouvement disparaît des mouvements de
      flotte dès l'arrivée, et la carte reviendrait alors que le geste est fait.
      Un « Fait » posé ici tient le même temps qu'un « Fait » cliqué. */
-  if(!S.daily.done[m.id] && flotteEnVol(m)){ S.daily.done[m.id] = Date.now(); save(); }
-  const d = S.daily.done[m.id]; return d && (Date.now() - d) < m.every*3600e3 && (m.every<24 || new Date(d).toDateString()===new Date().toDateString()); }
+  const vivante = d => !!d && (Date.now() - d) < m.every*3600e3 && (m.every<24 || new Date(d).toDateString()===new Date().toDateString());
+  if(!vivante(S.daily.done[m.id]) && flotteEnVol(m)){ S.daily.done[m.id] = Date.now(); save(); }
+  return vivante(S.daily.done[m.id]); }
 
 /* ---------- targets from the official OGame API ---------- */
 function sysDiff(a, b){ let d = Math.abs(a-b); const sv = API && API.server; if(sv && sv.donutSystem) d = Math.min(d, sv.systems - d); return d; }

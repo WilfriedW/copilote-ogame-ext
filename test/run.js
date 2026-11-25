@@ -5688,6 +5688,18 @@ t('une flotte déjà partie vaut un « Fait » : la carte ne revient pas', () =>
   assert.ok(g.missionDone(m), 'la carte revient dès que la flotte est posée');
 });
 
+t('une marque périmée ne bloque pas la flotte d\'aujourd\'hui', () => {
+  // Le vécu : la carte avait été marquée faite quatorze heures plus tôt, sa
+  // période de douze heures l'avait ramenée, et le rapatriement lancé le matin
+  // ne l'éteignait plus — la case était prise par une marque morte.
+  const g = nue();
+  const m = g.dailyMissions().find(x => /^cargo-split/.test(x.id));
+  g.S.daily.done[m.id] = SOIR - 14 * 3600e3;
+  assert.ok(!g.missionDone(m), 'une marque de quatorze heures a expiré');
+  g.S.moves = [{ mission: 4, ret: false, arrival: SOIR / 1000 + 3600, origin: '1:142:6', dest: m.dest }];
+  assert.ok(g.missionDone(m), 'la flotte vole, la carte doit s\'éteindre à nouveau');
+});
+
 t('une flotte venue d\'ailleurs ne vaut pas un « Fait »', () => {
   // Les mouvements du jeu portent aussi ceux des autres joueurs : un transport
   // d'allié vers la colonie éteindrait une carte que personne n'a honorée.
