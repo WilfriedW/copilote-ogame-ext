@@ -174,6 +174,10 @@ details.volet[open]>summary::after{content:"Fermer –"}
 /* Un nom de planète est un nom propre, pas un titre de section : il garde la
    casse que le joueur a tapée, contrairement aux titres de carte. */
 details.card.volet{padding:8px}
+/* Fermée, la carte n'est que son résumé — qui porte déjà fond, bordure et
+   marge. Le `gap` de .card s'applique même à un corps replié : sans ça,
+   chaque ligne traînait vingt pixels de vide, sept fois de suite. */
+details.card.volet:not([open]){gap:0;padding:0;border:0;background:transparent}
 details.card.volet>summary.plsum{font-size:14px;gap:8px;text-transform:none;letter-spacing:0}
 summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 /* Le niveau visé est le seul champ de la ligne où le joueur tape : il porte

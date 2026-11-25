@@ -8885,8 +8885,37 @@ t('le bouton Retirer est dans le corps, pas dans le résumé qui bascule le vole
 
 
 t('les niveaux lus dans le jeu ne se tapent plus', () => {
-  const h = lu(app(RELEVE, SOIR, null, true).VIEWS.planets());
-  assert.ok(/data-b="metal"[^>]*readonly/.test(h) || /readonly[^>]*data-b="metal"/.test(h), h.slice(0, 800));
+  const g = app(null, SOIR, null, true);
+  g.applyGame({ meta: { host: 's1.ogame.gameforge.com' }, planets: {
+    '101': { name: 'Planète mère', coords: '1:142:8', b: { metal: 14 } }
+  } });
+  const h = lu(g.VIEWS.planets());
+  assert.ok(/data-b="metal"[^>]*readonly/.test(h), h.slice(0, 800));
+});
+
+/* Un `gid` dit que le jeu nomme cette planète, pas qu'il a lu ses niveaux :
+   `applyGame` retrouve par coordonnées une planète saisie à la main et lui
+   pose un `gid`, sans rien lire de sa grille. */
+t('un gid posé sans niveaux lus ne verrouille rien', () => {
+  const g = app(null, SOIR, null, true);
+  g.applyGame({ meta: { host: 's1.ogame.gameforge.com' }, planets: {
+    '101': { name: 'Planète mère', coords: '1:142:8' }
+  } });
+  const h = lu(g.VIEWS.planets());
+  assert.ok(/data-b="metal"/.test(h), 'la grille existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(h), 'le jeu a nommé la planète, il n\'a pas lu ses niveaux');
+});
+
+/* La première frappe sur une colonie neuve efface `bNeuve` (app.js, bind) :
+   si le verrou tenait à ce drapeau, taper un niveau figerait les quinze
+   autres à zéro. */
+t('taper un niveau sur une colonie neuve ne fige pas les quinze autres', () => {
+  const g = app(s => { RELEVE(s); s.planets[1].bNeuve = 1; }, SOIR, null, true);
+  delete g.S.planets[1].bNeuve;
+  const h = lu(g.VIEWS.planets());
+  const carte = h.slice(h.indexOf('data-pi="1"'));
+  assert.ok(/data-b="metal"/.test(carte), 'la grille de la colonie existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(carte), 'une frappe efface bNeuve, elle ne doit rien verrouiller');
 });
 
 t("hors extension, les niveaux restent saisissables : rien ne les relève", () => {
@@ -8908,12 +8937,25 @@ t("sur les données d'exemple, tout se tape", () => {
   assert.ok(!/data-b="metal"[^>]*readonly/.test(h));
 });
 
-t("le volet des bâtiments annonce combien d'objectifs sont posés", () => {
+/* Le joueur pose un niveau visé : l'écouteur rafraîchit sans redessiner, pour
+   ne pas refermer le volet sous ses doigts. Un compte calculé dans le gabarit
+   mentirait donc jusqu'au prochain rendu complet — c'est un trou. */
+t('le volet des bâtiments annonce les priorités posées, et les suit', () => {
   const g = app(s => { RELEVE(s); });
+  g.VIEWS.planets(); g.REFRESH.planets();
+  assert.equal(lu(g.html()['pobj-0'] || ''), '', 'rien de posé, rien d\'annoncé');
   g.prioPose('b', g.S.planets[0].id, 'metal', g.S.planets[0].b.metal + 3);
-  const h = lu(g.VIEWS.planets());
-  const resume = h.slice(h.indexOf('data-fold="niv:'));
-  assert.ok(/1 objectif/.test(resume.slice(0, 200)), resume.slice(0, 200));
+  g.REFRESH.planets();
+  assert.match(lu(g.html()['pobj-0'] || ''), /1 priorité/, 'le mot du glossaire, et le compte à jour');
+});
+
+/* Le volet promet une explication : sans vocation marquée et hors du centre,
+   il n'en a aucune, et un « Ouvrir + » sur du vide est le bruit qu'on retire. */
+t("le volet des raisons se cache quand il n'a rien à dire", () => {
+  const g = app();
+  g.VIEWS.planets(); g.REFRESH.planets();
+  assert.equal(g.el('pq-0').hidden, false, 'le centre a ses raisons');
+  assert.equal(g.el('pq-1').hidden, true, 'sans vocation ni centre, rien à ouvrir');
 });
 
 
