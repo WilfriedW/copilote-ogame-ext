@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.62.1';
+const APP_VERSION = '1.62.2';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -509,7 +509,7 @@ function prioLfEtat(p, x, nuit){
   const fin = (S.timers || []).reduce((m, t) => t.kind === 'x' && t.queue === lfQueue(x.k) && t.pid === p.id && !t.done && t.end > Date.now() ? Math.max(m, t.end) : m, 0);
   if(fin) return `Sa file de forme de vie est occupée : le plan la lancera quand le chantier en cours finira, dans ${dur((fin - Date.now())/1000)}. ${reglage}.`;
   if(l[0].id !== x.k) return `Attend son tour dans sa file : une case posée avant elle passe d'abord. ${reglage}.`;
-  return lfMode() === 'first' ? `En tête de sa file : le plan la sert avant tout le reste. ${reglage}.`
+  return lfMode() === 'first' ? `En tête de sa file : le plan la sert avant les bâtiments. ${reglage}.`
     : `En tête de sa file, mais le réglage la fait passer après les bâtiments. ${reglage}.`;
 }
 /* L'état d'une ligne est celui que le plan lui a donné à la première session,
@@ -2379,7 +2379,12 @@ const ROADMAPS = {
 };
 /* Place des formes de vie dans la journée. Par défaut elles passent après les
    bâtiments et s'effacent devant ce qu'un chantier proche épargne. */
-const LF_MODE = {after:'Après les bâtiments', first:'Avant tout le reste', off:'Ne pas s\'en occuper'};
+/* « Avant tout le reste » laissait entendre que les cases passent aussi devant
+   la recherche : vrai quand la recherche est « À son tour », faux dès qu'elle
+   est « Avant les bâtiments », où le plan la sert d'abord. Les deux menus
+   parlent de la même chose — la place par rapport aux bâtiments — et un seul
+   des deux le disait. */
+const LF_MODE = {after:'Après les bâtiments', first:'Avant les bâtiments', off:'Ne pas s\'en occuper'};
 function lfMode(){ return LF_MODE[S.day.lf] ? S.day.lf : 'after'; }
 
 const FOCUS = {equi:'Équilibré', ecocol:'Économie + colonie', eco:'Économie pure', fleet:'Flotte et expéditions'};
@@ -2419,7 +2424,7 @@ const AIDE_JOUR = {
   }},
   lf: {t:'Place des formes de vie', v:{
     after: 'Les formes de vie passent après les bâtiments, et s\'effacent devant un chantier proche.',
-    first: 'Les formes de vie passent avant tout le reste.',
+    first: 'Les formes de vie passent avant les bâtiments. La recherche garde sa place : réglée « Avant les bâtiments », elle est servie avant elles.',
     off: 'Le plan ne propose aucune forme de vie.',
   }},
 };

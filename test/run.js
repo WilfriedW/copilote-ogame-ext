@@ -825,6 +825,20 @@ t('r\u00e9gl\u00e9es en priorit\u00e9, les formes de vie passent devant', () => 
     'le joueur a demandé qu\'elles passent en premier');
 });
 
+t('les deux menus nomment la même place : la recherche passe quand même la première', () => {
+  /* « Avant tout le reste » laissait croire que les cases devancent la
+     recherche. Le joueur qui veut recherche, puis formes de vie, puis mines
+     règle les deux menus sur « avant les bâtiments », et c'est ce qu'il a. */
+  const g = app(s => {
+    disputeStock(s);
+    s.planets[0].stock = { m: 200000, c: 80000, d: 20000, at: SOIR };
+    s.day.lf = 'first'; s.day.research = 'first';
+  }, SOIR);
+  const ordre = g.simulateDay().sessions[0].acts.map(a => a.kind).filter(k => ['t', 'lf', 'b'].includes(k));
+  assert.deepEqual(ordre.slice(0, 2), ['t', 'lf'], 'la recherche, puis la case : ' + ordre.join(' '));
+  assert.ok(ordre.indexOf('b') > ordre.indexOf('lf'), 'et les bâtiments après : ' + ordre.join(' '));
+});
+
 t('d\u00e9sactiv\u00e9es, elles dispara\u00eessent compl\u00e8tement', () => {
   const g = app(s => { disputeStock(s); s.day.lf = 'off'; s.syncAt = SOIR; }, SOIR, null, true);
   const s0 = g.simulateDay().sessions[0];
@@ -7794,7 +7808,7 @@ t('une priorité lf en tête de sa file le dit, et nomme le réglage', () => {
   const g = lfBloc({11101: lfCase(1, [10, 0, 0], {name:'Habitation'})}, 'first');
   const h = lfHtml(g, lf11101);
   assert.match(h, /En tête de sa file/);
-  assert.match(h, /Avant tout le reste/);
+  assert.match(h, /Avant les bâtiments/);
 });
 
 t('une priorité lf que le réglage fait passer après les bâtiments nomme ce réglage', () => {
@@ -7808,7 +7822,7 @@ t('une priorité lf qui attend le tour d\'une autre de sa file le dit', () => {
   const h = lfHtml(g, [{kind:'lf', pid:'mere', k:11101, lvl:4}, {kind:'lf', pid:'mere', k:11102, lvl:4}]);
   assert.equal((h.match(/Attend son tour dans sa file/g) || []).length, 1);
   assert.match(h.split('</li>')[1], /Cuisine 4[\s\S]*Attend son tour/, 'la seconde attend');
-  assert.match(h.split('</li>')[1], /Avant tout le reste/, 'et nomme le réglage');
+  assert.match(h.split('</li>')[1], /Avant les bâtiments/, 'et nomme le réglage');
 });
 
 t('formes de vie réglées sur « Ne pas s\'en occuper » : la ligne le dit', () => {
