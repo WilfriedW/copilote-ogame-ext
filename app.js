@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.60.2';
+const APP_VERSION = '1.60.3';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -5263,15 +5263,15 @@ fleet(){
 },
 colony(){
   const c = S.colo;
+  /* La planète de départ ne se choisit que quand elle se choisit vraiment : un
+     vaisseau déjà à quai décide, et sinon c'est le centre de l'empire. Le menu
+     restait affiché par-dessus sa propre note qui disait qu'il ne servait à
+     rien — deux lignes pour un réglage inerte, au-dessus de la seule question
+     de la page. */
+  const choixDep = colShipAt()<0 && !centrePlanet() && S.planets.length>1;
   return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Prêt à coloniser ?</h2><span id="coSlots"></span></div>
-      <div class="grid">
-        <label class="f">Planète de départ${centreIndex()>=0?`<span class="note">Ton centre, ${esc(planetRef(centrePlanet()))}, sort le vaisseau tant qu'il en est le centre.</span>`:''}<select id="coFrom" data-colo="fromId">${S.planets.map(p=>`<option value="${p.id}" ${c.fromId===p.id?'selected':''}>${esc(p.name)} [${esc(p.coords)}]</option>`).join('')}</select></label>
-        <label class="f">Vaisseau de colonisation<select id="coBuilt" data-colo="built"><option value="0" ${!colBuilt()?'selected':''}>À construire</option><option value="1" ${colBuilt()?'selected':''}>Déjà construit${colShipAt()>=0?' (vu dans ta flotte)':''}</option></select></label>
-      </div>
+    <div class="card"><div class="row spread"><h2>Choisir la position</h2><span id="coSlots"></span></div>
       <ul class="advice" id="coReq"></ul>
-    </div>
-    <div class="card"><h2>Choisir la position</h2>
       <div class="grid">
         <label class="f">Objectif<select id="coObj" data-colo="objective">${Object.entries(OBJECTIVES).map(([k,o])=>`<option value="${k}" ${c.objective===k?'selected':''}>${o.n}</option>`).join('')}</select></label>
         <label class="f">Cases bonus de l'univers<input id="coBonus" type="number" min="0" data-colo="bonus" value="${+c.bonus?num(c.bonus):''}" placeholder="${(API&&API.server&&API.server.bonusFields)||0}"></label>
@@ -5283,6 +5283,8 @@ colony(){
     </div>
     <div class="card"><h2>Flotte et ressources à emporter</h2>
       <div class="grid">
+        ${choixDep?`<label class="f">Planète de départ<select id="coFrom" data-colo="fromId">${S.planets.map(p=>`<option value="${p.id}" ${c.fromId===p.id?'selected':''}>${esc(p.name)} [${esc(p.coords)}]</option>`).join('')}</select></label>`:''}
+        <label class="f">Vaisseau de colonisation<select id="coBuilt" data-colo="built"><option value="0" ${!colBuilt()?'selected':''}>À construire</option><option value="1" ${colBuilt()?'selected':''}>Déjà construit${colShipAt()>=0?' (vu dans ta flotte)':''}</option></select></label>
         <label class="f">Destination<input id="coTarget" data-colo="target" value="${esc(c.target)}" placeholder="${esc(coloTarget())}"></label>
         <label class="f">Kit de démarrage<select id="coKit" data-colo="kit">${Object.entries(KITS).map(([k,o])=>`<option value="${k}" ${c.kit===k?'selected':''}>${o.n}</option>`).join('')}</select></label>
         <label class="f">Transporteurs<select id="coTr" data-colo="tr"><option value="sc" ${c.tr==='sc'?'selected':''}>Petits</option><option value="lc" ${c.tr==='lc'?'selected':''}>Grands</option></select></label>
@@ -5663,7 +5665,7 @@ colony(){
   document.getElementById('coReq').innerHTML = bloque.length
     ? bloque.map(r=>`<li><span class="pill ${r.sev==='info'?'info':r.sev}">${({warn:'Bientôt',bad:'À faire'})[r.sev]}</span><span class="what">${esc(r.what)}</span><span class="why">${esc(r.why)}</span></li>`).join('')
       + `<li><span class="pill info">Plan</span><span class="what">Rien à lancer à la main</span><span class="why">${esc(pris)}</span></li>`
-    : `<li><span class="pill good">OK</span><span class="what">Tout est prêt</span><span class="why">${esc(S.day.focus==='eco' ? pris : `Le plan sort le vaisseau de ${planetRef(dp)} et te dira quand l'envoyer vers ${coloTarget()}.`)}</span></li>`;
+    : `<li><span class="pill good">OK</span><span class="what">Tout est prêt</span><span class="why">${esc(S.day.focus==='eco' ? pris : `Le plan sort le vaisseau de ${planetRef(dp)}${colShipAt()>=0 ? ' (il y est déjà)' : centrePlanet()===dp ? ' (ton centre)' : ''} et te dira quand l'envoyer vers ${coloTarget()}.`)}</span></li>`;
 
   const cc = document.getElementById('coCand'); if(cc) cc.innerHTML = coloCandHtml();
   const rows = rankPositions(), tgtPos = (parseC(coloTarget())||[])[2];

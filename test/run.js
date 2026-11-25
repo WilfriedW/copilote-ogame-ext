@@ -9928,6 +9928,15 @@ t('en « Économie pure », le plan ne colonise pas et le dit', () => {
   assert.ok(/Économie \+ colonie/.test(h), 'le réglage à changer est nommé : ' + h);
 });
 
+t('le menu de planète de départ ne sort que quand il décide', () => {
+  // Avec un centre, c'est lui qui sort le vaisseau : le menu n'était qu'un leurre.
+  const avecCentre = app(s => { s.centre = 'mere'; });
+  assert.ok(!/id="coFrom"/.test(avecCentre.VIEWS.colony()), 'pas de menu inerte');
+  // Joueur de flotte : aucun centre n'est désigné, le choix redevient réel.
+  const sansCentre = app(s => { s.day.focus = 'fleet'; });
+  assert.ok(/id="coFrom"/.test(sansCentre.VIEWS.colony()), 'le menu revient quand il sert');
+});
+
 /** La position de la première case proposée, pour un objectif donné. */
 function premiereCase(objectif) {
   const g = app(s => { s.me = 'moi'; s.ui.tool = 'colony'; s.tech.astro = 8; s.colo.objective = objectif; }, SOIR, VOISINAGE);
