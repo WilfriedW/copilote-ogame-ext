@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.60.3';
+const APP_VERSION = '1.60.4';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -5277,9 +5277,10 @@ colony(){
         <label class="f">Cases bonus de l'univers<input id="coBonus" type="number" min="0" data-colo="bonus" value="${+c.bonus?num(c.bonus):''}" placeholder="${(API&&API.server&&API.server.bonusFields)||0}"></label>
       </div>
       <div id="coCand"></div>
-      <details class="volet" style="margin-top:14px"${fold('cobareme', false)}><summary data-fold="cobareme">Ce que vaut chaque position</summary>
+      <details class="volet" style="margin-top:14px"${fold('cobareme', false)}><summary data-fold="cobareme">Ce que vaut chaque emplacement d'un système</summary>
+      <p class="note" style="margin-top:8px">Dans OGame, chaque système porte <b>quinze emplacements numérotés de 1 à 15</b>, et ce numéro décide de tout : la taille de la planète, sa température, son bonus de production. Le tableau dit ce que vaudrait ta colonie à chaque numéro, dans n'importe quel système — c'est un barème, pas une liste de cases libres : celle-là est au-dessus. Les trois meilleurs numéros pour ton objectif portent leur rang.</p>
       <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>#</th><th class="n">Pos.</th><th>Cases (min–max)</th><th class="n">Temp.</th><th>Bonus</th><th class="n">Éq. métal/h</th><th class="n">Deut/h</th><th></th></tr></thead><tbody id="coPos"></tbody></table></div>
-      <p class="note">Le barème, occupation mise à part : production simulée avec les niveaux de mines de ta planète de départ, à la température moyenne de chaque position. Les positions grisées demandent plus d'Astrophysique. « Choisir » prend la meilleure case <b>libre</b> à ce numéro autour de toi.</p></details>
+      <p class="note">Production simulée avec les niveaux de mines de ta planète de départ, à la température moyenne de l'emplacement ; les cases réelles varient dans la fourchette indiquée. Les lignes grisées demandent plus d'Astrophysique. « Choisir » prend la meilleure case <b>libre</b> à ce numéro autour de toi.</p></details>
     </div>
     <div class="card"><h2>Flotte et ressources à emporter</h2>
       <div class="grid">
