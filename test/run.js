@@ -1212,6 +1212,23 @@ t('une file occupée se dit, en temps restant', () => {
   assert.ok(p.href, 'grisée mais cliquable');
 });
 
+t('un labo ne part pas tant qu\'une recherche tourne, où qu\'il soit', () => {
+  // Une seule recherche pour tout l'empire : la file de la planète a beau être
+  // libre, le jeu refuse de monter le labo, et « prête » envoyait le joueur se
+  // heurter au jeu.
+  const labo = { hints: {}, rates: {}, lean: false, rq: Date.now() + 10800000, tour: {
+    '33657643': { n: 'Planète mère', b: { '31': 7 }, cost: {}, bq: 0, lfq: 0, st: [0, 0, 0] },
+    '102': { n: 'Colonie', b: { '31': 3 }, cost: {}, bq: 0, lfq: 0, st: [0, 0, 0] } } };
+  const r = runPage({ skin: labo, tiles: ['31'],
+    search: '?page=ingame&component=facilities&openTech=31' });
+  const p = pins(r.tour)['Colonie'];
+  assert.equal(p.grisee, true);
+  assert.equal(p.enFile, true);
+  // ce qui tient la tuile n'est pas la file de la planète : on le nomme
+  assert.ok(/· recherche 3h/.test(p.txt), p.txt);
+  assert.ok(/aucune prête/.test(r.tourTitre), r.tourTitre);
+});
+
 t('une file de plus d\'un jour ne se dit pas en heure du jour', () => {
   // « file jusqu'à 18:17 » pour une file qui finit demain à 18:17 se lit
   // aujourd'hui : un temps restant ne se lit jamais pour un autre.
@@ -2172,6 +2189,16 @@ t('la tournée donne le nom, le niveau et le coût du niveau suivant', () => {
   assert.equal(t1['101'].b['21'], 4);            // chantier spatial
   assert.deepEqual(t1['101'].cost['21'], g.levelCost(g.B.shipyard, 5));
   assert.equal(t1['102'].b['21'], 0);
+});
+
+t('la recherche en cours se publie pour tout l\'empire', () => {
+  // Une recherche n'a pas de planète : elle ne peut pas voyager dans la
+  // tournée, rangée par planète, et pourtant c'est elle qui tient les labos.
+  const g = app(s => { nommees(s); s.timers = [
+    { id: 'r', game: true, queue: 'research', kind: 't', k: 'energy', lvl: 5, pid: null, end: SOIR + 600000 }
+  ]; });
+  assert.equal(g.gameSkin([]).rq, SOIR + 600000);
+  assert.equal(g.gameSkin([]).tour['101'].bq, 0, 'elle n\'est la file d\'aucune planète');
 });
 
 t('une planète que le jeu n\'a pas nommée est absente', () => {

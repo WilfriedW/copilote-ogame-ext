@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.61.1';
+const APP_VERSION = '1.62.3';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1139,7 +1139,12 @@ function gameSkin(acts, missions, waits){
     if(p.name) teintes[p.name] = c;
     teintes[planetRef(p)] = c;
   }
-  return {hints: planHints(acts), prio: prioHints(), rates, donors: donorsOf(), tour: tourData(), teintes,
+  /* Une seule recherche pour tout l'empire, et le jeu refuse de monter un
+     laboratoire tant qu'elle tourne, où qu'il soit. La page en a besoin : sans
+     elle, une tournée de labos annonce « prête » une tuile qui ne partira pas.
+     Une file sans planète se publie à part de la tournée, rangée par planète. */
+  const rq = (S.timers || []).reduce((a,t)=> t.queue==='research' && !t.done && t.end>a ? t.end : a, 0);
+  return {hints: planHints(acts), prio: prioHints(), rates, donors: donorsOf(), tour: tourData(), rq, teintes,
           band: bandData(acts, missions, waits),
           colonne: colonneData(acts, missions, waits),
           cargo: [shipStats('lc').cargoEff, shipStats('sc').cargoEff],

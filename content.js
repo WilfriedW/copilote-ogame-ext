@@ -333,7 +333,7 @@
   /* Le panneau publie ce qu'il recommande ; on le montre sur la tuile. On
      n'ajoute qu'une classe et une étiquette inerte : rien n'est cliqué, rien
      n'est envoyé, et l'étiquette ne peut pas intercepter un clic. */
-  let prio = {}, asks = [], hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, band = {}, noshop = false, large = false, peau = false, clair = false, colonne = [], teintes = {}, panneau = 'relief';
+  let prio = {}, asks = [], hints = {}, rates = {}, donors = {}, cargo = null, lean = false, tour = {}, rq = 0, band = {}, noshop = false, large = false, peau = false, clair = false, colonne = [], teintes = {}, panneau = 'relief';
   /* Chaque règle vise un bloc nommé, repéré sur la page, et ne fait que le
      masquer. Elles ne s'appliquent que si le joueur a coché « Épurer », et
      décocher les retire toutes d'un coup. */
@@ -2050,7 +2050,12 @@ width:auto !important;max-width:none !important;background-image:none !important
          interdiction, et le joueur a le droit d'aller voir. */
       // Les cases de forme de vie ont deux files, construire et chercher : lire
       // l'une pour l'autre annonce libre une planète occupée.
-      const fin = (+tuile >= 11000 ? (lfQueue(tuile) === 'lfresearch' ? e.lfr : e.lfq) : e.bq) || 0;
+      /* Le labo dépend d'une file qui n'est pas celle de sa planète : tant
+         qu'une recherche tourne — une seule pour tout l'empire — le jeu refuse
+         de le monter, où qu'il soit. La planète a beau être libre, la tuile ne
+         part pas, et l'annoncer prête envoyait le joueur se heurter au jeu. */
+      const fin = Math.max((+tuile >= 11000 ? (lfQueue(tuile) === 'lfresearch' ? e.lfr : e.lfq) : e.bq) || 0,
+        OG_BUILD[tuile] === 'lab' ? rq : 0);
       const c = (e.cost || {})[tuile];
       /* Le stock part du panneau, qui ne republie que toutes les trente
          secondes et seulement ouvert sur Aujourd'hui : gelé, il grise une
@@ -2067,7 +2072,10 @@ width:auto !important;max-width:none !important;background-image:none !important
       let etat = '', note = '', delai = 0;
       // Un temps restant ne se lit jamais pour un autre : « jusqu'à 18:17 » se
       // lit aujourd'hui, même quand la file finit demain.
-      if (fin > maintenant) { etat = 'file'; delai = (fin - maintenant) / 1000; note = bref(delai); }
+      // Ce qui tient la tuile se nomme quand ce n'est pas la file de la
+      // planète : « file occupée » sur un labo libre ne s'explique pas tout seul.
+      if (fin > maintenant) { etat = 'file'; delai = (fin - maintenant) / 1000;
+        note = (fin === rq && OG_BUILD[tuile] === 'lab' ? 'recherche ' : '') + bref(delai); }
       else if (Array.isArray(c)) {
         // La plus grosse ressource manquante suffit à nommer ce qui bloque ;
         // le délai, lui, est celui de la dernière à tomber.
@@ -2455,6 +2463,7 @@ font-size:11px;letter-spacing:.08em;color:var(--cp-accent)}
       colonne = (skin && skin.colonne) || [];
       teintes = (skin && skin.teintes) || {};
       tour = (skin && skin.tour) || {};
+      rq = (skin && skin.rq) || 0;
       band = (skin && skin.band) || {};
     };
     chrome.storage.local.get('skin', v => { take(v && v.skin); paint(); });
