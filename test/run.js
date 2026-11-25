@@ -9891,6 +9891,31 @@ t('la carte des positions montre des cases libres, pas le barème seul', () => {
   assert.ok(!/>1:142:8</.test(h), 'et jamais une case déjà occupée');
 });
 
+/** Les lignes de « Prêt à coloniser ? ». */
+function pret(modif) {
+  const g = app(s => { s.me = 'moi'; s.ui.tool = 'colony'; s.tech.astro = 4; s.colo.built = true; if (modif) modif(s); }, SOIR, VOISINAGE);
+  g.REFRESH.colony();
+  return lu(g.html().coReq || '');
+}
+
+t('rien ne bloque : une ligne, pas une liste de cases cochées', () => {
+  const h = pret();
+  assert.ok(/Tout est prêt/.test(h), 'une seule ligne : ' + h);
+  assert.ok(!/Réacteur à impulsion|Chantier spatial 4/.test(h), 'aucun prérequis déjà tenu n\'est répété');
+});
+
+t('ce qui bloque est dit, et renvoyé au plan du jour', () => {
+  const h = pret(s => { s.tech.impulse = 1; });
+  assert.ok(/Réacteur à impulsion 1 → 3/.test(h), 'le prérequis manquant : ' + h);
+  assert.ok(/déjà dans ses priorités/.test(h), 'et c\'est le plan qui s\'en charge');
+  assert.ok(!/Tout est prêt/.test(h));
+});
+
+t('en « Économie pure », le plan ne colonise pas et le dit', () => {
+  const h = pret(s => { s.day.focus = 'eco'; });
+  assert.ok(/Économie \+ colonie/.test(h), 'le réglage à changer est nommé : ' + h);
+});
+
 /** La position de la première case proposée, pour un objectif donné. */
 function premiereCase(objectif) {
   const g = app(s => { s.me = 'moi'; s.ui.tool = 'colony'; s.tech.astro = 8; s.colo.objective = objectif; }, SOIR, VOISINAGE);

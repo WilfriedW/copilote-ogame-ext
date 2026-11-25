@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.60.0';
+const APP_VERSION = '1.60.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -5639,7 +5639,18 @@ colony(){
   req.push({sev: w.sec===0 ? 'good' : w.storage!=null ? 'bad' : 'warn',
     what: colBuilt() ? 'Ressources du kit et carburant' : 'Ressources du vaisseau, du kit et carburant',
     why: `${w.sec===0 ? 'Disponibles maintenant.' : w.storage!=null ? storageNote(w) : `Disponibles dans ${dur(w.sec)}.`}${colBuilt() ? '' : ` Construction du vaisseau : ${dur(F.shipTime)}.`}`});
-  document.getElementById('coReq').innerHTML = req.map(r=>`<li><span class="pill ${r.sev==='info'?'info':r.sev}">${({good:'OK',warn:'Bientôt',bad:'À faire'})[r.sev]}</span><span class="what">${esc(r.what)}</span><span class="why">${esc(r.why)}</span></li>`).join('');
+  /* Quatre lignes vertes ne disent rien : le plan du jour met déjà l'impulsion,
+     le chantier et les robots dans ses priorités, et la colonie part toute
+     seule quand ils tombent. Ne reste ici que ce qui bloque, et quand plus rien
+     ne bloque, une ligne qui dit où en est le vaisseau. */
+  const bloque = req.filter(r=>r.sev!=='good');
+  const pris = S.day.focus==='eco'
+    ? 'En « Économie pure » le plan ne colonise pas : passe en « Économie + colonie » dans les réglages pour qu\'il s\'en charge.'
+    : 'Le plan du jour s\'en charge : ces niveaux sont déjà dans ses priorités.';
+  document.getElementById('coReq').innerHTML = bloque.length
+    ? bloque.map(r=>`<li><span class="pill ${r.sev==='info'?'info':r.sev}">${({warn:'Bientôt',bad:'À faire'})[r.sev]}</span><span class="what">${esc(r.what)}</span><span class="why">${esc(r.why)}</span></li>`).join('')
+      + `<li><span class="pill info">Plan</span><span class="what">Rien à lancer à la main</span><span class="why">${esc(pris)}</span></li>`
+    : `<li><span class="pill good">OK</span><span class="what">Tout est prêt</span><span class="why">${esc(S.day.focus==='eco' ? pris : `Le plan sort le vaisseau de ${planetRef(dp)} et te dira quand l'envoyer vers ${coloTarget()}.`)}</span></li>`;
 
   const cc = document.getElementById('coCand'); if(cc) cc.innerHTML = coloCandHtml();
   const rows = rankPositions(), tgtPos = (parseC(coloTarget())||[])[2];
