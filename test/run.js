@@ -3798,14 +3798,17 @@ t('les lots de foreuses avancent et s\'arretent au plafond', () => {
   // La preuve que le compte avance : le moteur en pose 10 % du plafond par
   // connexion, et le dernier lot est rogné pour tomber juste. Avec le compte
   // figé, il aurait reproposé le même lot sans jamais s'arrêter.
-  const g = app(MINES_HAUTES(4));
+  // La planète part près du plafond : un lot occupe son chantier une demi-
+  // journée, et une journée n'en voit pas dix.
+  const deja = 500;
+  const g = app(s => { MINES_HAUTES(4)(s); s.planets[0].crawlers = deja; });
   const p = g.S.planets[0];
   const max = g.crawlerMax(p.b.metal, p.b.crystal, p.b.deut);
   const lots = g.simulateDay().sessions.flatMap(x => x.acts)
     .filter(a => a.ships && a.ships.crawl).map(a => a.ships.crawl);
   assert.ok(lots.length > 1, 'le plafond se remplit en plusieurs lots');
-  assert.equal(lots.reduce((a, b) => a + b, 0), max,
-    'les lots doivent totaliser le plafond exactement, et donc s\'arrêter : ' + lots.join(','));
+  assert.equal(deja + lots.reduce((a, b) => a + b, 0), max,
+    'les lots doivent atteindre le plafond exactement, et donc s\'arrêter : ' + lots.join(','));
   assert.ok(lots[lots.length - 1] < lots[0], 'le dernier lot est rogné pour tomber juste');
 });
 
@@ -7065,8 +7068,10 @@ t('une recherche non critique, qui n\'épargne qu\'après quatre heures, ne se n
 });
 
 t('le bâtiment retenu par la réserve d\'une priorité nomme laquelle', () => {
-  // Mine de cristal 13 est retenue par la réserve du Labo 7 (4e session)
-  const w = app(prioLabo).simulateDay().sessions[4].waits.find(x => x.kind === 'b' && x.k === 'crystal');
+  // Mine de cristal 13 est retenue par la réserve du Labo 7. Sans numéro de
+  // session : le rang dépend de la vitesse de la journée, pas de la retenue.
+  const w = app(prioLabo).simulateDay().sessions
+    .flatMap(x => x.waits).find(x => x.kind === 'b' && x.k === 'crystal');
   assert.ok(w && w.held, 'la mine est retenue');
   assert.equal(w.heldBy, 'Labo 7');
 });
@@ -10368,6 +10373,48 @@ t('des décochées au mauvais type ne gèlent pas Empire', () => {
   const g = app(s => { s.ui.pose = {k:'metal', lvl:43, hors:{metal:3}}; });
   assert.deepEqual(g.poseLignes().map(x => x.coche), [true, true]);
   assert.ok(lu(g.VIEWS.planets()).includes('Poser sur toutes les planètes'));
+});
+
+/* ---------- l'horloge du plan : une file occupée reste occupée ---------- */
+/* Les durées du moteur sont en secondes, les instants en millisecondes. Les
+   additionner sans convertir faisait finir tout chantier dans la seconde : la
+   carte annonçait « fin » à l'heure de la session, et la file se rouvrait
+   aussitôt — le plan relançait sur une planète qui construisait encore. */
+
+t('une carte finit quand son chantier finit, pas à l\'heure de la session', () => {
+  const g = app(null, JOUR);
+  const s0 = g.simulateDay().sessions[0];
+  const faux = s0.acts.filter(a => a.dur > 0 && a.end)
+    .filter(a => Math.abs(a.end - (s0.T + a.dur * 1000)) > 2000);
+  assert.deepEqual(faux.map(a => `${a.what} : fin ${a.end - s0.T} ms pour ${a.dur} s`), []);
+});
+
+/** Un chantier de plusieurs heures : robots à zéro, et de quoi tout payer. */
+const CHANTIER_LONG = s => {
+  s.planets[0].b.robot = 0;
+  s.planets[0].stock = { m: 5e6, c: 3e6, d: 1e6, at: JOUR };
+};
+
+t('le plan ne relance pas une planète qui construit encore', () => {
+  const g = app(CHANTIER_LONG, JOUR);
+  const fin = new Map(), fautes = [];
+  for (const s of g.simulateDay().sessions) for (const a of s.acts) {
+    if (a.kind !== 'b') continue;
+    if (fin.has(a.p) && s.T < fin.get(a.p)) fautes.push(`${a.what} lancé ${Math.round((fin.get(a.p) - s.T) / 60e3)} min trop tôt`);
+    fin.set(a.p, s.T + a.dur * 1000);
+  }
+  assert.deepEqual(fautes, []);
+});
+
+t('une recherche attend la fin de la précédente', () => {
+  const g = app(null, JOUR);
+  let fin = 0; const fautes = [];
+  for (const s of g.simulateDay().sessions) for (const a of s.acts) {
+    if (a.kind !== 't') continue;
+    if (s.T < fin) fautes.push(`${a.what} lancée ${Math.round((fin - s.T) / 60e3)} min trop tôt`);
+    fin = s.T + a.dur * 1000;
+  }
+  assert.deepEqual(fautes, []);
 });
 
 if (failures.length) {
