@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.63.0';
+const APP_VERSION = '1.63.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1417,7 +1417,7 @@ function production(p, ov){
                          crawlerMax(b.metal, b.crystal, b.deut));
   const surcharge = p.overload != null ? p.overload : !!s.crawlerOverload;
   const craw = crawlerBonus(nCraw, s.cls, surcharge);
-  let eProd = Math.floor(20*g(b.solar)) + Math.floor(30*b.fusion*Math.pow(1.05+0.01*t.energy, b.fusion)) + p.sats*Math.max(1,Math.floor(p.tmax/4+20));
+  let eProd = Math.floor(20*g(b.solar)) + Math.floor(30*b.fusion*Math.pow(1.05+0.01*t.energy, b.fusion)) + p.sats*satEnergy(p.tmax);
   let eBonus = 1 + (s.cls==='collector'?.1:0) + (s.eng?.1:0);
   eProd = Math.floor(eProd*eBonus) + (p.eAdj||0);
   const lf = lfBonusOf(p) || [0,0,0,0];
@@ -3264,7 +3264,7 @@ function simulateDay(){
         if(!p.def) continue;
         if(wantColony && p===dep && !sim.colShip && sim.tech.impulse>=3 && p.b.shipyard>=4) continue;
         const pr = production(p), best = rankUpgrades(p).find(u=>u.payback<Infinity);
-        const satE = Math.max(1,Math.floor(p.tmax/4+20)) * (1 + (S.settings.cls==='collector'?.1:0) + (S.settings.eng?.1:0));
+        const satE = satEnergy(p.tmax) * (1 + (S.settings.cls==='collector'?.1:0) + (S.settings.eng?.1:0));
         let need = pr.factor<1 ? pr.eCons-pr.eProd : 0;
         if(best && best.extraSolar){ const after = production(p,{[best.key]:best.lvl}); need = Math.max(need, after.eCons-after.eProd); }
         if(need<=0) continue;
@@ -3810,11 +3810,52 @@ function lfSettingsHtml(){
     ? `<span class="pill good" style="padding:6px 12px"><input type="checkbox" checked disabled style="width:auto;margin-right:6px">${l.n} · lue sur tes planètes</span>`
     : `<label class="pill ${S.lf.found.includes(k)?'good':'info'}" style="cursor:pointer;padding:6px 12px"><input type="checkbox" data-lf="${k}" ${S.lf.found.includes(k)?'checked':''} style="width:auto;margin-right:6px">${l.n}</label>`).join('');
 }
-function bestLifeform(){
+/**
+ * Énergie que rend un satellite solaire, qui ne tient qu'à la température.
+ * @param {number} tmax température maximale de la planète
+ * @returns {number} énergie par satellite
+ */
+function satEnergy(tmax){ return Math.max(1, Math.floor(tmax/4 + 20)); }
+/**
+ * Race conseillée pour un emplacement, parmi celles que le compte a trouvées.
+ * Deux faits suffisent, et le panneau les tient de l'emplacement seul, sans
+ * avoir rien lu sur place : le bonus de production (POS), et la température,
+ * qui décide du rendement d'un satellite — donc du prix de l'énergie que
+ * mangent les bâtiments de forme de vie. Les emplacements froids tirent leur
+ * valeur du deutérium, que les Mécas augmentent ; partout ailleurs c'est métal
+ * et cristal, et les bâtiments roctas, gourmands, trouvent là l'énergie la
+ * moins chère. Lune et expéditions ne se déduisent d'aucun chiffre : elles
+ * tiennent au rôle que le joueur donne à la planète, et la carte le lui dit en
+ * clair plutôt que de le deviner à sa place.
+ * @param {number} pos emplacement 1 à 15, 0 s'il est inconnu
+ * @returns {string} clé de LIFEFORMS
+ */
+function lfPourPos(pos){
   const f = foundLifeforms();
-  const pref = S.day.focus==='fleet' ? ['mechas','kaelesh','rocktal','humans'] : ['rocktal','humans','mechas','kaelesh'];
-  return pref.find(k=>f.includes(k)) || 'humans';
+  const ordre = pos >= 13 || S.day.focus==='fleet' ? ['mechas','kaelesh','rocktal','humans'] : ['rocktal','humans','mechas','kaelesh'];
+  return ordre.find(k=>f.includes(k)) || 'humans';
 }
+/**
+ * Ce que l'emplacement dit de la planète, en clair.
+ * @param {number} pos emplacement 1 à 15
+ * @returns {string} bonus, température et énergie d'un satellite
+ */
+function lfRaisonPos(pos){
+  const P = POS[pos];
+  return P ? `emplacement ${pos}, ${P.bonus || 'sans bonus de production'}, ${P.t} °C — un satellite y rend ${satEnergy(P.t)} d'énergie`
+           : 'emplacement inconnu';
+}
+/**
+ * La race conseillée pour une planète, et pourquoi.
+ * @param {object} p planète de S.planets
+ * @returns {{n:string, why:string}}
+ */
+function lfConseilPlanete(p){
+  const pos = (parseC(p.coords) || [])[2] || 0;
+  return {n: LIFEFORMS[lfPourPos(pos)].n, why: lfRaisonPos(pos)};
+}
+/** La race conseillée quand on ne sait rien de l'emplacement. */
+function bestLifeform(){ return lfPourPos(0); }
 /**
  * Fleet slots [used, max] from the last sync, or null.
  * Le chiffre lu date de la dernière page de flotte ouverte ; une mission
@@ -3893,12 +3934,12 @@ function expoWanted(){
 /** Context-aware to-do items that sit outside the build and research queues. */
 function dailyMissions(){
   const now = Date.now(), out = [], h = new Date(now).getHours();
-  const target = coloTarget(), lf = LIFEFORMS[bestLifeform()];
+  const target = coloTarget(), lfCible = c => LIFEFORMS[lfPourPos((parseC(c)||[])[2]||0)].n;
   const colMove = (S.moves||[]).find(m=>m.mission===7 && !m.ret && m.arrival*1000>now);
-  if(colMove) out.push({id:'colo-fly', info:true, q:'Colonie', every:24, sev:'info', what:`Colonisation en route vers ${colMove.dest||coloTarget()}`, why:`Arrivée vers ${hm(colMove.arrival*1000)}. Prépare le kit et la forme de vie ${lf.n}.`, how:['Garde des transporteurs libres pour le kit.', 'À l\'arrivée, relève le nombre de cases et saisis-le dans Outils › Colonie.']});
+  if(colMove) out.push({id:'colo-fly', info:true, q:'Colonie', every:24, sev:'info', what:`Colonisation en route vers ${colMove.dest||coloTarget()}`, why:`Arrivée vers ${hm(colMove.arrival*1000)}. Prépare le kit et la forme de vie ${lfCible(colMove.dest||target)}.`, how:['Garde des transporteurs libres pour le kit.', 'À l\'arrivée, relève le nombre de cases et saisis-le dans Outils › Colonie.']});
   if(!colMove && S.colo.sentAt && now - S.colo.sentAt < 12*3600e3 && !S.colo.fields){
     out.push({id:'colo-eval', q:'Colonie', every:24, sev:'warn', what:'Évaluer ta nouvelle colonie', why:'Dès son arrivée, vérifie sa taille avant d\'y construire quoi que ce soit.',
-      how:['Vue d\'ensemble de la colonie : relève le nombre de cases.', 'Outils › Colonie › Après l\'arrivée : saisis-le pour savoir si tu la gardes.', `Choisis la forme de vie ${lf.n}, puis envoie les transporteurs du kit (mission Transporter).`]});
+      how:['Vue d\'ensemble de la colonie : relève le nombre de cases.', 'Outils › Colonie › Après l\'arrivée : saisis-le pour savoir si tu la gardes.', `Choisis la forme de vie ${lfCible(target)} — ${lfRaisonPos((parseC(target)||[])[2]||0)}. Puis envoie les transporteurs du kit (mission Transporter).`]});
   }
   const fs = fleetSlots();
   if(fs && fs[0]>=fs[1]) out.push({id:'fleetslots', info:true, q:'Flotte', every:3, sev:'warn', what:`Emplacements de flotte pleins (${fs[0]}/${fs[1]})`, why:'Chaque mission en vol (découvertes comprises) prend un emplacement. Aucune expédition possible avant un retour.', how:['Attends le premier retour (Mouvements de flotte).', 'Garde 1 emplacement libre pour les expéditions : envoie un peu moins de découvertes à la fois.', `Technologie Ordinateur ${S.tech.computer+1} ajoute un emplacement.`]});
@@ -3998,26 +4039,57 @@ function dailyMissions(){
     // dans la liste.
     const lfState = (p, q) => {
       const cases = Object.entries(p.lf || {}).filter(([id])=>lfQueue(id)===q);
-      // Page déjà ouverte et vide : la file demande un bâtiment que le joueur
-      // n'a pas encore. Rien à relever, donc rien à lui rappeler.
-      if(!cases.length) return {need:(p.lfSeen||{})[q] ? null : 'page', n:0};
+      /* Page jamais ouverte : rien de lu, donc rien de su. Page des bâtiments
+         ouverte et pourtant vide : le jeu y montre les douze cases dès qu'une
+         espèce habite la planète, niveau 0 compris — aucune ne sort, donc la
+         planète n'a pas encore d'espèce, et c'est elle qu'il faut choisir
+         avant tout le reste. La page des recherches, elle, reste vide tant que
+         le bâtiment qui ouvre l'arbre manque : là, il n'y a rien à dire. */
+      if(!cases.length){
+        if(!(p.lfSeen||{})[q]) return {need:'page', n:0};
+        return {need: q === 'lfbuilding' && !speciesOfPlanet(p) ? 'race' : null, n:0};
+      }
       const libres = cases.filter(([,v])=>!lfBloquee(v));
       if(lfCandidates(p, q).length) return {need:null, n:cases.length};
       return {need: libres.length ? 'prix' : null, n:cases.length};
     };
     const lfCard = (q, id, quoi, page) => {
       if(lfMode()==='off') return;
-      const vus = S.planets.map(p=>({p, st:lfState(p,q)})).filter(x=>x.st.need);
+      /* Une file de recherche ne s'ouvre qu'une fois l'espèce posée et son
+         bâtiment d'arbre construit. La réclamer sur une planète dont aucune
+         case de bâtiment n'est lue envoyait le joueur sur une page vide — et,
+         sur une colonie neuve, doublait la carte qui lui demande déjà de
+         choisir son espèce. */
+      const vus = S.planets.map(p=>({p, st:lfState(p,q)}))
+        .filter(x=>x.st.need && (q!=='lfresearch' || Object.keys(x.p.lf||{}).some(i=>lfQueue(i)==='lfbuilding')));
       if(!vus.length) return;
+      const race = vus.filter(x=>x.st.need==='race');
       const page0 = vus.filter(x=>x.st.need==='page').map(x=>planetRef(x.p));
       const prix = vus.filter(x=>x.st.need==='prix');
-      const quoiFaire = page0.length
+      /* Au-delà de deux planètes, le titre nommerait chaque espèce sur trois
+         lignes : le détail est déjà dans le pourquoi, planète par planète. */
+      const quoiFaire = race.length
+        ? (race.length > 2
+          ? `Choisis la forme de vie de ${race.length} planètes.`
+          : `Choisis la forme de vie de ${race.map(x=>`${planetRef(x.p)} : ${lfConseilPlanete(x.p).n}`).join(' · ')}.`)
+        : page0.length
         ? `Ouvre ${page} sur ${page0.join(', ')}, puis clique une case.`
         : `Clique une case ${quoi} sur ${prix.map(x=>planetRef(x.p)).join(', ')}.`;
+      const etat = x => x.st.need==='race' ? `aucune espèce posée — ${lfConseilPlanete(x.p).why}, donc ${lfConseilPlanete(x.p).n}`
+        : x.st.n ? `${x.st.n} case${x.st.n>1?'s':''} lue${x.st.n>1?'s':''}, aucun prix`
+        : 'page jamais ouverte';
       out.push({id, q:'Formes de vie', every:12, sev:'info', tags:vus.map(x=>planetRef(x.p)),
         what:quoiFaire,
-        why:`${vus.map(x=>`${planetRef(x.p)} : ${x.st.n ? `${x.st.n} case${x.st.n>1?'s':''} lue${x.st.n>1?'s':''}, aucun prix` : 'page jamais ouverte'}`).join(' · ')}. Le prix n'apparaît qu'en ouvrant une case ; sans lui le copilote ne sait pas quand tu pourras la payer.`,
-        how:['Ouvre la page sur cette planète, puis clique une case.',
+        why:`${vus.map(x=>`${planetRef(x.p)} : ${etat(x)}`).join(' · ')}. ${race.length
+          ? 'Une recherche de forme de vie vaut pour tout l\'empire, un bâtiment seulement pour sa planète : une colonie porte l\'espèce qui sert sa production à elle.'
+          : 'Le prix n\'apparaît qu\'en ouvrant une case ; sans lui le copilote ne sait pas quand tu pourras la payer.'}`,
+        how:race.length ? [
+          'Forme de vie › Bâtiments sur cette planète : choisis l\'espèce, puis clique une case pour que le copilote lise son prix.',
+          'Changer d\'espèce plus tard coûte deux jours d\'attente et les bâtiments déjà posés : c\'est un choix qu\'on fait une fois.',
+          'Tu comptes en faire ta base d\'expéditions, ou y tenter une lune ? Kaeleshs plutôt : eux seuls augmentent les deux.'
+        ] : [
+          'Ouvre la page sur cette planète, puis clique une case.',
+          'Si elle n\'a pas encore d\'espèce, le jeu te la fait choisir là : le copilote dira laquelle dès qu\'il aura vu la page.',
           'Le copilote lit le niveau, le prix et la durée affichés par le jeu.',
           'Ensuite elle entre dans le plan comme une mine, avec le « il manque » et l\'heure.']});
     };
@@ -5525,7 +5597,7 @@ colony(){
       </div>
       <div id="coEval"></div>
       <ol class="note" style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px">
-        <li>Choisis la forme de vie de la colonie (Humains, comme ta planète mère, tant que tu n'en as pas découvert d'autre).</li>
+        <li>Choisis la forme de vie de la colonie : <b>${esc(LIFEFORMS[lfPourPos((parseC(c.target || coloTarget())||[])[2]||0)].n)}</b> — ${esc(lfRaisonPos((parseC(c.target || coloTarget())||[])[2]||0))}.</li>
         <li>Envoie les transporteurs du kit en mission <b>Transporter</b>, une fois la colonie créée.</li>
         <li>Ordre de construction : solaire, puis métal et cristal en alternance, deutérium ensuite, robots 2 dès que possible.</li>
         <li>L'extension ajoute la colonie toute seule dès que tu la visites dans le jeu.</li>

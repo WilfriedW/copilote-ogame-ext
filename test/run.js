@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -876,6 +876,39 @@ t('une page visit\u00e9e sans aucune case ne se r\u00e9clame plus', () => {
   }, SOIR, null, true);
   assert.ok(!g.dailyMissions().some(x => x.id === 'lfr'),
     'le copilote est passé, il n\'y avait rien : il se tait');
+});
+
+t('une page de b\u00e2timents ouverte et vide fait choisir l\'esp\u00e8ce', () => {
+  // Le jeu montre les douze cases dès qu'une espèce habite la planète, niveau
+  // 0 compris. Aucune ne sort : la colonie n'en a pas encore, et lui demander
+  // de cliquer une case l'envoyait sur un écran de sélection.
+  const g = app(s => {
+    s.syncAt = SOIR;
+    s.lf.found = ['humans', 'rocktal', 'mechas'];
+    s.planets.forEach(p => { p.lfSeen = { lfbuilding: SOIR }; });
+  }, SOIR, null, true);
+  const m = g.dailyMissions().find(x => x.id === 'lfb');
+  assert.ok(m && /Choisis la forme de vie/.test(m.what), 'la carte choisit : ' + (m && m.what));
+  // 1:142:6 et 1:142:8 : deux emplacements tièdes, donc les mineurs
+  assert.ok(/Roctas/.test(m.what), 'et nomme l\'espèce de l\'emplacement : ' + m.what);
+  assert.ok(/°C/.test(m.why), 'en disant ce que vaut l\'emplacement : ' + m.why);
+});
+
+t('un emplacement froid conseille les M\u00e9cas, un chaud les Roctas', () => {
+  const g = app(s => { s.lf.found = ['humans', 'rocktal', 'mechas', 'kaelesh']; }, SOIR);
+  assert.equal(g.lfPourPos(15), 'mechas', 'le froid vaut par son deutérium');
+  assert.equal(g.lfPourPos(1), 'rocktal', 'le chaud par son cristal et son énergie');
+  const sans = app(s => { s.lf.found = ['humans']; delete s.prod; }, SOIR);
+  assert.equal(sans.lfPourPos(15), 'humans', 'on ne conseille pas une race non trouvée');
+  assert.match(g.lfRaisonPos(1), /\+40 % cristal/, 'la raison cite le bonus : ' + g.lfRaisonPos(1));
+});
+
+t('sans case de b\u00e2timent lue, la page des recherches n\'est pas r\u00e9clam\u00e9e', () => {
+  // Une file de recherche n'existe qu'une fois l'espèce posée : la réclamer
+  // doublait la carte qui demande déjà de choisir l'espèce.
+  const g = app(s => { s.syncAt = SOIR; }, SOIR, null, true);
+  assert.ok(!g.dailyMissions().some(x => x.id === 'lfr'),
+    'rien à ouvrir côté recherche tant qu\'aucun bâtiment n\'est lu');
 });
 
 t('une case verrouill\u00e9e par un pr\u00e9requis reste exclue', () => {
@@ -2427,7 +2460,10 @@ t('chaque lien dit sur quelle planète aller', () => {
 t('la carte des bâtiments de forme de vie pointe sur lfbuildings', () => {
   // Relevé sur le jeu : les bâtiments sont au pluriel, la recherche au
   // singulier. Un nom approchant ouvre la vue d'ensemble sans rien signaler.
-  const g = app(s => { relie(s); s.syncAt = SOIR; s.timers = []; }, SOIR, null, true);
+  // Une case de bâtiment lue sur chaque planète : sans elle, la file de
+  // recherche n'est pas réclamée — elle n'existe pas tant que l'espèce n'est
+  // pas posée — et la carte des recherches ne sortirait pas.
+  const g = app(s => { relie(s); s.syncAt = SOIR; s.timers = []; s.planets.forEach(p => { p.lf = { 11101: { lvl: 24, state: 'ok' } }; }); }, SOIR, null, true);
   assert.ok(g.dailyMissions().some(m => m.id === 'lfb'), 'la carte des bâtiments doit exister');
   g.REFRESH.today();
   const rendu = g.html().tdNow || '';
