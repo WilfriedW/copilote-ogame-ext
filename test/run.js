@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -10073,6 +10073,169 @@ t('« Choisir » désigne une case qui existe vraiment', () => {
   assert.notEqual(g.S.colo.target, '1:142:8', 'pas la case de départ');
   assert.equal(g.S.colo.target.split(':')[2], '8', 'le numéro demandé est tenu');
   assert.ok(!VOISINAGE.planets.some(([c]) => c === g.S.colo.target), 'et la case est libre');
+});
+
+/* ---------- poser un niveau visé sur toutes les planètes ---------- */
+
+const POSE = (k, lvl, hors) => s => { s.ui.pose = {k, lvl, hors: hors || {}}; };
+
+t('la carte montre une ligne par planète, avec son niveau actuel', () => {
+  const g = app(POSE('metal', 43));
+  const l = g.poseLignes();
+  assert.equal(l.length, 2);
+  assert.deepEqual(l.map(x => x.actuel), [14, 4]);
+  assert.deepEqual(l.map(x => x.agit), [true, true]);
+});
+
+t('une planète décochée pour un bâtiment reste cochée pour les autres', () => {
+  const g = app(POSE('metal', 43, {metal: ['colo']}));
+  assert.deepEqual(g.poseLignes().map(x => x.coche), [true, false]);
+  g.S.ui.pose.k = 'lab';
+  assert.deepEqual(g.poseLignes().map(x => x.coche), [true, true]);
+});
+
+t("une planète déjà au-dessus du niveau visé n'agit pas", () => {
+  const g = app(POSE('metal', 10));
+  assert.deepEqual(g.poseLignes().map(x => x.agit), [false, true]);
+});
+
+t('une priorité déjà posée se voit avant la pose', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:50}]; POSE('metal', 43)(s); });
+  const l = g.poseLignes();
+  assert.equal(l[0].deja, 50);
+  assert.equal(l[1].deja, null);
+});
+
+t("un id resté dans les décochées après l'oubli d'une planète ne gêne rien", () => {
+  const g = app(POSE('metal', 43, {metal: ['disparue']}));
+  assert.deepEqual(g.poseLignes().map(x => x.coche), [true, true]);
+});
+
+t('un bâtiment inconnu retombe sur la mine de métal au lieu de lever', () => {
+  const g = app(POSE('__proto__', 43));
+  assert.equal(g.poseK(), 'metal');
+  assert.equal(g.poseLignes()[0].actuel, 14);
+});
+
+t('sur un empire d\'une seule planète, la carte rend une seule ligne', () => {
+  // Zéro planète ne se teste pas : sample() en crée une, le panneau interdit de
+  // retirer la dernière, et coloSystem() (app.js:2131) lève sans elle.
+  const g = app(s => { s.planets = [s.planets[0]]; POSE('metal', 43)(s); });
+  assert.deepEqual(g.poseLignes().map(x => x.pid), ['mere']);
+});
+
+t('poser écrit une priorité par planète cochée', () => {
+  const g = app(POSE('metal', 43));
+  assert.equal(g.posePartout(), 2);
+  assert.equal(g.prioLvl('b', 'mere', 'metal'), 43);
+  assert.equal(g.prioLvl('b', 'colo', 'metal'), 43);
+});
+
+t('une planète décochée ne reçoit rien', () => {
+  const g = app(POSE('metal', 43, {metal: ['colo']}));
+  assert.equal(g.posePartout(), 1);
+  assert.equal(g.prioLvl('b', 'colo', 'metal'), '');
+});
+
+t("un niveau visé vide ne pose rien et n'efface rien", () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:50}]; POSE('metal', '')(s); });
+  assert.equal(g.posePartout(), 0);
+  assert.equal(g.prioLvl('b', 'mere', 'metal'), 50);
+});
+
+t('une planète déjà au-dessus garde la priorité qu\'elle avait', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:50}]; POSE('metal', 10)(s); });
+  assert.equal(g.posePartout(), 1, 'la colonie seule');
+  assert.equal(g.prioLvl('b', 'mere', 'metal'), 50, 'la mère n\'est pas effacée');
+});
+
+t('la carte nomme chaque planète et compte ce qu\'elle va poser', () => {
+  const g = app(POSE('metal', 43, {metal: ['colo']}));
+  const h = lu(g.poseBloc());
+  assert.ok(h.includes('Planète mère'));
+  assert.ok(h.includes('Colonie'));
+  assert.ok(/Poser sur 1 planète/.test(h), h);
+});
+
+t('la carte dit quand une planète vise déjà plus haut', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:50}]; POSE('metal', 43)(s); });
+  assert.ok(lu(g.poseBloc()).includes('déjà visé 50'));
+});
+
+t('la carte est dans Empire', () => {
+  const g = app(POSE('metal', 43));
+  assert.ok(lu(g.VIEWS.planets()).includes('Poser sur toutes les planètes'));
+});
+
+t('le bouton de la carte pose vraiment', () => {
+  const g = app(POSE('metal', 43, {metal: ['colo']}));
+  g.click('view', { closest: sel => (sel === '[data-posego]' ? { dataset: { posego: '1' } } : null) });
+  assert.equal(g.prioLvl('b', 'mere', 'metal'), 43);
+  assert.equal(g.prioLvl('b', 'colo', 'metal'), '', 'la décochée reste intacte');
+});
+
+/* ---------- la pose en masse : ce que la revue de branche a trouvé ---------- */
+
+t('une priorité déjà plus haute n\'est pas abaissée par la pose', () => {
+  // Poser 43 partout ne doit pas faire redescendre le 50 posé à la main : la
+  // conception interdit de défaire, et rien ici ne se défait.
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:50}]; POSE('metal', 43)(s); });
+  assert.deepEqual(g.poseLignes().map(x => x.agit), [false, true]);
+  assert.equal(g.posePartout(), 1, 'la colonie seule');
+  assert.equal(g.prioLvl('b', 'mere', 'metal'), 50);
+});
+
+t('la pose monte un niveau visé trop bas', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:20}]; POSE('metal', 43)(s); });
+  assert.equal(g.posePartout(), 2);
+  assert.equal(g.prioLvl('b', 'mere', 'metal'), 43);
+});
+
+t('sans niveau visé, aucune ligne ne commente', () => {
+  // L'état d'ouverture de la carte : « déjà à 14 » sur chaque ligne répétait le
+  // nombre d'à côté et laissait croire qu'il n'y avait rien à faire.
+  const g = app(POSE('metal', ''));
+  const h = lu(g.poseBloc());
+  assert.ok(!h.includes('déjà à'), h);
+  assert.ok(/Poser sur 0 planète/.test(h), h);
+});
+
+t('après la pose, la carte ne redemande pas le même travail', () => {
+  const g = app(POSE('metal', 43));
+  g.posePartout();
+  const h = lu(g.poseBloc());
+  assert.ok(h.includes('déjà visé 43'), h);
+  assert.ok(/Poser sur 0 planète/.test(h), h);
+});
+
+t('décocher une planète la range sous le bâtiment en cours', () => {
+  const g = app(POSE('metal', 43));
+  g.poseCoche('colo', false);
+  assert.deepEqual(g.S.ui.pose.hors.metal, ['colo']);
+  g.S.ui.pose.k = 'lab';
+  assert.deepEqual(g.poseLignes().map(x => x.coche), [true, true], 'décochée pour la mine, pas pour le labo');
+  g.S.ui.pose.k = 'metal';
+  g.poseCoche('colo', true);
+  assert.deepEqual(g.S.ui.pose.hors.metal, []);
+});
+
+t('une sauvegarde d\'avant la carte ne la casse pas', () => {
+  /* appliqueSauvegarde remplace S.ui en entier : un fichier d'avant la 1.62
+     n'a pas de `pose`, et la carte se figeait en silence au premier clic. */
+  const g = app();
+  const vieux = JSON.parse(JSON.stringify(g.S));
+  delete vieux.ui.pose;
+  assert.ok(g.appliqueSauvegarde(JSON.stringify(vieux)), 'le fichier reste recevable');
+  // g.S est l'ancien objet : l'import en crée un neuf. On interroge la carte.
+  g.poseCoche('colo', false);
+  assert.deepEqual(g.poseLignes().map(x => x.coche), [true, false], 'la carte se redonne son état');
+  assert.ok(lu(g.VIEWS.planets()).includes('Poser sur toutes les planètes'));
+});
+
+t('des décochées au mauvais type ne gèlent pas Empire', () => {
+  const g = app(s => { s.ui.pose = {k:'metal', lvl:43, hors:{metal:3}}; });
+  assert.deepEqual(g.poseLignes().map(x => x.coche), [true, true]);
+  assert.ok(lu(g.VIEWS.planets()).includes('Poser sur toutes les planètes'));
 });
 
 if (failures.length) {
