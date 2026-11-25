@@ -635,9 +635,49 @@ Allure seulement : ni le panneau ni les calculs ne changent.
 | Débris de ton univers | `settings.debris` | 30 · 40 · 50 · 60 · 70 | **30** | En pourcent. Le seul des six qui **se synchronise** entre tes deux postes, parce que c'est un fait du serveur et pas un brouillon de calcul. À lire dans les paramètres de ton univers : il change le nombre de vaisseaux jusqu'à 2,3 fois |
 
 Rien dans cette carte n'influence le plan du jour ni quoi que ce soit d'autre :
-c'est une calculatrice, comme Outils › Flotte.
+c'est une calculatrice, comme Outils › Flotte. Le **mode lune**, lui, s'en sert
+pour parler dans Aujourd'hui — section suivante.
 
-### 6.10 Empire — par planète
+### 6.10 Outils › Lune — le mode
+
+Un interrupteur 🌑 dans Aujourd'hui, voisin du 🌙 du mode nuit. Tant qu'il est
+allumé, les cartes du tir passent devant le reste du plan. Ses quatre champs
+vivent dans Outils › Lune et non dans la carte, parce que la zone « Maintenant »
+se réécrit toutes les 30 secondes et perdrait une saisie en cours de frappe.
+
+| Réglage | Clé | Valeurs | Défaut | Effet |
+|---|---|---|---|---|
+| *(l'interrupteur 🌑)* | `lune.on` | oui / non | **non** | Allume le mode. Les cartes `Lune` sortent, et celle du tir **échappe au filtre du mode nuit** : un impact à 2 h du matin reste dit. Les autres attendent le réveil |
+| Heure d'impact du prochain tir | `lune.impact` | date et heure | *(vide)* | Décide laquelle des quatre cartes sort. Dans l'heure qui précède, la carte passe **devant les chantiers** |
+| Sa planète | `lune.rendu.coords` | coordonnées | *(vide)* | Où part le tir que tu rends |
+| Chasseurs légers par tir rendu | `lune.rendu.n` | entier ≥ 0 | **0** | Ce que **ton camarade** demande. Le copilote ne voit pas sa défense et ne peut pas le calculer |
+| Tirs promis | `lune.rendu.dus` | entier ≥ 0 | **0** | La dette. `lune.rendu.faits` compte ceux déjà envoyés |
+
+Le compteur de tirs reçus, `lune.tirs`, est tenu **par planète** et avance quand
+tu réponds « Pas cette fois ». Un « Lune ! » le remet à zéro et éteint le mode :
+une campagne réussie ne lègue pas son compteur à la suivante.
+
+**Rien de tout cela ne voyage entre tes deux postes**, contrairement au taux de
+débris. `lune.tirs` est indexé par identifiant de planète, et ces identifiants
+sont tirés au sort sur chaque machine : envoyé tel quel, le compteur du PC
+désignerait une planète qui n'existe pas sur le Mac, et la carte te ferait
+évacuer la mauvaise. Chaque poste tient donc sa campagne jusqu'à ce que la
+traduction pid↔gid, que le copilote fait déjà pour tes priorités, soit faite
+ici aussi.
+
+**Quatre choses que ce mode ne fait pas**, et chacune pour une raison :
+
+- **Il ne voit pas l'attaque arriver.** `content.js` lit tes propres mouvements
+  de flotte, jamais la boîte d'événements du jeu. C'est toi qui saisis l'heure.
+- **Il n'affirme jamais que ta flotte est sortie.** `S.moves` ne porte aucun
+  compte de vaisseaux, et le relevé au sol peut dater d'avant le départ. Un faux
+  « elle est dehors » coûterait les millions que la carte existe pour sauver —
+  c'est pourquoi la carte d'avant-impact n'a pas de bouton.
+- **Il ne met pas les chasseurs du tir rendu dans ton plan.** La carte donne le
+  nombre, le coût et la durée de chantier ; tu lances le chantier. Faire entrer
+  des vaisseaux de combat dans l'arbitrage du plan demande ses propres garde-fous.
+
+### 6.11 Empire — par planète
 
 | Champ | Valeurs | Effet |
 |---|---|---|
@@ -654,14 +694,14 @@ Dépôt de ravitaillement, Silo, Terraformeur et Dock ne produisent ni ne
 stockent : **le classement par amortissement ne les propose jamais de
 lui-même**. Ils sont là pour que tu puisses les viser.
 
-### 6.11 Empire — recherches
+### 6.12 Empire — recherches
 
 15 technologies, chacune avec son **niveau** et son **niveau visé** : Énergie,
 Laser, Ions, Hyperespace, Plasma, Combustion, Impulsion, Propulsion
 hyperespace, Espionnage, Ordinateur, Astrophysique, Réseau intergalactique,
 Armes, Bouclier, Protection des vaisseaux.
 
-### 6.12 Réglages implicites (par clic, pas par formulaire)
+### 6.13 Réglages implicites (par clic, pas par formulaire)
 
 | Geste | Où | Ce que ça règle |
 |---|---|---|
@@ -672,7 +712,7 @@ Armes, Bouclier, Protection des vaisseaux.
 | Replier / déplier une carte | Aujourd'hui | Mémorisé (`ui.fold`) |
 | Onglet d'Outils | Outils | Mémorisé (`ui.tool`) |
 
-### 6.13 Ce qui n'est pas réglable — les choix figés
+### 6.14 Ce qui n'est pas réglable — les choix figés
 
 À connaître, parce que ce sont eux qui décident quand aucun réglage ne parle :
 
@@ -694,7 +734,7 @@ Armes, Bouclier, Protection des vaisseaux.
 | Sondes au centre | 5 | Pour espionner les inactifs |
 | Seuil de rapatriement | 5 000 ressources, ou hangar à plus de 70 % | En dessous, aucun vol |
 
-### 6.14 Fiabilité annoncée des calculs
+### 6.15 Fiabilité annoncée des calculs
 
 Le panneau le dit lui-même, dernière carte de Réglages : les formules viennent
 du wiki et du forum officiel. **Stables** : production, coûts, temps de vol.

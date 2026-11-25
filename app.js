@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.56.1';
+const APP_VERSION = '1.56.2';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -98,6 +98,7 @@ function sample(){
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
     moonCalc:{pid:'', ship:'lf', n:0, bou:null, viser:12},
+    lune:{on:false, impact:null, tirs:{}, rendu:{coords:'', n:0, dus:0, faits:0}},
     expo:{pf:true},
     ui:{tool:'colony', fold:{}},
     day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false,
@@ -140,6 +141,10 @@ S.tech = Object.assign(sample().tech, S.tech);
 S.day = Object.assign(sample().day, S.day);
 S.ui = Object.assign(sample().ui, S.ui);
 S.lf = Object.assign(sample().lf, S.lf);
+/* `rendu` se fusionne à part : Object.assign ne descend pas d'un niveau, et une
+   sauvegarde d'avant le mode lune n'a ni l'un ni l'autre. */
+S.lune = Object.assign(sample().lune, S.lune);
+S.lune.rendu = Object.assign(sample().lune.rendu, S.lune.rendu);
 S.raids = S.raids || {};
 S.prio = Array.isArray(S.prio) ? S.prio : [];
 S.prioAsk = Array.isArray(S.prioAsk) ? S.prioAsk : [];
@@ -1846,6 +1851,12 @@ function header(){
   nb.title = nb.ariaLabel = nuit ? 'Mode jour' : 'Mode nuit';
   nb.classList.toggle('primary', nuit);
   nb.classList.toggle('ghost', !nuit);
+  /* Le mode lune vit à côté : même geste, même endroit. */
+  const lb = document.getElementById('luneBtn'), lune = !!S.lune.on;
+  lb.textContent = lune ? '🌕' : '🌑';
+  lb.title = lb.ariaLabel = lune ? 'Quitter le mode lune' : 'Mode lune';
+  lb.classList.toggle('primary', lune);
+  lb.classList.toggle('ghost', !lune);
   majBouton();
   /* L'engrenage est un onglet comme les autres, hors de la barre : il porte le
      même `data-tab`, donc le même état sélectionné. */
@@ -3926,9 +3937,20 @@ function dailyMissions(){
     if(exposees.length) m.how.push(`Resteront exposés au matin : ${exposees.map(x=>`${esc(planetRef(x.p))} (~${fmt(x.eq)} éq.)`).join(', ')}. ${exposees[0].p.def == null ? 'Ouvre la page Défense pour que le plan monte ce qu\'il faut.' : `Le plan monte ${esc(planetRef(exposees[0].p))} à ${esc(defMixList(exposees[0].p))} : à ce prix-là, percer coûte plus cher qu'emporter.`}`);
     out.push(m);
   }
+  out.push(...luneCartes(), ...luneCartesDette());
+  /* La carte du tir mène la liste, et pas seulement à l'écran : la colonne
+     publiée dans la page du jeu lit cette liste-ci. Trier plus loin, dans le
+     rafraîchissement, laissait « Hangar de métal 1 » au-dessus de « sors ta
+     flotte » là où le joueur regarde vraiment. */
+  out.sort((a, b) => (a.id === 'lune-sors' ? 0 : 1) - (b.id === 'lune-sors' ? 0 : 1));
   /* Mode nuit : le joueur va dormir. Seule la rubrique Sécurité parle de
-     mettre les ressources à l'abri ; tout le reste attendra le réveil. */
-  return S.day.night ? out.filter(m=>m.q === 'Sécurité') : out;
+     mettre les ressources à l'abri ; tout le reste attendra le réveil.
+
+     Une seule carte Lune y échappe, et pour la même raison : sortir sa flotte
+     avant un impact *est* de la mise à l'abri. Un tir qui tombe à 2 h du matin
+     ferait sinon disparaître la carte la plus critique de toutes. La dette et
+     les débris, eux, attendent le réveil comme le reste. */
+  return S.day.night ? out.filter(m=>m.q === 'Sécurité' || m.id === 'lune-sors') : out;
 }
 /* Le copilote ne voit pas ce que le joueur décide dans le jeu : une carte qu'il
    a choisi de ne pas suivre revient au plan suivant, et au suivant — cinq fois
@@ -4153,6 +4175,175 @@ function moonShip(){ return SHIPS[S.moonCalc.ship] ? S.moonCalc.ship : 'lf'; }
 
 /** Le nom du vaisseau au bon nombre, avec les tables qui l'écrivent déjà. */
 function moonNom(k, n){ return n > 1 ? SHIP_PLURAL[k] : (SHIPS[k] || {n:''}).n.toLowerCase(); }
+
+/** Ce qui meurt vraiment d'un envoi de `n` vaisseaux `k` sur la planète `p` :
+    les survivants rentrent chez l'attaquant et ne font pas de débris. `tues`
+    vaut `null` quand la défense n'a jamais été relevée — on suppose alors que
+    tout meurt, et l'appelant le dit plutôt que d'inventer un plafond.
+
+    La carte Lune et les cartes du mode passent toutes deux par ici : c'est la
+    combinaison qui décide de la chance, et elle n'avait pas à vivre en ligne
+    dans un rafraîchissement d'affichage. */
+function luneMorts(p, k, n, bouLvl = 0){
+  const d = luneDefense(p, k, bouLvl), v = luneCoque(k);
+  const tues = d && v ? Math.floor(d.tue / v) : null;
+  return {tues, morts: tues == null ? n : Math.min(n, tues)};
+}
+
+/** Le tir que le joueur doit encore à son camarade, ou `null` quand il n'en
+    doit plus. `manque` est le nombre de chasseurs légers qu'il lui reste à
+    construire pour le prochain.
+
+    Le nombre par tir est saisi, jamais calculé : il faudrait la défense du
+    camarade, que le copilote ne voit pas. Et les chasseurs se comptent sur la
+    planète visée, celle qui porte déjà la flotte du joueur. */
+function luneDette(){
+  if(!S.lune.on) return null;
+  const r = S.lune.rendu || {};
+  const n = Math.max(0, +r.n || 0), dus = Math.max(0, +r.dus || 0), faits = Math.max(0, +r.faits || 0);
+  if(!n || !dus || faits >= dus) return null;
+  const p = moonPlanete(), au = ((p || {}).ships || {}).lf || 0;
+  return {du: faits + 1, dus, n, manque: Math.max(0, n - au), pid: (p || {}).id};
+}
+
+/** Un tir rendu de plus. Le compteur de la dette n'a rien à voir avec celui
+    des tirs reçus : l'un se vide, l'autre se remplit. */
+function luneEnvoye(){
+  if(S.lune.rendu) S.lune.rendu.faits = Math.max(0, +S.lune.rendu.faits || 0) + 1;
+}
+
+/** La probabilité d'avoir déjà eu sa lune après `n` tirs, à la chance que la
+    configuration donne aujourd'hui. `null` quand cette chance est nulle : « 0 %
+    des joueurs auraient leur lune » est juste et illisible.
+
+    C'est le seul chiffre que la carte a le droit de tirer du passé, et il
+    regarde en arrière. Jamais « il reste N tirs » : chaque tir vaut ce qu'il
+    vaut, que ce soit le premier ou le neuvième, et la page Moonchance du wiki
+    renvoie elle-même au sophisme du joueur. Un joueur qui se croit dû continue
+    sur une promesse qui n'existe pas. */
+function luneDeja(p, n){
+  const k = moonShip(), df = moonDf();
+  const {morts} = luneMorts(p, k, Math.floor(Math.max(0, +S.moonCalc.n || 0)), moonBou());
+  const c = luneTir(k, morts, df).chance;
+  if(!c || !(n > 0)) return null;
+  return 100 * (1 - Math.pow(1 - c / 100, n));
+}
+
+/** Vrai dans l'heure qui précède l'impact. C'est la seule fenêtre où la carte
+    Lune passe devant les chantiers : à ce moment-là « Monte Métal 21 » n'a rien
+    à faire au-dessus de « sors ta flotte, 7 M à ta charge ». Hors fenêtre, elle
+    mène les missions et le plan garde sa forme — une campagne dure des jours. */
+function luneUrgent(){
+  const imp = S.lune.on ? S.lune.impact : null;
+  return !!imp && imp > Date.now() && imp - Date.now() <= 3600e3;
+}
+
+/** La fin d'un tir : le joueur dit si une lune est née. Une seule fonction,
+    pour que le bouton de la carte et les tests empruntent le même chemin.
+    Un oui solde la campagne de cette planète — un compteur réussi ne se lègue
+    pas à la suivante — et éteint le mode. */
+function luneRepond(eutUneLune){
+  const p = moonPlanete();
+  if(p) S.lune.tirs[p.id] = eutUneLune ? 0 : (S.lune.tirs[p.id] || 0) + 1;
+  S.lune.impact = null;
+  if(eutUneLune) S.lune.on = false;
+}
+
+/** Les cartes du tir de lune, du côté où le joueur reçoit. Un seul état à la
+    fois, décidé par l'heure d'impact : rien de saisi, un tir qui vient, un tir
+    qui est passé, un tir oublié.
+
+    Elles ne passent pas par la mise en sommeil des autres missions : leur état
+    vit dans S.lune, et un « Non » de réflexe ne doit pas pouvoir éteindre
+    « sors ta flotte » pour toute la campagne. */
+/** Les cartes du côté où le joueur rend : ce qu'il lui manque pour le prochain
+    tir, puis l'ordre de partir. Elles ne vivent que tant qu'une dette reste. */
+function luneCartesDette(){
+  const d = luneDette();
+  if(!d) return [];
+  /* `what` et `why` repassent par esc() dans taskHtml et whyParts : échapper
+     ici donnerait « L&#39;Oasis » sous les yeux du joueur. */
+  const p = moonPlanete(), ou = S.lune.rendu.coords || 'sa planète';
+  const rang = `tir ${d.du} sur ${d.dus}`;
+  if(d.manque > 0){
+    const c = SHIP_COST.lf, t = p ? shipTime('lf', d.manque, p) : 0;
+    return [{id:'lune-dette', q:'Lune', every:12, sev:'info',
+      what:`Il te manque ${fmt(d.manque)} ${moonNom('lf', d.manque)} pour le tir que tu lui dois (${rang})`,
+      why:`Chantier spatial : ${fmt(d.manque * c[0])} métal, ${fmt(d.manque * c[1])} cristal${t ? `, ${dur(t)}` : ''}. Tu en as ${fmt(d.n - d.manque)} sur ${fmt(d.n)}.`,
+      how:['Le copilote ne met pas ces chasseurs dans ton plan : à toi de lancer le chantier.',
+           'Ils ne servent qu\'à mourir chez lui — ne compte pas dessus pour autre chose.']}];
+  }
+  return [{id:'lune-rend', q:'Lune', every:3, sev:'good',
+    what:`Tes ${fmt(d.n)} ${moonNom('lf', d.n)} sont prêts — envoie-les sur ${ou} (${rang})`,
+    why:`Mission Attaquer. Sa défense les tuera tous, et les débris tomberont chez lui.`,
+    how:['Vérifie avec lui qu\'il a sorti sa flotte avant l\'arrivée.',
+         'Clique « Envoyé » une fois la flotte partie, pour que la dette avance.']}];
+}
+
+function luneCartes(){
+  if(!S.lune.on) return [];
+  const p = moonPlanete();
+  if(!p) return [];
+  const k = moonShip(), df = moonDf(), now = Date.now(), imp = S.lune.impact;
+  const n = Math.floor(Math.max(0, +S.moonCalc.n || 0));
+  const {tues, morts} = luneMorts(p, k, n, moonBou());
+  const vise = Math.min(20, Math.max(1, Math.round(+S.moonCalc.viser || 12)));
+  const pour = luneVaisseaux(k, vise, df);
+  const dem = tues == null ? pour : Math.min(pour, tues);
+  const ou = planetRef(p);
+
+  if(!imp) return [{id:'lune-attente', q:'Lune', every:6, sev:'info',
+    what:`Tir de lune sur ${ou} : demande-lui ${fmt(dem)} ${moonNom(k, dem)}`,
+    why:`${tues == null ? 'La défense de cette planète n\'a jamais été relevée : ouvre sa page Défense pour que le chiffre tienne.' : `Au-delà de ${fmt(tues)}, les survivants rentrent chez lui sans rien laisser.`}`,
+    how:['Quand il te donne son heure d\'arrivée, saisis-la dans Outils › Lune : le copilote ne voit pas l\'attaque venir.',
+         'Demande-lui aussi son niveau de Technologie Bouclier, qui change ce que ta défense tue.']}];
+
+  const t = luneTir(k, morts, df), sol = luneFlotteAuSol(p);
+  /* Ce que le passé autorise à dire, et rien de plus : la part des joueurs qui
+     auraient déjà leur lune après autant de tirs. Puis ce que vaut celui qui
+     vient, qui ne doit rien aux précédents. */
+  const faits = Math.max(0, S.lune.tirs[p.id] || 0), deja = luneDeja(p, faits);
+  const passe = deja == null ? ''
+    : ` Tir ${faits + 1} : après ${faits}, ${moonPct(deja)} des joueurs auraient déjà leur lune — le tien vaut toujours ${moonPct(t.chance)}, ni plus ni moins.`;
+  const quoi = sol && sol.m + sol.c > 0
+    ? `${shipList(p.ships)} au sol mourraient avec, ${fmt(sol.m)} métal et ${fmt(sol.c)} cristal à ta charge${p.shipsAt ? `, flotte relevée il y a ${dur((now - p.shipsAt)/1000)}` : ''}.`
+    : `Aucune flotte relevée au sol — vérifie quand même avant l'impact.`;
+
+  if(imp > now) return [{id:'lune-sors', q:'Lune', every:1, sev: imp - now <= 3600e3 ? 'bad' : 'warn',
+    what:`Sors ta flotte de ${ou} — impact dans ${dur((imp - now)/1000)}`,
+    why:`${quoi} ${t.chance ? `Le tir vaut ${moonPct(t.chance)} de chance de lune.` : morts * luneCoque(k) * df / 100 > 0 ? `Ce tir ne vaut rien : sous 100 000 de débris le combat ne donne aucune chance de lune. Il en faut ${fmt(luneVaisseaux(k, 1, df))} morts au moins.` : `Dis dans Outils › Lune combien de vaisseaux il envoie — sans ce nombre, le copilote ne peut rien chiffrer.`}${passe}`,
+    how:['Déploiement vers une autre de tes planètes : elle revient après le combat.',
+         'Les recycleurs partent avec : s\'ils meurent, tu n\'as plus rien pour ramasser.',
+         'Le copilote ne peut pas vérifier qu\'elle est partie — c\'est à toi de regarder.']}];
+
+  const rec = (p.ships || {}).rec || 0, soute = shipStats('rec').cargoEff;
+  if(now - imp < 24 * 3600e3) return [{id:'lune-ramasse', q:'Lune', every:1, sev:'good',
+    what:`Le tir sur ${ou} est passé — une lune est née ?`,
+    why:`${rec && soute && t.debris ? `Ramène tes recycleurs : ${fmt(Math.ceil(t.debris / (rec * soute)))} voyages pour ${fmt(t.debris)} de débris. ` : ''}Si tu es le mieux classé de vous deux, tu ne peux pas garder ses débris : les ramasser serait du pushing, préviens un Game Operator avant.${passe}`,
+    how:['Réponds une fois que tu as vu le rapport de combat : le compteur en dépend.']}];
+
+  return [{id:'lune-perdu', q:'Lune', every:12, sev:'warn',
+    what:`Le tir sur ${ou} date de ${dur((now - imp)/1000)} — que s'est-il passé ?`,
+    why:`Les débris ne sont plus là, et le copilote ne sait pas si la lune est née. Confirme pour que le compteur reprenne.`,
+    how:['Si tu as eu ta lune, réponds oui : la campagne est soldée.',
+         'Sinon réponds non, et saisis l\'heure du prochain tir.']}];
+}
+
+/** L'instant que désigne un champ `datetime-local`, ou `null` s'il est vide ou
+    illisible. Une date-heure complète et non une heure seule : « impact à
+    00:40 » saisi à 23:50 ne dit pas quel jour, et `S.lune.impact` est un
+    instant absolu. */
+function luneQuand(txt){
+  const t = new Date(String(txt == null ? '' : txt)).getTime();
+  return isFinite(t) ? t : null;
+}
+
+/** Le même instant, dans la forme que le champ attend. */
+function luneQuandTxt(ms){
+  if(!ms) return '';
+  const d = new Date(ms), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 /** Une chance en pourcent, lisible : un chiffre après la virgule sous 10 %. */
 function moonPct(x){
@@ -4915,6 +5106,17 @@ moon(){
       <div class="res" id="moonOut"></div>
       <p class="note" id="moonNote"></p>
     </div>
+    <div class="card"><h2>Mode lune</h2>
+      <p class="note">Ces trois-là ne servent qu'au mode lune, l'interrupteur 🌑 de l'onglet Aujourd'hui. Ils vivent ici parce que la zone « Maintenant » se réécrit toute seule et perdrait ta saisie en cours de frappe.</p>
+      <div class="grid">
+        <label class="f">Heure d'impact du prochain tir<input id="lnQuand" type="datetime-local" data-lune="impact" value="${luneQuandTxt(S.lune.impact)}"><span class="note">Celle que ton camarade t'annonce. Le copilote ne voit pas l'attaque arriver.</span></label>
+        <label class="f">Sa planète, pour le tir que tu rends<input id="lnOu" data-lune="coords" value="${esc(S.lune.rendu.coords)}" placeholder="1:140:8"></label>
+      </div>
+      <div class="grid">
+        <label class="f">Chasseurs légers par tir rendu<input id="lnN" type="number" min="0" step="1" data-lune="n" value="${Math.max(0,+S.lune.rendu.n||0)}"><span class="note">Ce que <b>lui</b> te demande : le copilote ne voit pas sa défense et ne peut pas le calculer.</span></label>
+        <label class="f">Tirs promis<input id="lnDus" type="number" min="0" step="1" data-lune="dus" value="${Math.max(0,+S.lune.rendu.dus||0)}"><span class="note">${Math.max(0,+S.lune.rendu.faits||0)} déjà envoyé${(+S.lune.rendu.faits||0)>1?'s':''}.</span></label>
+      </div>
+    </div>
   </section>`;
 },
 fleet(){
@@ -5058,7 +5260,10 @@ today(){
      le vider ici ne perd rien. */
   if(night) for(const x of plan.sessions){ x.acts = []; x.waits = []; }
   const nowParts = [];
-  const missions = dailyMissions().filter(m=>!missionDone(m) && !refused('m:'+m.id));
+  /* Les cartes Lune ne se mettent pas en sommeil : leur état vient de S.lune,
+     et un « Non » de réflexe éteindrait « sors ta flotte » pour toute la
+     campagne — sur la seule carte qui vaut des millions. */
+  const missions = dailyMissions().filter(m=>m.q === 'Lune' || (!missionDone(m) && !refused('m:'+m.id)));
   /* La page du jeu surligne ce que le plan recommande et pose la bande du bas.
      Elle n'en fait rien d'autre : aucun clic, aucun envoi, ce sont des repères.
      Publié ici, après les missions, parce que la bande les porte. */
@@ -5069,9 +5274,24 @@ today(){
   const infoMs = missions.filter(m=>m.info);
   const taskHtml = m=>{
     const [wi, wb] = whyParts([m.why]), meta = (m.tags||[]).map(planetTag).join('') + copyChips(m);
-    return `<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns"><button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${noBtn('m:'+m.id)}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
+    /* Les cartes Lune portent leurs propres boutons : leur état vit dans
+       S.lune, pas dans une mise en sommeil, et « Fait » n'y voudrait rien
+       dire. Celle d'avant-impact n'en a aucun — le copilote ne peut pas
+       vérifier que la flotte est partie, donc il ne fait pas semblant. */
+    const btns = m.q === 'Lune'
+      ? (m.id === 'lune-ramasse' || m.id === 'lune-perdu'
+          ? `<button class="btn sm primary" data-lune-do="oui">Lune !</button><button class="btn sm" data-lune-do="non">Pas cette fois</button>`
+          : m.id === 'lune-rend' ? `<button class="btn sm primary" data-lune-do="env">Envoyé</button>` : '')
+      : `<button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${noBtn('m:'+m.id)}`;
+    return `<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns">${btns}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   };
-  if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${s0.acts.map(a=>actHtml(a,true)).join('')}${nowMs.map(taskHtml).join('')}</ul>`);
+  /* Les cartes Lune mènent les missions ; dans l'heure qui précède l'impact
+     elles passent aussi devant les chantiers. Trier la liste des missions ne
+     suffisait pas : l'ordre de la page se décide ici, pas dans dailyMissions. */
+  const lun = nowMs.filter(m=>m.id === 'lune-sors'), reste = nowMs.filter(m=>m.id !== 'lune-sors');
+  const avant = luneUrgent() ? lun.map(taskHtml).join('') : '';
+  const apres = (luneUrgent() ? reste : lun.concat(reste)).map(taskHtml).join('');
+  if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${avant}${s0.acts.map(a=>actHtml(a,true)).join('')}${apres}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
   if(s0.waits.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${s0.waits.length})</summary><ul class="acts" style="margin-top:6px">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`).join('')}</ul></details>`);
@@ -5244,9 +5464,7 @@ moon(){
      ça la carte promettait 20 % à qui envoie 1 667 chasseurs sur une défense
      qui n'en tue que mille — et une facture en dizaines de millions avec.
      Défense jamais relevée : on suppose que tout meurt, et la jauge le dit. */
-  const d = luneDefense(p, k, moonBou()), v = luneCoque(k);
-  const tues = d ? Math.floor(d.tue / v) : null;
-  const morts = tues == null ? n : Math.min(n, tues);
+  const { tues, morts } = luneMorts(p, k, n, moonBou());
   const t = luneTir(k, morts, df);
   const rec = ((p || {}).ships || {}).rec || 0, soute = shipStats('rec').cargoEff;
   const vise = Math.min(20, Math.max(1, Math.round(+m.viser || 12)));
@@ -5406,6 +5624,12 @@ function bind(){
   }));
   view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.checked; changed(); }));
   view.querySelectorAll('[data-mc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.mc; S.moonCalc[k] = (k==='pid'||k==='ship') ? el.value : Math.max(0, parseInt(el.value, 10)||0); changed(); }));
+  /* `impact` vit à la racine de S.lune, le reste dans `rendu`. */
+  view.querySelectorAll('[data-lune]').forEach(el=>el.addEventListener('input',()=>{ const k=el.dataset.lune;
+    if(k==='impact') S.lune.impact = luneQuand(el.value);
+    else if(k==='coords') S.lune.rendu.coords = el.value.trim();
+    else S.lune.rendu[k] = Math.max(0, parseInt(el.value, 10)||0);
+    changed(); }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
   view.querySelectorAll('[data-ship]').forEach(el=>el.addEventListener('input',()=>{ S.fleetCalc.ships[el.dataset.ship]=Math.max(0,parseInt(el.value)||0); changed(); }));
   /* Le presse-papiers du panneau latéral refuse l'écriture dès que le focus est
@@ -5464,6 +5688,12 @@ view.addEventListener('click', e=>{
     // Fait sur un espionnage : les cibles nommées sortent de la liste pour un jour.
     if(dn.dataset.mark) dn.dataset.mark.split(',').forEach(c=>{ S.raids[c] = {at:Date.now(), probe:true}; }); save(); refresh(); toast('Bien joué'); return; }
   const no = e.target.closest('[data-no]'); if(no){ S.daily.no[no.dataset.no] = Date.now(); save(); refresh(); toast('Mis de côté'); return; }
+  /* Les boutons du mode lune vivent dans #tdNow, que REFRESH réécrit sans
+     repasser par bind() : un on('id') ne les verrait jamais. Ils passent donc
+     par la délégation, comme data-done et data-launch. */
+  const ln = e.target.closest('[data-lune-do]'); if(ln){ const a = ln.dataset.luneDo;
+    if(a === 'env') luneEnvoye(); else luneRepond(a === 'oui');
+    save(); render(); toast(a === 'oui' ? 'Belle lune' : a === 'env' ? 'Tir envoyé' : 'Tir compté'); return; }
   const pd = e.target.closest('[data-prio-del]'); if(pd){ prioRetire(pd.dataset.prioDel); save(); render(); return; }
   const lp = e.target.closest('[data-lfpaliers]');
   if(lp){ const p = planetById(lp.dataset.lfpaliers);
@@ -5600,6 +5830,7 @@ document.getElementById('nightBtn').addEventListener('click',()=>{
     ? `Absence de ${nightLen()} h supposée — Réglages pour l'heure de retour`
     : `Absence jusqu'à ${S.day.backHour} h`);
 });
+document.getElementById('luneBtn').addEventListener('click',()=>{ S.lune.on = !S.lune.on; save(); render(); });
 view.addEventListener('click', e=>{
   if(e.target.id==='tmSound'){ unlockAudio(); chime(); }
   if(e.target.id==='tmAdd'){
@@ -5810,6 +6041,13 @@ chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioA
    Le pid est tiré au sort à la création de la planète, donc propre au poste ;
    le gid vient du jeu et vaut sur les deux. Même règle qu'à la frontière de la
    page du jeu : on traduit en sortie et en entrée, et S ne garde jamais de gid. */
+/* `lune` ne voyage PAS, contrairement à ce que la conception prévoyait.
+   `lune.tirs` est indexé par identifiant de planète, et ces identifiants sont
+   tirés au sort par poste : la clé du PC ne désigne rien sur le Mac. Envoyée
+   telle quelle, la carte évacuait la mauvaise planète et annonçait 0 %. Le
+   dépôt traduit déjà pid↔gid pour les priorités et le centre ; faire pareil
+   ici demande ses propres tests. En attendant, chaque poste tient sa campagne,
+   ce qui est seulement gênant là où l'autre était faux. */
 const SYNC_KEYS = ['settings','day','expo','lf','raids','daily'];
 const gidDe = pid => { const p = planetById(pid); return p && p.gid != null ? String(p.gid) : null; };
 const pidDe = gid => { const p = (S.planets || []).find(x => x.gid != null && String(x.gid) === String(gid)); return p ? p.id : null; };

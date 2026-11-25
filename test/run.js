@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -9247,6 +9247,273 @@ t('une planète sans aucune forme de vie garde son volet de stock', () => {
   assert.ok(/aucune case de forme de vie relevée/.test(h), 'et la phrase des formes de vie tient toujours');
 });
 
+
+/* ---------- le mode lune : l'état et l'interrupteur ---------- */
+
+t('le mode lune part éteint et se range dans l\'état', () => {
+  const g = app();
+  assert.equal(g.S.lune.on, false);
+  assert.equal(g.S.lune.impact, null);
+  assert.deepEqual(g.S.lune.tirs, {});
+  assert.equal(g.S.lune.rendu.faits, 0);
+});
+
+t('une sauvegarde d\'avant le mode lune ne lève pas', () => {
+  const g = app(s => { delete s.lune; });
+  assert.equal(g.S.lune.on, false);
+});
+
+/* ---------- le mode lune : la saisie ---------- */
+
+t('une date-heure saisie devient un instant, et le vide l\'efface', () => {
+  const g = app();
+  assert.equal(g.luneQuand('2026-11-25T01:40'), new Date(2026, 10, 25, 1, 40).getTime());
+  assert.equal(g.luneQuand(''), null);
+  assert.equal(g.luneQuand('n\'importe quoi'), null);
+});
+
+t('l\'onglet Lune porte les champs du mode', () => {
+  const g = app(s => { s.ui.tool = 'moon'; s.lune.rendu.coords = '1:140:8'; });
+  const html = lu(g.VIEWS.moon());
+  assert.ok(/datetime-local/.test(html), 'l\'heure d\'impact');
+  assert.ok(/1:140:8/.test(html), 'la planète du camarade');
+});
+
+/* ---------- le mode lune : ce qui meurt, partagé ---------- */
+
+t('ce qui meurt est borné par ce que la défense tue', () => {
+  const g = app(HQ);
+  const r = g.luneMorts(g.S.planets[0], 'lf', 1667, 0);
+  assert.equal(r.tues, 999);
+  assert.equal(r.morts, 999);
+  assert.equal(g.luneMorts(g.S.planets[0], 'lf', 400, 0).morts, 400);
+});
+
+t('sans défense relevée, tout meurt et on le dit', () => {
+  const g = app(s => { HQ(s); s.planets[0].defs = null; });
+  const r = g.luneMorts(g.S.planets[0], 'lf', 1667, 0);
+  assert.equal(r.tues, null);
+  assert.equal(r.morts, 1667);
+});
+
+/* ---------- le mode lune : les cartes du côté reçu ---------- */
+
+/** Le mode allumé sur le HQ du relevé, un impact dans `dans` millisecondes.
+    L'instant se compte depuis SOIR, l'horloge que le harnais donne à l'appli,
+    et non depuis la vraie : les deux sont à quinze jours l'une de l'autre.
+    La flotte au sol est celle du vrai HQ : c'est elle que la carte chiffre. */
+const MODE = dans => s => {
+  HQ(s);
+  s.planets[0].ships = { lf: 240, hf: 538, pr: 372, rec: 31 };
+  s.ui.tool = 'today';
+  s.moonCalc = { pid: s.planets[0].id, ship: 'lf', n: 900, bou: 12, viser: 12 };
+  s.lune = { on: true, impact: SOIR + dans, tirs: {},
+             rendu: { coords: '', n: 0, dus: 0, faits: 0 } };
+};
+const cartes = g => g.dailyMissions().filter(m => m.q === 'Lune');
+const txtDe = c => lu(c.what + ' ' + c.why + ' ' + (c.how || []).join(' '));
+
+t('avant l\'impact, la carte dit de sortir la flotte et ce qu\'elle vaut', () => {
+  const g = app(MODE(3600e3)), c = cartes(g);
+  assert.equal(c.length, 1);
+  assert.ok(/sors ta flotte/i.test(txtDe(c[0])), txtDe(c[0]));
+  assert.ok(/4,26 M/.test(txtDe(c[0])), 'ce qu\'elle vaut : ' + txtDe(c[0]));
+});
+
+t('après l\'impact, la carte envoie ramasser et rappelle le pushing', () => {
+  const g = app(MODE(-600e3)), c = cartes(g);
+  assert.ok(/recycleur/i.test(txtDe(c[0])), txtDe(c[0]));
+  assert.ok(/pushing/i.test(txtDe(c[0])), 'la règle du jeu : ' + txtDe(c[0]));
+});
+
+t('un impact passé de plus de 24 h demande ce qui s\'est passé', () => {
+  const g = app(MODE(-25 * 3600e3)), c = cartes(g);
+  assert.ok(/passé|confirme/i.test(lu(c[0].what)), lu(c[0].what));
+  assert.ok(!/recycleur/i.test(lu(c[0].what)), 'plus de débris à ramasser');
+});
+
+t('sans heure d\'impact, la carte demande le nombre et l\'heure', () => {
+  const g = app(s => { MODE(0)(s); s.lune.impact = null; }), c = cartes(g);
+  assert.equal(c.length, 1);
+  assert.ok(/quand|heure/i.test(txtDe(c[0])), txtDe(c[0]));
+});
+
+t('le mode éteint ne sort aucune carte Lune', () => {
+  const g = app(s => { MODE(3600e3)(s); s.lune.on = false; });
+  assert.equal(cartes(g).length, 0);
+});
+
+t('le mode nuit ne fait pas disparaître la carte Lune', () => {
+  const g = app(s => { MODE(3600e3)(s); s.day.night = true; });
+  assert.equal(cartes(g).length, 1, 'un impact à 2 h du matin reste dit');
+});
+
+t('un Non ne tue pas la carte Lune pour la campagne', () => {
+  const g = app(s => { MODE(3600e3)(s); s.daily = { done: {}, no: { 'm:lune-sors': true } }; });
+  g.REFRESH.today();
+  assert.ok(/sors ta flotte/i.test(lu(g.html().tdNow || '')), lu(g.html().tdNow || ''));
+});
+
+t('répondre non compte le tir et rouvre l\'attente', () => {
+  const g = app(MODE(-600e3));
+  g.luneRepond(false);
+  assert.equal(g.S.lune.tirs[g.S.planets[0].id], 1);
+  assert.equal(g.S.lune.impact, null);
+  assert.equal(g.S.lune.on, true);
+});
+
+t('répondre oui solde la campagne et éteint le mode', () => {
+  const g = app(s => { MODE(-600e3)(s); s.lune.tirs = { [s.planets[0].id]: 8 }; });
+  g.luneRepond(true);
+  assert.equal(g.S.lune.tirs[g.S.planets[0].id], 0);
+  assert.equal(g.S.lune.on, false);
+});
+
+/* ---------- le mode lune : l'ordre dans Aujourd'hui ---------- */
+
+/* Un chantier se reconnaît à son bouton « Lancé », qui porte `data-launch` :
+   actHtml ne pose aucune classe sur son `<li>`. */
+t('dans l\'heure avant l\'impact, la carte Lune passe avant les constructions', () => {
+  const g = app(MODE(30 * 60e3));
+  assert.ok(g.luneUrgent(), 'la fenêtre est ouverte');
+  g.REFRESH.today();
+  const h = lu(g.html().tdNow || '');
+  const chantier = h.indexOf('data-launch');
+  assert.ok(chantier >= 0, 'le plan propose bien un chantier : ' + h.slice(0, 200));
+  assert.ok(h.indexOf('ors ta flotte') < chantier, 'la lune d\'abord : ' + h.slice(0, 300));
+});
+
+t('hors fenêtre, le plan garde sa forme', () => {
+  const g = app(MODE(6 * 3600e3));
+  assert.ok(!g.luneUrgent(), 'la fenêtre est fermée');
+  g.REFRESH.today();
+  const h = lu(g.html().tdNow || '');
+  assert.ok(/ors ta flotte/.test(h), 'la carte est là : ' + h.slice(0, 200));
+  assert.ok(h.indexOf('data-launch') < h.indexOf('ors ta flotte'), 'mais après les chantiers');
+});
+
+t('mode éteint, aucune fenêtre d\'urgence', () => {
+  const g = app(s => { MODE(30 * 60e3)(s); s.lune.on = false; });
+  assert.ok(!g.luneUrgent());
+});
+
+/* ---------- le mode lune : le compteur honnête ---------- */
+
+t('après cinq tirs, la carte dit la probabilité cumulée et jamais le reste', () => {
+  const g = app(s => { MODE(3600e3)(s); s.lune.tirs = { [s.planets[0].id]: 5 }; });
+  const d = g.luneDeja(g.S.planets[0], 5);
+  assert.ok(Math.abs(d - 43.5) < 1.5, 'cumulée : ' + d);
+  const txt = cartes(g).map(txtDe).join(' ');
+  assert.ok(/4[0-9] %/.test(txt), 'elle est dite : ' + txt);
+  assert.ok(!/il (te )?reste \d+ tirs?/i.test(txt), 'jamais un reste : ' + txt);
+});
+
+t('une configuration à zéro pour cent ne donne aucun pourcentage de joueurs', () => {
+  const g = app(s => { MODE(3600e3)(s); s.moonCalc.n = 50; s.lune.tirs = { [s.planets[0].id]: 5 }; });
+  assert.equal(g.luneDeja(g.S.planets[0], 5), null);
+  assert.ok(!/des joueurs/.test(cartes(g).map(txtDe).join(' ')));
+});
+
+t('au premier tir, rien de cumulé à annoncer', () => {
+  const g = app(MODE(3600e3));
+  assert.ok(!/des joueurs/.test(cartes(g).map(txtDe).join(' ')));
+});
+
+t('le compteur d\'une planète ne touche pas celui d\'une autre', () => {
+  const g = app(s => { MODE(-600e3)(s); s.lune.tirs = { autre: 7 }; });
+  g.luneRepond(false);
+  assert.equal(g.S.lune.tirs.autre, 7);
+  assert.equal(g.S.lune.tirs[g.S.planets[0].id], 1);
+});
+
+/* ---------- le mode lune : le côté où il rend ---------- */
+
+const DETTE = s => { MODE(3600e3)(s);
+  s.lune.rendu = { coords: '1:140:8', n: 900, dus: 9, faits: 3 }; };
+
+t('tant qu\'il doit des tirs, la carte dit ce qu\'il manque de chasseurs', () => {
+  const g = app(s => { DETTE(s); s.planets[0].ships = { lf: 560 }; });
+  assert.equal(g.luneDette().manque, 340);
+  const txt = cartes(g).map(txtDe).join(' ');
+  assert.ok(/340/.test(txt), txt);
+  assert.ok(/4 sur 9/.test(txt), 'où il en est : ' + txt);
+});
+
+t('quand les chasseurs sont là, la carte dit de les envoyer', () => {
+  const g = app(s => { DETTE(s); s.planets[0].ships = { lf: 900 }; });
+  assert.equal(g.luneDette().manque, 0);
+  assert.ok(/1:140:8/.test(cartes(g).map(txtDe).join(' ')), 'et où');
+});
+
+t('dette soldée, plus rien à rendre et aucun chasseur dans les cartes', () => {
+  const g = app(s => { DETTE(s); s.lune.rendu.faits = 9; });
+  assert.equal(g.luneDette(), null);
+  assert.ok(!/chasseurs légers/i.test(cartes(g).map(c => lu(c.what)).join(' ')));
+});
+
+t('sans dette, rien à rendre', () => {
+  assert.equal(app(MODE(3600e3)).luneDette(), null);
+});
+
+t('envoyer un tir avance la dette et pas le compteur des tirs reçus', () => {
+  const g = app(s => { DETTE(s); s.planets[0].ships = { lf: 900 }; });
+  g.luneEnvoye();
+  assert.equal(g.S.lune.rendu.faits, 4);
+  assert.equal(g.S.lune.tirs[g.S.planets[0].id] || 0, 0);
+});
+
+/* ---------- le mode lune : ce que la revue de branche a trouvé ---------- */
+
+t('les boutons du mode passent par la délégation, pas par un id', () => {
+  /* bind() tourne avant refresh(), et la vue Aujourd'hui ne porte qu'un
+     #tdNow vide : un bouton branché par son id n'existe pas encore au moment
+     du bind, et ne serait jamais écouté dans un vrai navigateur. */
+  const g = app(MODE(-600e3));
+  g.REFRESH.today();
+  const h = g.html().tdNow || '';
+  assert.ok(/data-lune-do="oui"/.test(h), 'délégué : ' + h.slice(0, 300));
+  assert.ok(!/id="luneOui"/.test(h), 'et pas branché par un id');
+});
+
+t('un nom de planète à apostrophe se lit tel quel sur la carte', () => {
+  const g = app(s => { MODE(3600e3)(s); s.planets[0].name = 'L\'Oasis'; });
+  const c = cartes(g).find(x => x.id === 'lune-sors');
+  assert.ok(/L'Oasis/.test(c.what), 'taskHtml échappe déjà what : ' + c.what);
+  assert.ok(!/&#39;/.test(c.what), c.what);
+});
+
+t('la carte du tir mène la liste des missions, pour la page du jeu aussi', () => {
+  const g = app(MODE(30 * 60e3));
+  const ms = g.dailyMissions();
+  assert.equal(ms[0].id, 'lune-sors', 'en tête : ' + ms.slice(0, 3).map(m => m.id).join(', '));
+});
+
+t('le mode lune ne voyage pas entre les postes', () => {
+  const g = app();
+  assert.ok(!('sy:lune' in g.syncOut()), 'tirs est indexé par un id tiré au sort par poste');
+});
+
+t('une chance nulle dit pourquoi au lieu d\'annoncer 0 % tout court', () => {
+  const g = app(s => { MODE(3600e3)(s); s.moonCalc.n = 0; });
+  const c = cartes(g).find(x => x.id === 'lune-sors');
+  assert.ok(!/0 % de chance/.test(c.why), 'pas de 0 % nu : ' + c.why);
+  assert.ok(/Outils . Lune|combien/i.test(c.why), 'et la raison : ' + c.why);
+});
+
+t('la nuit ne garde que la carte qui met à l\'abri', () => {
+  const g = app(s => { DETTE(s); s.day.night = true; });
+  const ids = cartes(g).map(m => m.id);
+  assert.deepEqual(ids, ['lune-sors'], 'la dette n\'est pas de la mise à l\'abri : ' + ids.join(', '));
+});
+
+t('dans la fenêtre, seule la carte du tir passe devant les chantiers', () => {
+  const g = app(s => { DETTE(s); s.planets[0].ships = { lf: 560 }; });
+  g.REFRESH.today();
+  const h = lu(g.html().tdNow || ''), ch = h.indexOf('data-launch');
+  assert.ok(ch >= 0, 'un chantier est proposé');
+  assert.ok(h.indexOf('ors ta flotte') < ch, 'le tir devant');
+  assert.ok(h.indexOf('Il te manque') > ch, 'la dette derrière');
+});
 
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
