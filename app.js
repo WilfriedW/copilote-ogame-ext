@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.61.0';
+const APP_VERSION = '1.62.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -405,7 +405,9 @@ function poseLignes(){
   const k = poseK(), hors = ((S.ui.pose || {}).hors || {})[k] || [];
   const vise = parseInt((S.ui.pose || {}).lvl);
   return S.planets.map(p => {
-    const actuel = p.b[k] || 0, coche = !hors.includes(p.id);
+    /* num() et non `|| 0` : un niveau venu d'une sauvegarde abîmée est une
+       chaîne, et la carte l'interpole sans esc comme tout niveau du panneau. */
+    const actuel = num(p.b[k]), coche = !hors.includes(p.id);
     const deja = prioLvl('b', p.id, k);
     return {pid: p.id, name: p.name, coords: p.coords, actuel,
             deja: deja === '' ? null : deja,
@@ -5109,6 +5111,35 @@ function lfPosePaliers(p){
   prioPalier('lf', p.id, r.pop, LF_PALIER.population[0], LF_PALIER.population[1]);
   return true;
 }
+/** La carte qui pose le même niveau visé sur plusieurs planètes à la fois.
+    Chaque ligne dit ce que la pose ferait avant qu'on clique : le joueur ne
+    pose pas en aveugle sur dix planètes, et une planète qui vise déjà plus
+    haut le montre plutôt que de se faire écraser sans un mot.
+    Repliée par défaut, comme la carte des recherches : elle ne sert que par
+    moments, et dépliée elle pousserait l'empire hors de l'écran. */
+function poseBloc(){
+  const k = poseK(), l = poseLignes(), n = l.filter(x => x.agit).length;
+  const vise = parseInt((S.ui.pose || {}).lvl);
+  const options = Object.keys(B).map(j => `<option value="${j}" ${j===k?'selected':''}>${esc(B[j].n)}</option>`).join('');
+  const lignes = l.map(x => {
+    const etat = x.agit ? `<b class="mono">→ ${vise}</b>`
+      : !x.coche ? '<span class="note">décochée</span>'
+      : `<span class="note">déjà à ${x.actuel}</span>`;
+    const deja = x.deja != null && x.deja !== vise ? `<span class="note">déjà visé ${x.deja}</span>` : '';
+    return `<li><label class="row" style="gap:8px"><input type="checkbox" data-posep="${esc(x.pid)}" ${x.coche?'checked':''} style="width:auto">
+      <span><b>${esc(x.name)}</b> <span class="note">${esc(x.coords)}</span></span></label>
+      <span class="row" style="gap:8px"><span class="mono note">${B_SHORT[k]} ${x.actuel}</span>${deja}${etat}</span></li>`;
+  }).join('');
+  return `<details class="card"${fold('pose', false)}><summary data-fold="pose">Poser sur toutes les planètes <span class="note">${n} planète${n>1?'s':''}</span></summary>
+    <p class="note" style="margin:8px 0 0">Le même niveau visé sur toutes les planètes cochées, d'un coup. Chaque planète garde ensuite sa priorité à elle : le clic droit dans le jeu la corrige comme avant. Les planètes décochées le restent pour ce bâtiment.</p>
+    <div class="grid" style="margin-top:8px">
+      <label class="f">Bâtiment<select data-pose="k">${options}</select></label>
+      <label class="f">Niveau visé<input type="number" min="1" data-pose="lvl" value="${vise > 0 ? vise : ''}" placeholder="43"></label>
+    </div>
+    <ul class="list" style="margin-top:8px">${lignes}</ul>
+    <div class="row" style="margin-top:6px"><button class="btn" data-posego="1" ${n?'':'disabled'}>Poser sur ${n} planète${n>1?'s':''}</button></div>
+  </details>`;
+}
 /** Les formes de vie sous leur nom, et non mêlées aux bâtiments : posées à la
     suite du Dock et des Satellites, elles étaient présentes sans être
     trouvables. Rien de relevé n'est pas rien à dire non plus — sans cette
@@ -5254,6 +5285,7 @@ planets(){
   return `<section class="panel">
     ${S.sample ? `<div class="example">Données d'exemple : remplace-les par tes niveaux réels (planète mère, mine de métal 1). Les cases se sauvegardent dans ce navigateur.</div>` : ''}
     <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><details class="volet"${fold('mix', false)}><summary data-fold="mix">Pourquoi ce classement</summary><p class="note" id="empireMix" style="margin-top:8px"></p></details></div>
+    ${poseBloc()}
     ${(()=>{ const voc = vocations(), ci = centreIndex(), auto = centreIndex(true); return S.planets.map((p,i)=>`
     <details class="card volet" data-pi="${i}"${fold('pl:' + p.id, false)}>
       <summary data-fold="pl:${p.id}" class="plsum"><b>${esc(p.name)}</b> <span class="note">${esc(p.coords)}</span><span class="mono" id="psum-${i}"></span></summary>
@@ -5855,6 +5887,24 @@ function bind(){
   /* « change » et non « input » comme les niveaux voisins : sur un labo 5,
      taper « 10 » passe par « 1 », que prioPose jugerait atteint avant de
      recréer la priorité en fin de liste — et le joueur perdrait son rang. */
+  /* La carte de pose en masse. « change » et non « input », comme les champs de
+     priorité juste en dessous : sur un labo 5, taper « 10 » passe par « 1 », et
+     un rendu au milieu de la frappe reprendrait la main sur le champ. */
+  view.querySelectorAll('[data-pose]').forEach(el=>el.addEventListener('change',()=>{
+    const k = el.dataset.pose, n = parseInt(el.value);
+    S.ui.pose[k] = k === 'lvl' ? (n > 0 ? n : '') : el.value;
+    save(); render();
+  }));
+  /* Décocher range la planète sous le bâtiment en cours, et non dans une liste
+     unique : la planète logistique se refuse la mine de métal sans se refuser
+     le labo. */
+  view.querySelectorAll('[data-posep]').forEach(el=>el.addEventListener('change',()=>{
+    const k = poseK(), hors = S.ui.pose.hors = S.ui.pose.hors || {};
+    const sans = new Set(hors[k] || []);
+    el.checked ? sans.delete(el.dataset.posep) : sans.add(el.dataset.posep);
+    hors[k] = [...sans];
+    save(); render();
+  }));
   view.querySelectorAll('input[data-prio]').forEach(el=>el.addEventListener('change',()=>{ const kind = el.dataset.kind || (el.dataset.pid ? 'b' : 't');
     /* Une case de forme de vie se range sous un identifiant entier, et
        l'attribut le donne en chaîne : prioLvl ne la retrouverait pas au relire. */
@@ -5954,6 +6004,12 @@ view.addEventListener('click', e=>{
     if(a === 'env') luneEnvoye(); else luneRepond(a === 'oui');
     save(); render(); toast(a === 'oui' ? 'Belle lune' : a === 'env' ? 'Tir envoyé' : 'Tir compté'); return; }
   const pd = e.target.closest('[data-prio-del]'); if(pd){ prioRetire(pd.dataset.prioDel); save(); render(); return; }
+  /* publieLePlan() comme après un champ de priorité : sans lui, les tuiles du
+     jeu ignoreraient ce qu'on vient de poser sur dix planètes d'un coup. */
+  const pg = e.target.closest('[data-posego]');
+  if(pg){ const n = posePartout();
+    if(n){ save(); render(); publieLePlan(); toast(`Posé sur ${n} planète${n>1?'s':''}`); }
+    return; }
   const lp = e.target.closest('[data-lfpaliers]');
   if(lp){ const p = planetById(lp.dataset.lfpaliers);
     if(p && lfPosePaliers(p)){ save(); render(); publieLePlan(); toast('Paliers de population posés'); }
