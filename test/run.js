@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -976,6 +976,45 @@ t('la durée de production se lit au format du jeu', () => {
   assert.equal(g.lfSecs('PT1H2M3S'), 3723);
   assert.equal(g.lfSecs('PT45S'), 45);
   assert.equal(g.lfSecs(null), 0, 'pas de durée affichée : on ne devine pas');
+});
+
+/* ---------- les emplacements d'une planète ---------- */
+
+t('l\'infobulle de la vignette donne les emplacements', () => {
+  const g = app();
+  // Relevé sur le jeu : nom, coordonnées, diamètre et emplacements, températures.
+  assert.deepEqual(g.casesTuile('Planète mère [1:234:5] 12.800km (150/163) -13 °C à 27 °C'),
+    { pris: 150, max: 163 });
+  assert.equal(g.casesTuile('Planète mère [1:234:5]'), null, 'rien à deviner');
+  assert.equal(g.casesTuile(null), null);
+});
+
+t('un relevé d\'emplacements aberrant est ignoré plutôt que cru', () => {
+  // Une parenthèse attrapée ailleurs dans l'infobulle déclarerait la planète
+  // pleine et ferait taire le plan dessus : le silence est pire que le bug.
+  const g = app(s => { s.planets[0].cases = { pris: 2, max: 3 }; });
+  assert.equal(g.casesLibres(g.S.planets[0]), null, 'trois emplacements : ce n\'est pas une planète');
+  assert.ok(!g.planetAlerts(g.S.planets[0]).some(a => /emplacement/.test(a.what)),
+    'et rien ne s\'affiche');
+  assert.ok(g.simulateDay().sessions[0].acts.some(a => a.kind === 'b'), 'le plan continue');
+});
+
+t('le dernier emplacement est annoncé avant d\'être pris', () => {
+  const g = app(s => { s.planets[0].cases = { pris: 162, max: 163 }; });
+  const a = g.planetAlerts(g.S.planets[0]).find(x => /Un seul emplacement/.test(x.what));
+  assert.ok(a, 'c\'est maintenant que le joueur choisit, pas après avoir lancé');
+  assert.ok(/Terraformeur/.test(a.why), 'et la raison de le garder : ' + (a && a.why));
+  assert.ok(g.simulateDay().sessions[0].acts.some(a2 => a2.kind === 'b'),
+    'mais le plan continue de proposer : prendre le dernier reste son droit');
+});
+
+t('une planète pleine le dit, et le plan n\'y propose plus rien', () => {
+  // Un niveau de plus est un emplacement de plus : même une mine est refusée.
+  const g = app(s => { s.planets[0].cases = { pris: 163, max: 163 }; });
+  const a = g.planetAlerts(g.S.planets[0]).find(x => /Plus un emplacement/.test(x.what));
+  assert.ok(a && a.sev === 'bad', 'le jeu refuse tout ici');
+  assert.ok(!g.simulateDay().sessions.flatMap(x => x.acts).some(x => x.kind === 'b' && x.p === 0),
+    'le plan ne propose plus de bâtiment sur cette planète');
 });
 
 t('chaque ligne de coût est rangée dans la bonne ressource', () => {

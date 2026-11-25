@@ -73,6 +73,21 @@ function lfRes(cls){
   return /\bmetal\b/.test(c) ? 0 : /\bcrystal\b/.test(c) ? 1 : /deuter/.test(c) ? 2 : -1;
 }
 /**
+ * Les emplacements d'une planète, lus dans l'infobulle de sa vignette : sous le
+ * nom et les coordonnées, le jeu y écrit « 12.800km (150/163) ». Rien d'autre
+ * ne les publie — ni la page Ressources, ni les métadonnées de la page. Les
+ * coordonnées ne peuvent pas s'y glisser : elles se séparent par des
+ * deux-points.
+ * Le bon sens des chiffres se juge ailleurs, dans le panneau, avec le reste de
+ * ce que le jeu publie.
+ * @param {string} tip texte de l'infobulle, balises retirées
+ * @returns {{pris:number, max:number}|null} null si l'infobulle ne le dit pas
+ */
+function casesTuile(tip){
+  const m = /\((\d+)\/(\d+)\)/.exec(String(tip || ''));
+  return m ? { pris: +m[1], max: +m[2] } : null;
+}
+/**
  * L'état d'une case de forme de vie, lu dans l'infobulle de sa tuile. Le jeu y
  * écrit le nom sur la première ligne et la raison du refus sur la suivante
  * (« Académie des sciences », puis « La population est trop faible. ») : seule

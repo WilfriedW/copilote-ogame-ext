@@ -76,12 +76,16 @@
     const planets = [...document.querySelectorAll('#planetList .smallplanet')].map(sp => {
       const link = sp.querySelector('.planetlink');
       const tip = link ? (link.dataset.tooltipTitle || link.getAttribute('title') || '') : '';
-      const temps = [...clean(tip).matchAll(/(-?\d+)\s*°C/g)].map(m => +m[1]);
+      const txt = clean(tip);
+      const temps = [...txt.matchAll(/(-?\d+)\s*°C/g)].map(m => +m[1]);
+      /* La même infobulle porte le diamètre et les emplacements. */
+      const c = casesTuile(txt);
       return {
         id: (sp.id || '').replace('planet-', ''),
         name: clean(sp.querySelector('.planet-name')?.textContent),
         coords: clean(sp.querySelector('.planet-koords')?.textContent).replace(/[\[\]]/g, ''),
-        tmax: temps.length ? Math.max(...temps) : null
+        tmax: temps.length ? Math.max(...temps) : null,
+        cases: c
       };
     }).filter(p => p.id);
 

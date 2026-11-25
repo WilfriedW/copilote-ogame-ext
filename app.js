@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.62.5';
+const APP_VERSION = '1.63.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -2019,6 +2019,20 @@ function milestoneDone(m){ return m.t==='t' ? S.tech[m.k]>=m.lvl : S.planets[0] 
 function milestoneLabel(m){ return m.t==='t' ? `${T[m.k].n} ${m.lvl}` : `${B[m.k].n} ${m.lvl}`; }
 function milestoneMissing(m){ return m.t==='t' ? reqOk(T[m.k].req, null) : reqOk(B[m.k].req, S.planets[0]); }
 
+/* Les emplacements d'une planète, quand le relevé les a vus et qu'ils tiennent
+   debout. Un chiffre aberrant — une parenthèse attrapée ailleurs dans
+   l'infobulle — déclarerait une planète pleine et ferait taire le plan dessus :
+   on préfère ne rien savoir. Aucune planète d'OGame n'a moins de vingt
+   emplacements. */
+function casesSaines(c){
+  return !!c && Number.isFinite(c.pris) && Number.isFinite(c.max)
+    && c.max >= 20 && c.max <= 1000 && c.pris >= 0 && c.pris <= c.max;
+}
+/** Emplacements libres, ou null si on ne sait pas. */
+function casesLibres(p){
+  return casesSaines(p && p.cases) ? p.cases.max - p.cases.pris : null;
+}
+
 /** Ce qui ne va pas sur une planète, maintenant, quoi que fassent ses files.
     Volontairement séparée de pickBuildings : celle-là choisit quoi construire
     et se tait dès qu'une file est occupée ou que des satellites arrivent, ce
@@ -2040,6 +2054,14 @@ function planetAlerts(p){
     if(marge >= 0) out.push({sev:'good', what:`Remonter les mines à 100 %${where}`, why:`Tu les as bridées à ${br.min} %. L'énergie suffit de nouveau : il en resterait ${marge} de libre une fois les mines remontées.`});
     else if(pr.factor>=1) out.push({sev:'warn', what:`Mines bridées à ${br.min} %${where}`, why:`Il manque ${-marge} d'énergie pour les remonter à 100 %. Monte la centrale solaire, je te dirai quand les remonter.`});
   }
+  /* Chaque niveau de bâtiment occupe un emplacement, et le Terraformeur est un
+     bâtiment comme un autre : il lui en faut un de libre pour être posé. Le
+     classement par amortissement ne compte pas les emplacements — il proposait
+     donc le dernier sans un mot, et le joueur ne l'apprenait que dans la fenêtre
+     du jeu, au moment de lancer. */
+  const libres = casesLibres(p);
+  if(libres === 0) out.push({sev:'bad', what:`Plus un emplacement libre${where}`, why:`${p.cases.max} emplacements, tous pris. Le jeu refuse toute construction ici, Terraformeur compris. Démolis un bâtiment que tu ne sers pas — un hangar surdimensionné, le Dépôt de ravitaillement — pour en rendre un.`});
+  else if(libres === 1) out.push({sev:'warn', what:`Un seul emplacement libre${where}`, why:`${p.cases.pris} sur ${p.cases.max}. La prochaine construction prend le dernier, et plus rien ne se posera ensuite. Le Terraformeur en agrandit la planète, mais il lui faut cet emplacement-là pour être construit : garde-le-lui si tu le vises.`});
   ['m','c','d'].forEach((x,k)=>{
     const rate=[pr.m,pr.c,pr.d][k], name=['Hangar de métal','Hangar de cristal','Réservoir de deutérium'][k], bk=['smetal','scrystal','sdeut'][k];
     if(st[k]>=pr.cap[k]*0.98) out.push({sev:'bad', what:`${name} plein${where}`, why:`La production de ${['métal','cristal','deutérium'][k]} est arrêtée. Dépense ou monte ${name} ${p.b[bk]+1}.`});
@@ -2763,6 +2785,11 @@ function mineWhy(p, k){
 
 /** Building candidates for a simulated planet, most urgent first. */
 function pickBuildings(p, ctx){
+  /* Planète pleine : le jeu refuse tout, y compris la montée d'une mine — un
+     niveau de plus est un emplacement de plus. Proposer quand même serait la
+     même faute que la case de forme de vie que la population bloque. Sans
+     relevé des emplacements, `casesLibres` rend null et rien ne change. */
+  if(casesLibres(p) === 0) return [];
   const pr = production(p), iv = ctx.iv, rates=[pr.m,pr.c,pr.d], sk=['smetal','scrystal','sdeut'], out=[];
   /* `libre` : ce candidat-là ne se voit pas opposer la réserve de la priorité.
      Les deux chantiers de secours protègent la production qui paie la
@@ -2819,7 +2846,7 @@ function simulateDay(){
      automatique pour tout le reste de la journée simulée. */
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
-  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
+  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
   const expoBusy = [];
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
@@ -6299,6 +6326,7 @@ function applyGame(g){
     if(gp.lf){ const lf = Object.assign({}, p.lf); for(const [k,v] of Object.entries(gp.lf)) lf[k] = lfMerge(lf[k], v); p.lf = lf; }
     if(gp.lfSeen) p.lfSeen = Object.assign({}, p.lfSeen, gp.lfSeen);
     if(gp.tmax != null) p.tmax = gp.tmax;
+    if(casesSaines(gp.cases)) p.cases = { pris: gp.cases.pris, max: gp.cases.max };
     Object.assign(p.b, gp.b || {});
     /* `bLu` est posé ici et nulle part ailleurs : c'est le seul endroit où le
        jeu rend une grille de niveaux. Un `gid` ne dit que le nom, et `bNeuve`
