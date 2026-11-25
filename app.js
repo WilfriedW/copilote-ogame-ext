@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.55.0';
+const APP_VERSION = '1.55.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -5932,6 +5932,28 @@ function prioIn(l){
     return o;
   });
 }
+/* La campagne de lune voyage comme les priorités : en identifiants de jeu, les
+   seuls que les deux postes nomment pareil. Elle emporte aussi les réglages de
+   la carte dont le mode dépend — la planète visée et le nombre de vaisseaux —
+   parce qu'une campagne qui voyage à moitié désigne la mauvaise planète à
+   l'arrivée, ce qui est précisément le défaut que ceci répare.
+
+   Rend `undefined` dès qu'une planète nommée n'a pas de gid : mieux vaut ne
+   rien envoyer qu'un paquet que l'autre poste lirait de travers. */
+function luneOut(){
+  const cible = gidDe(S.moonCalc.pid);
+  if(cible == null) return undefined;
+  const tirs = {};
+  for(const [pid, n] of Object.entries(S.lune.tirs || {})){
+    const g = gidDe(pid);
+    if(g == null) return undefined;
+    tirs[g] = (tirs[g] || 0) + n;
+  }
+  const m = S.moonCalc, l = S.lune;
+  return {on: !!l.on, impact: l.impact, rendu: l.rendu, tirs, cible,
+          n: m.n, ship: m.ship, bou: m.bou, viser: m.viser};
+}
+
 function syncOut(){
   const out = {};
   for(const k of SYNC_KEYS) out['sy:' + k] = S[k];
@@ -5941,6 +5963,7 @@ function syncOut(){
   const prio = prioOut(S.prio);
   if(prio.every(e => !e || e.kind === 't' || e.gid != null)) out['sy:prio'] = prio;
   const centre = gidDe(S.centre); if(centre != null) out['sy:centre'] = centre;
+  const lune = luneOut(); if(lune) out['sy:lune'] = lune;
   return out;
 }
 /* `var` et non `let` : save() part dès le chargement, avant que cette ligne
