@@ -31,7 +31,7 @@ Cinq cas que la spec implique sans qu'aucune tâche ne les exerce d'elle-même. 
 
 ---
 
-### Tâche 1 : La carte de planète se replie, sa production dans le résumé
+### Task 1: La carte de planète se replie, sa production dans le résumé
 
 **Files:**
 - Modify: `app.js:4751-4789` (`VIEWS.planets`), `app.js:5073-5090` (`REFRESH.planets`)
@@ -109,7 +109,7 @@ git commit -m "feat: chaque planète se replie en une ligne qui porte sa product
 
 ---
 
-### Tâche 2 : Les niveaux relevés deviennent muets, le niveau visé seul vif
+### Task 2: Les niveaux relevés deviennent muets, le niveau visé seul vif
 
 **Files:**
 - Modify: `app.js:4774` (grille des bâtiments), `app.js:4772` (résumé du volet), `panel.css:170`
@@ -197,7 +197,7 @@ git commit -m "feat: les niveaux lus dans le jeu deviennent muets, le niveau vis
 
 ---
 
-### Tâche 3 : La prose de conseil se replie
+### Task 3: La prose de conseil se replie
 
 **Files:**
 - Modify: `app.js:4765-4771` (vocation, centre, notes), `app.js:4754` (carte d'empire), `app.js:5086-5089` (`REFRESH.planets`)
@@ -276,7 +276,7 @@ git commit -m "feat: la prose de conseil se range derrière un volet, les chiffr
 
 ---
 
-### Tâche 4 : Les stocks dans leur propre volet, valeurs dans le résumé
+### Task 4: Les stocks dans leur propre volet, valeurs dans le résumé
 
 **Files:**
 - Modify: `app.js:4777-4784` (fin du volet des bâtiments), `app.js:5073-5090` (`REFRESH.planets`)
@@ -343,7 +343,7 @@ git commit -m "feat: les stocks ont leur volet, leurs valeurs se lisent sans l'o
 
 ---
 
-### Tâche 5 : Vérification visuelle à l'aperçu
+### Task 5: Vérification visuelle à l'aperçu
 
 Les 800 vérifications sont aveugles au rendu : c'est ce qui a livré deux champs
 invisibles le 2026-11-18. Cette tâche ne change pas de code, elle regarde.

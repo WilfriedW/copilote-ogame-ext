@@ -175,6 +175,22 @@ details.volet>summary::after{content:"Ouvrir +";font-family:var(--f-mono);font-s
 details.volet[open]>summary::after{content:"Fermer –"}
 /* Un niveau relevé sur le jeu ne se tape pas : il ne doit pas avoir l'air
    d'un champ qu'on remplit. */
+/* Les raisons, dans leur volet : des paragraphes qui respirent, pas un bloc. */
+.col-notes{display:flex;flex-direction:column;gap:6px}
+/* Le résumé d'une planète est la ligne qu'on lit sept fois : le nom porte, et
+   les chiffres de production s'alignent à droite, avant le « Ouvrir + ». */
+/* Un nom de planète est un nom propre, pas un titre de section : il garde la
+   casse que le joueur a tapée, contrairement aux titres de carte. */
+details.card.volet{padding:8px}
+/* Fermée, la carte n'est que son résumé — qui porte déjà fond, bordure et
+   marge. Le `gap` de .card s'applique même à un corps replié : sans ça,
+   chaque ligne traînait vingt pixels de vide, sept fois de suite. */
+details.card.volet:not([open]){gap:0;padding:0;border:0;background:transparent}
+details.card.volet>summary.plsum{font-size:14px;gap:8px;text-transform:none;letter-spacing:0}
+summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
+/* Le niveau visé est le seul champ de la ligne où le joueur tape : il porte
+   l'accent, le niveau relevé d'à côté reste muet. */
+.lv input.prio{border-color:var(--accent)}
 .lv input[readonly]{color:var(--muted);background:transparent;border-style:dashed}
 .acts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .acts li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;align-items:center;background:var(--surface-2);border-radius:var(--r-sm);padding:9px 12px}

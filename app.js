@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.56.0';
+const APP_VERSION = '1.56.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -315,6 +315,22 @@ function prioRecoit(neuves){
 function prioIdx(kind, pid, k){
   return (S.prio || []).findIndex(e => e && e.kind === kind && e.k === k && (kind === 't' || e.pid === pid));
 }
+/** Le jeu a-t-il réellement lu les niveaux de cette planète ? Seul `bLu`
+    l'atteste, posé par le relevé quand il rend une grille. Partout ailleurs —
+    hors extension, planète jamais visitée, planète seulement nommée — le
+    joueur doit pouvoir taper ses niveaux. Là où le jeu les lit, les taper ne
+    servirait à rien : le prochain relevé les réécrit. */
+function lvLu(p){ return IS_EXT && !!p.bLu; }
+
+/** Combien de priorités le joueur a posées sur cette planète, bâtiments et
+    formes de vie confondus : une case de forme de vie est une priorité comme
+    une autre. Les recherches en sont exclues — `prios()` les range sous la
+    planète du labo, mais elles se visent dans la carte des recherches. */
+function prioCount(pid){
+  return prios().filter(x => x.kind === 'b' && x.pid === pid).length
+       + priosLf().filter(x => x.pid === pid).length;
+}
+
 function prioLvl(kind, pid, k){
   const e = (kind === 'lf' ? priosLf().map(x => ({kind:'lf', pid:x.pid, k:x.k, lvl:x.lvl})) : prios()).find(x => x.kind === kind && x.k === k && (kind === 't' || x.pid === pid));
   /* `lvl` vient de `S.prio`, donc d'une sauvegarde : un nombre, ou la case vide. */
@@ -4616,13 +4632,17 @@ function centreNoteHtml(p, i, ci){
 }
 /** La vocation d'une planète, en une pastille et sa raison. Rien à dire est
     aussi une information : rien ne distingue cette planète des autres. */
-function vocHtml(v){
+function vocPill(v){
   if(!v) return `<span class="note">${S.planets.length < 2
     ? 'Une seule planète : rien à comparer pour l\'instant.'
     : 'Pas de vocation marquée : son sol ne la distingue d\'aucune autre.'}</span>`;
   const nom = v.keys.length ? v.keys.map(k=>VOC_NOM[k]).join(' et ') : 'Vocation inconnue';
-  return `<span class="pill info">${nom}</span>${v.why?`<span class="note">${esc(v.why)}</span>`:''}`;
+  return `<span class="pill info">${nom}</span>`;
 }
+/** La raison de la vocation. Elle vit dans le volet des raisons : le joueur
+    vient lire une production et poser des objectifs, pas relire pourquoi son
+    sol est ce qu'il est — mais il doit pouvoir y revenir. */
+function vocRaison(v){ return v && v.why ? `<span class="note">${esc(v.why)}</span>` : ''; }
 /** Ce qu'un centre sans labo laisse derrière lui. Le copilote obéit au joueur,
     mais il ne lui cache pas qu'un labo déjà payé ne suivra pas. */
 function labLaisse(p){
@@ -4819,9 +4839,10 @@ tools(){
 planets(){
   return `<section class="panel">
     ${S.sample ? `<div class="example">Données d'exemple : remplace-les par tes niveaux réels (planète mère, mine de métal 1). Les cases se sauvegardent dans ce navigateur.</div>` : ''}
-    <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><p class="note" id="empireMix"></p></div>
+    <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><details class="volet"${fold('mix', false)}><summary data-fold="mix">Pourquoi ce classement</summary><p class="note" id="empireMix" style="margin-top:8px"></p></details></div>
     ${(()=>{ const voc = vocations(), ci = centreIndex(), auto = centreIndex(true); return S.planets.map((p,i)=>`
-    <div class="card" data-pi="${i}">
+    <details class="card volet" data-pi="${i}"${fold('pl:' + p.id, false)}>
+      <summary data-fold="pl:${p.id}" class="plsum"><b>${esc(p.name)}</b> <span class="note">${esc(p.coords)}</span><span class="mono" id="psum-${i}"></span></summary>
       <div class="planet-head">
         <input id="pn-${p.id}" data-p="name" value="${esc(p.name)}" aria-label="Nom de la planète">
         <input id="pc-${p.id}" class="coords" data-p="coords" value="${esc(p.coords)}" aria-label="Coordonnées" placeholder="1:1:8">
@@ -4830,27 +4851,35 @@ planets(){
         ${S.planets.length>1?`<button class="btn sm ghost" data-del="${i}">Retirer</button>`:''}
       </div>
       <div class="res" id="pres-${i}"></div>
-      <div class="row" style="gap:8px"><span class="voc" id="pvoc-${i}">${vocHtml(voc[p.id])}</span>${ci<0
+      <div class="row" style="gap:8px"><span class="voc" id="pvoc-${i}">${vocPill(voc[p.id])}</span>${ci<0
         ? `<span class="note">${S.day.focus==='fleet'
             ? 'Stratégie flotte : pas de centre, tes planètes doivent rester dispersées.'
             : 'Un centre se choisit entre plusieurs planètes.'}</span>`
-        : `<label class="f coche"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>${i===ci&&centreWhy()?`<span class="note">${esc(centreWhy())}</span>`:''}`}</div>
-      <p class="note" style="margin:0" id="pctrn-${i}">${centreNoteHtml(p, i, ci)}</p>
+        : `<label class="f coche"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>`}</div>
       <p class="note" id="pfleet-${i}" style="margin:0"></p>
-      <details class="volet"${fold('niv:' + p.id, false)}><summary data-fold="niv:${p.id}">Bâtiments et niveaux visés</summary>
+      <details class="volet" id="pq-${i}"${fold('pq:' + p.id, false)}><summary data-fold="pq:${p.id}">Pourquoi cette planète</summary>
+      <div class="col-notes" style="margin-top:8px">
+        <span id="pvocw-${i}">${vocRaison(voc[p.id])}</span>
+        ${ci>=0&&i===ci&&centreWhy()?`<p class="note" style="margin:0">${esc(centreWhy())}</p>`:''}
+        <p class="note" style="margin:0" id="pctrn-${i}">${centreNoteHtml(p, i, ci)}</p>
+      </div>
+      </details>
+      <details class="volet"${fold('niv:' + p.id, false)}><summary data-fold="niv:${p.id}">Bâtiments et niveaux visés <span class="note" id="pobj-${i}"></span></summary>
       <div class="grid tight" style="margin-top:8px">
-        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${num(p.b[k])}"><input class="prio" type="number" min="${num(p.b[k])+1}" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
-        <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${num(p.sats)}"></label>
+        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${num(p.b[k])}"${lvLu(p) ? ' readonly tabindex="-1"' : ''}><input class="prio" type="number" min="${num(p.b[k])+1}" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
+        <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${num(p.sats)}"${lvLu(p) ? ' readonly tabindex="-1"' : ''}></label>
       </div>
       ${lfBloc(p)}
-      <p class="note" style="margin:10px 0 0"><b>Stock</b> — ce que cette planète a en magasin. Il avance tout seul avec ta production ; recale-le quand tu dépenses.</p>
+      </details>
+      <details class="volet"${fold('stock:' + p.id, false)}><summary data-fold="stock:${p.id}">Stock <span class="mono note" id="pstk-${i}"></span></summary>
+      <p class="note" style="margin:8px 0 0">Ce que cette planète a en magasin. Il avance tout seul avec ta production ; recale-le quand tu dépenses.</p>
       <div class="grid tight" style="margin-top:6px">
           <label class="f">Métal<input id="sm-${p.id}" type="number" data-s="m" value="${Math.round(stockNow(p)[0])}"></label>
           <label class="f">Cristal<input id="sc-${p.id}" type="number" data-s="c" value="${Math.round(stockNow(p)[1])}"></label>
           <label class="f">Deutérium<input id="sd-${p.id}" type="number" data-s="d" value="${Math.round(stockNow(p)[2])}"></label>
       </div>
       </details>
-    </div>`).join(''); })()}
+    </details>`).join(''); })()}
     <div class="row"><button class="btn" id="addPlanet">Ajouter une colonie</button>
     <span class="note" id="colonyNote"></span></div>
   </section>`;
@@ -5151,12 +5180,26 @@ planets(){
       gauge('m','m','Métal',fmt(pr.m),full(0)) + gauge('c','c','Cristal',fmt(pr.c),full(1)) + gauge('d','d','Deutérium',fmt(pr.d),full(2)) +
       gauge('e','e','Énergie',(pr.eBal>=0?'+':'')+fmt(pr.eBal), `${fmt(pr.eProd)} produits / ${fmt(pr.eCons)}${p.eAdj<0?` · dont ${fmt(p.eAdj)} formes de vie`:''}`) +
       crawlerPill(p);
+    /* Les trois chiffres dans le résumé : c'est ce qu'on vient lire, et la
+       carte reste fermée pour le lire. */
+    const ps = document.getElementById('psum-'+i); if(ps) ps.innerHTML = [pr.m, pr.c, pr.d].map(fmt).join(' · ');
+    /* Le stock ne se lit en chiffres nulle part ailleurs — les jauges au-dessus
+       disent la production. Son résumé le rend lisible sans ouvrir le volet,
+       qui ne sert qu'à le recaler. */
+    const pk = document.getElementById('pstk-'+i); if(pk) pk.innerHTML = st.map(fmt).join(' · ');
     const fl = document.getElementById('pfleet-'+i); if(fl){ const l = shipList(p.ships); fl.innerHTML = l ? `<b>Flotte à quai :</b> ${esc(l)}` : (IS_EXT ? 'Flotte inconnue : ouvre la page Flotte du jeu sur cette planète.' : ''); }
     /* La vocation et la note du centre suivent les coordonnées, la température
        et les niveaux qu'on tape dans la carte : sans ça elles restaient
        périmées jusqu'au prochain rendu complet. On ne réécrit que du texte —
        la case du centre garde son écouteur, qu'un innerHTML emporterait. */
-    const vq = document.getElementById('pvoc-'+i); if(vq) vq.innerHTML = vocHtml(voc[p.id]);
+    const vq = document.getElementById('pvoc-'+i); if(vq) vq.innerHTML = vocPill(voc[p.id]);
+    const vw = document.getElementById('pvocw-'+i); if(vw) vw.innerHTML = vocRaison(voc[p.id]);
+    const nb = prioCount(p.id);
+    const po = document.getElementById('pobj-'+i); if(po) po.textContent = nb ? `${nb} priorité${nb > 1 ? 's' : ''}` : '';
+    /* Un volet qui promet une explication et s'ouvre sur du vide est du bruit
+       de plus, pas de moins. Il se cache quand les trois raisons sont muettes. */
+    const pq = document.getElementById('pq-'+i);
+    if(pq) pq.hidden = !(vocRaison(voc[p.id]) || (i === ci && centreWhy()) || centreNoteHtml(p, i, ci));
     const cn = document.getElementById('pctrn-'+i); if(cn) cn.innerHTML = centreNoteHtml(p, i, ci);
   });
   document.getElementById('empireRes').innerHTML = gauge('m','m','Métal',fmt(tm),fmt(tm*24)+' / jour')+gauge('c','c','Cristal',fmt(tc),fmt(tc*24)+' / jour')+gauge('d','d','Deutérium',fmt(td),fmt(td*24)+' / jour')+gauge('e','e','Planètes',S.planets.length,`max ${1+Math.ceil(S.tech.astro/2)} (Astro ${S.tech.astro})`);
@@ -5652,7 +5695,11 @@ function applyGame(g){
     if(gp.lfSeen) p.lfSeen = Object.assign({}, p.lfSeen, gp.lfSeen);
     if(gp.tmax != null) p.tmax = gp.tmax;
     Object.assign(p.b, gp.b || {});
-    if(gp.b && Object.keys(gp.b).length) delete p.bNeuve; // ses niveaux sont lus
+    /* `bLu` est posé ici et nulle part ailleurs : c'est le seul endroit où le
+       jeu rend une grille de niveaux. Un `gid` ne dit que le nom, et `bNeuve`
+       s'efface à la première frappe du joueur — ni l'un ni l'autre ne peut
+       servir de preuve que ces niveaux viennent du jeu. */
+    if(gp.b && Object.keys(gp.b).length){ delete p.bNeuve; p.bLu = 1; }
     if(gp.sats != null) p.sats = gp.sats;
     if(gp.crawlers != null) p.crawlers = gp.crawlers;
     if(gp.def != null) p.def = gp.def;

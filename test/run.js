@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -6832,10 +6832,14 @@ t('le compteur du niveau visé part du niveau en place, pas de 1', () => {
   assert.match(g.VIEWS.research(), /min="8" data-prio="plasma"/, 'une recherche');
 });
 
-t('le stock dit son nom au-dessus de sa grille, et quitte le titre du volet', () => {
+/* Le stock a maintenant son propre volet : son nom est le titre de ce volet,
+   donc visible même fermé, et ses trois valeurs l'accompagnent. C'est plus que
+   ce que le libellé en gras donnait, qui ne se voyait qu'une fois ouvert. */
+t('le stock dit son nom dans le titre de son volet, et son sens juste au-dessus de sa grille', () => {
   const h = app().VIEWS.planets();
-  assert.match(h, /<b>Stock<\/b> — ce que cette planète a en magasin/);
-  assert.doesNotMatch(h, /stock et niveaux visés/, 'le titre ne le porte plus');
+  assert.match(h, /<summary data-fold="stock:[^"]*">Stock /);
+  assert.match(h, /Ce que cette planète a en magasin/);
+  assert.doesNotMatch(h, /stock et niveaux visés/, 'le titre des bâtiments ne le porte toujours pas');
 });
 
 t('l\'écho de notre propre écriture ne redessine pas la vue', () => {
@@ -9084,6 +9088,165 @@ t('une heure de retour truquée par une synchro est refusée à l\'entrée', () 
   assert.equal(g.S.day.backHour, null);
   assert.equal(g.S.day.askedOn, '');
 });
+
+/* ---------- la page Empire se lit d'un coup d'œil ---------- */
+
+t('chaque planète est une carte repliée qui porte son nom et ses coordonnées', () => {
+  const h = lu(app().VIEWS.planets());
+  assert.ok(/<details class="card volet"[^>]*data-pi="0"/.test(h), h.slice(0, 600));
+  assert.ok(/data-fold="pl:/.test(h), 'le repli se souvient, par planète');
+});
+
+t('les cartes de planète partent fermées, même sans clé de repli en mémoire', () => {
+  const h = app(s => { s.ui.fold = {}; }).VIEWS.planets();
+  assert.ok(/<details class="card volet"/.test(h), 'encore faut-il que la carte soit un volet');
+  assert.ok(!/<details class="card volet"[^>]* open/.test(h));
+});
+
+t('le résumé porte la production des trois ressources, sans rien déplier', () => {
+  const g = app();
+  g.VIEWS.planets(); g.REFRESH.planets();
+  const s = lu(g.html()['psum-0'] || '');
+  const pr = g.production(g.S.planets[0]);
+  assert.ok(s.includes(g.fmt(pr.m)) && s.includes(g.fmt(pr.c)) && s.includes(g.fmt(pr.d)), s);
+});
+
+t('le bouton Retirer est dans le corps, pas dans le résumé qui bascule le volet', () => {
+  const h = lu(app().VIEWS.planets());
+  const d = h.indexOf('<summary data-fold="pl:');
+  assert.ok(d > -1, 'encore faut-il que la carte ait un résumé');
+  const resume = h.slice(d, h.indexOf('</summary>', d));
+  assert.ok(!/data-del=/.test(resume), 'un bouton dans le résumé ouvrirait la carte au lieu de retirer');
+});
+
+
+t('les niveaux lus dans le jeu ne se tapent plus', () => {
+  const g = app(null, SOIR, null, true);
+  g.applyGame({ meta: { host: 's1.ogame.gameforge.com' }, planets: {
+    '101': { name: 'Planète mère', coords: '1:142:8', b: { metal: 14 } }
+  } });
+  const h = lu(g.VIEWS.planets());
+  assert.ok(/data-b="metal"[^>]*readonly/.test(h), h.slice(0, 800));
+});
+
+/* Un `gid` dit que le jeu nomme cette planète, pas qu'il a lu ses niveaux :
+   `applyGame` retrouve par coordonnées une planète saisie à la main et lui
+   pose un `gid`, sans rien lire de sa grille. */
+t('un gid posé sans niveaux lus ne verrouille rien', () => {
+  const g = app(null, SOIR, null, true);
+  g.applyGame({ meta: { host: 's1.ogame.gameforge.com' }, planets: {
+    '101': { name: 'Planète mère', coords: '1:142:8' }
+  } });
+  const h = lu(g.VIEWS.planets());
+  assert.ok(/data-b="metal"/.test(h), 'la grille existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(h), 'le jeu a nommé la planète, il n\'a pas lu ses niveaux');
+});
+
+/* La première frappe sur une colonie neuve efface `bNeuve` (app.js, bind) :
+   si le verrou tenait à ce drapeau, taper un niveau figerait les quinze
+   autres à zéro. */
+t('taper un niveau sur une colonie neuve ne fige pas les quinze autres', () => {
+  const g = app(s => { RELEVE(s); s.planets[1].bNeuve = 1; }, SOIR, null, true);
+  delete g.S.planets[1].bNeuve;
+  const h = lu(g.VIEWS.planets());
+  const carte = h.slice(h.indexOf('data-pi="1"'));
+  assert.ok(/data-b="metal"/.test(carte), 'la grille de la colonie existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(carte), 'une frappe efface bNeuve, elle ne doit rien verrouiller');
+});
+
+t("hors extension, les niveaux restent saisissables : rien ne les relève", () => {
+  const h = lu(app(RELEVE, SOIR, null, false).VIEWS.planets());
+  assert.ok(/data-b="metal"/.test(h), 'la grille existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(h));
+});
+
+t('une planète que le jeu a nommée sans la visiter garde ses niveaux saisissables', () => {
+  const h = lu(app(s => { RELEVE(s); s.planets[1].bNeuve = 1; }, SOIR, null, true).VIEWS.planets());
+  const carte = h.slice(h.indexOf('data-pi="1"'));
+  assert.ok(/data-b="metal"/.test(carte), 'la grille de la colonie existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(carte), 'bNeuve : aucun niveau lu, il faut pouvoir les taper');
+});
+
+t("sur les données d'exemple, tout se tape", () => {
+  const h = lu(app(s => { s.sample = true; s.planets.forEach(p => { delete p.gid; }); }, SOIR, null, true).VIEWS.planets());
+  assert.ok(/data-b="metal"/.test(h), 'la grille existe toujours');
+  assert.ok(!/data-b="metal"[^>]*readonly/.test(h));
+});
+
+/* Le joueur pose un niveau visé : l'écouteur rafraîchit sans redessiner, pour
+   ne pas refermer le volet sous ses doigts. Un compte calculé dans le gabarit
+   mentirait donc jusqu'au prochain rendu complet — c'est un trou. */
+t('le volet des bâtiments annonce les priorités posées, et les suit', () => {
+  const g = app(s => { RELEVE(s); });
+  g.VIEWS.planets(); g.REFRESH.planets();
+  assert.equal(lu(g.html()['pobj-0'] || ''), '', 'rien de posé, rien d\'annoncé');
+  g.prioPose('b', g.S.planets[0].id, 'metal', g.S.planets[0].b.metal + 3);
+  g.REFRESH.planets();
+  assert.match(lu(g.html()['pobj-0'] || ''), /1 priorité/, 'le mot du glossaire, et le compte à jour');
+});
+
+/* Le volet promet une explication : sans vocation marquée et hors du centre,
+   il n'en a aucune, et un « Ouvrir + » sur du vide est le bruit qu'on retire. */
+t("le volet des raisons se cache quand il n'a rien à dire", () => {
+  const g = app();
+  g.VIEWS.planets(); g.REFRESH.planets();
+  assert.equal(g.el('pq-0').hidden, false, 'le centre a ses raisons');
+  assert.equal(g.el('pq-1').hidden, true, 'sans vocation ni centre, rien à ouvrir');
+});
+
+
+t("la raison d'une vocation se range derrière un volet, la pastille reste", () => {
+  const h = lu(app().VIEWS.planets());
+  assert.ok(/Pourquoi cette planète/.test(h), h.slice(0, 600));
+  assert.ok(/id="pvoc-0"/.test(h) && /id="pvocw-0"/.test(h), 'pastille et raison sont deux trous distincts');
+});
+
+t('la note du centre est dans le volet des raisons, pas dans le passage', () => {
+  const h = lu(app().VIEWS.planets());
+  const i = h.indexOf('Pourquoi cette planète');
+  assert.ok(i > -1 && h.indexOf('id="pctrn-0"') > i, 'pctrn doit suivre le résumé du volet');
+  assert.ok(h.indexOf('id="pfleet-0"') > -1 && h.indexOf('id="pfleet-0"') < i, 'la flotte à quai est un fait court : elle reste visible');
+});
+
+t("le pavé du mélange se replie, les jauges d'empire restent", () => {
+  const h = lu(app().VIEWS.planets());
+  assert.ok(/Pourquoi ce classement/.test(h));
+  assert.ok(/id="empireRes"/.test(h) && /id="empireFactor"/.test(h), 'les chiffres ne se replient pas');
+  const i = h.indexOf('Pourquoi ce classement');
+  assert.ok(h.indexOf('id="empireMix"') > i);
+});
+
+t('la raison de la vocation arrive dans son propre trou, pas dans la pastille', () => {
+  const g = app();
+  g.VIEWS.planets(); g.REFRESH.planets();
+  const h = g.html();
+  assert.ok(!/class="note"/.test(h['pvoc-0'] || '') || !/pill/.test(h['pvoc-0'] || ''),
+    'la pastille ne porte plus la raison : ' + (h['pvoc-0'] || ''));
+  assert.ok('pvocw-0' in h, 'REFRESH doit écrire la raison, même vide');
+});
+
+
+t('les stocks ont leur propre volet, hors de celui des bâtiments', () => {
+  const h = lu(app().VIEWS.planets());
+  const stk = h.indexOf('data-fold="stock:');
+  assert.ok(stk > -1, 'un volet de stock existe');
+  assert.ok(h.indexOf('data-s="m"') > stk, 'les champs de stock suivent leur propre résumé');
+});
+
+t('le résumé des stocks porte les trois valeurs, sans ouvrir', () => {
+  const g = app();
+  g.VIEWS.planets(); g.REFRESH.planets();
+  const s = lu(g.html()['pstk-0'] || '');
+  const st = g.S.planets[0].stock;
+  assert.ok(s.includes(g.fmt(st.m)) && s.includes(g.fmt(st.c)) && s.includes(g.fmt(st.d)), s);
+});
+
+t('une planète sans aucune forme de vie garde son volet de stock', () => {
+  const h = lu(app(s => { s.planets.forEach(p => { p.lf = {}; }); }).VIEWS.planets());
+  assert.ok(/data-fold="stock:/.test(h));
+  assert.ok(/aucune case de forme de vie relevée/.test(h), 'et la phrase des formes de vie tient toujours');
+});
+
 
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
