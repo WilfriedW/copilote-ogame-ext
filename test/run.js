@@ -5955,6 +5955,21 @@ t('mode jour : le plan garde ses autres rubriques', () => {
   assert.ok(g.dailyMissions().some(m => m.q !== 'Sécurité'), 'tout ne se réduit pas à la sécurité');
 });
 
+t('mode nuit : la carte de mise à l\'abri est dans les cartes du moment', () => {
+  /* `at` portait l'heure du rappel d'avant-coucher. En pleine nuit elle vise le
+     soir SUIVANT, et le rendu rangeait la carte dans une connexion à venir —
+     que le mode nuit n'affiche pas. Le joueur réveillé à 3 h n'avait plus rien. */
+  const troisH = new Date(2026, 10, 9, 3, 0, 0).getTime();
+  for (const [quand, h] of [['3 h', troisH], ['22 h 30', SOIR]]) {
+    const g = app(s => { dodo(s); s.day.night = true; }, h);
+    const n = g.dailyMissions().find(m => m.id === 'night');
+    g.REFRESH.today();
+    assert.ok(lu(g.html().tdNow || '').includes(n.what), `à ${quand} : ${n.what}`);
+    // « Avant la nuit (23 h) » à trois heures du matin ne nomme pas l'instant.
+    assert.ok(!(h === troisH && /Avant la nuit/.test(n.what)), n.what);
+  }
+});
+
 t('mode nuit en pleine nuit : la mise à l\'abri sort quand même', () => {
   const troisH = new Date(2026, 10, 9, 3, 0, 0).getTime();
   const avec = app(s => { dodo(s); s.day.night = true; }, troisH);

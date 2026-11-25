@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.59.0';
+const APP_VERSION = '1.59.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3928,10 +3928,17 @@ function dailyMissions(){
        mode nuit lancé en pleine journée est une absence, et la carte doit
        nommer le retour, pas le coucher. */
     const abs = absenceJour(now);
-    const quand = !abs ? `Avant la nuit (${ns} h)`
-      : S.day.backHour == null ? `Absence de ${nightLen()} h`
-      : `Absence jusqu'à ${S.day.backHour} h`;
-    const m = {id:'night', q:'Sécurité', at:abs ? now : nightAt, every:24, sev:'warn',
+    /* Et « avant la nuit » à trois heures du matin ne veut rien dire non plus :
+       la nuit a commencé, il reste à protéger ce qu'elle expose. */
+    const quand = abs ? (S.day.backHour == null ? `Absence de ${nightLen()} h` : `Absence jusqu'à ${S.day.backHour} h`)
+      : isNight(now) ? 'Cette nuit'
+      : `Avant la nuit (${ns} h)`;
+    /* `at` dit à quelle connexion la carte appartient : l'heure du rappel
+       d'avant-coucher en mode jour, et maintenant dès que le mode nuit est
+       allumé. Le garder à nightAt en mode nuit renvoyait la carte au soir
+       SUIVANT — rangée dans une connexion à venir, que le mode nuit n'affiche
+       pas : réveillé à 3 h, le joueur n'avait plus une seule carte. */
+    const m = {id:'night', q:'Sécurité', at:S.day.night ? now : nightAt, every:24, sev:'warn',
       what:`${quand} : mettre tes ressources à l'abri`,
       why:'Une planète pleine pendant ton sommeil est une cible.',
       how:['Dépense tout ce que tu peux (files longues, satellites).', 'Envoie le reste avec tes transporteurs en mission longue (transport vers une colonie à vitesse 10 %, ou expédition).', 'Au réveil, rappelle ou récupère la flotte.']};
