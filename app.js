@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.55.1';
+const APP_VERSION = '1.55.2';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -5954,6 +5954,27 @@ function luneOut(){
           n: m.n, ship: m.ship, bou: m.bou, viser: m.viser};
 }
 
+/** Le chemin inverse. Rend `null` — et rien n'est écrit — dès que la planète
+    visée ne se résout pas ici : une campagne qui parle d'une planète que ce
+    poste ne connaît pas est exactement ce qui faisait évacuer la mauvaise.
+
+    Un compteur dont le gid ne résout pas est laissé de côté plutôt que deviné,
+    comme `prioIn` laisse attendre une entrée dont la planète n'est pas encore
+    relevée : la planète arrivera, le compteur suivra au prochain échange. */
+function luneIn(p){
+  if(!p || p.cible == null) return null;
+  const pid = pidDe(p.cible);
+  if(!pid) return null;
+  const tirs = {};
+  for(const [gid, n] of Object.entries(p.tirs || {})){
+    const q = pidDe(gid);
+    if(q) tirs[q] = n;
+  }
+  return {lune: {on: !!p.on, impact: p.impact == null ? null : p.impact,
+                 tirs, rendu: Object.assign({}, sample().lune.rendu, p.rendu)},
+          moonCalc: Object.assign({}, S.moonCalc, {pid, n: p.n, ship: p.ship, bou: p.bou, viser: p.viser})};
+}
+
 function syncOut(){
   const out = {};
   for(const k of SYNC_KEYS) out['sy:' + k] = S[k];
@@ -5992,6 +6013,7 @@ function syncApply(d){
   sainEtat();
   if(d['sy:prio'] !== undefined) met('prio', prioIn(d['sy:prio']));
   if(d['sy:centre'] != null){ const pid = pidDe(d['sy:centre']); if(pid && pid !== S.centre){ S.centre = pid; chg = true; } }
+  if(d['sy:lune'] !== undefined){ const c = luneIn(d['sy:lune']); if(c){ met('lune', c.lune); met('moonCalc', c.moonCalc); } }
   if(!chg) return;
   /* On enregistre sans repasser par save() : renvoyer ce qu'on vient de recevoir
      n'apprendrait rien à personne. */
