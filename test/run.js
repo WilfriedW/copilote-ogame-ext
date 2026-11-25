@@ -9873,6 +9873,48 @@ t('un moonCalc abîmé ne fait pas taire toute la synchro', () => {
   assert.doesNotThrow(() => g.syncOut(), 'priorités, centre et réglages continuent de partir');
 });
 
+/* ---------- Outils › Colonie : la position libre, pas la position rêvée ---------- */
+
+/** Le système de la planète mère (1:142) est plein ; 1:143 a de la place. */
+const VOISINAGE = {
+  planets: [...Array(15)].map((_, i) => [`1:142:${i + 1}`, i === 7 ? 'moi' : 'v']).concat([['1:143:9', 'v']]),
+  players: { v: ['Voisin', ''], moi: ['Moi', ''] },
+  scores: { v: [900], moi: [5000] }
+};
+const onglietColonie = () => app(s => { s.me = 'moi'; s.ui.tool = 'colony'; }, SOIR, VOISINAGE);
+
+t('la carte des positions montre des cases libres, pas le barème seul', () => {
+  const g = onglietColonie();
+  g.REFRESH.colony();
+  const h = g.html().coCand || '';
+  assert.ok(/1:143:8/.test(h), 'une case libre est proposée : ' + h.slice(0, 300));
+  assert.ok(!/>1:142:8</.test(h), 'et jamais une case déjà occupée');
+});
+
+/** La position de la première case proposée, pour un objectif donné. */
+function premiereCase(objectif) {
+  const g = app(s => { s.me = 'moi'; s.ui.tool = 'colony'; s.tech.astro = 8; s.colo.objective = objectif; }, SOIR, VOISINAGE);
+  g.REFRESH.colony();
+  const m = (g.html().coCand || '').match(/>(\d+:\d+:(\d+))</);
+  assert.ok(m, 'une case est proposée pour ' + objectif);
+  return +m[2];
+}
+
+t('l\'objectif Cristal pousse vers les positions à bonus cristal', () => {
+  // Le bonus cristal ne vit qu'en 1, 2 et 3 ; le métal, lui, est au centre.
+  assert.ok(premiereCase('crystal') <= 3, 'cristal : position ' + premiereCase('crystal'));
+  assert.ok(premiereCase('metal') >= 6 && premiereCase('metal') <= 10, 'métal : position ' + premiereCase('metal'));
+});
+
+t('« Choisir » désigne une case qui existe vraiment', () => {
+  const g = onglietColonie();
+  g.click('view', { closest: sel => (sel === '[data-copos]' ? { dataset: { copos: '8' } } : null) });
+  // Sans l'univers, le panneau proposait 1:142:8 — la planète mère elle-même.
+  assert.notEqual(g.S.colo.target, '1:142:8', 'pas la case de départ');
+  assert.equal(g.S.colo.target.split(':')[2], '8', 'le numéro demandé est tenu');
+  assert.ok(!VOISINAGE.planets.some(([c]) => c === g.S.colo.target), 'et la case est libre');
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

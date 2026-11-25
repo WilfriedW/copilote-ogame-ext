@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.59.1';
+const APP_VERSION = '1.60.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -2079,6 +2079,7 @@ const KITS = {
 const OBJECTIVES = {
   balanced:{n:'Équilibré', w:{prod:.5, fields:.5}},
   metal:   {n:'Métal', w:{metal:.75, fields:.25}},
+  crystal: {n:'Cristal', w:{crystal:.75, fields:.25}},
   deut:    {n:'Deutérium', w:{deut:.7, fields:.3}},
   big:     {n:'Grande planète', w:{fields:.8, prod:.2}},
 };
@@ -2096,7 +2097,7 @@ function coloFrom(){ const i = colShipAt(); return (i>=0 ? S.planets[i] : centre
 function coloSystem(){ const c = parseC(coloFrom().coords) || [1,1,8]; return c; }
 /** Simulated hourly output of a colony at each position, using the departure planet's mine levels. */
 function rankPositions(){
-  const dp = coloFrom(), [g,sy] = coloSystem(), o = OBJECTIVES[S.colo.objective] || OBJECTIVES.balanced, bonus = +S.colo.bonus || 0;
+  const dp = coloFrom(), [g,sy] = coloSystem(), o = OBJECTIVES[S.colo.objective] || OBJECTIVES.balanced, bonus = +S.colo.bonus || (API && API.server && API.server.bonusFields) || 0;
   const rows = [];
   for(let pos=1; pos<=15; pos++){
     const P = POS[pos];
@@ -2105,9 +2106,9 @@ function rankPositions(){
     rows.push({pos, P, fields:P.avg+bonus, min:P.min+bonus, max:P.max+bonus, m:pr.m, c:pr.c, d:pr.d, v:mse(pr.m,pr.c,pr.d), ok:S.tech.astro>=P.astro});
   }
   const mx = k => Math.max(...rows.map(r=>r[k]), 1);
-  const M = {prod:mx('v'), metal:mx('m'), deut:mx('d'), fields:mx('fields')};
+  const M = {prod:mx('v'), metal:mx('m'), crystal:mx('c'), deut:mx('d'), fields:mx('fields')};
   for(const r of rows){
-    r.score = (o.w.prod||0)*r.v/M.prod + (o.w.metal||0)*r.m/M.metal + (o.w.deut||0)*r.d/M.deut + (o.w.fields||0)*r.fields/M.fields;
+    r.score = (o.w.prod||0)*r.v/M.prod + (o.w.metal||0)*r.m/M.metal + (o.w.crystal||0)*r.c/M.crystal + (o.w.deut||0)*r.d/M.deut + (o.w.fields||0)*r.fields/M.fields;
   }
   const ranked = rows.filter(r=>r.ok).sort((a,b)=>b.score-a.score);
   ranked.forEach((r,i)=>r.rank=i+1);
@@ -4073,7 +4074,7 @@ function isActive(st){ return !/[iIvb]/.test(st||''); }
 function colonyCandidates(){
   if(!API || !API.planets) return [];
   const home = parseC(coloFrom().coords); if(!home) return [];
-  const occ = occupied(), me = myScore() || 0, bonus = (API.server && API.server.bonusFields) || 0, R = 15;
+  const occ = occupied(), me = myScore() || 0, R = 15;
   const posScore = {}; rankPositions().forEach(r=>posScore[r.pos]=r);
   const maxScore = Math.max(...Object.values(posScore).map(r=>r.score), 1e-9);
   const out = [];
@@ -4084,10 +4085,22 @@ function colonyCandidates(){
       const r = posScore[pos]; if(!r || !r.ok) continue;
       const coords = `${home[0]}:${sys}:${pos}`; if(occ.has(coords)) continue;
       const dist = Math.abs(d), score = .75*r.score/maxScore + .25*(1-dist/R) - .04*neigh.strong + .02*Math.min(neigh.inactive,3);
-      out.push({coords, pos, dist, fields:r.P.avg+bonus, bonus:r.P.bonus, neigh, score});
+      out.push({coords, pos, dist, fields:r.fields, bonus:r.P.bonus, v:r.v, neigh, score});
     }
   }
   return out.sort((a,b)=>b.score-a.score);
+}
+/* Le tableau des positions libres sert deux onglets : Cibles le montre parmi
+   les cibles, Colonie en a besoin pour que « choisir la position » désigne une
+   case qui existe. Le classement théorique des quinze positions ne dit que ce
+   que vaudrait la case ; seul l'univers téléchargé dit laquelle est libre, et
+   renvoyer le joueur dans Galaxie pour le vérifier à la main, c'était lui
+   laisser le seul travail que le copilote sait faire. */
+function coloCandHtml(){
+  if(!API || !API.planets) return `<p class="note">La liste des planètes de l'univers n'est pas encore téléchargée${API && API.error ? ` (${esc(API.error)})` : ''}. Ouvre le jeu une fois : le copilote la récupère, puis classe ici les positions libres autour de toi.</p>`;
+  const cand = colonyCandidates().slice(0,8), tgt = coloTarget(), home = coloFrom().coords;
+  if(!cand.length) return '<p class="note">Aucune position libre trouvée à proximité.</p>';
+  return `<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Coordonnées</th><th>Cases</th><th>Bonus</th><th class="n">Éq. métal/h</th><th class="n">Vol</th><th>Voisins</th><th></th></tr></thead><tbody>${cand.map((c,i)=>{ const f = flight(home, c.coords, {col:1}, 100); return `<tr><td class="rank">${i<3?i+1:''}</td><td class="mono">${c.coords}</td><td class="mono">~${c.fields}</td><td>${c.bonus?`<span class="pill ${/métal/.test(c.bonus)?'info':'good'}">${c.bonus}</span>`:''}</td><td class="n">${fmt(c.v)}</td><td class="n">${f?dur(f.secs):'–'}</td><td class="note">${c.neigh.strong?`<span class="pill warn">${c.neigh.strong} fort${c.neigh.strong>1?'s':''}</span> `:''}${c.neigh.active} actif${c.neigh.active>1?'s':''}${c.neigh.inactive?` · ${c.neigh.inactive} inactif${c.neigh.inactive>1?'s':''}`:''}</td><td><button class="btn sm ${c.coords===tgt?'primary':''}" data-cotarget="${c.coords}">${c.coords===tgt?'Choisie':'Choisir'}</button></td></tr>`; }).join('')}</tbody></table></div><p class="note">Positions <b>libres</b> accessibles avec ton Astrophysique, à 15 systèmes au plus. Classement : valeur de la position (${esc((OBJECTIVES[S.colo.objective]||OBJECTIVES.balanced).n.toLowerCase())}), distance, puis voisinage (moins de joueurs forts, des inactifs à piller). Production simulée avec les mines de ta planète de départ.</p>`;
 }
 /** Inactive planets near home, attackable first, then the ones that would trigger the outlaw warning. */
 function raidTargets(){
@@ -5248,10 +5261,12 @@ colony(){
     <div class="card"><h2>Choisir la position</h2>
       <div class="grid">
         <label class="f">Objectif<select id="coObj" data-colo="objective">${Object.entries(OBJECTIVES).map(([k,o])=>`<option value="${k}" ${c.objective===k?'selected':''}>${o.n}</option>`).join('')}</select></label>
-        <label class="f">Cases bonus de l'univers<input id="coBonus" type="number" min="0" data-colo="bonus" value="${num(c.bonus)}"></label>
+        <label class="f">Cases bonus de l'univers<input id="coBonus" type="number" min="0" data-colo="bonus" value="${+c.bonus?num(c.bonus):''}" placeholder="${(API&&API.server&&API.server.bonusFields)||0}"></label>
       </div>
-      <div class="tbl-wrap"><table><thead><tr><th>#</th><th class="n">Pos.</th><th>Cases (min–max)</th><th class="n">Temp.</th><th>Bonus</th><th class="n">Éq. métal/h</th><th class="n">Deut/h</th><th></th></tr></thead><tbody id="coPos"></tbody></table></div>
-      <p class="note">Production simulée avec les niveaux de mines de ta planète de départ, à la température moyenne de chaque position. Les positions grisées demandent plus d'Astrophysique. Vérifie dans <b>Galaxie</b> que la position est libre ; sinon, essaie le même numéro dans un système voisin.</p>
+      <div id="coCand"></div>
+      <details class="volet" style="margin-top:14px"${fold('cobareme', false)}><summary data-fold="cobareme">Ce que vaut chaque position</summary>
+      <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>#</th><th class="n">Pos.</th><th>Cases (min–max)</th><th class="n">Temp.</th><th>Bonus</th><th class="n">Éq. métal/h</th><th class="n">Deut/h</th><th></th></tr></thead><tbody id="coPos"></tbody></table></div>
+      <p class="note">Le barème, occupation mise à part : production simulée avec les niveaux de mines de ta planète de départ, à la température moyenne de chaque position. Les positions grisées demandent plus d'Astrophysique. « Choisir » prend la meilleure case <b>libre</b> à ce numéro autour de toi.</p></details>
     </div>
     <div class="card"><h2>Flotte et ressources à emporter</h2>
       <div class="grid">
@@ -5456,9 +5471,8 @@ settings(){
 tools(){ (REFRESH[toolTab()]||(()=>{}))(); },
 explore(){
   const el = document.getElementById('exColo'); if(!el || !API || !API.planets) return;
-  const cand = colonyCandidates().slice(0,8), tgt = coloTarget();
-  const col = shipStats('col'), home = coloFrom().coords;
-  el.innerHTML = cand.length ? `<div class="tbl-wrap"><table><thead><tr><th>Coordonnées</th><th>Cases</th><th>Bonus</th><th class="n">Vol</th><th>Voisins</th><th></th></tr></thead><tbody>${cand.map(c=>{ const f = flight(home, c.coords, {col:1}, 100); return `<tr><td class="mono">${c.coords}</td><td class="mono">~${c.fields}</td><td>${c.bonus?`<span class="pill info">${c.bonus}</span>`:''}</td><td class="n">${f?dur(f.secs):'–'}</td><td class="note">${c.neigh.strong?`<span class="pill warn">${c.neigh.strong} fort${c.neigh.strong>1?'s':''}</span> `:''}${c.neigh.active} actif${c.neigh.active>1?'s':''}${c.neigh.inactive?` · ${c.neigh.inactive} inactif${c.neigh.inactive>1?'s':''}`:''}</td><td><button class="btn sm ${c.coords===tgt?'primary':''}" data-cotarget="${c.coords}">${c.coords===tgt?'Choisie':'Choisir'}</button></td></tr>`; }).join('')}</tbody></table></div><p class="note">Positions libres accessibles avec ton Astrophysique, à 15 systèmes au plus. Classement : valeur de la position (${esc((OBJECTIVES[S.colo.objective]||OBJECTIVES.balanced).n.toLowerCase())}), distance, puis voisinage (moins de joueurs forts, des inactifs à piller).</p>` : '<p class="note">Aucune position libre trouvée à proximité.</p>';
+  const home = coloFrom().coords;
+  el.innerHTML = coloCandHtml();
 
   const raids = raidTargets(), safe = raids.filter(r=>!r.outlaw).slice(0,8), risky = raids.filter(r=>r.outlaw).slice(0,4);
   const sc = shipStats('sc');
@@ -5627,6 +5641,7 @@ colony(){
     why: `${w.sec===0 ? 'Disponibles maintenant.' : w.storage!=null ? storageNote(w) : `Disponibles dans ${dur(w.sec)}.`}${colBuilt() ? '' : ` Construction du vaisseau : ${dur(F.shipTime)}.`}`});
   document.getElementById('coReq').innerHTML = req.map(r=>`<li><span class="pill ${r.sev==='info'?'info':r.sev}">${({good:'OK',warn:'Bientôt',bad:'À faire'})[r.sev]}</span><span class="what">${esc(r.what)}</span><span class="why">${esc(r.why)}</span></li>`).join('');
 
+  const cc = document.getElementById('coCand'); if(cc) cc.innerHTML = coloCandHtml();
   const rows = rankPositions(), tgtPos = (parseC(coloTarget())||[])[2];
   document.getElementById('coPos').innerHTML = rows.map(r=>`<tr style="${r.ok?'':'opacity:.45'}">
     <td class="rank">${r.ok && r.rank<=3 ? r.rank : ''}</td><td class="n">${r.pos}</td>
@@ -5765,7 +5780,8 @@ view.addEventListener('click', e=>{
 });
 view.addEventListener('click', e=>{
   const cp = e.target.closest('[data-copos]');
-  if(cp){ const [g,sy] = coloSystem(); S.colo.target = `${g}:${sy}:${cp.dataset.copos}`; save(); render(); return; }
+  if(cp){ const pos = +cp.dataset.copos, libre = (API && API.planets ? colonyCandidates() : []).find(c=>c.pos===pos), [g,sy] = coloSystem();
+    S.colo.target = libre ? libre.coords : `${g}:${sy}:${pos}`; save(); render(); return; }
 });
 view.addEventListener('click', e=>{
   // Le ⓘ de la ligne du type ouvre son texte, posé plus bas dans la carte.
