@@ -3286,8 +3286,8 @@ t('app.js et manifest.json annoncent la même version', () => {
 t('pack.sh emporte tout ce que Chrome charge', () => {
   /* `dist/` est ce que le navigateur voit : un fichier oublié dans la liste de
      pack.sh et l'extension se charge sans lui — le panneau reste blanc, et rien
-     ne le dit avant le clic. La liste se garde donc depuis les deux endroits
-     qui nomment des fichiers : le manifeste et sidepanel.html. */
+     ne le dit avant le clic. La liste se garde donc depuis les endroits qui
+     nomment des fichiers : le manifeste, sidepanel.html et panel.css. */
   const fs = require('fs'), path = require('path');
   const root = path.join(__dirname, '..');
   const lu = f => fs.readFileSync(path.join(root, f), 'utf8');
@@ -3297,8 +3297,8 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
      `ids.js` par un `importScripts`. On relit donc chaque fichier emporté et on
      prend tout nom de fichier local qu'il cite — un nom qu'on lit dans du code
      qui part est un fichier qui doit partir avec lui. */
-  const cites = liste.filter(f => /\.(js|html)$/.test(f))
-    .flatMap(f => [...lu(f).matchAll(/['"]([\w-]+\.(?:js|css|html|png))['"]/g)].map(x => x[1]));
+  const cites = liste.filter(f => /\.(js|html|css)$/.test(f))
+    .flatMap(f => [...lu(f).matchAll(/['"]([\w-]+\.(?:js|css|html|png|woff2))['"]/g)].map(x => x[1]));
   const voulus = new Set(['manifest.json', m.background.service_worker,
     ...m.content_scripts.flatMap(c => c.js),
     ...Object.values(m.icons),
@@ -3309,6 +3309,23 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
     assert.ok(liste.includes(f), f + ' est chargé par l\'extension et pack.sh ne l\'emporte pas');
   for (const f of liste)
     assert.ok(fs.existsSync(path.join(root, f)), 'pack.sh emporte ' + f + ', qui n\'existe pas');
+});
+
+t('le manifeste donné au joueur reste du JSON, sans notre clé', () => {
+  /* pack.sh retire la ligne `"key"` du manifeste qu'il met dans le zip, avec un
+     `grep -v`. C'est une découpe au texte : elle tient parce que la clé est sur
+     une ligne à elle et n'est pas la dernière propriété. Reformate le manifeste
+     et le zip part avec un JSON cassé — l'extension ne se charge plus du tout,
+     et c'est le joueur d'en face qui le découvre. On refait donc ici la même
+     découpe, et on relit. */
+  const fs = require('fs'), path = require('path');
+  const root = path.join(__dirname, '..');
+  const brut = fs.readFileSync(path.join(root, 'manifest.json'), 'utf8');
+  assert.ok(/^\s*"key"/m.test(brut), 'plus de clé dans le manifeste : pack.sh découpe une ligne qui n\'existe pas');
+  const coupe = brut.split('\n').filter(l => !l.includes('"key"')).join('\n');
+  const m = JSON.parse(coupe);
+  assert.ok(!m.key, 'la clé survit à la découpe de pack.sh');
+  assert.equal(m.version, JSON.parse(brut).version, 'la découpe a emporté autre chose que la clé');
 });
 
 t('un dist/ déjà construit ne reste pas en retard sur le dépôt', () => {

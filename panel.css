@@ -1,3 +1,24 @@
+/* Les trois polices sont embarquées, pas appelées chez Google. Le panneau
+   chargeait sa feuille depuis fonts.googleapis.com : une requête sortante à
+   chaque ouverture, qui donne l'adresse IP du joueur à un tiers alors que le
+   copilote annonce ne rien envoyer nulle part. Elles sont ici en variable et
+   en sous-ensemble latin — ce sous-ensemble porte U+0152-0153, donc le œ aussi
+   — soit 84 Ko pour les trois, et le panneau s'affiche hors ligne. Leur licence
+   le permet : SIL Open Font License pour les trois.
+   Un seul fichier par famille couvre toute la plage de graisses : pas de
+   `font-weight:600` qui tombe sur du 400 faute d'avoir téléchargé le bon. */
+@font-face{
+  font-family:"Oxanium"; font-style:normal; font-weight:500 700; font-display:swap;
+  src:url("oxanium.woff2") format("woff2");
+}
+@font-face{
+  font-family:"IBM Plex Sans"; font-style:normal; font-weight:400 600; font-display:swap;
+  src:url("plex-sans.woff2") format("woff2");
+}
+@font-face{
+  font-family:"JetBrains Mono"; font-style:normal; font-weight:400 500; font-display:swap;
+  src:url("jetbrains-mono.woff2") format("woff2");
+}
 
 /* Layout: narrow command-console column (works as a side panel), sticky tab rail, resource-coded readouts */
 :root{
