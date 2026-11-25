@@ -1147,9 +1147,14 @@ const pauvre = { ...TOUR, tour: { ...TOUR.tour,
   '102': { ...TOUR.tour['102'], cost: { '21': [1000, 500, 0] }, st: [400, 500, 0] } } };
 
 t('une file occupée se dit, en temps restant', () => {
-  const p = pins(runPage({ ...ARRIVEE, skin: occupee }).tour)['Colonie'];
+  const r = runPage({ ...ARRIVEE, skin: occupee });
+  const p = pins(r.tour)['Colonie'];
   assert.equal(p.grisee, true);
-  assert.ok(/file 2h/.test(p.txt), p.txt);
+  assert.equal(p.enFile, true, 'une file qui tourne n\'est pas un manque');
+  // le mot « file » est au groupe : la pastille ne le redit pas
+  assert.ok(/· 2h/.test(p.txt), p.txt);
+  assert.ok(!/file/.test(p.txt), p.txt);
+  assert.ok(r.tourGroupes.includes('file occupée — 1'), r.tourGroupes.join(' | '));
   assert.ok(p.href, 'grisée mais cliquable');
 });
 
@@ -1158,7 +1163,7 @@ t('une file de plus d\'un jour ne se dit pas en heure du jour', () => {
   // aujourd'hui : un temps restant ne se lit jamais pour un autre.
   const longue = { ...TOUR, tour: { ...TOUR.tour,
     '102': { ...TOUR.tour['102'], bq: Date.now() + 30.5 * 3600000 } } };
-  assert.ok(/file 31h/.test(pins(runPage({ ...ARRIVEE, skin: longue }).tour)['Colonie'].txt),
+  assert.ok(/· 31h/.test(pins(runPage({ ...ARRIVEE, skin: longue }).tour)['Colonie'].txt),
     pins(runPage({ ...ARRIVEE, skin: longue }).tour)['Colonie'].txt);
 });
 
@@ -1198,7 +1203,7 @@ t('une recherche de forme de vie lit sa propre file, pas celle des bâtiments', 
   } };
   const r = runPage({ skin: lfr, tiles: ['11201'],
     search: '?page=ingame&component=lfresearch&openTech=11201' });
-  assert.ok(/file 2h/.test(pins(r.tour)['Colonie'].txt), pins(r.tour)['Colonie'].txt);
+  assert.ok(/· 2h/.test(pins(r.tour)['Colonie'].txt), pins(r.tour)['Colonie'].txt);
 });
 
 t('un bâtiment de forme de vie lit toujours la file des bâtiments', () => {
@@ -1209,7 +1214,7 @@ t('un bâtiment de forme de vie lit toujours la file des bâtiments', () => {
   } };
   const r = runPage({ skin: lfb, tiles: ['11101'],
     search: '?page=ingame&component=lfbuildings&openTech=11101' });
-  assert.ok(/file 2h/.test(pins(r.tour)['Colonie'].txt), pins(r.tour)['Colonie'].txt);
+  assert.ok(/· 2h/.test(pins(r.tour)['Colonie'].txt), pins(r.tour)['Colonie'].txt);
 });
 
 t('une page que le copilote ne connaît pas ne reçoit rien', () => {
@@ -1286,7 +1291,7 @@ t('une pastille dit quand la planète pourra payer', () => {
     '102': { n: 'Colonie', b: { '21': 2 }, cost: { '21': [3000, 0, 0] }, bq: 0, lfq: 0, st: [0, 0, 0] }
   } };
   const p = pins(runPage({ ...ARRIVEE, skin: lent }).tour)['Colonie'];
-  assert.ok(/manque/.test(p.txt) && /payable dans 3h/.test(p.txt), p.txt);
+  assert.ok(/manque/.test(p.txt) && /· dans 3h/.test(p.txt), p.txt);
 });
 
 t('sans production connue, la planète se dit hors de portée', () => {
@@ -1379,13 +1384,78 @@ t('la tournée et les lignes de la page tiennent dans la même bande', () => {
 t('un chiffre qui bouge met la bande à jour, il ne la repose pas', () => {
   // Les manques et les délais bougent sans arrêt : démolir la bande à chaque
   // fois, c'est la faire clignoter sous les yeux du joueur.
-  const p = runPage(ARRIVEE);
+  /* Le manque bouge, l'état ne bouge pas : Colonie était déjà à payer, elle
+     l'est encore. Même forme, donc la bande est réécrite sur place. */
+  const avant = { ...TOUR, tour: { ...TOUR.tour,
+    '102': { ...TOUR.tour['102'], cost: { '21': [3000, 0, 0] }, st: [0, 0, 0] } } };
+  const p = runPage({ ...ARRIVEE, skin: avant });
   const pose = p.read().poses;
   const bouge = { ...TOUR, tour: { ...TOUR.tour,
     '102': { ...TOUR.tour['102'], cost: { '21': [9000, 0, 0] }, st: [0, 0, 0] } } };
   p.majSkin(bouge);
   assert.equal(p.read().poses, pose, 'la même bande, mise à jour');
   assert.ok(/manque 9K métal/.test(pins(p.read().tour)['Colonie'].txt), pins(p.read().tour)['Colonie'].txt);
+});
+
+/* Changer de groupe, en revanche, change la forme de la bande : une pastille
+   passe sous un autre libellé, et la ligne de résumé apparaît. Là, on repose —
+   réécrire en place rangerait la pastille sous le mauvais titre. */
+t('une planète qui change d\'état repose la bande', () => {
+  const p = runPage(ARRIVEE);
+  const pose = p.read().poses;
+  p.majSkin({ ...TOUR, tour: { ...TOUR.tour,
+    '102': { ...TOUR.tour['102'], cost: { '21': [9000, 0, 0] }, st: [0, 0, 0] } } });
+  const r = p.read();
+  assert.ok(r.poses > pose, 'reposée');
+  assert.deepEqual(r.tourGroupes, ['prêtes à lancer — 2', 'à payer — 1']);
+});
+
+/* ---------- la tournée rangée par état ---------- */
+
+/* Le titre répondait « la même tuile ailleurs » à un joueur qui venait de
+   cliquer sur une tuile — il savait. Ce qu'il ne savait pas, c'est combien
+   partent tout de suite. */
+t('le titre nomme la tuile et compte les prêtes', () => {
+  const r = runPage(ARRIVEE);
+  assert.ok(/ ailleurs · 3 prêtes sur 3$/.test(r.tourTitre), r.tourTitre);
+  assert.ok(!/^la même tuile/.test(r.tourTitre), 'la tuile se nomme : ' + r.tourTitre);
+  const une = runPage({ ...ARRIVEE, skin: occupee });
+  assert.ok(/· 2 prêtes sur 3$/.test(une.tourTitre), une.tourTitre);
+});
+
+/* Un seul état, un seul groupe : le nommer ne dirait que ce que le titre
+   vient de dire. La rangée reste nue, comme avant. */
+t('tout au même état, aucun libellé de groupe', () => {
+  const r = runPage(ARRIVEE);
+  assert.deepEqual(r.tourGroupes, []);
+  assert.equal(r.tourResume, '', 'rien ne bloque : rien à attendre');
+  assert.equal(r.tour.length, 3);
+});
+
+/* La bande ne disait pas quand revenir : il fallait lire sept pastilles et
+   garder le plus petit délai en tête. */
+t('la ligne de résumé dit quand la prochaine se libère', () => {
+  const r = runPage({ ...ARRIVEE, skin: occupee });
+  assert.equal(r.tourResume, 'prochaine libre dans 2h sur Colonie', r.tourResume);
+  assert.deepEqual(r.tourGroupes, ['prêtes à lancer — 2', 'file occupée — 1']);
+});
+
+t('deux bloquées : le résumé dit aussi le bout de la tournée', () => {
+  const deux = { ...TOUR, tour: { ...TOUR.tour,
+    '102': { ...TOUR.tour['102'], bq: Date.now() + 5400000 },
+    '103': { ...TOUR.tour['103'], b: { '21': 1 }, bq: Date.now() + 4 * 3600000 } } };
+  const r = runPage({ ...ARRIVEE, skin: deux });
+  assert.ok(/^prochaine libre dans 2h sur Colonie · tout le tour dans 4h$/.test(r.tourResume), r.tourResume);
+});
+
+/* Ce qu'aucun délai ne couvre se compte à part : « dans 3h » et « jamais »
+   ne se rangent pas sous le même mot. */
+t('une planète hors de portée se compte dans le résumé', () => {
+  const loin = { ...TOUR, tour: { ...TOUR.tour,
+    '102': { ...TOUR.tour['102'], cost: { '21': [176844, 0, 0] }, st: [0, 0, 0] } } };
+  const r = runPage({ ...ARRIVEE, skin: loin });
+  assert.equal(r.tourResume, '1 hors de portée', r.tourResume);
+  assert.deepEqual(r.tourGroupes, ['prêtes à lancer — 2', 'à payer — 1']);
 });
 
 t('une planète qui entre dans la tournée repose la bande', () => {

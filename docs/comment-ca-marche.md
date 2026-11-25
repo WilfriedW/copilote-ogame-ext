@@ -271,6 +271,14 @@ page OGame ──> content.js ──> background.js ──> app.js (panneau)
   fuseau, et un champ « niveau visé » sur chaque tuile (clic droit). Aucun
   clic, aucun envoi : ce sont des repères.
 
+  La bande porte deux zones. **« à faire sur cette page »** : jusqu'à quatre
+  lignes du plan qui se lancent ici. **La tournée** : une pastille par planète
+  qui connaît la tuile ouverte, rangées par état — *prêtes à lancer*, *file
+  occupée*, *à payer* — chaque groupe avec son compte, et une dernière ligne
+  qui dit quand revenir (« prochaine libre dans 2h sur HQ 88 4 · tout le tour
+  dans 5h »). Un seul état, pas de libellé : le titre le dit déjà. Les couleurs
+  sont celles du thème choisi dans Réglages (§ 6.5).
+
 **`background.js`** (le service worker) fusionne les instantanés dans un état
 de jeu unique, programme les **alarmes** de fin de file, affiche les
 notifications système, n'allume l'icône et le panneau que sur les onglets

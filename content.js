@@ -2061,10 +2061,13 @@ width:auto !important;max-width:none !important;background-image:none !important
       const heures = Math.max(0, (maintenant - (e.at || maintenant)) / 3600000);
       const debit = rates[g] || [];
       const st = (Array.isArray(e.st) ? e.st : []).map((x, i) => x + (debit[i] || 0) * heures);
-      let etat = '';
+      /* Trois états, et rien d'autre : prête, file occupée, à payer. Le mot
+         qui les nomme est passé au groupe — la pastille ne garde que le
+         chiffre, sous peine de dire deux fois « file ». */
+      let etat = '', note = '', delai = 0;
       // Un temps restant ne se lit jamais pour un autre : « jusqu'à 18:17 » se
       // lit aujourd'hui, même quand la file finit demain.
-      if (fin > maintenant) etat = 'file ' + bref((fin - maintenant) / 1000);
+      if (fin > maintenant) { etat = 'file'; delai = (fin - maintenant) / 1000; note = bref(delai); }
       else if (Array.isArray(c)) {
         // La plus grosse ressource manquante suffit à nommer ce qui bloque ;
         // le délai, lui, est celui de la dernière à tomber.
@@ -2076,17 +2079,77 @@ width:auto !important;max-width:none !important;background-image:none !important
           if (e > eta) eta = e;
         });
         // Un prix que le panneau ne connaît pas ne fait manquer personne.
-        if (j >= 0) etat = 'manque ' + court(pire) + ' ' + RES_NOMS[j] + ' · '
-          + (isFinite(eta) ? 'payable dans ' + bref(eta) : 'hors de portée');
+        if (j >= 0) {
+          etat = 'payer'; delai = eta;
+          note = 'manque ' + court(pire) + ' ' + RES_NOMS[j] + ' · '
+            + (isFinite(eta) ? 'dans ' + bref(eta) : 'hors de portée');
+        }
       }
       // Un niveau inconnu se dit : écrire 0 enverrait monter ce qui est déjà là.
-      return { ici: g === ici, gris: !!etat,
-        txt: e.n + ' · ' + (lvl == null ? '→' : lvl + ' → ' + (lvl + 1)) + (etat ? ' · ' + etat : ''),
+      return { ici: g === ici, gris: !!etat, etat, note, delai, nom: e.n,
+        txt: e.n + ' · ' + (lvl == null ? '→' : lvl + ' → ' + (lvl + 1)) + (note ? ' · ' + note : ''),
         href: g === ici ? '' : location.pathname + '?page=ingame&component=' + encodeURIComponent(comp)
           + '&cp=' + g + '&openTech=' + tuile };
     });
     return pins;
   }
+  /* Le nom de la tuile dont on fait le tour, tel que le jeu l'écrit. Le titre
+     « la même tuile ailleurs » demandait au joueur de se souvenir de ce qu'il
+     avait ouvert ; la tuile est là, sous les yeux, il n'y a qu'à la lire. */
+  function nomTuileEnMain() {
+    const t = tuileEnMain();
+    if (!t) return '';
+    const li = document.querySelector('li.technology[data-technology="' + t + '"]');
+    return (li ? lireTuile(li, {}).nom : OG_NAMES[t]) || '';
+  }
+
+  /* Les trois états, dans l'ordre où on agit. Le libellé est au groupe, pas à
+     la pastille. */
+  const GROUPES = [['', 'prêtes à lancer', 'cp-grp-ok'],
+    ['file', 'file occupée', 'cp-grp-file'], ['payer', 'à payer', 'cp-grp-payer']];
+
+  /** Le titre de la zone : la tuile, et combien partent tout de suite. */
+  function titreTour(pins) {
+    const nom = nomTuileEnMain(), prets = pins.filter(p => !p.etat).length;
+    return (nom ? nom + ' ailleurs' : 'la même tuile ailleurs') + ' · '
+      + (prets ? prets + ' prête' + (prets > 1 ? 's' : '') : 'aucune prête') + ' sur ' + pins.length;
+  }
+
+  /** Ce qui reste à attendre, en une ligne — ou '' quand tout est lançable. */
+  function resumeTour(pins) {
+    const bloques = pins.filter(p => p.etat);
+    if (!bloques.length) return '';
+    const finis = bloques.filter(p => isFinite(p.delai));
+    const hors = bloques.length - finis.length;
+    const bouts = [];
+    if (finis.length) {
+      const tot = finis.reduce((a, b) => (b.delai < a.delai ? b : a));
+      bouts.push('prochaine libre dans ' + bref(tot.delai) + ' sur ' + tot.nom);
+      if (finis.length > 1) bouts.push('tout le tour dans ' + bref(Math.max(...finis.map(p => p.delai))));
+    }
+    if (hors) bouts.push(hors + ' hors de portée');
+    return bouts.join(' · ');
+  }
+
+  /* Les pastilles rangées par état, chaque groupe sous son nom. Un seul groupe
+     garde ses pastilles nues : son nom ne dirait que ce que le titre dit déjà.
+     Tout reste une liste à plat — le réécrivain en place de la bande compte sur
+     une pastille par enfant, et un libellé est un enfant comme un autre. */
+  function itemsTour(pins) {
+    const groupes = GROUPES.map(([cle, lib, cls]) => [lib, cls, pins.filter(p => p.etat === cle)])
+      .filter(([, , g]) => g.length);
+    const items = [];
+    for (const [lib, cls, g] of groupes) {
+      if (groupes.length > 1) items.push({ txt: lib + ' — ' + g.length, href: '', titre: '', cls: 'cp-grp ' + cls });
+      for (const p of g) items.push({ txt: p.txt, href: p.href || '', titre: '',
+        cls: 'copilote-pin' + (p.ici ? ' copilote-ici' : '') + (p.gris ? ' copilote-gris' : '')
+          + (p.etat === 'file' ? ' cp-file' : '') });
+    }
+    const r = resumeTour(pins);
+    if (r) items.push({ txt: r, href: '', titre: '', cls: 'cp-res' });
+    return items;
+  }
+
    /* Une seule bande, et ce qu'elle porte dépend de la page. Le panneau est
      déjà à côté du joueur : lui répéter ses minuteurs et ses alertes en bas de
      page ne lui apprend rien. Ce que le panneau ne peut pas dire, c'est ce qui
@@ -2142,10 +2205,7 @@ width:auto !important;max-width:none !important;background-image:none !important
       // interdiction — la page reste à un clic
       cls: 'cb-l' + (l.gris ? ' copilote-gris' : '')
     }))]);
-    if (pins.length) voulu.push(['tour', 'la même tuile ailleurs', pins.map(p => ({
-      txt: p.txt, href: p.href || '', titre: '',
-      cls: 'copilote-pin' + (p.ici ? ' copilote-ici' : '') + (p.gris ? ' copilote-gris' : '')
-    }))]);
+    if (pins.length) voulu.push(['tour', titreTour(pins), itemsTour(pins)]);
     /* Les manques et les délais bougent sans arrêt. Démolir la bande à chaque
        chiffre la ferait clignoter sous les yeux du joueur : tant que la forme
        ne change pas — mêmes zones, mêmes liens — on réécrit les textes en
@@ -2243,6 +2303,20 @@ color:var(--cp-encre) !important;font:700 12px/1.5 Arial,sans-serif;text-decorat
 .copilote-pin.copilote-gris{background:transparent;color:var(--cp-doux) !important;font-weight:400;
 box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cp-accent) 30%,transparent)}
 .copilote-pin.copilote-gris:hover{background:color-mix(in srgb,var(--cp-accent) 14%,transparent);color:var(--cp-texte) !important}
+/* La tournée se range par état : un libellé par groupe, et une ligne en bas
+   qui dit quand revenir. Les deux occupent toute la largeur de la zone, qui
+   est une rangée — ce sont les seuls enfants à ne pas être des pastilles. */
+.copilote-zone[data-zone="tour"] .cp-grp{flex:0 0 100%;margin:3px 0 0;
+font:700 10px/1.6 Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--cp-faible)}
+.copilote-zone[data-zone="tour"] .cp-grp.cp-grp-ok{color:var(--cp-bon)}
+.copilote-zone[data-zone="tour"] .cp-grp.cp-grp-file{color:var(--cp-attention)}
+.copilote-zone[data-zone="tour"] .cp-res{flex:0 0 100%;margin-top:7px;padding-top:6px;
+border-top:1px solid color-mix(in srgb,var(--cp-accent) 14%,transparent);
+font:400 11px/1.5 Arial,sans-serif;color:var(--cp-doux)}
+/* Une file qui tourne n'est pas un manque : elle se finit toute seule, et
+   l'ambre le dit — la même couleur que la pastille d'attente sur les cases. */
+.copilote-pin.cp-file{color:var(--cp-texte) !important;
+box-shadow:inset 0 0 0 1px var(--cp-attention)}
 .copilote-bande .cb-l.copilote-gris{color:var(--cp-doux) !important;font-weight:400}
 /* Le panneau de détail d'une case n'est pas dans le flux : le jeu le pose en
    absolu sur le bandeau de titre, toujours 300 px de haut. Les pages dont le

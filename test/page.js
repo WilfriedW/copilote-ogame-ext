@@ -504,12 +504,19 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
       bandes: toutes(),
       bande: bande ? { ici: zone('ici').map(x => ({ txt: x.textContent, href: x.href || null,
         why: x.title || '', grisee: x.className.split(' ').includes('copilote-gris') })) } : null,
-      tour: zone('tour').map(x => ({
+      /* La zone de la tournée porte trois sortes d'enfants : les pastilles,
+         les libellés de groupe et la ligne de résumé. `tour` ne rend que les
+         pastilles — les tests qui les comptent comptent des planètes. */
+      tour: zone('tour').filter(x => x.className.split(' ').includes('copilote-pin')).map(x => ({
         txt: x.textContent,
         href: x.href || null,
         courante: x.className.split(' ').includes('copilote-ici'),
-        grisee: x.className.split(' ').includes('copilote-gris')
+        grisee: x.className.split(' ').includes('copilote-gris'),
+        enFile: x.className.split(' ').includes('cp-file')
       })),
+      tourTitre: (bande && (bande.children.find(c => c.dataset.zone === 'tour') || {}).dataset || {}).titre || '',
+      tourGroupes: zone('tour').filter(x => x.className.split(' ').includes('cp-grp')).map(x => x.textContent),
+      tourResume: (zone('tour').find(x => x.className.split(' ').includes('cp-res')) || {}).textContent || '',
       eta: eta ? eta.textContent : null,
       etaLink: lien ? lien.href : null,
       etaLinkText: lien ? lien.textContent : null,
