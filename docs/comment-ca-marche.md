@@ -87,6 +87,35 @@ ratio d'échange) divisé par ce qu'il rapporte en plus par heure. La centrale
 solaire que le niveau oblige à monter est comptée dans son prix. Les foreuses
 sont dans le même classement, à côté des mines.
 
+**Mais le cours n'est pas le prix.** Le ratio d'échange dit ce qu'une ressource
+vaut au troc. Lu comme des quantités, il dit donc aussi le mélange qu'il
+faudrait produire pour n'avoir jamais à troquer : avec 3:2:1, trois de métal
+pour deux de cristal pour un de deutérium. Un empire qui produit plus que sa
+part de métal n'en tire pas le prix du livre — il l'empile dans un hangar, ou
+il le brade. Le classement en tient compte : chaque ressource reçoit un
+**facteur de besoin**, borné entre 0,5 et 2, et c'est à ce prix-là que les
+mines sont comparées.
+
+C'est ce qui fait que la mine de métal cesse de revenir sur une planète à
+cristal quand ton empire déborde déjà de métal. Le mélange produit, sa cible et
+les trois facteurs se lisent en haut de l'onglet **Empire**, sous la production
+de l'empire.
+
+Deux choses ne bougent pas pour autant :
+
+- **Le chiffre affiché sur la carte** reste l'amortissement au cours du ratio,
+  celui que tu peux refaire de tête. Le besoin change l'**ordre**, pas le
+  chiffre — sinon une mine montée sur une autre planète ferait bouger une durée
+  que tu venais de lire.
+- **Le délai de retour d'une colonie** (Outils › Colonie) reste mesuré au cours
+  aussi : il compare des *positions* entre elles, et une comparaison demande une
+  règle fixe.
+
+Le bonus de position de la planète, lui, n'a pas besoin d'être rajouté : il est
+déjà dans la production, donc déjà dans l'amortissement. Une planète en
+position 1 voit son cristal crédité de +40 % avant même le classement. La carte
+le dit maintenant en clair, au lieu de laisser deviner.
+
 Deux secours passent **devant** le classement, parce qu'ils coûtent de la
 production à chaque heure :
 
@@ -486,21 +515,22 @@ Sert à conseiller la forme de vie d'une nouvelle colonie. Ordre de préférence
 Roctas → Humains → Mécas → Kaeleshs ; en priorité « Flotte », Mécas →
 Kaeleshs → Roctas → Humains.
 
-### 6.3 Réglages › Univers — **lus dans la page, pas à saisir**
+### 6.3 L'univers et la classe — **lus, jamais saisis**
 
-| Réglage | Clé | Valeurs | Défaut | Effet |
+| Fait | Clé | Valeurs | Défaut | Effet |
 |---|---|---|---|---|
 | Vitesse économie | `settings.eco` | entier ≥ 1 | **1** | Multiplie production, temps de chantier, gain d'expédition |
 | Vitesse flotte (pacifique) | `settings.fleet` | entier ≥ 1 | **1** | Divise les temps de vol |
 | Classe | `settings.cls` | Collecteur · Général · Explorateur · Aucune | **Collecteur** | Collecteur : +25 % production de base, bonus foreuses, +25 % soute ; Explorateur : +50 % expédition, débloque l'Éclaireur |
 
-Ces trois valeurs **se remplissent toutes seules** : chaque page du jeu les
-déclare dans son en-tête (`ogame-universe-speed`,
-`ogame-universe-speed-fleet-peaceful`, `ogame-player-characterclass-id`) et le
-copilote les reprend telles quelles. Le badge en haut du panneau les affiche
-(`éco x1 · flotte x1 · Collecteur`) : c'est là qu'on vérifie. On n'y touche à
-la main que si le badge est vide — le jeu n'a pas encore été ouvert — ou faux.
-Mal réglées, **tout l'onglet Empire est faux**.
+Aucun champ ne les saisit : chaque page du jeu les déclare dans son en-tête
+(`ogame-universe-speed`, `ogame-universe-speed-fleet-peaceful`,
+`ogame-player-characterclass-id`) et le copilote les reprend telles quelles ;
+les deux vitesses sont de toute façon écrasées par `serverData.xml` dès que
+l'API répond (voir Outils › Serveur). Le badge en haut du panneau les affiche
+(`éco x1 · flotte x1 · Collecteur`) : c'est là qu'on vérifie. Un badge vide
+veut dire que le jeu n'a pas encore été ouvert — et alors **tout l'onglet
+Empire est faux**.
 
 ### 6.4 Réglages › Bonus
 
@@ -513,7 +543,9 @@ Mal réglées, **tout l'onglet Empire est faux**.
 | Ratio d'échange M:C:D | `settings.ratio` | trois entiers > 0 | **3:2:1** | Convertit tout en « équivalent métal » : c'est **l'unité de tous les classements** (amortissement, valeur de butin, valeur de défense) |
 
 Le ratio est le réglage le plus silencieusement puissant : changer 3:2:1 en
-2:1:1 change l'ordre de toutes les recommandations de mines.
+2:1:1 change l'ordre de toutes les recommandations de mines. Il sert deux fois
+depuis le facteur de besoin (§ 2.4) : comme cours pour convertir, et comme
+**mélange cible** pour juger ce que ta production a en trop ou en moins.
 
 ### 6.5 Réglages › Page du jeu
 

@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'importEmpire', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'MATCH_B', 'terrainRates', 'vocations', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -3651,26 +3651,6 @@ t('la carte Alertes affiche ce que le moteur produit', () => {
   assert.ok(/[Hh]angar/.test(html), 'et le hangar plein y figurer : ' + html.slice(0, 200));
 });
 
-t('l\'alerte de file vide reste tue quand l\'extension a lu plus recemment', () => {
-  const g = app(s => {
-    s.lastAlerts = ['Planète mère : File vide'];
-    s.lastImport = SOIR - 3600e3;
-    s.syncAt = SOIR;
-  });
-  assert.ok(!g.dailyMissions().some(m => /file vide/i.test(m.what)),
-    'un vieil import ne doit pas ressortir après une synchro');
-});
-
-t('l\'alerte de file vide est dite quand l\'import est le plus frais', () => {
-  const g = app(s => {
-    s.lastAlerts = ['Planète mère : File vide'];
-    s.lastImport = SOIR;
-    s.syncAt = SOIR - 3600e3;
-  });
-  assert.ok(g.dailyMissions().some(m => /file vide/i.test(m.what)),
-    'une file vide signalée par le dernier import doit remonter');
-});
-
 t('tous les jalons franchis, le bloc disparait', () => {
   const g = app(s => {
     Object.assign(s.planets[0].b, { lab: 3, robot: 2, shipyard: 2 });
@@ -5341,6 +5321,112 @@ t('deux planètes aussi froides se disent à égalité', () => {
   assert.ok(/égalité/.test(v.mere.why), 'le superlatif se partage : ' + v.mere.why);
 });
 
+/* ---------- ce qui manque à l'empire pèse sur le classement des mines ---------- */
+
+/** Une planète à cristal (position 1) encadrée par une mineuse à métal :
+    l'empire déborde de métal, et le sol de la mère est bon pour le cristal. */
+const GORGE_METAL = s => {
+  s.planets[0].coords = '1:142:1';
+  Object.assign(s.planets[0].b, { metal: 22, crystal: 19, deut: 19, solar: 40 });
+  s.planets.push({
+    id: 'mine', name: 'Mineuse', coords: '1:142:8', tmax: 40,
+    b: Object.assign({}, s.planets[0].b, { metal: 30, crystal: 5, deut: 5, solar: 48 }),
+    sats: 0, ships: {}, shipsAt: 0, stock: { m: 0, c: 0, d: 0, at: 0 }
+  });
+};
+
+t('la ressource produite au-delà de sa part vaut moins, celle qui manque vaut plus', () => {
+  const g = app(GORGE_METAL);
+  const w = g.besoinEmpire();
+  assert.ok(w[0] < 1, 'le métal déborde, il vaut moins que son cours : ' + w[0]);
+  assert.ok(w[1] > 1 && w[2] > 1, 'cristal et deutérium manquent : ' + w.slice(1));
+});
+
+t('verser du métal dans l\'empire fait baisser le facteur du métal', () => {
+  const avant = app(s => {}).besoinEmpire();
+  const apres = app(GORGE_METAL).besoinEmpire();
+  assert.ok(apres[0] < avant[0], `${apres[0]} doit tomber sous ${avant[0]}`);
+});
+
+t('un mélange sur sa cible ne corrige rien', () => {
+  /* Le ratio lu comme des quantités : 3 de métal pour 2 de cristal pour 1 de
+     deutérium. production() est trop contrainte pour viser ça pile ; on vérifie
+     la formule sur un empire qui produit exactement sa cible. */
+  const g = app(s => { s.settings.ratio = [1, 1, 1]; });
+  const w = g.besoinEmpire.call(null);
+  assert.equal(w.length, 3);
+  assert.ok(w.every(x => x >= .5 && x <= 2), 'les bornes tiennent : ' + w);
+});
+
+t('les facteurs restent bornés quand une ressource manque tout à fait', () => {
+  const g = app(s => { s.planets.forEach(p => { p.b.deut = 0; }); });
+  const w = g.besoinEmpire();
+  assert.ok(w[2] <= 2, 'un deutérium nul ne fait pas valoir la ressource cent fois : ' + w[2]);
+  assert.ok(w.every(x => x >= .5), 'et rien ne tombe sous la moitié : ' + w);
+});
+
+t('l\'empire gorgé de métal fait passer la mine de cristal devant', () => {
+  const g = app(GORGE_METAL);
+  const p = g.S.planets[0];
+  const r = g.rankUpgrades(p);
+  /* Au cours du ratio seul, le métal gagnait : il coûte moins cher et son coût
+     grossit moins vite. C'est la carte que le joueur voyait revenir. */
+  const auCours = r.slice().sort((a, b) => a.payback - b.payback);
+  assert.equal(auCours[0].key, 'metal', 'au cours, le métal gagne encore');
+  assert.equal(r[0].key, 'crystal', 'au besoin de l\'empire, le cristal passe devant');
+});
+
+t('la pondération ne touche pas l\'amortissement affiché', () => {
+  const nu = app(s => { s.planets[0].coords = '1:142:1'; Object.assign(s.planets[0].b, { metal: 22, crystal: 19, deut: 19, solar: 40 }); });
+  const gorge = app(GORGE_METAL);
+  const a = nu.rankUpgrades(nu.S.planets[0]).find(u => u.key === 'crystal');
+  const b = gorge.rankUpgrades(gorge.S.planets[0]).find(u => u.key === 'crystal');
+  /* Le chiffre de la carte se refait de tête : il ne doit pas bouger parce
+     qu'une AUTRE planète a monté une mine. Seul l'ordre bouge. */
+  assert.ok(Math.abs(a.payback - b.payback) < 1e-9, `${a.payback} ≠ ${b.payback}`);
+  assert.ok(b.score < b.payback, 'le score, lui, tient compte du manque de cristal');
+});
+
+t('la carte dit ce qui manque à l\'empire et ce que le sol donne', () => {
+  const g = app(GORGE_METAL);
+  const why = g.mineWhy(g.S.planets[0], 'crystal');
+  assert.ok(/manque de cristal/.test(why), 'le besoin se dit : ' + why);
+  assert.ok(/planète à cristal/.test(why), 'la vocation se dit : ' + why);
+  assert.ok(/\+40 % de cristal/.test(why), 'avec son bonus de position : ' + why);
+  assert.ok(!/froide/.test(why), 'et pas la raison d\'une autre vocation : ' + why);
+});
+
+t('la carte dit aussi le cas gênant : tu en produis déjà trop', () => {
+  const g = app(GORGE_METAL);
+  assert.ok(/plus que ta part de métal/.test(g.mineWhy(g.S.planets[0], 'metal')),
+    g.mineWhy(g.S.planets[0], 'metal'));
+});
+
+t('le classement des mines nourrit la raison de la carte', () => {
+  const g = app(GORGE_METAL);
+  // pickBuildings lit une planète SIMULÉE : elle porte son stock sous `st`.
+  const p = Object.assign({}, g.S.planets[0], { st: [0, 0, 0] });
+  const c = g.pickBuildings(p, { T: SOIR, iv: 90, goals: [] }).find(x => x.k === 'crystal');
+  assert.ok(c && /manque de cristal/.test(c.why), 'la carte porte la raison : ' + (c && c.why));
+});
+
+t('l\'onglet Empire montre le mélange produit et sa cible', () => {
+  const g = app(GORGE_METAL);
+  g.VIEWS.planets(); g.REFRESH.planets();
+  const h = lu(g.html().empireMix || '');
+  assert.ok(/Mélange produit/.test(h), 'le mélange se lit : ' + h);
+  assert.ok(/cible de/.test(h), 'et la cible avec : ' + h);
+  assert.ok(/métal ×0\./.test(h), 'et le facteur appliqué au métal : ' + h);
+});
+
+t('le délai de retour d\'une colonie reste mesuré au cours du ratio', () => {
+  /* Il compare des POSITIONS : pondérer sa montée par le manque de l'empire
+     mesurerait chaque position avec une règle différente. */
+  const g = app(s => { s.tech.astro = 8; GORGE_METAL(s); });
+  assert.ok(g.colonyPayback(8).rate > g.colonyPayback(15).rate,
+    'la position 8 (+35 % métal) produit encore plus que la 15');
+});
+
 t('la raison du centre ne disparaît pas quand le joueur confirme le conseil', () => {
   const g = app(s => { s.centre = 'mere'; });
   assert.equal(g.centreIndex(), 0);
@@ -5520,21 +5606,6 @@ t('un ancien relevé ne compte qu\'un total, et ne se perd pas en route', () => 
   const vus = acts.filter(a => a.kind === 'def').map(a => a.why).join(' | ');
   assert.ok(!/0 lanceur de missiles sur/.test(vus), 'les 300 lanceurs restent comptés : ' + vus);
   assert.equal(lanceurs.length, 0, 'et rien ne les redemande : ' + vus);
-});
-
-t('l\'import de la Vue empire range la défense par type', () => {
-  const g = app(relie);
-  g.importEmpire({
-    planets: [{
-      name: 'Planète mère', coords: '1:140:8', temp: '20 °C à 60 °C',
-      supply: { 'Mine de métal': 10 },
-      defense: { 'Lanceur de missiles': 40, 'Laser léger': 12, 'Canon de Gauss': 2, 'Lanceur de plasma': 1 }
-    }],
-    research: {}
-  });
-  const p = g.S.planets[0];
-  assert.deepEqual(p.defs, { rl: 40, ll: 12, gc: 2, pt: 1 }, JSON.stringify(p.defs));
-  assert.equal(p.def, 55, 'le total reste lisible');
 });
 
 /* ---------- inventaire des transporteurs ---------- */
@@ -7644,17 +7715,16 @@ t('une case de recherche de forme de vie, sans niveau, est refusée pour ce moti
   assert.match(p.refus, /niveau/i);
 });
 
-t('tout bâtiment modélisé a sa tuile, son nom court et son libellé d\'import', () => {
+t('tout bâtiment modélisé a sa tuile et son nom court', () => {
   const g = app();
   const { OG_BUILD } = new Function(require('fs').readFileSync(require('path').join(__dirname, '..', 'ids.js'), 'utf8')
     + '; return { OG_BUILD };')();
-  const tuiles = Object.values(OG_BUILD), importe = g.MATCH_B.map(x => x[0]);
-  /* Quatre tables à tenir ensemble : une clé qui manque à l'une passe inaperçue
+  const tuiles = Object.values(OG_BUILD);
+  /* Trois tables à tenir ensemble : une clé qui manque à l'une passe inaperçue
      jusqu'à ce que le volet Empire affiche « undefined » chez le joueur. */
   for (const k of Object.keys(g.B)) {
     assert.ok(tuiles.includes(k), k + ' n\'a pas de tuile dans OG_BUILD');
     assert.ok(g.B_SHORT[k], k + ' n\'a pas de nom court');
-    assert.ok(importe.includes(k), k + ' ne se retrouve pas à l\'import de la Vue empire');
   }
 });
 
@@ -8177,6 +8247,102 @@ t('un fichier qui n\'est pas une sauvegarde ne remplace rien', () => {
   assert.equal(g.S.planets.length, 2, 'l\'empire est resté en place');
 });
 
+t('un état venu d\'ailleurs ne peut pas porter de balisage', () => {
+  /* Les champs des Réglages vérifient ce que le joueur tape, mais deux entrées
+     les contournent : le fichier de sauvegarde et storage.sync. Les textes sont
+     échappés à l'affichage ; ce qui restait à découvert, ce sont les champs tenus
+     pour des nombres et donc interpolés bruts — le ratio, l'intervalle et les
+     heures de nuit. */
+  const g = app();
+  const sain = JSON.parse(JSON.stringify(g.S));
+  const piege = part => JSON.stringify(Object.assign({}, sain, part));
+  const XSS = '<img src=x onerror=alert(1)>';
+
+  // 1. le ratio, dans l'innerHTML de l'onglet Empire
+  assert.ok(g.appliqueSauvegarde(piege({ settings: Object.assign({}, sain.settings, { ratio: [XSS, 2, 1] }) })),
+    'le fichier reste une sauvegarde recevable : ce sont les champs seuls qui sont écartés');
+  assert.deepEqual(g.saved().settings.ratio, [3, 2, 1], 'le ratio retombe sur sa valeur par défaut');
+  g.VIEWS.planets(); g.REFRESH.planets();
+  assert.ok(!/onerror/.test(g.html().empireMix || ''), 'rien n\'atteint l\'onglet Empire');
+
+  // 2. l'intervalle et les heures de nuit, dans « Plan du jour » et les Réglages
+  assert.ok(g.appliqueSauvegarde(piege({
+    day: Object.assign({}, sain.day, { interval: XSS, nightStart: '"><b>x', nightEnd: {}, horizon: NaN, focus: XSS }),
+  })));
+  const d = g.saved().day;
+  assert.equal(d.interval, 90, 'l\'intervalle retombe sur sa valeur par défaut');
+  assert.equal(d.nightStart, 23, 'et l\'heure de début de nuit');
+  assert.equal(d.nightEnd, 7, 'et celle de fin');
+  assert.equal(d.horizon, 24, 'et l\'horizon');
+  assert.equal(d.focus, 'equi', 'et la priorité, qui n\'est pas un nombre mais une clé connue');
+  for(const h of [g.VIEWS.today(), g.VIEWS.settings()])
+    assert.ok(!/onerror|"><b>/.test(h), 'ni « Plan du jour » ni les Réglages ne portent le balisage');
+
+  // 3. storage.sync est l'autre chemin, et il ne passe pas par appliqueSauvegarde
+  g.syncApply({ 'sy:day': Object.assign({}, sain.day, { nightStart: XSS }) });
+  assert.equal(g.saved().day.nightStart, 23, 'l\'état reçu en synchro est écarté aussi');
+
+  // 4. et ce que les menus des Réglages proposent traverse toujours
+  assert.ok(g.appliqueSauvegarde(piege({
+    settings: Object.assign({}, sain.settings, { ratio: [2, 1, 1] }),
+    day: Object.assign({}, sain.day, { interval: 180, nightStart: 0, nightEnd: 6, horizon: 48, focus: 'fleet' }),
+  })));
+  assert.deepEqual(g.saved().settings.ratio, [2, 1, 1], 'trois nombres > 0 passent');
+  assert.deepEqual(
+    [g.saved().day.interval, g.saved().day.nightStart, g.saved().day.nightEnd, g.saved().day.horizon, g.saved().day.focus],
+    [180, 0, 6, 48, 'fleet'], 'et les valeurs que les menus offrent ne sont pas rabotées');
+});
+
+t('aucun champ numérique d\'une sauvegarde n\'atteint un gabarit tel quel', () => {
+  /* Une quarantaine d'attributs interpolent l'état sans `esc`, parce que le
+     champ est tenu pour un nombre : `value`, `min`, `data-*`. `num()` est leur
+     `esc()`. On vérifie qu'aucun attribut ne se referme trop tôt — le texte
+     « onerror », lui, peut rester : échappé, il n'est qu'un mot. */
+  const g = app();
+  const sain = JSON.parse(JSON.stringify(g.S));
+  const XSS = '"><img src=x onerror=alert(1)>';
+  const piege = JSON.parse(JSON.stringify(sain));
+  piege.tech[Object.keys(piege.tech)[0]] = XSS;
+  Object.assign(piege.planets[0], { tmax: XSS, sats: XSS });
+  piege.planets[0].b.metal = XSS;
+  piege.raid = { coords: '1:1:1', m: XSS, c: XSS, d: XSS };
+  piege.fleetCalc.ships.sc = XSS;
+  piege.colo.bonus = XSS;
+  piege.prio = [{ kind: 'b', pid: sain.planets[0].id, k: 'metal', lvl: XSS }];
+
+  assert.ok(g.appliqueSauvegarde(JSON.stringify(piege)), 'le fichier reste recevable');
+  for(const v of ['planets', 'research', 'settings', 'today', 'tools', 'fleet', 'moon'])
+    assert.ok(!/"><img/.test(g.VIEWS[v]()), v + ' referme un attribut trop tôt');
+  // et le champ montre un nombre, pas une chaîne vide ni « NaN »
+  assert.match(g.VIEWS.planets(), /data-p="tmax" value="0"/);
+  assert.match(g.VIEWS.research(), /data-t="energy" value="0"/);
+});
+
+t('une sauvegarde dont les identifiants sont truqués est refusée', () => {
+  /* L'identifiant part dans une quinzaine d'attributs sans `esc`. Le réécrire
+     obligerait à suivre le centre, la colonie, les priorités et les minuteurs
+     qui le citent : le fichier est refusé en entier. */
+  const g = app();
+  const sain = JSON.parse(JSON.stringify(g.S));
+  const XSS = '"><img src=x onerror=alert(1)>';
+
+  const truque = JSON.parse(JSON.stringify(sain));
+  truque.planets[0].id = XSS;
+  assert.ok(!g.appliqueSauvegarde(JSON.stringify(truque)), 'planète truquée : refusée');
+
+  const tmTruque = JSON.parse(JSON.stringify(sain));
+  tmTruque.timers = [{ id: XSS, end: Date.now(), done: false }];
+  assert.ok(!g.appliqueSauvegarde(JSON.stringify(tmTruque)), 'minuteur truqué : refusé');
+  assert.equal(g.S.planets.length, 2, 'l\'empire est resté en place');
+
+  // une sauvegarde d'avant les identifiants reste recevable, et reçoit les siens
+  const vieille = JSON.parse(JSON.stringify(sain));
+  vieille.planets.forEach(q => delete q.id);
+  assert.ok(g.appliqueSauvegarde(JSON.stringify(vieille)), 'celle-là passe');
+  assert.ok(g.saved().planets.every(q => /^[a-z0-9]{1,24}$/i.test(q.id)),
+    'chaque planète repart avec un jeton : sinon tout l\'onglet s\'affiche en pn-undefined');
+});
+
 /* ---------- le tir de lune : les tables ---------- */
 
 /** Coût et bouclier de base, relus sur ogame.fandom.com/wiki/Ships le
@@ -8623,6 +8789,7 @@ t('les réglages Oui/Non sont des bascules cochées selon le réglage', () => {
 const API_SERVEUR = {
   server: { name: 'Celestia', number: 284, version: '13.1.1-r5', galaxies: 5, systems: 499,
     donutGalaxy: true, donutSystem: true, speed: 8, speedFleetPeaceful: 3, debrisFactor: 0.3,
+    researchDurationDivisor: 2, globalDeuteriumSaveFactor: 0.6, cargoHyperspaceTechMultiplier: 5,
     defToTF: false, marketplaceEnabled: false, bonusFields: 10 },
   at: { server: SOIR }
 };
@@ -8635,11 +8802,44 @@ t('la carte Serveur dit les faits du serveur dans ses unités', () => {
   assert.ok(/Non/.test(h), 'un drapeau à zéro se lit Non, pas 0');
 });
 
-t('un réglage qui contredit le serveur est signalé', () => {
-  const g = app(s => { s.ui.tool = 'server'; s.settings.eco = 1; s.settings.fleet = 3; }, SOIR, API_SERVEUR);
-  const h = lu(g.VIEWS.server());
-  assert.ok(/tes réglages : ×1/.test(h), 'la vitesse éco du joueur est fausse et le dit : ' + h.slice(0, 600));
-  assert.ok(!/tes réglages : ×3/.test(h), 'la vitesse flotte est juste, rien à signaler');
+t('la carte Serveur ne montre que quatre faits par groupe, le reste replié', () => {
+  /* Vingt faits d'affilée noyaient les quatre qui changent le plan. L'ordre de
+     SRV_ROWS décide : les quatre premiers présents restent dehors. */
+  const h = lu(app(s => { s.ui.tool = 'server'; }, SOIR, API_SERVEUR).VIEWS.server());
+  const uni = h.slice(h.indexOf('L\'univers'), h.indexOf('Vitesses'));
+  const dehors = uni.slice(0, uni.indexOf('<details'));
+  assert.equal((dehors.match(/<li>/g) || []).length, 4, 'quatre lignes dehors : ' + dehors);
+  assert.ok(/Le reste \(4\)/.test(uni), 'les autres sont comptées dans le repli : ' + uni);
+  assert.ok(uni.indexOf('Celestia') > uni.indexOf('<details'), 'et le nom, qui ne sert à rien de calculé, est dedans');
+});
+
+t('les vitesses du serveur passent devant le réglage saisi', () => {
+  // réglage faux exprès : ×1 au lieu des ×8 du serveur, et la recherche y est ÷2
+  const faux = s => { s.settings.eco = 1; s.settings.fleet = 1; };
+  const sans = app(faux).researchTime('energy', 5);
+  const avec = app(faux, SOIR, API_SERVEUR).researchTime('energy', 5);
+  assert.ok(Math.abs(avec - sans / 16) < 1,
+    `la vitesse éco (×8) et le diviseur de recherche (÷2) s'appliquent : ${sans} / 16 ≠ ${avec}`);
+});
+
+t('le carburant suit le facteur du serveur', () => {
+  const vol = g => g.flight('1:1:8', '1:5:8', { lc: 10 }, 100);
+  const sans = vol(app()), avec = vol(app(null, SOIR, API_SERVEUR));
+  assert.ok(Math.abs(avec.fuel - (sans.fuel - 1) * 0.6 - 1) <= 1,
+    `0,6 de deutérium brûlé : ${sans.fuel} attendu à ${Math.round((sans.fuel - 1) * 0.6) + 1}, lu ${avec.fuel}`);
+  assert.ok(avec.secs < sans.secs, 'et la vitesse flotte du serveur raccourcit le vol');
+});
+
+t('la carte Lune lit le taux de débris du serveur, sans rien demander', () => {
+  const h = lu(app(s => { s.ui.tool = 'moon'; s.settings.debris = 50; }, SOIR, API_SERVEUR).VIEWS.moon());
+  assert.ok(/<b class="mono">30 %<\/b>/.test(h), 'le taux lu remplace la liste déroulante : ' + h.slice(0, 400));
+  assert.ok(!/data-set="debris"/.test(h), 'plus de réglage à saisir quand le serveur l\'a dit');
+});
+
+t('sans serveur, le réglage de débris sert encore', () => {
+  const h = lu(app(s => { s.ui.tool = 'moon'; s.settings.debris = 50; }).VIEWS.moon());
+  assert.ok(/data-set="debris"/.test(h), 'la liste déroulante reste tant que rien n\'est lu');
+  assert.ok(/<option selected>50</.test(h) || /selected>50/.test(h), 'et elle montre le réglage du joueur');
 });
 
 t('sans données du serveur, la carte le dit au lieu de casser', () => {
