@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.60.1';
+const APP_VERSION = '1.60.2';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -3939,30 +3939,38 @@ function dailyMissions(){
        allumé. Le garder à nightAt en mode nuit renvoyait la carte au soir
        SUIVANT — rangée dans une connexion à venir, que le mode nuit n'affiche
        pas : réveillé à 3 h, le joueur n'avait plus une seule carte. */
-    const m = {id:'night', q:'Sécurité', at:S.day.night ? now : nightAt, every:24, sev:'warn',
+    /* Une carte par planète, comme en mode jour. La carte du soir listait les
+       autres lots dans son « Comment faire » — « Puis depuis D 90 3 : 20 grands
+       transporteurs… » — un pavé à relire à chaque envoi, sans lien préparé et
+       sans « Fait » à cocher. Chaque lot a donc sa carte, son formulaire déjà
+       rempli et son propre état. Le plus gros garde l'identifiant `night`, et
+       avec lui l'état des soirs passés et les avertissements d'empire. */
+    const carteLot = (r, tete) => {
+      /* Ce qui part vraiment : la soute plafonne le stock, et l'annoncer entier
+         mettrait à l'abri, sur le papier, ce qui passe la nuit au sol. */
+      const porte = Math.min(r.load, r.cargo);
+      return {id: tete ? 'night' : 'night:' + r.from.id, q:'Sécurité', at:S.day.night ? now : nightAt,
+        every:24, sev:'warn', tags:[planetRef(r.from)],
+        what:`${quand} : envoie ${shipList(r.ships)} de ${planetRef(r.from)} en mission ${FS_MISSION_N[r.mission]} vers ${r.dest}`,
+        ships:r.ships, dest:r.dest, p:S.planets.indexOf(r.from), mission:FS_MISSION[r.mission],
+        why:`${fmt(porte)} ressources à l'abri sur ${r.from.name}${porte < r.load ? `, sur ${fmt(r.load)} au sol` : ''}. Une flotte en vol ne peut pas être détruite ; ce qui dort au sol se fait prendre.`,
+        /* « Dépense d'abord » ne vaut qu'une fois : répété sur chaque carte, il
+           rallongeait quatre « Comment faire » pour un seul geste. */
+        how:(tete ? ['Dépense d\'abord ce que tu peux : lance une construction longue et une recherche.'] : []).concat([
+          `Charge ${porte < r.load ? `${fmt(porte)} sur ${fmt(r.load)}` : `<b>tout</b> le stock`} dans ${shipList(r.ships)} sur ${esc(r.from.name)}, destination ${esc(r.dest)}, mission ${FS_MISSION_N[r.mission]}. ${porte < r.load ? 'La soute ne lève pas le reste : il passe la nuit au sol.' : 'Ne laisse rien de valeur au sol.'}`,
+          `Règle la vitesse sur ${r.pct} % — c'est la seule chose que le lien ne prépare pas, et elle change d'un jour à l'autre exprès : une routine se chronomètre. ${r.oneWay ? `La flotte se pose vers ${hm(r.arrive)}` : `La flotte rentre vers ${hm(r.back)}`}, après ton réveil. Coût : ${fmt(r.fuel)} deutérium.`,
+          /* Le pourquoi de la méthode, et pas seulement le quoi : c'est lui qui
+             évite au joueur de « simplifier » en Transporter le soir où il est
+             pressé. Il reste sur chaque carte parce que la mission, elle, change
+             d'un lot à l'autre. */
+          r.mission === 'deployment'
+            ? `Sois en ligne <b>avant l'arrivée</b> : si une attaque se présente, <b>rappelle</b> le déploiement. Un déploiement rappelé est la seule mission vers une planète qu'une phalange ne voie pas — c'est ce qui en fait la seule mise à l'abri sûre tant que tu n'as pas de lune. Un Transporter, lui, se voit, et une fois le retour commencé tu ne peux plus rien.`
+            : `La position 16 n'accepte que l'Expédition : la flotte revient chargée, rien ne se pose ailleurs. C'est un pis-aller — le wiki ne la compte pas parmi les mises à l'abri, et un mauvais événement peut te coûter les vaisseaux et ce qu'ils portent. ${r.ships.pr ? 'La sonde à bord double ce qu\'elle rapporte.' : 'Une sonde à bord doublerait ce qu\'elle rapporte.'} Le déploiement ne vaudra mieux que vers une planète assez loin pour se poser après ton réveil.`])};
+    };
+    const m = fs ? carteLot(fs, true) : {id:'night', q:'Sécurité', at:S.day.night ? now : nightAt, every:24, sev:'warn',
       what:`${quand} : mettre tes ressources à l'abri`,
       why:'Une planète pleine pendant ton sommeil est une cible.',
       how:['Dépense tout ce que tu peux (files longues, satellites).', 'Envoie le reste avec tes transporteurs en mission longue (transport vers une colonie à vitesse 10 %, ou expédition).', 'Au réveil, rappelle ou récupère la flotte.']};
-    if(fs){
-      /* Ce qui part vraiment : la soute plafonne le stock, et l'annoncer entier
-         mettrait à l'abri, sur le papier, ce qui passe la nuit au sol. */
-      const porte = Math.min(fs.load, fs.cargo);
-      m.what = `${quand} : envoie ${shipList(fs.ships)} en mission ${FS_MISSION_N[fs.mission]} vers ${fs.dest}`;
-      m.ships = fs.ships; m.dest = fs.dest; m.p = S.planets.indexOf(fs.from);
-      m.mission = FS_MISSION[fs.mission];
-      m.why = `${fmt(porte)} ressources à l'abri sur ${fs.from.name}${porte < fs.load ? `, sur ${fmt(fs.load)} au sol` : ''}. Une flotte en vol ne peut pas être détruite ; ce qui dort au sol se fait prendre.`;
-      m.how = [
-        'Dépense d\'abord ce que tu peux : lance une construction longue et une recherche.',
-        `Charge ${porte < fs.load ? `${fmt(porte)} sur ${fmt(fs.load)}` : `<b>tout</b> le stock`} dans ${shipList(fs.ships)} sur ${esc(fs.from.name)}, destination ${esc(fs.dest)}, mission ${FS_MISSION_N[fs.mission]}. ${porte < fs.load ? 'La soute ne lève pas le reste : il passe la nuit au sol.' : 'Ne laisse rien de valeur au sol.'}`,
-        `Règle la vitesse sur ${fs.pct} % — c'est la seule chose que le lien ne prépare pas, et elle change d'un jour à l'autre exprès : une routine se chronomètre. ${fs.oneWay ? `La flotte se pose vers ${hm(fs.arrive)}` : `La flotte rentre vers ${hm(fs.back)}`}, après ton réveil. Coût : ${fmt(fs.fuel)} deutérium.`
-      ];
-      /* Le pourquoi de la méthode, et pas seulement le quoi : c'est lui qui
-         évite au joueur de « simplifier » en Transporter le soir où il est
-         pressé. */
-      if(fs.mission === 'deployment') m.how.push(`Sois en ligne <b>avant l'arrivée</b> : si une attaque se présente, <b>rappelle</b> le déploiement. Un déploiement rappelé est la seule mission vers une planète qu'une phalange ne voie pas — c'est ce qui en fait la seule mise à l'abri sûre tant que tu n'as pas de lune. Un Transporter, lui, se voit, et une fois le retour commencé tu ne peux plus rien.`);
-      else m.how.push(`La position 16 n'accepte que l'Expédition : la flotte revient chargée, rien ne se pose ailleurs. C'est un pis-aller — le wiki ne la compte pas parmi les mises à l'abri, et un mauvais événement peut te coûter les vaisseaux et ce qu'ils portent. ${fs.ships.pr ? 'La sonde à bord double ce qu\'elle rapporte.' : 'Une sonde à bord doublerait ce qu\'elle rapporte.'} Le déploiement ne vaudra mieux que vers une planète assez loin pour se poser après ton réveil.`);
-      for(const r of fs.rest||[]) m.how.push(`Puis depuis ${esc(planetRef(r.from))} : ${shipList(r.ships)} vers ${esc(r.dest)}, mission ${FS_MISSION_N[r.mission]} à ${r.pct} %, chargés de ${fmt(Math.min(r.load, r.cargo))} — ${r.oneWay?'pose':'retour'} vers ${hm(r.back)}.`);
-    }
     /* La mise à l'abri protège la flotte et ce qu'elle emporte, pas les planètes
        qu'elle laisse derrière : elles produisent huit heures de plus. Les nommer,
        parce que c'est exactement ce que le pilleur d'inactifs vient chercher. */
@@ -3991,6 +3999,7 @@ function dailyMissions(){
     if(seules.length) m.how.push(`Sans soute pour les lever, et plus rien à emprunter : ${seules.map(ligne).join(', ')}. Toute la soute libre de l'empire est déjà promise ailleurs — il faut en construire sur place.`);
     if(exposees.length) m.how.push(`Resteront exposés au matin : ${exposees.map(x=>`${esc(planetRef(x.p))} (~${fmt(x.eq)} éq.)`).join(', ')}. ${exposees[0].p.def == null ? 'Ouvre la page Défense pour que le plan monte ce qu\'il faut.' : `Le plan monte ${esc(planetRef(exposees[0].p))} à ${esc(defMixList(exposees[0].p))} : à ce prix-là, percer coûte plus cher qu'emporter.`}`);
     out.push(m);
+    for(const r of (fs && fs.rest) || []) out.push(carteLot(r, false));
   }
   out.push(...luneCartes(), ...luneCartesDette());
   /* La carte du tir mène la liste, et pas seulement à l'écran : la colonne
@@ -4046,8 +4055,12 @@ function flotteEnVol(m){
   /* Les mouvements de flotte du jeu portent aussi ceux des autres : un
      transport d'allié vers chez soi éteindrait une carte que personne n'a
      honorée. Un geste du joueur part d'une de ses planètes. */
+  /* Depuis que chaque planète a sa carte, deux lots peuvent viser la même
+     destination : sans regarder d'où part le mouvement, un seul envoi éteignait
+     les cartes des voisines, et leur stock passait la nuit au sol. */
+  const de = S.planets[m.p];
   return (S.moves || []).some(v => !v.ret && v.dest === m.dest && vaut(v.mission, m.mission)
-    && S.planets.some(p => p.coords === v.origin));
+    && (de && de.coords ? v.origin === de.coords : S.planets.some(p => p.coords === v.origin)));
 }
 function missionDone(m){
   /* Une marque périmée est une marque morte : la carte est revenue, et c'est

@@ -5836,13 +5836,25 @@ t('la mise à l\'abri protège la planète qui PEUT partir, pas seulement la plu
   assert.equal(fs.from.name, 'Colonie');
 });
 
-t('chaque planète chargée a son lot, et la carte du soir les nomme tous', () => {
+t('chaque planète chargée a sa carte, pas une ligne dans celle de la voisine', () => {
+  /* Les autres lots vivaient dans le « Comment faire » de la carte de tête :
+     « Puis depuis Colonie : 10 grands transporteurs… ». À relire à chaque
+     envoi, sans lien préparé, sans « Fait » à cocher. */
   const g = nue(s => { s.planets[0].ships = { lc: 40, pr: 4 }; s.planets[1].ships = { lc: 10 }; });
   const fs = g.fleetsavePlan(SOIR);
   assert.ok(fs && fs.rest && fs.rest.length === 1, 'le second lot manque : ' + JSON.stringify(fs && (fs.rest || []).length));
   assert.equal(fs.from.name, 'Caribou', 'le plus gros lot protégeable passe en premier');
-  const m = g.dailyMissions().find(x => x.id === 'night');
-  assert.ok(m.how.some(h => /Puis depuis Colonie/.test(h)), 'le second lot n\'est pas dit : ' + JSON.stringify(m.how));
+  const ms = g.dailyMissions();
+  const tete = ms.find(x => x.id === 'night');
+  const second = ms.find(x => x.id === 'night:' + fs.rest[0].from.id);
+  assert.ok(second, 'le second lot n\'a pas sa carte : ' + ms.map(x => x.id).join(' '));
+  assert.ok(/Colonie/.test(second.what), 'et elle nomme sa planète : ' + second.what);
+  assert.equal(second.dest, fs.rest[0].dest);
+  assert.match(g.missionGo(second) || '', /component=fleetdispatch/, 'avec son formulaire préparé');
+  assert.ok(!tete.how.some(h => /Puis depuis/.test(h)), 'la carte de tête ne récite plus les autres : ' + JSON.stringify(tete.how));
+  // « Dépense d'abord » ne vaut qu'une fois : c'est un geste, pas un par lot.
+  assert.ok(tete.how.some(h => /Dépense d'abord/.test(h)) && !second.how.some(h => /Dépense d'abord/.test(h)),
+    JSON.stringify(second.how));
 });
 
 t('un nom de planète ne peut pas injecter de balise dans les étapes', () => {
