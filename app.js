@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.56.6';
+const APP_VERSION = '1.56.7';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1634,8 +1634,12 @@ const FRAIS_MS = 10*60e3;
  * @returns {number} ms depuis la lecture la plus ancienne, énorme si rien n'est lu
  */
 function releveAge(){
-  const ats = S.planets.map(p => p.bNeuve ? 0 : (p.stock && p.stock.at) || 0);
-  return Date.now() - (ats.length ? Math.min(...ats) : 0);
+  /* Seules les planètes que le jeu nomme comptent : une planète que le panneau
+     connaît seul ne fait pas étape du relevé, et la compter laissait le bouton
+     rouge en permanence — il proposait une relecture qui ne l'aurait jamais
+     rajeunie. */
+  const ats = S.planets.filter(p => p.gid).map(p => p.bNeuve ? 0 : (p.stock && p.stock.at) || 0);
+  return ats.length ? Date.now() - Math.min(...ats) : 0;
 }
 /* Le relevé ne lit que les tuiles de la page affichée : chaque domaine demande
    donc son arrêt. Le panneau enchaîne les mêmes liens qu'un clic du joueur —
@@ -1836,7 +1840,7 @@ function boutonMaj(){
    d'arrêter un relevé en route — à huit planètes il y a cinquante arrêts, et
    le joueur qui change d'avis ne doit pas attendre la fin. */
 function majBouton(){
-  const b = document.getElementById('majBtn'); if(!b) return;
+  const b = document.getElementById('majBtn'); if(!b) return 0;
   const n = releveEtapes().length, age = releveAge();
   b.hidden = !n || (!releveEnCours && age <= FRAIS_MS);
   /* Rouge tant qu'il est là : ce bouton ne sort que quand le plan se fie à des
@@ -1853,12 +1857,25 @@ function majBouton(){
     const vieux = age > 7*864e5 ? 'Relevé jamais fait' : `Relevé vieux de ${dur(age/1000)}`;
     b.title = `${vieux} : ${n} page${n>1?'s':''} à relire pour tout savoir.`;
   }
+  /* L'âge que le bouton signale, pour l'en-tête — 0 quand il n'a rien à dire. */
+  return (b.hidden || releveEnCours) ? 0 : age;
 }
 function header(){
   const s=S.settings;
+  const perime = majBouton();
   /* L'heure de la dernière lecture et la classe, rien de plus : les deux
-     vitesses se lisent dans Outils › Serveur, qui les tient du serveur. */
-  document.getElementById('uniBadge').textContent = `${S.syncAt ? 'synchro ' + new Date(S.syncAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : 'en attente du jeu'} · ${({collector:'Collecteur',general:'Général',explorer:'Explorateur',none:'Sans classe'})[s.cls]}`;
+     vitesses se lisent dans Outils › Serveur, qui les tient du serveur.
+     Sauf quand le bouton est sorti : « synchro 19:58 » à côté d'un bouton rouge
+     se lisait comme une contradiction — la synchro date de la page sous les
+     yeux, le bouton parle de la planète la moins souvent vue. Tant qu'il est
+     là, l'en-tête annonce donc ce qu'il corrige. */
+  const quand = perime
+    ? (perime > 7*864e5 ? 'jamais relevé' : 'relevé ' + hm(Date.now() - perime))
+    : (S.syncAt ? 'synchro ' + new Date(S.syncAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : 'en attente du jeu');
+  const cls = ({collector:'Collecteur',general:'Général',explorer:'Explorateur',none:'Sans classe'})[s.cls];
+  const ub = document.getElementById('uniBadge');
+  ub.innerHTML = `${esc(quand)}<span class="cls"> · ${esc(cls)}</span>`;
+  ub.title = `${quand} · ${cls}`;
   /* Le mode nuit vit dans l'en-tête, à côté de l'engrenage : il tient en une
      icône, et la carte Maintenant n'a plus à le porter. */
   const nb = document.getElementById('nightBtn'), nuit = !!S.day.night;
@@ -1872,7 +1889,6 @@ function header(){
   lb.title = lb.ariaLabel = lune ? 'Quitter le mode lune' : 'Mode lune';
   lb.classList.toggle('primary', lune);
   lb.classList.toggle('ghost', !lune);
-  majBouton();
   /* L'engrenage est un onglet comme les autres, hors de la barre : il porte le
      même `data-tab`, donc le même état sélectionné. */
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.tab===tab)));

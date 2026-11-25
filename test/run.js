@@ -44,7 +44,7 @@ t('un relevé du jour même est frais, le bouton reste caché', () => {
 });
 
 t("c'est la planète la moins souvent vue qui donne l'âge", () => {
-  const g = app(s => { s.planets[1].stock.at = SOIR - 42 * 60e3; });
+  const g = app(s => { RELEVE(s); s.planets[1].stock.at = SOIR - 42 * 60e3; });
   assert.ok(g.releveAge() > g.FRAIS_MS);
   assert.equal(Math.round(g.releveAge() / 60e3), 42);
 });
@@ -58,6 +58,19 @@ t("une planète que le jeu vient de révéler rend tout l'empire périmé", () =
 t("une planète relevée depuis ne périme plus l'empire", () => {
   const g = app(RELEVE);
   assert.ok(g.releveAge() <= g.FRAIS_MS);
+});
+
+t("une planète que le jeu ne nomme pas ne périme pas l'empire", () => {
+  // le relevé ne passe jamais chez elle : la compter laissait le bouton rouge pour toujours
+  const g = app(s => { RELEVE(s); delete s.planets[1].gid; s.planets[1].stock.at = SOIR - 42 * 60e3; });
+  assert.ok(g.releveAge() <= g.FRAIS_MS);
+});
+
+t("en-tête : la synchro tant que le relevé est frais, l'heure du relevé sinon", () => {
+  const frais = app(s => { RELEVE(s); s.syncAt = SOIR; });
+  assert.match(frais.el('uniBadge').innerHTML, /^synchro /, 'rien à relire : la synchro suffit');
+  const vieux = app(s => { RELEVE(s); PERIME(s); s.syncAt = SOIR; });
+  assert.match(vieux.el('uniBadge').innerHTML, /^relevé /, "le bouton est sorti : l'en-tête parle de ce qu'il corrige");
 });
 
 t('sans serveur connu, aucun relevé à proposer', () => {
