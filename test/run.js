@@ -405,19 +405,33 @@ t('fenêtre de nuit dégénérée : pas de calcul, pas de boucle', () => {
 
 /* ---------- une seule planète ---------- */
 
-t('une seule planète mais une sonde : espionnage vers la position 16', () => {
-  // Deuxième méthode du wiki, et la seule qui ramène les ressources avec la
-  // flotte : rien ne se pose sur une planète qu'on laisserait exposée.
+t('sans déploiement qui tienne : expédition vers la 16, jamais Espionner', () => {
+  // La position 16 n'accepte que l'Expédition : un Espionner vers elle, que le
+  // copilote proposait dès qu'une sonde traînait au sol, se fait refuser par le
+  // jeu. La sonde part quand même — à bord, elle double les gains.
   const g = app(s => {
     s.planets = [s.planets[0]];
     s.planets[0].ships = { lc: 20, pr: 1 };
   });
   const fs = g.fleetsavePlan(SOIR);
   assert.ok(fs, 'un plan est proposé');
-  assert.equal(fs.mission, 'espionage');
+  assert.equal(fs.mission, 'expedition', 'la 16 n\'accepte rien d\'autre');
   assert.match(fs.dest, /^1:\d+:16$/, 'la position 16 d\'un système choisi sur le temps de vol');
-  assert.equal(fs.ships.pr, 1, 'la sonde part : sans elle le jeu refuse l\'ordre');
+  assert.equal(fs.ships.pr, 1, 'la sonde est du voyage : elle double ce que l\'expédition rapporte');
   assert.ok(!fs.oneWay && fs.back > REVEIL, 'aller-retour, de retour après le réveil');
+});
+
+t('la carte dit ce qu\'elle emporte, pas ce qui est au sol', () => {
+  // Une soute trop courte mettait à l'abri, sur le papier, ce qui passait la
+  // nuit au sol : la carte annonçait le stock entier.
+  const g = app(s => { s.planets = [s.planets[0]]; s.planets[0].ships = { lc: 1 }; });
+  const fs = g.fleetsavePlan(SOIR);
+  assert.ok(fs.cargo < fs.load, 'le cas visé : la soute ne lève pas tout');
+  const nuit = g.dailyMissions().find(m => m.id === 'night');
+  assert.match(nuit.why, new RegExp(g.fmt(Math.min(fs.load, fs.cargo))),
+    'le pourquoi chiffre ce qui part : ' + nuit.why);
+  assert.doesNotMatch(nuit.how.join(' '), /Ne laisse rien de valeur au sol/,
+    'et ne demande pas l\'impossible quand la soute manque');
 });
 
 t('ni deuxième planète ni sonde : l\'expédition, en le disant', () => {
@@ -428,6 +442,7 @@ t('ni deuxième planète ni sonde : l\'expédition, en le disant', () => {
   const fs = g.fleetsavePlan(SOIR);
   assert.equal(fs.mission, 'expedition');
   assert.match(fs.dest, /^1:\d+:16$/);
+  assert.ok(!fs.ships.pr, 'pas de sonde au sol, pas de sonde à bord');
   const how = g.dailyMissions().find(m => m.id === 'night').how.join(' ');
   assert.match(how, /pis-aller/, 'le pis-aller est annoncé comme tel : ' + how);
 });

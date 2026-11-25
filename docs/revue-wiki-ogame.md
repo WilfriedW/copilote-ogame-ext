@@ -397,10 +397,11 @@ invisible. Tel quel, il propose la bonne mission avec la mauvaise consigne.
   et le minuteur qui va avec — il faut être là avant l'arrivée. C'est la
   correction la moins chère et la plus utile de tout ce document : une phrase et
   un minuteur, pour une manœuvre qui protège tout le compte.
-- **À corriger** : l'espionnage vers la position 16 comme solution de repli. Le
-  wiki ne le compte pas parmi les mises à l'abri, et le copilote le préfère
-  pourtant à l'expédition. Si les deux sont hors liste, autant garder celle qui
-  rapporte.
+- **À corriger** : ~~l'espionnage vers la position 16 comme solution de repli~~
+  — fait en 1.58.0. La raison était plus sèche encore que celle écrite ici : la
+  16 n'accepte que l'Expédition, le jeu refusait l'ordre. Le repli est
+  désormais toujours une expédition, avec la sonde à bord quand la planète en a
+  une, puisqu'elle y double les gains.
 - **À retirer** : rien.
 
 ---
