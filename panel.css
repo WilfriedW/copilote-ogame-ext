@@ -22,8 +22,8 @@
   --bg:#eef1f8; --surface:#ffffff; --surface-2:#f3f5fb; --line:#d6dcec;
   --fg:#141a2c; --muted:#5b6585; --accent:#3d5fd6; --accent-ink:#ffffff;
   --metal:#59657f; --crystal:#0e86b8; --deut:#0f9a70; --energy:#b07800;
-  --good:#0f9a70; --warn:#b07800; --bad:#c8354a; color-scheme:light}
-  --p0:#1b6cc9; --p1:#b35c00; --p2:#0b8a5a; --p3:#c0336a; --p4:#8a6a00; --p5:#6b3fc9;
+  --good:#0f9a70; --warn:#b07800; --bad:#c8354a; color-scheme:light;
+  --p0:#1b6cc9; --p1:#b35c00; --p2:#0b8a5a; --p3:#c0336a; --p4:#8a6a00; --p5:#6b3fc9}
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -257,3 +257,119 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 .ms .act{grid-row:1/3;grid-column:3;align-self:start}
 .toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);padding:8px 14px;border-radius:999px;font-weight:600;font-size:13px;z-index:20}
 @media (prefers-reduced-motion: no-preference){nav.tabs button,.btn{transition:background .15s,filter .15s}}
+
+/* ======================================================================
+   HABILLAGES — quatre peaux sur la même structure.
+   `data-skin` et `data-page` sont posés sur <html> par header() : la peau,
+   et l'onglet courant dont « une couleur par page » tire sa teinte. Une peau
+   ne touche que des variables et quelques composants, jamais la mise en page
+   — donc les quatre valent pour toutes les vues, écran de relevé et bandeaux
+   compris, sans qu'aucune d'elles ait à savoir qu'une peau existe.
+   ====================================================================== */
+
+/* La couleur de la ressource remonte du point à la jauge entière : c'est le
+   seul endroit où le HTML dit de quelle ressource il parle. */
+.gauge:has(.bg-m){--rc:var(--metal)}
+.gauge:has(.bg-c){--rc:var(--crystal)}
+.gauge:has(.bg-d){--rc:var(--deut)}
+.gauge:has(.bg-e){--rc:var(--energy)}
+/* Le bandeau porte sa propre couleur de fond : son titre hérite, sinon la
+   teinte de la peau le rend illisible dessus. */
+:root[data-skin] .big-alert .box h2{color:inherit}
+:root[data-skin] .big-alert .box h2::before{display:none}
+
+/* --- 1 · Relief ------------------------------------------------------
+   La palette d'origine, mais plus plate du tout : un dégradé et une ombre
+   sous chaque carte, le titre à l'accent avec sa barre, les jauges teintées
+   à la couleur de leur ressource. Seule peau qui suit le thème clair. */
+:root[data-skin=relief]{--ombre:0 6px 16px rgba(0,0,0,.30);--lustre:rgba(255,255,255,.055)}
+@media (prefers-color-scheme: light){:root[data-skin=relief]:not([data-theme=dark]){--ombre:0 4px 12px rgba(20,26,44,.10);--lustre:rgba(255,255,255,.9)}}
+:root[data-theme=light][data-skin=relief]{--ombre:0 4px 12px rgba(20,26,44,.10);--lustre:rgba(255,255,255,.9)}
+:root[data-skin=relief] .card{background:linear-gradient(180deg,color-mix(in srgb,var(--fg) 4%,var(--surface)),var(--surface));box-shadow:inset 0 1px 0 var(--lustre),var(--ombre)}
+:root[data-skin=relief] h2,:root[data-skin=relief] details.card>summary{color:var(--accent)}
+:root[data-skin=relief] h2{display:flex;align-items:center;gap:8px}
+:root[data-skin=relief] h2::before,:root[data-skin=relief] details.card>summary::before{content:"";flex:0 0 auto;width:3px;height:13px;border-radius:2px;background:currentColor}
+:root[data-skin=relief] .btn.primary{background:linear-gradient(180deg,color-mix(in srgb,#fff 18%,var(--accent)),var(--accent));box-shadow:0 2px 7px color-mix(in srgb,var(--accent) 40%,transparent)}
+:root[data-skin=relief] .gauge{border-top:2px solid var(--rc,var(--line));background:linear-gradient(180deg,color-mix(in srgb,var(--rc,var(--surface-2)) 12%,var(--surface-2)),var(--surface-2))}
+:root[data-skin=relief] .acts li.task{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 14%,var(--surface-2)),var(--surface-2) 70%)}
+:root[data-skin=relief] .timers li{border-left:3px solid var(--accent)}
+:root[data-skin=relief] .timers li.done{border-left-color:var(--good)}
+
+/* --- 2 · Une couleur par page ---------------------------------------
+   Chaque onglet sa teinte : ambre pour agir, cyan pour produire, violet
+   pour calculer, vert pour régler. `--accent` suit, donc onglets, boutons
+   et pastilles d'information changent avec la page. */
+:root[data-skin=domaine]{color-scheme:dark;
+  --dom:#8aa9ff;--accent:var(--dom);--accent-ink:#0a0f1e;
+  --bg:#0a0f1e;--surface:#121a30;--surface-2:#18213c;--line:#283457;--fg:#e7ebf7;--muted:#8b96b7;
+  --metal:#b9c3d9;--crystal:#6fd2ff;--deut:#4fdeb0;--energy:#ffc95c;
+  --good:#4fdeb0;--warn:#ffc95c;--bad:#ff7a8a;
+  --p0:#74b9ff;--p1:#ffa94d;--p2:#63e6a8;--p3:#ff8fb1;--p4:#ffe066;--p5:#c4a0ff}
+:root[data-skin=domaine][data-page=today]{--dom:#ffb155}
+:root[data-skin=domaine][data-page=empire]{--dom:#5ec9ff}
+:root[data-skin=domaine][data-page=tools]{--dom:#c4a0ff}
+:root[data-skin=domaine][data-page=settings]{--dom:#4fdeb0}
+:root[data-skin=domaine] header.top{background:linear-gradient(120deg,color-mix(in srgb,var(--dom) 22%,transparent),transparent 72%);border-radius:var(--r);padding:8px 10px;margin:-8px -10px 0}
+:root[data-skin=domaine] .card{border-left:3px solid color-mix(in srgb,var(--dom) 55%,var(--line))}
+:root[data-skin=domaine] h2,:root[data-skin=domaine] details.card>summary{color:var(--dom)}
+:root[data-skin=domaine] .seg button[aria-selected=true]{background:var(--dom);color:var(--accent-ink)}
+:root[data-skin=domaine] .gauge{background:linear-gradient(180deg,color-mix(in srgb,var(--rc,var(--surface-2)) 14%,var(--surface-2)),var(--surface-2))}
+:root[data-skin=domaine] .acts li.task{background:color-mix(in srgb,var(--dom) 12%,var(--surface-2))}
+:root[data-skin=domaine] th{color:color-mix(in srgb,var(--dom) 65%,var(--muted))}
+
+/* --- 3 · Console de bord --------------------------------------------
+   Le parti sci-fi du jeu : fond quadrillé, angles coupés, chiffres en mono
+   qui luisent, diode devant chaque titre. Rien d'arrondi. */
+:root[data-skin=hud]{color-scheme:dark;
+  --bg:#04070d;--surface:#0a1420;--surface-2:#0f1d2a;--line:#1d5f56;--fg:#d7f5ee;--muted:#6f9a93;
+  --accent:#39e6c3;--accent-ink:#02140f;
+  --metal:#a8c6e0;--crystal:#53d8ff;--deut:#39e6c3;--energy:#ffb23d;
+  --good:#39e6c3;--warn:#ffb23d;--bad:#ff5f7a;
+  --p0:#74b9ff;--p1:#ffa94d;--p2:#63e6a8;--p3:#ff8fb1;--p4:#ffe066;--p5:#c4a0ff;
+  --r:0px;--r-sm:0px}
+:root[data-skin=hud] body{background-image:linear-gradient(rgba(57,230,195,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(57,230,195,.07) 1px,transparent 1px);background-size:26px 26px}
+:root[data-skin=hud] h1,:root[data-skin=hud] h2,:root[data-skin=hud] details.card>summary{font-family:var(--f-mono);letter-spacing:.16em}
+:root[data-skin=hud] h2,:root[data-skin=hud] details.card>summary{color:var(--accent);font-size:11px}
+:root[data-skin=hud] h2{display:flex;align-items:center;gap:8px}
+:root[data-skin=hud] h2::before,:root[data-skin=hud] details.card>summary::before{content:"";flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+:root[data-skin=hud] .card{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));box-shadow:0 0 22px rgba(57,230,195,.07)}
+:root[data-skin=hud] .btn,:root[data-skin=hud] nav.tabs button{clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.1em}
+:root[data-skin=hud] .btn.primary{box-shadow:0 0 14px color-mix(in srgb,var(--accent) 45%,transparent)}
+:root[data-skin=hud] nav.tabs button,:root[data-skin=hud] .seg,:root[data-skin=hud] .seg button,:root[data-skin=hud] .pill,:root[data-skin=hud] .chip,:root[data-skin=hud] .ptag,:root[data-skin=hud] .toast,:root[data-skin=hud] .gear,:root[data-skin=hud] label.f.bascule input,:root[data-skin=hud] label.f.bascule input::after{border-radius:0}
+:root[data-skin=hud] .gauge,:root[data-skin=hud] .acts li,:root[data-skin=hud] .timers li,:root[data-skin=hud] .list li{border-left:2px solid var(--rc,var(--accent))}
+:root[data-skin=hud] .acts li.wait{border-left-color:var(--warn)}
+:root[data-skin=hud] .gauge .v,:root[data-skin=hud] .timers .cd,:root[data-skin=hud] .big,:root[data-skin=hud] .tl .time{font-family:var(--f-mono);font-weight:700;text-shadow:0 0 10px color-mix(in srgb,currentColor 45%,transparent)}
+:root[data-skin=hud] .big-alert .box{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));box-shadow:0 0 26px color-mix(in srgb,var(--good) 45%,transparent)}
+
+/* --- 4 · Arcade ------------------------------------------------------
+   Le plus fun : fond violet en dégradés, grands rayons, boutons épais qui
+   s'enfoncent au clic, planètes et jauges qui brillent. */
+:root[data-skin=arcade]{color-scheme:dark;
+  --bg:#0c0719;--surface:rgba(255,255,255,.06);--surface-2:rgba(255,255,255,.09);--line:rgba(255,255,255,.13);
+  --fg:#f3efff;--muted:#a79cc9;--accent:#ff5fa2;--accent-ink:#1a0a20;
+  --metal:#cfd8ff;--crystal:#6fe0ff;--deut:#5ef0b8;--energy:#ffd166;
+  --good:#5ef0b8;--warn:#ffd166;--bad:#ff6b8b;
+  --p0:#74b9ff;--p1:#ffa94d;--p2:#63e6a8;--p3:#ff8fb1;--p4:#ffe066;--p5:#c4a0ff;
+  --r:18px;--r-sm:12px}
+:root[data-skin=arcade] body{background-image:radial-gradient(520px 260px at 12% -6%,#4b2185,transparent),radial-gradient(460px 240px at 100% 0,#1d3a85,transparent);background-attachment:fixed;background-repeat:no-repeat}
+/* La barre d'onglets colle en haut : opaque, elle posait un rectangle mat sur
+   le dégradé. Elle le laisse passer, floué. */
+:root[data-skin=arcade] nav.tabs{background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(10px)}
+:root[data-skin=arcade] .card{backdrop-filter:blur(3px);box-shadow:0 10px 24px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08)}
+:root[data-skin=arcade] h1 span{background:linear-gradient(135deg,#ff5fa2,#b388ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+:root[data-skin=arcade] h2,:root[data-skin=arcade] details.card>summary{color:var(--fg);font-weight:700}
+:root[data-skin=arcade] .btn{border:0;font-weight:800;box-shadow:0 3px 0 rgba(0,0,0,.40)}
+:root[data-skin=arcade] .btn.primary{background:linear-gradient(135deg,#ff5fa2,#8b5cf6);color:#fff;box-shadow:0 3px 0 #5b2a84,0 7px 18px rgba(255,95,162,.35)}
+:root[data-skin=arcade] .btn.ghost{background:rgba(255,255,255,.07);box-shadow:none}
+:root[data-skin=arcade] .btn:active{transform:translateY(2px);box-shadow:none}
+:root[data-skin=arcade] nav.tabs button[aria-selected=true],:root[data-skin=arcade] .seg button[aria-selected=true]{background:linear-gradient(135deg,#ff5fa2,#8b5cf6);border-color:transparent;color:#fff;box-shadow:0 5px 16px rgba(255,95,162,.4)}
+:root[data-skin=arcade] .gauge{background:linear-gradient(160deg,color-mix(in srgb,var(--rc,var(--surface-2)) 24%,transparent),var(--surface-2))}
+:root[data-skin=arcade] .gauge .v{font-weight:800}
+:root[data-skin=arcade] .gauge .k i{box-shadow:0 0 10px currentColor}
+:root[data-skin=arcade] .acts li.task{background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 22%,transparent),color-mix(in srgb,#8b5cf6 16%,transparent));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 30%,transparent)}
+:root[data-skin=arcade] .timers .cd{color:var(--energy);font-weight:800}
+:root[data-skin=arcade] .ptag{box-shadow:0 0 12px color-mix(in srgb,var(--pc) 35%,transparent)}
+:root[data-skin=arcade] .big-alert .box{background:linear-gradient(135deg,#ffd166,#ff8e3c);color:#2a1300}
+:root[data-skin=arcade] .big-alert .box .btn{background:#2a1300;color:#ffd166}
+:root[data-skin=arcade] label.f.bascule input:checked{background:linear-gradient(135deg,#ff5fa2,#8b5cf6);border-color:transparent}
+:root[data-skin=arcade] label.f.bascule input:checked::after{background:#fff}

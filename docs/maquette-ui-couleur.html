@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Maquettes — habillage du panneau</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* ===================================================================
+   Planche de maquettes : 4 directions × 4 pages du panneau.
+   Rien ici ne touche l'extension — c'est une page à regarder.
+   =================================================================== */
+*{box-sizing:border-box}
+body{margin:0;background:#06080e;color:#dfe4f2;font:14px/1.55 "IBM Plex Sans",system-ui,sans-serif}
+.gal{padding:26px 22px 90px;max-width:1720px;margin:0 auto}
+h1.g{font:800 24px/1.2 "Oxanium",sans-serif;letter-spacing:.03em;text-transform:uppercase;margin:0 0 6px}
+h1.g span{color:#8aa9ff}
+p.lede{color:#8e98b8;margin:0 0 26px;max-width:70ch}
+.dir{margin:0 0 40px;border-top:1px solid #1b2238;padding-top:20px}
+.dir>.hd{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 14px}
+.dir>.hd .no{font:800 13px/1 "JetBrains Mono",monospace;color:#06080e;background:#8aa9ff;border-radius:6px;padding:5px 8px}
+.dir>.hd h2{font:700 19px/1.2 "Oxanium",sans-serif;margin:0;letter-spacing:.02em}
+.dir>.hd .pitch{color:#8e98b8;font-size:13px;flex:1 1 320px;min-width:0}
+.dir>.hd .cout{font:600 11px/1 "JetBrains Mono",monospace;color:#4fdeb0;border:1px solid #255b48;border-radius:999px;padding:5px 9px;white-space:nowrap}
+.strip{display:flex;gap:14px;align-items:flex-start;overflow-x:auto;padding:4px 0 14px}
+.strip::-webkit-scrollbar{height:8px}.strip::-webkit-scrollbar-thumb{background:#222c48;border-radius:9px}
+.pw{flex:0 0 358px;width:358px}
+.pw>.lab{font:600 11px/1 "JetBrains Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:#6f7b9d;margin:0 0 7px;padding-left:2px}
+
+/* ===== squelette commun du panneau (structure, pas de couleur) ===== */
+.pan{border-radius:14px;overflow:hidden;padding:13px;background:var(--bg);color:var(--fg);
+  font-family:var(--f-body);font-size:13px;border:1px solid var(--line)}
+.pan header.top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.brand{display:flex;align-items:center;gap:7px;min-width:0}
+.logo{display:none}
+.pan h1{font:700 16px/1 var(--f-display);letter-spacing:.04em;text-transform:uppercase;margin:0;white-space:nowrap}
+.pan h1 span{color:var(--accent)}
+.ver{font:500 10px/1 var(--f-mono);color:var(--muted)}
+.topb{display:flex;gap:5px;align-items:center}
+.pan nav.tabs{display:flex;gap:5px;margin:0 0 11px}
+.pan nav.tabs button{flex:0 0 auto;font:600 11px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;
+  padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
+.pan nav.tabs button[aria-selected=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.panel{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.pan h2{font:600 12px/1.2 var(--f-display);letter-spacing:.08em;text-transform:uppercase;margin:0;color:var(--muted);display:flex;align-items:center;gap:7px}
+.ic{display:none}
+.led{display:none}
+.note{font-size:11px;color:var(--muted);margin:0}
+.note b{color:var(--fg)}
+.btn{font:600 12px/1 var(--f-body);padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.sm{padding:5px 8px;font-size:11px}
+.btn.ghost{background:transparent}
+.seg{display:flex;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px;margin-bottom:2px}
+.seg button{flex:1 0 auto;font:600 11px/1 var(--f-body);padding:6px 8px;border-radius:999px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.seg button[aria-selected=true]{background:var(--surface-2);color:var(--fg)}
+.acts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.acts li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 9px;align-items:center;background:var(--surface-2);border-radius:8px;padding:9px 11px}
+.acts .q{font:600 10px/1 var(--f-body);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.acts .w{font-weight:600;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.acts .m{grid-column:1/-1;display:flex;gap:9px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--muted)}
+.acts li.wait{background:transparent;border:1px dashed var(--line)}
+.ptag{padding:1px 7px;border-radius:999px;font:700 10px/1.6 var(--f-body);color:var(--pc);
+  background:color-mix(in srgb,var(--pc) 16%,transparent);border:1px solid color-mix(in srgb,var(--pc) 40%,transparent)}
+.chip{display:inline-flex;align-items:center;gap:4px;font:400 10px/1.4 var(--f-mono);color:var(--muted);
+  background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:3px 7px}
+.chip b{color:var(--fg);font-weight:700}
+.res{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.gauge{background:var(--surface-2);border-radius:8px;padding:8px 9px;display:flex;flex-direction:column;gap:1px}
+.gauge .k{font:500 10px/1.3 var(--f-body);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:5px}
+.gauge .k i{width:7px;height:7px;border-radius:50%;background:currentColor;flex:0 0 auto}
+.gauge .v{font:600 17px/1.2 var(--f-display);font-variant-numeric:tabular-nums}
+.gauge .s{font:400 10px/1.3 var(--f-mono);color:var(--muted)}
+.c-m{--rc:var(--metal)}.c-c{--rc:var(--crystal)}.c-d{--rc:var(--deut)}.c-e{--rc:var(--energy)}
+.gauge.c-m .k,.gauge.c-c .k,.gauge.c-d .k,.gauge.c-e .k{color:var(--rc)}
+.gauge .v{color:var(--fg)}
+.bar{height:5px;border-radius:999px;background:var(--surface);overflow:hidden;margin-top:5px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.plist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.plist li{display:flex;align-items:center;gap:8px;background:var(--surface-2);border-radius:8px;padding:8px 10px}
+.orb{display:none}
+.plist .nm{font-weight:600;min-width:0}
+.plist .nm em{display:block;font:400 10px/1.3 var(--f-mono);color:var(--muted);font-style:normal}
+.plist .pr{margin-left:auto;font:500 11px/1.3 var(--f-mono);color:var(--muted);text-align:right;white-space:nowrap}
+.timers{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.timers li{display:flex;gap:9px;align-items:center;background:var(--surface-2);border-radius:8px;padding:8px 10px}
+.timers li>div{flex:1;min-width:0}
+.timers .w{font-weight:600;font-size:12px}
+.timers .cd{font:700 16px/1 var(--f-display);font-variant-numeric:tabular-nums;color:var(--accent)}
+.timers li.done{outline:2px solid var(--good)}
+.timers li.done .cd{color:var(--good)}
+.pill{display:inline-flex;align-items:center;gap:4px;font:600 10px/1.5 var(--f-body);letter-spacing:.03em;
+  padding:2px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.pill.good{color:var(--good)}.pill.warn{color:var(--warn)}.pill.bad{color:var(--bad)}.pill.info{color:var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:11px}
+.tbl-wrap{border:1px solid var(--line);border-radius:8px;overflow:hidden}
+th,td{padding:5px 7px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font:600 9px/1.4 var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--surface-2)}
+tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;font-family:var(--f-mono)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted);min-width:0}
+.fld{font:500 12px/1 var(--f-mono);color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:7px;padding:7px 8px;display:flex;justify-content:space-between;gap:6px}
+.fld::after{content:"▾";color:var(--muted);font-size:9px}
+.fld.txt::after{content:""}
+.bascules{display:flex;flex-direction:column}
+.bascule{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 10px;padding:8px 0;font-size:12px;color:var(--fg)}
+.bascule+.bascule{border-top:1px solid var(--line)}
+.sw{width:32px;height:19px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);position:relative}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:var(--muted)}
+.sw.on{background:var(--accent);border-color:var(--accent)}
+.sw.on::after{left:auto;right:2px;background:var(--accent-ink)}
+.bascule .note{grid-column:1}
+.alert .box{background:var(--good);color:var(--accent-ink);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:10px}
+.alert h2{color:inherit;font-size:10px;margin:0}
+.alert .txt{flex:1;min-width:0}
+.alert .msg{font:700 14px/1.25 var(--f-display)}
+.alert .btn{background:var(--accent-ink);color:var(--good);border:0;flex:0 0 auto}
+.xp{display:none}
+
+/* =========================================================
+   1 · RELIEF — même palette, du volume et des accents
+   ========================================================= */
+[data-th=relief] .pan{--bg:#0c1120;--surface:#141c33;--surface-2:#1a2340;--line:#2b3760;--fg:#e5e9f6;--muted:#8e98b8;
+  --accent:#8aa9ff;--accent-ink:#0c1120;--metal:#b9c3d9;--crystal:#6fd2ff;--deut:#4fdeb0;--energy:#ffc95c;
+  --good:#4fdeb0;--warn:#ffc95c;--bad:#ff7a8a;
+  --f-display:"Oxanium",sans-serif;--f-body:"IBM Plex Sans",sans-serif;--f-mono:"JetBrains Mono",monospace}
+[data-th=relief] .card{background:linear-gradient(180deg,#19223c,#111831);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 6px 16px rgba(0,0,0,.35)}
+[data-th=relief] .pan h2{color:var(--accent)}
+[data-th=relief] .pan h2::before{content:"";width:3px;height:13px;border-radius:2px;background:var(--accent)}
+[data-th=relief] .btn.primary{background:linear-gradient(180deg,#a3bbff,#6f92ff);box-shadow:0 2px 7px rgba(111,146,255,.38)}
+[data-th=relief] .gauge{border-top:2px solid var(--rc,var(--line));background:linear-gradient(180deg,color-mix(in srgb,var(--rc,#fff) 11%,transparent),var(--surface-2))}
+[data-th=relief] .gauge .v{color:var(--rc,var(--fg))}
+[data-th=relief] .acts li.task{border-left:3px solid var(--accent);background:linear-gradient(90deg,rgba(138,169,255,.12),var(--surface-2) 70%)}
+[data-th=relief] .timers li{border-left:3px solid var(--accent)}
+[data-th=relief] .timers li.done{border-left-color:var(--good)}
+[data-th=relief] .plist li{border-left:3px solid var(--pc,var(--line))}
+
+/* =========================================================
+   2 · DOMAINE — une couleur par page, des pictos
+   ========================================================= */
+[data-th=domaine] .pan{--bg:#0a0f1e;--surface:#121a30;--surface-2:#182banone;--surface-2:#18213c;--line:#283457;--fg:#e7ebf7;--muted:#8b96b7;
+  --accent:var(--dom);--accent-ink:#0a0f1e;--metal:#b9c3d9;--crystal:#6fd2ff;--deut:#4fdeb0;--energy:#ffc95c;
+  --good:#4fdeb0;--warn:#ffc95c;--bad:#ff7a8a;--dom:#8aa9ff;
+  --f-display:"Oxanium",sans-serif;--f-body:"IBM Plex Sans",sans-serif;--f-mono:"JetBrains Mono",monospace}
+[data-th=domaine] .pan[data-p=today]{--dom:#ffb155}
+[data-th=domaine] .pan[data-p=empire]{--dom:#5ec9ff}
+[data-th=domaine] .pan[data-p=tools]{--dom:#c4a0ff}
+[data-th=domaine] .pan[data-p=settings]{--dom:#4fdeb0}
+[data-th=domaine] .pan{border-top:3px solid var(--dom)}
+[data-th=domaine] .pan header.top{margin:-13px -13px 10px;padding:13px;
+  background:linear-gradient(120deg,color-mix(in srgb,var(--dom) 26%,transparent),transparent 70%)}
+[data-th=domaine] .card{border-left:3px solid color-mix(in srgb,var(--dom) 55%,var(--line))}
+[data-th=domaine] .pan h2{color:var(--dom)}
+[data-th=domaine] .ic{display:inline-block;font-size:13px;filter:saturate(1.2)}
+[data-th=domaine] .acts li.task{background:color-mix(in srgb,var(--dom) 10%,var(--surface-2))}
+[data-th=domaine] .gauge{background:linear-gradient(180deg,color-mix(in srgb,var(--rc,#fff) 13%,transparent),var(--surface-2))}
+[data-th=domaine] .gauge .v{color:var(--rc,var(--fg))}
+[data-th=domaine] .seg button[aria-selected=true]{background:var(--dom);color:var(--accent-ink)}
+[data-th=domaine] th{color:color-mix(in srgb,var(--dom) 70%,var(--muted))}
+[data-th=domaine] .orb{display:block;width:22px;height:22px;border-radius:50%;flex:0 0 auto;
+  background:radial-gradient(circle at 33% 30%,color-mix(in srgb,var(--pc) 85%,#fff),color-mix(in srgb,var(--pc) 40%,#0a0f1e))}
+
+/* =========================================================
+   3 · HUD — console de bord, angles coupés, mono, lueur
+   ========================================================= */
+[data-th=hud] .pan{--bg:#04070d;--surface:rgba(10,20,30,.8);--surface-2:rgba(16,30,42,.75);--line:rgba(57,230,195,.26);
+  --fg:#d7f5ee;--muted:#6f9a93;--accent:#39e6c3;--accent-ink:#02140f;
+  --metal:#a8c6e0;--crystal:#53d8ff;--deut:#39e6c3;--energy:#ffb23d;--good:#39e6c3;--warn:#ffb23d;--bad:#ff5f7a;
+  --f-display:"Oxanium",sans-serif;--f-body:"IBM Plex Sans",sans-serif;--f-mono:"JetBrains Mono",monospace;
+  background-image:linear-gradient(rgba(57,230,195,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(57,230,195,.045) 1px,transparent 1px);
+  background-size:26px 26px;box-shadow:inset 0 0 60px rgba(57,230,195,.06)}
+[data-th=hud] .pan h1{font-family:var(--f-mono);font-weight:700;font-size:14px;letter-spacing:.14em}
+[data-th=hud] .card{clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px));
+  border-radius:0;box-shadow:0 0 22px rgba(57,230,195,.07)}
+[data-th=hud] .pan h2{font-family:var(--f-mono);font-size:10px;letter-spacing:.2em;color:var(--accent)}
+[data-th=hud] .pan h2::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(57,230,195,.55),transparent)}
+[data-th=hud] .led{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);flex:0 0 auto}
+[data-th=hud] .btn{border-radius:0;font-family:var(--f-mono);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,7px 100%,0 calc(100% - 7px))}
+[data-th=hud] .btn.primary{box-shadow:0 0 14px rgba(57,230,195,.45)}
+[data-th=hud] nav.tabs button{border-radius:0;font-family:var(--f-mono);letter-spacing:.14em;
+  clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px))}
+[data-th=hud] .acts li,[data-th=hud] .timers li,[data-th=hud] .plist li,[data-th=hud] .gauge{border-radius:0;border-left:2px solid var(--accent)}
+[data-th=hud] .acts li.wait{border-left-color:var(--warn)}
+[data-th=hud] .gauge{border-left-color:var(--rc,var(--accent))}
+[data-th=hud] .gauge .v{font-family:var(--f-mono);font-weight:700;color:var(--rc,var(--fg));text-shadow:0 0 12px color-mix(in srgb,var(--rc,#fff) 45%,transparent)}
+[data-th=hud] .timers .cd{font-family:var(--f-mono);text-shadow:0 0 12px rgba(57,230,195,.6)}
+[data-th=hud] .bar{border-radius:0;height:7px;background:rgba(0,0,0,.5);border:1px solid var(--line)}
+[data-th=hud] .bar i{background:repeating-linear-gradient(90deg,var(--accent) 0 5px,transparent 5px 8px)}
+[data-th=hud] .alert .box{border-radius:0;clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,13px 100%,0 calc(100% - 13px));
+  box-shadow:0 0 26px rgba(57,230,195,.4)}
+[data-th=hud] .fld{border-radius:0}
+[data-th=hud] .sw{border-radius:0}[data-th=hud] .sw::after{border-radius:0}
+[data-th=hud] .tbl-wrap,[data-th=hud] .seg{border-radius:0}
+[data-th=hud] .seg button{border-radius:0;font-family:var(--f-mono);font-size:10px;letter-spacing:.1em}
+
+/* =========================================================
+   4 · ARCADE — dégradés, boutons épais, orbes, barres d'XP
+   ========================================================= */
+[data-th=arcade] .pan{--bg:#100a24;--surface:rgba(255,255,255,.055);--surface-2:rgba(255,255,255,.085);--line:rgba(255,255,255,.12);
+  --fg:#f3efff;--muted:#a79cc9;--accent:#ff5fa2;--accent-ink:#1a0a20;
+  --metal:#cfd8ff;--crystal:#6fe0ff;--deut:#5ef0b8;--energy:#ffd166;--good:#5ef0b8;--warn:#ffd166;--bad:#ff6b8b;
+  --f-display:"Oxanium",sans-serif;--f-body:"IBM Plex Sans",sans-serif;--f-mono:"JetBrains Mono",monospace;
+  border:0;border-radius:20px;
+  background:radial-gradient(420px 220px at 15% -8%,#4b2185,transparent),radial-gradient(380px 200px at 100% 0,#1d3a85,transparent),linear-gradient(180deg,#190f33,#0c0719)}
+[data-th=arcade] .pan h1{font-weight:800;letter-spacing:.02em}
+[data-th=arcade] .pan h1 span{background:linear-gradient(135deg,#ff5fa2,#b388ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+[data-th=arcade] .logo{display:grid;place-items:center;width:27px;height:27px;border-radius:9px;font-size:14px;
+  background:linear-gradient(140deg,#ff5fa2,#8b5cf6);box-shadow:0 4px 12px rgba(255,95,162,.45)}
+[data-th=arcade] .card{border-radius:17px;backdrop-filter:blur(3px);box-shadow:0 10px 24px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08)}
+[data-th=arcade] .pan h2{color:#fff;font-weight:700;letter-spacing:.05em;font-size:12px}
+[data-th=arcade] .ic{display:inline-grid;place-items:center;width:21px;height:21px;border-radius:7px;font-size:11px;
+  background:linear-gradient(140deg,rgba(255,95,162,.9),rgba(139,92,246,.9))}
+[data-th=arcade] nav.tabs button{border:0;border-radius:999px;background:rgba(255,255,255,.08);font-weight:800;font-family:var(--f-body);text-transform:none;letter-spacing:0;font-size:12px}
+[data-th=arcade] nav.tabs button[aria-selected=true]{background:linear-gradient(135deg,#ff5fa2,#8b5cf6);color:#fff;box-shadow:0 5px 16px rgba(255,95,162,.45)}
+[data-th=arcade] .btn{border:0;border-radius:11px;font-weight:800;box-shadow:0 3px 0 rgba(0,0,0,.4)}
+[data-th=arcade] .btn.primary{background:linear-gradient(135deg,#ff5fa2,#8b5cf6);color:#fff;box-shadow:0 3px 0 #5b2a84,0 7px 18px rgba(255,95,162,.35)}
+[data-th=arcade] .btn.ghost{box-shadow:none;background:rgba(255,255,255,.07)}
+[data-th=arcade] .acts li{border-radius:14px}
+[data-th=arcade] .acts li.task{background:linear-gradient(135deg,rgba(255,95,162,.2),rgba(139,92,246,.12));box-shadow:inset 0 0 0 1px rgba(255,95,162,.3)}
+[data-th=arcade] .acts li.wait{border:1px dashed rgba(255,255,255,.18)}
+[data-th=arcade] .gauge{border-radius:14px;background:linear-gradient(160deg,color-mix(in srgb,var(--rc,#fff) 22%,transparent),rgba(255,255,255,.05))}
+[data-th=arcade] .gauge .v{font-weight:800;font-size:19px;color:#fff}
+[data-th=arcade] .gauge .k{color:#fff;opacity:.85}
+[data-th=arcade] .gauge .k i{box-shadow:0 0 10px currentColor}
+[data-th=arcade] .bar{height:9px;background:rgba(0,0,0,.3);box-shadow:inset 0 1px 2px rgba(0,0,0,.4)}
+[data-th=arcade] .bar i{background:linear-gradient(90deg,#ffd166,#ff5fa2);box-shadow:0 0 10px rgba(255,95,162,.6)}
+[data-th=arcade] .orb{display:block;width:28px;height:28px;border-radius:50%;flex:0 0 auto;
+  background:radial-gradient(circle at 32% 28%,color-mix(in srgb,var(--pc) 92%,#fff),color-mix(in srgb,var(--pc) 35%,#17092c));
+  box-shadow:0 0 0 2px rgba(255,255,255,.1),0 0 16px color-mix(in srgb,var(--pc) 55%,transparent)}
+[data-th=arcade] .plist li,[data-th=arcade] .timers li{border-radius:14px}
+[data-th=arcade] .timers .cd{font-weight:800;color:#ffd166}
+[data-th=arcade] .xp{display:inline-flex;align-items:center;gap:4px;font:800 10px/1 var(--f-body);color:#1a0a20;
+  background:linear-gradient(135deg,#ffd166,#ffa14a);border-radius:999px;padding:3px 7px;box-shadow:0 2px 0 rgba(0,0,0,.3)}
+[data-th=arcade] .alert .box{border-radius:16px;background:linear-gradient(135deg,#ffd166,#ff8e3c);color:#2a1300;
+  box-shadow:0 10px 28px rgba(255,142,60,.4)}
+[data-th=arcade] .alert .btn{background:#2a1300;color:#ffd166;box-shadow:0 3px 0 rgba(0,0,0,.4)}
+[data-th=arcade] .fld{border-radius:11px;background:rgba(0,0,0,.25)}
+[data-th=arcade] .sw.on{background:linear-gradient(135deg,#ff5fa2,#8b5cf6);border-color:transparent}
+[data-th=arcade] .sw.on::after{background:#fff}
+[data-th=arcade] .tbl-wrap{border-radius:13px}
+[data-th=arcade] .seg{border:0;background:rgba(0,0,0,.28);border-radius:999px}
+[data-th=arcade] .seg button[aria-selected=true]{background:linear-gradient(135deg,#ff5fa2,#8b5cf6);color:#fff}
+[data-th=arcade] .pill{border-width:2px}
+
+/* Le bandeau porte sa propre couleur : le titre y hérite, sinon la teinte du
+   thème le rend illisible sur le fond vif. */
+.pan .alert .box h2{color:inherit}
+.pan .alert .box h2::before,.pan .alert .box h2::after{display:none}
+</style>
+</head><body>
+<div class="gal">
+<h1 class="g">Copilote <span>OGame</span> — quatre habillages du panneau</h1>
+<p class="lede">Même contenu, même structure, quatre directions. Chaque bande montre les <b>quatre pages</b> du panneau — Aujourd'hui, Empire, Outils, Réglages — parce que l'habillage se pose dans <code>panel.css</code> : ce qui change ici change partout, y compris l'écran de relevé et les bandeaux d'alerte. Du plus sage au plus fun.</p>
+
+<section class="dir" data-th="relief">
+  <div class="hd"><span class="no">1</span><h2>Relief</h2>
+    <span class="pitch">La palette actuelle, mais plus plate du tout : cartes en dégradé avec une ombre, titres à l'accent avec leur barre, jauges teintées à la couleur de la ressource, boutons bombés. Zéro changement de mise en page.</span>
+    <span class="cout">~60 lignes de CSS</span></div>
+  <div class="strip"></div>
+</section>
+
+<section class="dir" data-th="domaine">
+  <div class="hd"><span class="no">2</span><h2>Une couleur par domaine</h2>
+    <span class="pitch">Chaque page prend sa teinte — Aujourd'hui en ambre (agir), Empire en cyan (produire), Outils en violet (calculer), Réglages en vert. Bandeau d'en-tête teinté, bord de carte coloré, pictos sur les titres, pastilles de planète en orbes.</span>
+    <span class="cout">~90 lignes · 1 attribut data-page</span></div>
+  <div class="strip"></div>
+</section>
+
+<section class="dir" data-th="hud">
+  <div class="hd"><span class="no">3</span><h2>Console de bord</h2>
+    <span class="pitch">Le parti sci-fi d'OGame : fond quadrillé, coins coupés, chiffres en mono qui luisent, diodes d'état, barres de progression hachurées, boutons en capitales. Le panneau devient un instrument.</span>
+    <span class="cout">~130 lignes · clip-path + lueurs</span></div>
+  <div class="strip"></div>
+</section>
+
+<section class="dir" data-th="arcade">
+  <div class="hd"><span class="no">4</span><h2>Arcade</h2>
+    <span class="pitch">Le plus fun : fond violet en dégradés, grands rayons, boutons épais à relief qui s'enfoncent, planètes en orbes lumineuses, barres d'XP, badges dorés, bandeau de fin de file en fête. Lisible, mais ça joue.</span>
+    <span class="cout">~150 lignes · dégradés + ombres</span></div>
+  <div class="strip"></div>
+</section>
+</div>
+
+<template id="tpl">
+<!-- ============ AUJOURD'HUI ============ -->
+<div class="pw"><p class="lab">Aujourd'hui</p>
+<div class="pan" data-p="today">
+  <header class="top">
+    <div class="brand"><i class="logo">◎</i><h1>Copilote <span>OGame</span></h1><span class="ver">1.56.6</span></div>
+    <div class="topb"><button class="btn sm primary">Actualiser</button><button class="btn sm ghost">🌙</button><button class="btn sm ghost">⚙️</button></div>
+  </header>
+  <nav class="tabs"><button aria-selected="true">Aujourd'hui</button><button>Empire</button><button>Outils</button></nav>
+  <div class="panel">
+    <div class="alert"><div class="box"><div class="txt"><h2>Terminé</h2><div class="msg">Mine de métal 23 · Mère</div></div><button class="btn">OK, vu</button></div></div>
+    <div class="card">
+      <h2><i class="ic">🎯</i><i class="led"></i>Maintenant</h2>
+      <ul class="acts">
+        <li class="task">
+          <div><div class="q">À faire</div><div class="w"><span class="ptag" style="--pc:#74b9ff">Mère</span> Mine de métal 24</div></div>
+          <div><button class="btn sm primary">Y aller</button></div>
+          <div class="m"><span class="chip"><b>148 k</b> métal</span><span class="chip"><b>37 k</b> cristal</span><span>8 h 12</span><span class="xp">+120 pts</span></div>
+        </li>
+        <li class="wait">
+          <div><div class="q">En attente</div><div class="w"><span class="ptag" style="--pc:#63e6a8">Minos</span> Centrale solaire 18</div></div>
+          <div><button class="btn sm ghost">Pourquoi</button></div>
+          <div class="m">manque <b>12 000</b> cristal · dans ~1 h 40</div>
+        </li>
+      </ul>
+      <p class="note">Une seule chose à la fois : le reste attend son tour.</p>
+    </div>
+    <div class="card">
+      <h2><i class="ic">🗓</i><i class="led"></i>Ta journée</h2>
+      <ul class="plist">
+        <li><i class="orb" style="--pc:#74b9ff"></i><div class="nm">14 h 10 — connexion<em>lancer la mine, vider les files</em></div><span class="pill info">3 actes</span></li>
+        <li><i class="orb" style="--pc:#ffa94d"></i><div class="nm">16 h 40 — connexion<em>expédition + recherche</em></div><span class="pill">2 actes</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2><i class="ic">⏱</i><i class="led"></i>Minuteurs</h2>
+      <ul class="timers">
+        <li><div><div class="w">Mine de cristal 21 · Mère</div><div class="bar"><i style="width:72%"></i></div></div><span class="cd">01:12:40</span></li>
+        <li class="done"><div><div class="w">Expédition 1 · retour</div><div class="bar"><i style="width:100%"></i></div></div><span class="cd">00:00</span></li>
+      </ul>
+      <div><button class="btn sm ghost">Tester le son</button></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ============ EMPIRE ============ -->
+<div class="pw"><p class="lab">Empire</p>
+<div class="pan" data-p="empire">
+  <header class="top">
+    <div class="brand"><i class="logo">◎</i><h1>Copilote <span>OGame</span></h1><span class="ver">1.56.6</span></div>
+    <div class="topb"><button class="btn sm primary">Actualiser</button><button class="btn sm ghost">🌙</button><button class="btn sm ghost">⚙️</button></div>
+  </header>
+  <nav class="tabs"><button>Aujourd'hui</button><button aria-selected="true">Empire</button><button>Outils</button></nav>
+  <div class="panel">
+    <div class="card">
+      <h2><i class="ic">⚡</i><i class="led"></i>Production / heure</h2>
+      <div class="res">
+        <div class="gauge c-m"><span class="k"><i></i>Métal</span><span class="v">412 k</span><span class="s">+3 % geologue</span></div>
+        <div class="gauge c-c"><span class="k"><i></i>Cristal</span><span class="v">188 k</span><span class="s">4 planètes</span></div>
+        <div class="gauge c-d"><span class="k"><i></i>Deutérium</span><span class="v">64 k</span><span class="s">synthé. 18</span></div>
+        <div class="gauge c-e"><span class="k"><i></i>Énergie</span><span class="v">+2 140</span><span class="s">marge 12 %</span></div>
+      </div>
+      <div class="bar"><i style="width:84%"></i></div>
+      <p class="note">Classement des planètes : <b>Mère</b> porte 48 % du métal.</p>
+    </div>
+    <div class="card">
+      <h2><i class="ic">🪐</i><i class="led"></i>Tes planètes</h2>
+      <ul class="plist">
+        <li><i class="orb" style="--pc:#74b9ff"></i><div class="nm">Mère<em>1:140:8 · 188 cases</em></div><span class="pr">198 k/h<br>mét. 29</span></li>
+        <li><i class="orb" style="--pc:#ffa94d"></i><div class="nm">Forge<em>1:140:12 · 164 cases</em></div><span class="pr">121 k/h<br>mét. 26</span></li>
+        <li><i class="orb" style="--pc:#63e6a8"></i><div class="nm">Minos<em>2:118:4 · 142 cases</em></div><span class="pr">74 k/h<br>cris. 24</span></li>
+        <li><i class="orb" style="--pc:#c4a0ff"></i><div class="nm">Deutéria<em>3:46:15 · 96 cases</em></div><span class="pr">31 k/h<br>deut. 22</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2><i class="ic">🔬</i><i class="led"></i>Recherche</h2>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Techno</th><th class="n">Niv.</th><th class="n">Visé</th><th class="n">Coût</th></tr></thead>
+        <tbody>
+          <tr><td>Technologie énergétique</td><td class="n">12</td><td class="n">14</td><td class="n">1,2 M</td></tr>
+          <tr><td>Réacteur à impulsion</td><td class="n">8</td><td class="n">10</td><td class="n">640 k</td></tr>
+          <tr><td>Réseau de recherche</td><td class="n">2</td><td class="n">3</td><td class="n">2,4 M</td></tr>
+        </tbody>
+      </table></div>
+      <div><span class="pill good">Énergie 13 en cours</span> <span class="pill warn">labo occupé 4 h</span></div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ============ OUTILS ============ -->
+<div class="pw"><p class="lab">Outils · Colonie</p>
+<div class="pan" data-p="tools">
+  <header class="top">
+    <div class="brand"><i class="logo">◎</i><h1>Copilote <span>OGame</span></h1><span class="ver">1.56.6</span></div>
+    <div class="topb"><button class="btn sm primary">Actualiser</button><button class="btn sm ghost">🌙</button><button class="btn sm ghost">⚙️</button></div>
+  </header>
+  <nav class="tabs"><button>Aujourd'hui</button><button>Empire</button><button aria-selected="true">Outils</button></nav>
+  <div class="panel">
+    <div class="seg"><button>Cibles</button><button aria-selected="true">Colonie</button><button>Flotte</button><button>Lune</button><button>Serveur</button></div>
+    <div class="card">
+      <h2><i class="ic">🚀</i><i class="led"></i>Prêt à coloniser ?</h2>
+      <div class="grid">
+        <label class="f">Planète de départ<span class="fld">Mère</span></label>
+        <label class="f">Vaisseau<span class="fld">Déjà construit</span></label>
+      </div>
+      <ul class="acts">
+        <li><div><div class="w">Astrophysique 6</div></div><div><span class="pill good">✓ ok</span></div><div class="m">3 emplacements libres</div></li>
+        <li class="wait"><div><div class="w">Ressources du kit</div></div><div><span class="pill warn">partiel</span></div><div class="m">manque <b>84 k</b> cristal</div></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2><i class="ic">🧭</i><i class="led"></i>Choisir la position</h2>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>#</th><th class="n">Pos.</th><th class="n">Temp.</th><th class="n">Éq. mét/h</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td class="n">8</td><td class="n">30 °C</td><td class="n">96 k</td></tr>
+          <tr><td>2</td><td class="n">6</td><td class="n">55 °C</td><td class="n">91 k</td></tr>
+          <tr><td>3</td><td class="n">15</td><td class="n">-60 °C</td><td class="n">88 k</td></tr>
+        </tbody>
+      </table></div>
+      <div><button class="btn sm primary">Préparer le départ</button> <span class="pill info">astro 6 requise</span></div>
+    </div>
+    <div class="card">
+      <h2><i class="ic">📦</i><i class="led"></i>À emporter</h2>
+      <div class="res">
+        <div class="gauge c-m"><span class="k"><i></i>Métal</span><span class="v">120 k</span></div>
+        <div class="gauge c-c"><span class="k"><i></i>Cristal</span><span class="v">60 k</span></div>
+      </div>
+      <p class="note">6 petits transporteurs · 2 h 14 de vol · 1 840 deut.</p>
+    </div>
+  </div>
+</div></div>
+
+<!-- ============ RÉGLAGES ============ -->
+<div class="pw"><p class="lab">Réglages</p>
+<div class="pan" data-p="settings">
+  <header class="top">
+    <div class="brand"><i class="logo">◎</i><h1>Copilote <span>OGame</span></h1><span class="ver">1.56.6</span></div>
+    <div class="topb"><button class="btn sm primary">Actualiser</button><button class="btn sm ghost">🌙</button><button class="btn sm ghost">⚙️</button></div>
+  </header>
+  <nav class="tabs"><button>Aujourd'hui</button><button>Empire</button><button>Outils</button></nav>
+  <div class="panel">
+    <div class="card">
+      <h2><i class="ic">🗺</i><i class="led"></i>Plan du jour</h2>
+      <div class="grid">
+        <label class="f">Priorité<span class="fld">Mines d'abord</span></label>
+        <label class="f">Connexion toutes les<span class="fld">90 min</span></label>
+        <label class="f">Nuit : de<span class="fld txt">22 h</span></label>
+        <label class="f">à<span class="fld txt">7 h</span></label>
+      </div>
+      <p class="note">Le plan simule <b>6 connexions</b> d'ici ce soir.</p>
+    </div>
+    <div class="card">
+      <h2><i class="ic">🔔</i><i class="led"></i>Alertes</h2>
+      <div class="bascules">
+        <div class="bascule"><span>Fin de file</span><span class="sw on"></span><span class="note">Un bandeau et un son quand une file se vide.</span></div>
+        <div class="bascule"><span>Mise à l'abri le soir</span><span class="sw on"></span><span class="note">Demande à 22 h si on sauvegarde.</span></div>
+        <div class="bascule"><span>Mode lune</span><span class="sw"></span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2><i class="ic">💾</i><i class="led"></i>Tes données</h2>
+      <p class="note">Tout reste dans ce navigateur. Rien n'est envoyé nulle part.</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn sm">Exporter</button><button class="btn sm">Importer</button><button class="btn sm ghost">Tout effacer</button></div>
+    </div>
+  </div>
+</div></div>
+</template>
+
+<script>
+/* Le gabarit est écrit une fois : chaque bande en reçoit une copie, et c'est
+   le `data-th` de la bande qui l'habille. */
+const tpl = document.getElementById('tpl');
+for (const strip of document.querySelectorAll('.strip')) strip.append(tpl.content.cloneNode(true));
+</script>
+</body></html>

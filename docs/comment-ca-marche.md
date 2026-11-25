@@ -588,7 +588,29 @@ Le ratio est le réglage le plus silencieusement puissant : changer 3:2:1 en
 depuis le facteur de besoin (§ 2.4) : comme cours pour convertir, et comme
 **mélange cible** pour juger ce que ta production a en trop ou en moins.
 
-### 6.5 Réglages › Page du jeu
+### 6.5 Réglages › Allure du panneau
+
+| Réglage | Clé | Valeurs | Défaut | Effet |
+|---|---|---|---|---|
+| Thème | `settings.skin` | `relief` / `domaine` / `hud` / `arcade` | **relief** | L'habillage du panneau |
+
+- **Relief** — la palette d'origine en volume : dégradé et ombre sous chaque
+  carte, titre à l'accent, jauges teintées à la couleur de leur ressource.
+  Seule peau qui suit le thème clair du système ; les trois autres sont sombres.
+- **Une couleur par page** — chaque onglet sa teinte : ambre pour Aujourd'hui,
+  cyan pour Empire, violet pour Outils, vert pour Réglages. `--accent` suit, donc
+  onglets et boutons changent avec la page.
+- **Console de bord** — fond quadrillé, angles coupés, chiffres en mono qui
+  luisent, diode devant chaque titre. Rien d'arrondi.
+- **Arcade** — fond violet en dégradés, grands rayons, boutons épais qui
+  s'enfoncent au clic.
+
+La peau se pose sur `<html>` (`data-skin`), l'onglet courant à côté
+(`data-page`, dont seule « une couleur par page » se sert) : aucune vue ne sait
+qu'une peau existe, et c'est ce qui la fait valoir sur **toutes** les pages,
+écran de relevé et bandeaux d'alerte compris. Tout tient dans `panel.css`.
+
+### 6.6 Réglages › Page du jeu
 
 | Réglage | Clé | Valeurs | Défaut | Effet |
 |---|---|---|---|---|
@@ -600,7 +622,7 @@ depuis le facteur de besoin (§ 2.4) : comme cours pour convertir, et comme
 
 Allure seulement : ni le panneau ni les calculs ne changent.
 
-### 6.6 Réglages › Sauvegarde
+### 6.7 Réglages › Sauvegarde
 
 | Action | Ce qu'elle fait |
 |---|---|
@@ -609,7 +631,7 @@ Allure seulement : ni le panneau ni les calculs ne changent.
 | **Réinitialiser…** | Remet les données d'exemple. Demande confirmation (deux clics) |
 | **Remettre les cartes refusées** | Apparaît seulement s'il y a des « Non » en mémoire. Les remet toutes d'un coup |
 
-### 6.7 Outils › Flotte
+### 6.8 Outils › Flotte
 
 | Réglage | Clé | Valeurs | Défaut | Effet |
 |---|---|---|---|---|
@@ -617,7 +639,7 @@ Allure seulement : ni le panneau ni les calculs ne changent.
 | Éclaireur dans la flotte | `expo.pf` | oui / non | **oui** | Double le plafond d'expédition (bonus communautaire, à vérifier en jeu) |
 | Départ / Arrivée / Vitesse / nombre par vaisseau | `fleetCalc` | coordonnées, 100→10 %, entiers | 1:1:8 → 1:2:8, 100 %, 1 petit transporteur | Calculatrice de temps de vol et carburant. N'influence rien d'autre |
 
-### 6.8 Outils › Colonie
+### 6.9 Outils › Colonie
 
 | Réglage | Clé | Valeurs | Défaut | Effet |
 |---|---|---|---|---|
@@ -631,7 +653,7 @@ Allure seulement : ni le panneau ni les calculs ne changent.
 | Cases de la nouvelle planète | `colo.fields` | entier ≥ 1 | *(vide)* | À relever après l'arrivée, pour savoir si la colonie vaut d'être gardée |
 | Position | `colo.fpos` | 1–15 | *(déduite)* | Idem, pour la température et les bonus |
 
-### 6.9 Outils › Lune
+### 6.10 Outils › Lune
 
 | Réglage | Clé | Valeurs | Défaut | Effet |
 |---|---|---|---|---|
@@ -650,7 +672,7 @@ Rien dans cette carte n'influence le plan du jour ni quoi que ce soit d'autre :
 c'est une calculatrice, comme Outils › Flotte. Le **mode lune**, lui, s'en sert
 pour parler dans Aujourd'hui — section suivante.
 
-### 6.10 Outils › Lune — le mode
+### 6.11 Outils › Lune — le mode
 
 Un interrupteur 🌑 dans Aujourd'hui, voisin du 🌙 du mode nuit. Tant qu'il est
 allumé, les cartes du tir passent devant le reste du plan. Ses quatre champs
@@ -696,7 +718,7 @@ attend le prochain échange, comme une priorité dans le même cas.
   nombre, le coût et la durée de chantier ; tu lances le chantier. Faire entrer
   des vaisseaux de combat dans l'arbitrage du plan demande ses propres garde-fous.
 
-### 6.11 Empire — par planète
+### 6.12 Empire — par planète
 
 | Champ | Valeurs | Effet |
 |---|---|---|
@@ -713,14 +735,14 @@ Dépôt de ravitaillement, Silo, Terraformeur et Dock ne produisent ni ne
 stockent : **le classement par amortissement ne les propose jamais de
 lui-même**. Ils sont là pour que tu puisses les viser.
 
-### 6.12 Empire — recherches
+### 6.13 Empire — recherches
 
 15 technologies, chacune avec son **niveau** et son **niveau visé** : Énergie,
 Laser, Ions, Hyperespace, Plasma, Combustion, Impulsion, Propulsion
 hyperespace, Espionnage, Ordinateur, Astrophysique, Réseau intergalactique,
 Armes, Bouclier, Protection des vaisseaux.
 
-### 6.13 Réglages implicites (par clic, pas par formulaire)
+### 6.14 Réglages implicites (par clic, pas par formulaire)
 
 | Geste | Où | Ce que ça règle |
 |---|---|---|
@@ -732,7 +754,7 @@ Armes, Bouclier, Protection des vaisseaux.
 | Replier / déplier une carte | Aujourd'hui | Mémorisé (`ui.fold`) |
 | Onglet d'Outils | Outils | Mémorisé (`ui.tool`) |
 
-### 6.14 Ce qui n'est pas réglable — les choix figés
+### 6.15 Ce qui n'est pas réglable — les choix figés
 
 À connaître, parce que ce sont eux qui décident quand aucun réglage ne parle :
 
@@ -754,7 +776,7 @@ Armes, Bouclier, Protection des vaisseaux.
 | Sondes au centre | 5 | Pour espionner les inactifs |
 | Seuil de rapatriement | 5 000 ressources, ou hangar à plus de 70 % | En dessous, aucun vol |
 
-### 6.15 Fiabilité annoncée des calculs
+### 6.16 Fiabilité annoncée des calculs
 
 Le panneau le dit lui-même, dernière carte de Réglages : les formules viennent
 du wiki et du forum officiel. **Stables** : production, coûts, temps de vol.

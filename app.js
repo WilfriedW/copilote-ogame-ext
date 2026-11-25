@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.57.0';
+const APP_VERSION = '1.57.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -93,7 +93,7 @@ function expoFind(pf){ return EXPO_CAPS[top1Tier()][1]*ecoSpeed()*(S.settings.cl
 function sample(){
   return {
     v:1, sample:true,
-    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, debris:LUNE_DF},
+    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, debris:LUNE_DF, skin:'relief'},
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
@@ -1892,6 +1892,11 @@ function header(){
   /* L'engrenage est un onglet comme les autres, hors de la barre : il porte le
      même `data-tab`, donc le même état sélectionné. */
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.tab===tab)));
+  /* L'habillage et l'onglet courant vivent sur <html> : « une couleur par
+     page » lit le second, les trois autres peaux l'ignorent. */
+  const r = document.documentElement;
+  r.dataset.skin = habillage();
+  r.dataset.page = tab;
 }
 /** Vrai tant que l'écran du relevé tient la place du contenu. */
 function enScan(){ return !!(scanEcran && releveEnCours); }
@@ -2309,6 +2314,11 @@ const FOCUS = {equi:'Équilibré', ecocol:'Économie + colonie', eco:'Économie 
    flotte — doublent la feuille de route au lieu d'attendre leur tour. */
 const FOCUS_FLOTTE = {fleet:1, equi:1};
 const RESEARCH_MODE = {normal:'À son tour', first:'Avant les bâtiments'};
+/* Les quatre habillages du panneau. La peau ne change que des couleurs et des
+   formes dans `panel.css` : aucune vue n'en sait rien, donc les quatre valent
+   pour toutes les pages, écran de relevé et bandeaux compris. */
+const HABILLAGES = {relief:'Relief — sobre (par défaut)', domaine:'Une couleur par page', hud:'Console de bord', arcade:'Arcade'};
+const habillage = () => HABILLAGES[S.settings.skin] ? S.settings.skin : 'relief';
 function researchMode(){ return RESEARCH_MODE[S.day.research] ? S.day.research : 'normal'; }
 /**
  * Ce qu'un réglage de journée vaut, d'après son contrôle. Les modes sont des
@@ -5285,6 +5295,12 @@ settings(){
         <label class="f">Ratio d'échange M:C:D<input id="sRatio" data-set="ratio" value="${s.ratio.join(':')}"></label>
       </div>
     </div>
+    <div class="card"><h2>Allure du panneau</h2>
+      <div class="grid">
+        <label class="f">Thème<select id="sSkin" data-set="skin">${Object.entries(HABILLAGES).map(([k,l])=>`<option value="${k}" ${habillage()===k?'selected':''}>${l}</option>`).join('')}</select></label>
+      </div>
+      <p class="note">Relief suit le clair ou le sombre de ton système ; les trois autres sont sombres. Le changement se voit tout de suite, sur toutes les pages.</p>
+    </div>
     <div class="card"><h2>Page du jeu</h2>
       <div class="bascules">
         ${bascule('sLean','data-set="lean"','Épurer la page du jeu', s.lean, 'Barre Gameforge, en-tête, pied de page et pub en moins ; fond sombre, menu plus grand.')}
@@ -5685,8 +5701,11 @@ function bind(){
     const k=el.dataset.set, s=S.settings;
     if(k==='ratio'){ const r=el.value.split(':').map(Number); if(r.length===3 && r.every(x=>x>0)) s.ratio=r; }
     else if(['geo','eng','colCargo','lean','noshop','large','peau','clair','crawlerOverload'].includes(k)) s[k]=el.checked;
+    else if(k==='skin') s.skin=el.value;
     else s[k]=Math.max(k==='top1'?0:1, parseFloat(el.value)||0);
     changed();
+    /* `changed()` ne redessine pas : la peau se pose sur <html>, pas dans la vue. */
+    if(k==='skin') header();
     if(k==='lean' || k==='noshop' || k==='large' || k==='peau' || k==='clair') pushLook();
   }));
   view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.checked; changed(); }));

@@ -64,7 +64,9 @@ function loadApp(state, nowMs, want, api, ext, prioAsk) {
     querySelectorAll: () => [],
     createElement: () => fakeEl(),
     addEventListener() {},
-    body: fakeEl()
+    body: fakeEl(),
+    // <html> porte l'habillage du panneau : un test doit pouvoir le relire
+    documentElement: fakeEl()
   };
 
   // ce que le panneau publie pour le script de page, pour pouvoir le relire
@@ -130,6 +132,8 @@ function loadApp(state, nowMs, want, api, ext, prioAsk) {
   out.click = (id, target) => { const el = byId.get(id); if (!el) throw new Error('aucun élément ' + id); (el.on.click || []).forEach(fn => fn({ target: target || el, currentTarget: el })); return el; };
   /** Un élément du panneau, pour lire ce que le code lui a posé. */
   out.el = id => byId.get(id) || null;
+  /** <html>, où le panneau pose son habillage et l'onglet courant. */
+  out.racine = () => document.documentElement;
   out.html = () => { const o = {}; for (const [k, el] of byId) o[k] = el.innerHTML || el.textContent || ''; return o; };
   return out;
 }
