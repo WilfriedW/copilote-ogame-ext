@@ -9203,6 +9203,47 @@ t('une campagne reçue remplace celle d\'ici', () => {
   assert.equal(g.S.moonCalc.pid, g.S.planets[0].id);
 });
 
+/* ---------- la synchro de campagne : ce que la revue a trouvé ---------- */
+
+t('la campagne part même si la planète visée n\'a jamais été choisie à la main', () => {
+  /* `moonCalc.pid` vaut '' par défaut, mais la liste déroulante montre déjà
+     `moonPlanete()` comme sélectionnée : un joueur qui tire sur celle-là ne
+     touche jamais le champ, et rien ne partait. */
+  const g = app(s => { CAMPAGNE(s); s.moonCalc.pid = ''; });
+  const p = g.luneOut();
+  assert.notEqual(p, undefined, 'elle part');
+  assert.equal(p.cible, '101', 'celle que la carte montre déjà');
+});
+
+t('un poste qui n\'a pas pu lire la campagne n\'écrase pas la plus récente', () => {
+  const g = app(CAMPAGNE);
+  const paquet = g.luneOut();
+  g.S.lune.maj = 2000;
+  assert.equal(g.luneIn(Object.assign({}, paquet, { maj: 1000 })), null,
+    'plus vieille que la nôtre : refusée');
+  assert.notEqual(g.luneIn(Object.assign({}, paquet, { maj: 3000 })), null,
+    'plus récente : acceptée');
+});
+
+t('oublier une planète n\'empêche plus la campagne de partir', () => {
+  const g = app(s => { CAMPAGNE(s); s.lune.tirs[s.planets[1].id] = 2; });
+  g.forgetPlanet(g.S.planets[1].id);
+  assert.notEqual(g.luneOut(), undefined, 'son compteur part avec elle');
+});
+
+t('un compteur mis de côté revient au prochain échange', () => {
+  const g = app(CAMPAGNE);
+  const p = g.luneOut(); p.tirs['999'] = 3;
+  const r = g.luneIn(p);
+  g.S.lune = r.lune; g.S.moonCalc = r.moonCalc;
+  assert.equal(g.luneOut().tirs['999'], 3, 'il repart tel quel, il ne s\'efface pas');
+});
+
+t('un moonCalc abîmé ne fait pas taire toute la synchro', () => {
+  const g = app(s => { CAMPAGNE(s); s.moonCalc = null; });
+  assert.doesNotThrow(() => g.syncOut(), 'priorités, centre et réglages continuent de partir');
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

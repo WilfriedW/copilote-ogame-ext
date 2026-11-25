@@ -601,9 +601,9 @@ Allure seulement : ni le panneau ni les calculs ne changent.
 | Son niveau de Bouclier | `moonCalc.bou` | entier ≥ 0 | *(le tien)* | Celui de ton camarade : il monte le bouclier de ses vaisseaux, donc baisse ce que ta défense tue |
 | Débris de ton univers | `settings.debris` | 30 · 40 · 50 · 60 · 70 | **30** | En pourcent, un fait du serveur. À lire dans les paramètres de ton univers : il change le nombre de vaisseaux jusqu'à 2,3 fois |
 
-Les cinq premiers **suivent sur ton autre poste** dès qu'une campagne est en
-cours, avec l'état du mode : voir la section suivante. Le sixième suit de toute
-façon, c'est un réglage d'univers.
+Les cinq premiers **suivent sur ton autre poste** avec l'état du mode, dès que
+ta planète visée porte un identifiant de jeu — voir la section suivante. Le
+sixième suit de toute façon, c'est un réglage d'univers.
 
 Rien dans cette carte n'influence le plan du jour ni quoi que ce soit d'autre :
 c'est une calculatrice, comme Outils › Flotte. Le **mode lune**, lui, s'en sert

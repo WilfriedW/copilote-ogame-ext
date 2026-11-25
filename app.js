@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.55.3';
+const APP_VERSION = '1.55.4';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -98,7 +98,7 @@ function sample(){
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
     moonCalc:{pid:'', ship:'lf', n:0, bou:null, viser:12},
-    lune:{on:false, impact:null, tirs:{}, rendu:{coords:'', n:0, dus:0, faits:0}},
+    lune:{on:false, impact:null, tirs:{}, tirsAttente:{}, maj:0, rendu:{coords:'', n:0, dus:0, faits:0}},
     expo:{pf:true},
     ui:{tool:'colony', fold:{}},
     day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false},
@@ -136,6 +136,10 @@ S.ui = Object.assign(sample().ui, S.ui);
 S.lf = Object.assign(sample().lf, S.lf);
 /* `rendu` se fusionne à part : Object.assign ne descend pas d'un niveau, et une
    sauvegarde d'avant le mode lune n'a ni l'un ni l'autre. */
+/* `moonCalc` rejoint les clés fusionnées : une sauvegarde abîmée ou venue d'une
+   autre version le laissait nul ou amputé, et `moonPlanete()` levait — ce qui
+   faisait taire toute la synchro, priorités et centre compris. */
+S.moonCalc = Object.assign(sample().moonCalc, S.moonCalc);
 S.lune = Object.assign(sample().lune, S.lune);
 S.lune.rendu = Object.assign(sample().lune.rendu, S.lune.rendu);
 S.raids = S.raids || {};
@@ -168,6 +172,10 @@ function forgetPlanet(id){
   S.timers = (S.timers || []).filter(t => t.pid !== id);
   if(S.colo.fromId === id) S.colo.fromId = null;
   if(S.centre === id) S.centre = null;
+  /* Le compteur de tirs de lune part avec elle. Laissé là, il n'a plus de
+     planète donc plus d'identifiant de jeu, et `luneOut` se tairait pour
+     toujours — la campagne cesserait de voyager sans que rien le dise. */
+  if(S.lune && S.lune.tirs) delete S.lune.tirs[id];
 }
 
 /* Une priorité est ce que le joueur pose : un bâtiment ou une recherche, avec
@@ -4125,6 +4133,7 @@ function luneDette(){
 /** Un tir rendu de plus. Le compteur de la dette n'a rien à voir avec celui
     des tirs reçus : l'un se vide, l'autre se remplit. */
 function luneEnvoye(){
+  luneTouche();
   if(S.lune.rendu) S.lune.rendu.faits = Math.max(0, +S.lune.rendu.faits || 0) + 1;
 }
 
@@ -4158,7 +4167,12 @@ function luneUrgent(){
     pour que le bouton de la carte et les tests empruntent le même chemin.
     Un oui solde la campagne de cette planète — un compteur réussi ne se lègue
     pas à la suivante — et éteint le mode. */
+/** Marque la campagne comme venant de changer ici. C'est cette date que
+    l'autre poste compare pour ne pas écraser plus récent que lui. */
+function luneTouche(){ S.lune.maj = Date.now(); }
+
 function luneRepond(eutUneLune){
+  luneTouche();
   const p = moonPlanete();
   if(p) S.lune.tirs[p.id] = eutUneLune ? 0 : (S.lune.tirs[p.id] || 0) + 1;
   S.lune.impact = null;
@@ -5504,7 +5518,7 @@ function bind(){
     if(k==='impact') S.lune.impact = luneQuand(el.value);
     else if(k==='coords') S.lune.rendu.coords = el.value.trim();
     else S.lune.rendu[k] = Math.max(0, parseInt(el.value, 10)||0);
-    changed(); }));
+    luneTouche(); changed(); }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
   view.querySelectorAll('[data-ship]').forEach(el=>el.addEventListener('input',()=>{ S.fleetCalc.ships[el.dataset.ship]=Math.max(0,parseInt(el.value)||0); changed(); }));
   /* Le presse-papiers du panneau latéral refuse l'écriture dès que le focus est
@@ -5689,7 +5703,7 @@ document.getElementById('tabs').addEventListener('click',e=>{ const b=e.target.c
    pas refaits à chaque dessin, et `bind()` les doublerait. */
 document.getElementById('gearBtn').addEventListener('click',()=>allerOnglet('settings'));
 document.getElementById('nightBtn').addEventListener('click',()=>{ S.day.night = !S.day.night; save(); render(); });
-document.getElementById('luneBtn').addEventListener('click',()=>{ S.lune.on = !S.lune.on; save(); render(); });
+document.getElementById('luneBtn').addEventListener('click',()=>{ S.lune.on = !S.lune.on; luneTouche(); save(); render(); });
 view.addEventListener('click', e=>{
   if(e.target.id==='tmSound'){ unlockAudio(); chime(); }
   if(e.target.id==='tmAdd'){
@@ -5896,13 +5910,10 @@ chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioA
    Le pid est tiré au sort à la création de la planète, donc propre au poste ;
    le gid vient du jeu et vaut sur les deux. Même règle qu'à la frontière de la
    page du jeu : on traduit en sortie et en entrée, et S ne garde jamais de gid. */
-/* `lune` ne voyage PAS, contrairement à ce que la conception prévoyait.
-   `lune.tirs` est indexé par identifiant de planète, et ces identifiants sont
-   tirés au sort par poste : la clé du PC ne désigne rien sur le Mac. Envoyée
-   telle quelle, la carte évacuait la mauvaise planète et annonçait 0 %. Le
-   dépôt traduit déjà pid↔gid pour les priorités et le centre ; faire pareil
-   ici demande ses propres tests. En attendant, chaque poste tient sa campagne,
-   ce qui est seulement gênant là où l'autre était faux. */
+/* `lune` n'est pas ici, et ce n'est pas un oubli : sa campagne voyage, mais
+   composée à la main par `luneOut` / `luneIn`, comme `prio` et `centre`. Son
+   compteur est indexé par identifiant de planète, tiré au sort sur chaque
+   poste ; envoyé tel quel il désignait la mauvaise planète à l'arrivée. */
 const SYNC_KEYS = ['settings','day','expo','lf','raids','daily'];
 const gidDe = pid => { const p = planetById(pid); return p && p.gid != null ? String(p.gid) : null; };
 const pidDe = gid => { const p = (S.planets || []).find(x => x.gid != null && String(x.gid) === String(gid)); return p ? p.id : null; };
@@ -5941,9 +5952,14 @@ function prioIn(l){
    Rend `undefined` dès qu'une planète nommée n'a pas de gid : mieux vaut ne
    rien envoyer qu'un paquet que l'autre poste lirait de travers. */
 function luneOut(){
-  const cible = gidDe(S.moonCalc.pid);
+  if(!S.lune || !S.moonCalc) return undefined;
+  /* La cible vient de `moonPlanete()` et non du champ brut : `moonCalc.pid`
+     vaut '' tant que le joueur n'a pas touché la liste déroulante, alors que
+     celle-ci montre déjà la planète que toutes les cartes lisent. Prendre le
+     champ ne faisait rien partir dans le cas le plus courant. */
+  const p = moonPlanete(), cible = p ? gidDe(p.id) : null;
   if(cible == null) return undefined;
-  const tirs = {};
+  const tirs = Object.assign({}, S.lune.tirsAttente || {});
   for(const [pid, n] of Object.entries(S.lune.tirs || {})){
     const g = gidDe(pid);
     if(g == null) return undefined;
@@ -5951,7 +5967,7 @@ function luneOut(){
   }
   const m = S.moonCalc, l = S.lune;
   return {on: !!l.on, impact: l.impact, rendu: l.rendu, tirs, cible,
-          n: m.n, ship: m.ship, bou: m.bou, viser: m.viser};
+          maj: +l.maj || 0, n: m.n, ship: m.ship, bou: m.bou, viser: m.viser};
 }
 
 /** Le chemin inverse. Rend `null` — et rien n'est écrit — dès que la planète
@@ -5963,15 +5979,24 @@ function luneOut(){
     relevée : la planète arrivera, le compteur suivra au prochain échange. */
 function luneIn(p){
   if(!p || p.cible == null) return null;
+  /* Une campagne plus vieille que la nôtre ne l'écrase pas. Sans ça, le poste
+     qui vient de refuser la campagne vivante (parce qu'il ne connaît pas sa
+     planète) renvoyait la sienne, périmée, et l'autre l'acceptait : la carte
+     se remettait à parler d'une planète que personne ne tire. */
+  if((+p.maj || 0) < (+((S.lune || {}).maj) || 0)) return null;
   const pid = pidDe(p.cible);
   if(!pid) return null;
-  const tirs = {};
+  const tirs = {}, attente = {};
   for(const [gid, n] of Object.entries(p.tirs || {})){
     const q = pidDe(gid);
-    if(q) tirs[q] = n;
+    /* Un compteur dont la planète n'est pas relevée ici est mis de côté tel
+       quel, et `luneOut` le renvoie : sans ça le prochain aller-retour
+       l'effaçait des deux postes, ce que la conception interdit. */
+    if(q) tirs[q] = n; else attente[gid] = n;
   }
   return {lune: {on: !!p.on, impact: p.impact == null ? null : p.impact,
-                 tirs, rendu: Object.assign({}, sample().lune.rendu, p.rendu)},
+                 tirs, tirsAttente: attente, maj: +p.maj || 0,
+                 rendu: Object.assign({}, sample().lune.rendu, p.rendu)},
           moonCalc: Object.assign({}, S.moonCalc, {pid, n: p.n, ship: p.ship, bou: p.bou, viser: p.viser})};
 }
 
