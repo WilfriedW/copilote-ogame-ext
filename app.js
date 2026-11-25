@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.55.0';
+const APP_VERSION = '1.56.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -104,7 +104,10 @@ function sample(){
       /* Absence de jour : l'heure de retour du joueur, null quand il n'en a pas
          donné. Et le jour civil où la question du coucher a été répondue, pour
          ne la poser qu'une fois par nuit. */
-      backHour:null, askedOn:''},
+      /* Et l'instant où la mise à l'abri cesse de valoir : c'est l'allumage qui
+         dit sa propre fin, parce qu'au matin rien ne distingue un réveil d'une
+         absence qui commence. Zéro quand le mode jour est en place. */
+      backHour:null, askedOn:'', until:0},
     lf:{found:['humans','rocktal']},
     centre:null, raid:null, raids:{}, prio:[], prioAsk:[],
     daily:{done:{}, no:{}},
@@ -5305,7 +5308,13 @@ function bind(){
   view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ applyReport(el.value); save(); render(); return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); if(k!=='safe') S.raid.at=Date.now(); save(); REFRESH.explore(); }));
   view.querySelectorAll('[data-lf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.lf, f=new Set(S.lf.found); el.checked ? f.add(k) : f.delete(k); S.lf.found=[...f]; save(); render(); }));
   view.querySelectorAll('[data-day]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
-    const k = el.dataset.day; S.day[k] = dayValue(k, el.value, S.day[k]); save();
+    const k = el.dataset.day; S.day[k] = dayValue(k, el.value, S.day[k]);
+    /* Allumer la mise à l'abri, ou déplacer l'heure de retour, déplace l'instant
+       où elle s'éteindra : `modeNuit` le recalcule, le champ ne fait que poser
+       la valeur. */
+    if(k === 'night') modeNuit(S.day.night);
+    if(k === 'backHour' && S.day.night) modeNuit(true);
+    save();
     /* L'alarme du coucher vit dans le navigateur : elle se repose dès que
        l'heure de nuit change, sinon elle sonnerait à l'ancienne. */
     if(k === 'nightStart' || k === 'nightEnd') armeNuit();
@@ -5517,6 +5526,9 @@ function sainEtat(){
      quoi. Null et chaîne vide sont les seules absences. */
   S.day.backHour = S.day.backHour == null || S.day.backHour === '' ? null : nb(S.day.backHour, null, 0, 23);
   if(typeof S.day.askedOn !== 'string') S.day.askedOn = '';
+  /* Un `until` truqué garderait le plan en veille pour toujours, ou le
+     rallumerait à chaque battement. */
+  S.day.until = Number.isFinite(Number(S.day.until)) ? Math.max(0, +S.day.until) : 0;
 
   /* Une sauvegarde d'avant les identifiants n'en porte pas : sans ça, tout
      l'onglet Planètes s'affiche en `pn-undefined`. Même jeton que
@@ -5538,7 +5550,7 @@ document.getElementById('tabs').addEventListener('click',e=>{ const b=e.target.c
    pas refaits à chaque dessin, et `bind()` les doublerait. */
 document.getElementById('gearBtn').addEventListener('click',()=>allerOnglet('settings'));
 document.getElementById('nightBtn').addEventListener('click',()=>{
-  S.day.night = !S.day.night; save(); render();
+  modeNuit(!S.day.night); save(); render();
   /* Allumé en pleine journée, le bouton vaut « je m'absente » : sans ce mot le
      joueur ne sait pas sur quelle heure de retour le plan vient de se caler. */
   if(absenceJour(Date.now())) toast(S.day.backHour == null
@@ -5564,7 +5576,7 @@ view.addEventListener('click', e=>{
 setInterval(tickTimers, 1000);
 /* publieLePlan est sans effet sur Aujourd'hui, qui se publie en se dessinant ;
    sur Empire, REFRESH.empire ne publie rien : sans cet appel la tuile resterait muette. */
-setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); publieLePlan(); nightBar(); }, 30000);
+setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); publieLePlan(); finDeNuit(); nightBar(); }, 30000);
 /** Recalcule le plan du jour pour la page du jeu, sans rien afficher.
     `today` le publie en se dessinant ; ailleurs, c'est à nous de le faire.
     Le dessin qui suit la publication écrit dans des éléments de l'onglet
@@ -5890,6 +5902,42 @@ function nightDue(now){
   return now >= d.getTime() - 3600e3 && now < d.getTime() + 2*3600e3;
 }
 
+/**
+ * Allume ou éteint la mise à l'abri, et retient jusqu'à quand elle vaut.
+ *
+ * Sans cet instant, le mode nuit ne s'éteignait qu'au clic : au matin le joueur
+ * retrouvait un plan vide et croyait le copilote en panne. Il ne se devine pas
+ * au réveil — « il est 7 h » ne distingue pas un réveil d'une absence qui
+ * commence, et l'heure de nuit ne dit rien d'une absence de jour. C'est donc
+ * l'allumage qui dit sa propre fin, avec le même `wakeTime` qui choisit la
+ * vitesse de la flotte : le plan revient quand la flotte revient.
+ *
+ * Éteindre efface l'heure de retour : elle appartenait à cette absence-là.
+ * @param {boolean} on
+ */
+function modeNuit(on){
+  S.day.night = !!on;
+  if(!on) S.day.backHour = null;
+  S.day.until = on ? (wakeTime(Date.now()) || 0) : 0;
+}
+
+/**
+ * Rend le mode jour quand l'instant que la mise à l'abri s'était donné est
+ * passé. Appelée au chargement et à chaque battement.
+ * @returns {boolean} vrai si le plan vient de revenir
+ */
+function finDeNuit(){
+  if(!S.day.night) return false;
+  /* Une sauvegarde d'avant `until` n'en porte pas : lui en donner un vaut mieux
+     que de la laisser en veille pour toujours. */
+  if(!S.day.until){ S.day.until = wakeTime(Date.now()) || 0; save(); return false; }
+  if(Date.now() < S.day.until) return false;
+  modeNuit(false);
+  save(); render();
+  toast('Mode jour : le plan est revenu');
+  return true;
+}
+
 /** Montre ou cache le bandeau de la question. */
 function nightBar(){
   const box = document.getElementById('nightAsk');
@@ -5923,7 +5971,9 @@ function repondNuit(oui){
   S.day.askedOn = jourCivil(Date.now());
   /* Une nuit n'est pas une absence de jour : l'heure de retour donnée pour une
      absence ne doit pas décider du vol de cette nuit. */
-  if(oui){ S.day.night = true; S.day.backHour = null; }
+  /* `backHour` laissé par une absence passée dirait au vol de cette nuit de
+     rentrer à son heure à elle : un coucher se cale sur la fin de nuit. */
+  if(oui){ S.day.backHour = null; modeNuit(true); }
   save();
   const box = document.getElementById('nightAsk'); if(box) box.hidden = true;
   render();
@@ -5946,4 +5996,5 @@ if(nightAskEl) nightAskEl.addEventListener('click', e=>{
 chrome.storage.local.get('nightAnswer', d=>consommeReponseNuit(d.nightAnswer));
 chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.nightAnswer) consommeReponseNuit(ch.nightAnswer.newValue); });
 armeNuit();
+finDeNuit();
 nightBar();

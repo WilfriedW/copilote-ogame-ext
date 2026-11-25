@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'planHints', 'prioHints', 'gameSkin', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -7359,7 +7359,7 @@ t('le champ du volet Empire republie le plan après avoir posé', () => {
 t('la minuterie de 30 s republie le plan aussi sur Empire', () => {
   /* setInterval est neutralisé dans le harnais : on épingle la source. */
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
-  assert.match(src, /REFRESH\[tab\]\(\);\s*publieLePlan\(\);\s*nightBar\(\);\s*\}, 30000\)/);
+  assert.match(src, /REFRESH\[tab\]\(\);\s*publieLePlan\(\);\s*finDeNuit\(\);\s*nightBar\(\);\s*\}, 30000\)/);
 });
 
 t('le changement que provoque l\'effacement lui-même ne rejoue rien', () => {
@@ -8930,6 +8930,67 @@ t('à 22 h, « oui » veut dire « je vais dormir », pas « je m\'absente 8 h �
   const g = app(s => { s.day.night = true; }, AVANT);
   assert.equal(g.absenceJour(AVANT), false, 'le coucher est à une heure : c\'est un coucher');
   assert.equal(g.wakeTime(AVANT), REVEIL, 'fin de nuit, pas 6 h du matin');
+});
+
+/* ---------- le plan revient tout seul ---------- */
+
+t('allumée le soir, la mise à l\'abri se donne la fin de nuit pour terme', () => {
+  const g = app(null, AVANT, null, true);
+  g.repondNuit(true);
+  assert.equal(g.saved().day.until, REVEIL, 'elle vaut jusqu\'à sept heures');
+});
+
+t('allumée le matin sans heure de retour, elle vaut une nuit', () => {
+  const g = app(null, MATIN);
+  g.modeNuit(true);
+  assert.equal(g.S.day.until, MATIN + 8 * 3600e3);
+});
+
+t('l\'heure de retour donnée fixe le terme, et la déplacer le déplace', () => {
+  const g = app(s => { s.day.night = true; s.day.backHour = 19; }, MATIN);
+  g.modeNuit(true);
+  assert.equal(g.S.day.until, new Date(2026, 10, 8, 19, 0, 0).getTime());
+  g.S.day.backHour = 15; g.modeNuit(true);
+  assert.equal(g.S.day.until, new Date(2026, 10, 8, 15, 0, 0).getTime(), 'le terme suit le retour');
+});
+
+t('avant le terme, rien ne bouge', () => {
+  const g = app(s => { s.day.night = true; s.day.until = MATIN + 60e3; }, MATIN);
+  assert.equal(g.finDeNuit(), false);
+  assert.equal(g.S.day.night, true, 'le plan reste en veille');
+});
+
+/* Le panneau appelle finDeNuit() en se chargeant : le joueur qui l'ouvre après
+   son réveil retrouve son plan sans avoir rien à cliquer. */
+t('le terme passé, le mode jour revient au chargement, sans un clic', () => {
+  const g = app(s => { s.day.night = true; s.day.backHour = 9; s.day.until = MATIN; }, MATIN);
+  assert.equal(g.S.day.night, false, 'le plan est revenu');
+  assert.equal(g.S.day.until, 0);
+  assert.equal(g.S.day.backHour, null, 'elle appartenait à cette absence-là');
+  assert.equal(g.saved().day.night, false, 'et c\'est enregistré');
+});
+
+t('éteindre à la main efface le terme comme l\'heure de retour', () => {
+  const g = app(s => { s.day.night = true; s.day.backHour = 19; s.day.until = MATIN + 3600e3; }, MATIN);
+  g.modeNuit(false);
+  assert.equal(g.S.day.until, 0);
+  assert.equal(g.S.day.backHour, null);
+});
+
+/* Le mode nuit traverse la nuit allumé : c'est au matin que le terme tombe, et
+   le battement de trente secondes est le seul à repasser par là. */
+t('une veille d\'avant le terme reçoit le sien au lieu de durer toujours', () => {
+  const g = app(s => { s.day.night = true; delete s.day.until; }, AVANT);
+  assert.equal(g.finDeNuit(), false, 'on ne l\'éteint pas sur un champ manquant');
+  assert.equal(g.S.day.until, REVEIL, 'on lui donne son terme');
+  assert.equal(g.saved().day.until, REVEIL);
+});
+
+t('un terme truqué par une synchro ne fige pas le plan en veille', () => {
+  const g = app();
+  g.S.day.until = '"><b>x';
+  g.syncApply({ 'sy:day': g.S.day });
+  assert.equal(g.S.day.until, 0);
 });
 
 t('sans nuit réglée, aucune question', () => {
