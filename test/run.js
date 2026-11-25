@@ -3012,6 +3012,22 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
     assert.ok(fs.existsSync(path.join(root, f)), 'pack.sh emporte ' + f + ', qui n\'existe pas');
 });
 
+t('un dist/ déjà construit ne reste pas en retard sur le dépôt', () => {
+  /* `dist/` est ce que Chrome charge, et il est ignoré par git : il peut donc
+     vieillir pendant que `git status` reste propre. C'est ce qui est arrivé le
+     2026-11-24 — six commits et trois versions plus tard, le navigateur
+     chargeait toujours celle d'avant, et recharger l'extension ne pouvait rien
+     y faire. Rien à dire tant que `dist/` n'existe pas, un dépôt fraîchement
+     cloné n'en a pas ; dès qu'il existe, il porte la version du dépôt. */
+  const fs = require('fs'), path = require('path');
+  const root = path.join(__dirname, '..');
+  const bati = path.join(root, 'dist', 'manifest.json');
+  if (!fs.existsSync(bati)) return;
+  const ici = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8')).version;
+  const la = JSON.parse(fs.readFileSync(bati, 'utf8')).version;
+  assert.equal(la, ici, 'dist/ porte ' + la + ' et le dépôt ' + ici + ' : relance ./pack.sh');
+});
+
 /* ---------- résultat ---------- */
 
 /* ---------- spécification v2 : formules isolées ---------- */
