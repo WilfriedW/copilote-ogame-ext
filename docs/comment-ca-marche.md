@@ -726,7 +726,7 @@ Armes, Bouclier, Protection des vaisseaux.
 |---|---|---|
 | **Non** sur une carte | Aujourd'hui | Met cette carte de côté indéfiniment (`daily.no`) |
 | **Fait** sur une carte | Aujourd'hui | Marque la mission faite pour sa période (1 h à 24 h selon la mission) |
-| Flotte partie dans le jeu | mouvements de flotte | Marque **Fait** la carte qui demandait ce mouvement (même destination, même mission ; Transporter et Stationner se valent, l'expédition est exclue) |
+| Flotte partie dans le jeu | mouvements de flotte | Marque **Fait** la carte qui demandait ce mouvement (partie d'une de tes planètes, même destination, même mission ; Transporter et Stationner se valent, l'expédition est exclue) |
 | **Lancé** sur une action | Aujourd'hui | Crée un minuteur et débite le stock de la planète |
 | Clic droit sur une tuile | page du jeu | Pose ou retire une priorité. Attend sa planète jusqu'à 24 h si elle n'a pas encore été relevée |
 | Replier / déplier une carte | Aujourd'hui | Mémorisé (`ui.fold`) |

@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.56.7';
+const APP_VERSION = '1.56.8';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4019,7 +4019,11 @@ function noRestore(){
 function flotteEnVol(m){
   if(!m.dest || !m.mission || m.mission === 15) return false;
   const vaut = (a, b) => a === b || ((a === 3 || a === 4) && (b === 3 || b === 4));
-  return (S.moves || []).some(v => !v.ret && v.dest === m.dest && vaut(v.mission, m.mission));
+  /* Les mouvements de flotte du jeu portent aussi ceux des autres : un
+     transport d'allié vers chez soi éteindrait une carte que personne n'a
+     honorée. Un geste du joueur part d'une de ses planètes. */
+  return (S.moves || []).some(v => !v.ret && v.dest === m.dest && vaut(v.mission, m.mission)
+    && S.planets.some(p => p.coords === v.origin));
 }
 function missionDone(m){
   /* Noté, pas seulement constaté : le mouvement disparaît des mouvements de

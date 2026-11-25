@@ -5688,6 +5688,15 @@ t('une flotte déjà partie vaut un « Fait » : la carte ne revient pas', () =>
   assert.ok(g.missionDone(m), 'la carte revient dès que la flotte est posée');
 });
 
+t('une flotte venue d\'ailleurs ne vaut pas un « Fait »', () => {
+  // Les mouvements du jeu portent aussi ceux des autres joueurs : un transport
+  // d'allié vers la colonie éteindrait une carte que personne n'a honorée.
+  const g = nue();
+  const m = g.dailyMissions().find(x => /^cargo-split/.test(x.id));
+  g.S.moves = [{ mission: 4, ret: false, arrival: SOIR / 1000 + 3600, origin: '3:300:9', dest: m.dest }];
+  assert.ok(!g.missionDone(m), 'la flotte ne part d\'aucune de mes planètes');
+});
+
 t('un Transporter vaut le Stationner demandé, une expédition ne vaut rien', () => {
   const g = nue();
   const m = g.dailyMissions().find(x => /^cargo-split/.test(x.id));
