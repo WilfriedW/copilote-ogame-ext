@@ -17,13 +17,27 @@ cp $FICHIERS dist/
 # bourré à presque chaque fois, mais deux commits de suite peuvent porter le
 # même. Ce numéro ne vit pas dans le message mais dans le manifeste, d'où le
 # `git show` par ligne. Tabulé et non JSON : un sujet de commit à guillemets casserait un JSON
-# écrit au shell, une tabulation, il n'en porte pas. `|| :` parce qu'un dépôt
-# sans git ne doit pas empêcher de construire — la carte dira juste qu'il n'y a
-# pas d'historique.
+# écrit au shell, une tabulation, il n'en porte pas.
+#
+# On écrit à côté avant de remplacer, et on ne remplace que si on a obtenu
+# quelque chose. Une redirection crée son fichier avant de savoir si la
+# commande a de quoi le remplir : hors d'un dépôt git — une extraction par
+# `git archive`, un zip dézippé — `git log` ne rend rien et la ligne laissait
+# un `versions.tsv` de zéro octet, sans un mot. La carte Version affichait
+# alors un historique vide comme s'il n'y avait rien à montrer. Un dépôt sans
+# git doit pouvoir construire, mais pas en silence.
+TSV=$(mktemp)
 { git log -n 40 --date=short --pretty=format:'%h%x09%ad%x09%s' | while IFS="$(printf '\t')" read -r h d s; do
     v=$(git show "$h:manifest.json" 2>/dev/null | sed -n 's/.*"version" *: *"\([^"]*\)".*/\1/p' | head -1)
     printf '%s\t%s\t%s\t%s\n' "${v:-?}" "$d" "$h" "$s"
-  done; } > dist/versions.tsv 2>/dev/null || :
+  done; } > "$TSV" 2>/dev/null || :
+if [ -s "$TSV" ]; then
+  mv "$TSV" dist/versions.tsv
+else
+  rm -f "$TSV"
+  echo "pack.sh : aucun historique git lisible ici, dist/versions.tsv n'est pas écrit." >&2
+  echo "          La carte Version dira qu'il arrive au prochain ./pack.sh." >&2
+fi
 rm -f copilote-ogame.zip
 (cd dist && zip -qr ../copilote-ogame.zip .)
 

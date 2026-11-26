@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Copilote OGame",
-  "version": "2.7.2",
+  "version": "2.7.3",
   "description": "Read-only OGame companion: levels, production, advice and end-of-queue notifications in the side panel.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwEbIl/09v0OvwhS9mSfmoI1VJd5JUjqL1ZbGzl+AC4w0hmqKmDqu+q/EPd4nZCZiMcsDqsWcGH7slcpz6xEiFU/ApIwmAfZFf1OmEUttIpC1Elh1lVf9T/TOJuqbHVXtER2aioC3Lsw8i3wpP82PfPej3IS74/5W3kC3L18AOIqBAQYZr1GJFlOYegaa0QuzvEedmpr5jVvO02r1htgPtaTXwSKqAifaNcYpmhGr22f++X5Ml7/ucfDO8C6KinoKdeFpIjuM9HMdNjb7UxFbrXSySUDYJ5ydDvo5xq3tR7rgnUmPcaxh5s4V3JzM8hZfbaEQqh6ucx80Lf+dTdTHFQIDAQAB",
   "permissions": [
