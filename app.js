@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.0.2';
+const APP_VERSION = '2.1.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -102,6 +102,11 @@ function sample(){
     expo:{pf:true},
     ui:{tool:'colony', fold:{}, pose:{k:'metal', lvl:'', hors:{}}},
     day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false,
+      /* Le joueur a-t-il dit comment il joue. Faux tant qu'il ne l'a pas dit :
+         `focus` vaut alors « Équilibré » parce qu'il faut bien viser quelque
+         chose, pas parce qu'on le lui a demandé — et c'est la différence que
+         la carte d'ouverture a besoin de lire. */
+      focusSet:false,
       /* Absence de jour : l'heure de retour du joueur, null quand il n'en a pas
          donné. Et le jour civil où la question du coucher a été répondue, pour
          ne la poser qu'une fois par nuit. */
@@ -5692,6 +5697,21 @@ function lfBloc(p){
 const bascule = (id, attr, label, on, note='') =>
   `<label class="f bascule"><span>${label}</span><input type="checkbox" id="${id}" ${attr} ${on?'checked':''}>${note?`<span class="note">${note}</span>`:''}</label>`;
 
+/* Ce que le plan vise décide de la feuille de route, de la colonisation et de
+   la forme de vie conseillée — et il vivait au troisième menu des Réglages,
+   où personne n'allait : le premier joueur à qui on a montré le panneau a
+   demandé qu'on lui pose la question, sans savoir qu'elle existait déjà. Elle
+   se pose donc une fois, en tête de la page qu'il regarde, et s'efface dès
+   qu'il a répondu ; les Réglages restent l'endroit où en changer ensuite. */
+function profilCard(){
+  if(S.day.focusSet) return '';
+  return `<div class="card"><h2>Tu joues comment ?</h2>
+    <p class="note">Le plan ne vise pas la même chose selon ta façon de jouer. Tu pourras en changer dans Réglages.</p>
+    <ul class="advice" style="margin-top:10px">${Object.entries(FOCUS).map(([k,l])=>
+      `<li><button class="btn sm ${k===S.day.focus?'primary':'ghost'}" style="min-width:152px" data-focus="${k}">${esc(l)}</button><span class="why">${esc(AIDE_JOUR.focus.v[k]||'')}</span></li>`).join('')}</ul>
+  </div>`;
+}
+
 const VIEWS = {
 /* Ce que le joueur vient chercher, c'est la carte à suivre maintenant : elle
    seule reste dépliée. Le reste — la journée qui vient, les minuteurs — se
@@ -5700,6 +5720,7 @@ const VIEWS = {
 today(){
   const d=S.day;
   return `<section class="panel">
+    ${profilCard()}
     <div class="card"><h2>Maintenant</h2><div id="tdNow"></div></div>
     <div id="tdAlerts"></div>
     <details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
@@ -6387,6 +6408,13 @@ function bind(){
   view.querySelectorAll('[data-centre]').forEach(el=>el.addEventListener('change',()=>{ S.centre = el.checked ? el.dataset.centre : null; save(); render(); }));
   view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ applyReport(el.value); save(); render(); return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); if(k!=='safe') S.raid.at=Date.now(); save(); REFRESH.explore(); }));
   view.querySelectorAll('[data-lf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.lf, f=new Set(S.lf.found); el.checked ? f.add(k) : f.delete(k); S.lf.found=[...f]; save(); render(); }));
+  /* Répondre, c'est à la fois choisir et clore la question : le plan entier
+     change, donc la vue se redessine — et la carte disparaît par la même
+     occasion. `dayValue` relit la clé dans FOCUS, comme pour le menu. */
+  view.querySelectorAll('[data-focus]').forEach(el=>el.addEventListener('click',()=>{
+    S.day.focus = dayValue('focus', el.dataset.focus, S.day.focus);
+    S.day.focusSet = true; save(); render();
+  }));
   view.querySelectorAll('[data-day]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k = el.dataset.day; S.day[k] = dayValue(k, el.value, S.day[k]);
     /* Allumer la mise à l'abri, ou déplacer l'heure de retour, déplace l'instant
@@ -6639,6 +6667,7 @@ function sainEtat(){
   S.day.nightEnd   = nb(S.day.nightEnd,   def.day.nightEnd,   0, 23);
   if(!(S.day.focus in FOCUS)) S.day.focus = def.day.focus;
   S.day.night = !!S.day.night;
+  S.day.focusSet = !!S.day.focusSet;
   /* `backHour` est interpolé dans un `value=""` sans esc, et `askedOn` se
      compare à une date : une sauvegarde ou une synchro peut y mettre n'importe
      quoi. Null et chaîne vide sont les seules absences. */

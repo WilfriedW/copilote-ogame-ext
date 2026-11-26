@@ -11013,6 +11013,31 @@ t('un labo qui monte ailleurs ne retient aucune recherche', () => {
     'le centre cherche pendant qu\'une colonie monte son labo');
 });
 
+/* ---------- la question du profil, posée une fois ---------- */
+
+t('tant que le joueur n\'a pas dit comment il joue, la question est en tête', () => {
+  const h = lu(app(s => { s.day.focusSet = false; }).VIEWS.today());
+  assert.ok(/Tu joues comment/.test(h), 'la carte est là');
+  for (const k of ['equi', 'ecocol', 'eco', 'fleet'])
+    assert.ok(h.includes(`data-focus="${k}"`), `le choix ${k} est proposé`);
+  assert.ok(h.indexOf('Tu joues comment') < h.indexOf('Maintenant'),
+    'avant la carte du moment, pas après');
+});
+
+t('une fois répondu, la question ne revient pas', () => {
+  const g = app(s => { s.day.focusSet = false; });
+  const bouton = {dataset: {focus: 'eco'}};
+  g.S.day.focus = g.dayValue('focus', bouton.dataset.focus, g.S.day.focus);
+  g.S.day.focusSet = true;
+  assert.equal(g.S.day.focus, 'eco', 'le plan vise ce qu\'il a cliqué');
+  assert.ok(!/Tu joues comment/.test(g.VIEWS.today()), 'et la carte s\'efface');
+});
+
+t('un focusSet truqué ne vaut que vrai ou faux', () => {
+  const g = app(s => { s.day.focusSet = '<b>oui'; });
+  assert.strictEqual(g.S.day.focusSet, true, 'sainEtat le ramène à un booléen');
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');
