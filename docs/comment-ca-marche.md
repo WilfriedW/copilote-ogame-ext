@@ -823,6 +823,12 @@ Une planète dont l'espèce n'ouvre pas ce rang, ou qui n'a rien relevé, dit
 « pas relevée ici » et ne reçoit rien, plutôt qu'une priorité qui ne
 correspond à rien chez elle.
 
+**Quand le bouton est à zéro, il dit pourquoi.** « Rien à poser : 2 planètes
+déjà au-dessus de 21, 1 vise déjà 21. » Sans cette ligne, une planète au
+niveau 12 sous un objectif de 21 et un bouton éteint se lisent comme une
+panne, alors que la pose a déjà fait son travail : cette planète-là vise déjà
+21. Une raison par planète, la première qui s'applique, décochée en tête.
+
 La mémoire des planètes décochées est **locale à ce navigateur** : elle ne
 voyage pas d'un poste à l'autre, contrairement aux priorités elles-mêmes.
 
