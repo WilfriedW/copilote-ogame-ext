@@ -3958,6 +3958,51 @@ t('un debit negatif ne donne pas d\'alerte de hangar', () => {
     'rien à dire d\'un réservoir qui se vide : ' + JSON.stringify(g.planetAlerts(p)));
 });
 
+/* ---------- un hangar se prévoit avant le plafond, et au plafond on dépense ---------- */
+
+/** Assez d'énergie pour que les mines tournent à 100 % : le plafond du hangar
+    se lit alors seul, sans le secours de la centrale devant. */
+const ENERGIE = s => { s.planets[0].b.solar = 30; };
+
+t('un hangar deja plein fait proposer de depenser, pas de l\'agrandir', () => {
+  // La planète mère de la fixture porte 120 000 de métal pour un Hangar M 3,
+  // qui n'en loge que 75 000 : elle est au plafond dès le départ.
+  const g = app();
+  const p = g.S.planets[0];
+  const a = g.planetAlerts(p).find(x => /Hangar de métal plein/.test(x.what));
+  assert.ok(a, 'le plafond se dit : ' + JSON.stringify(g.planetAlerts(p)));
+  assert.ok(/Lance /.test(a.why), 'et la phrase nomme le chantier qui vide : ' + a.why);
+  assert.ok(/reste à l'arrêt jusque-là/.test(a.why),
+    'et dit ce que le hangar coûte en temps d\'arrêt : ' + a.why);
+});
+
+t('au plafond, le plan met le gros chantier devant le hangar', () => {
+  // De l'énergie en trop : sans elle, la centrale est le secours qui passe
+  // devant tout, et c'est un autre sujet que le plafond du hangar.
+  const g = app(ENERGIE);
+  // pickBuildings lit une planète SIMULÉE : elle porte son stock sous `st`.
+  const p = Object.assign({}, g.S.planets[0], { st: [120000, 60000, 18000] });
+  const c = g.pickBuildings(p, { T: SOIR, iv: 1.5, goals: [] });
+  const vide = c.findIndex(x => /au plafond/.test(x.why || ''));
+  const hangar = c.findIndex(x => x.k === 'smetal');
+  assert.ok(vide >= 0, 'un chantier sort pour vider le métal : ' + JSON.stringify(c.map(x => [x.k, x.why])));
+  assert.ok(hangar < 0 || vide < hangar, 'et il passe devant le hangar : ' + JSON.stringify(c.map(x => x.k)));
+});
+
+t('le hangar se propose assez tot pour etre monte avant le plafond', () => {
+  // Un Hangar M 9 met près de quinze heures à sortir : proposé deux connexions
+  // avant le plafond, il arriverait après. Quatorze heures avant, deux
+  // connexions de quatre-vingt-dix minutes ne le voient pas venir ; son propre
+  // temps de montée, si.
+  const g = app(s => { ENERGIE(s); s.planets[0].b.smetal = 8; });
+  const base = g.S.planets[0], pr = g.production(base), cap = g.storageCap(8);
+  const p = Object.assign({}, base, { st: [cap - pr.m * 14, 60000, 18000] });
+  assert.ok(p.st[0] < cap * 0.98, 'préalable : la planète n\'est pas encore au plafond');
+  const c = g.pickBuildings(p, { T: SOIR, iv: 1.5, goals: [] }).find(x => x.k === 'smetal');
+  assert.ok(c, 'le hangar se propose vingt heures avant le plafond');
+  assert.ok(/à sortir/.test(c.why), 'et la carte dit combien de temps il met : ' + c.why);
+});
+
 t('les alertes urgentes passent avant les avertissements', () => {
   // La planète mère n'a qu'un hangar qui se remplit (Attention), la colonie
   // manque d'énergie (Urgent). Dans l'ordre des planètes, l'Attention sort

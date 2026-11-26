@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.64.0';
+const APP_VERSION = '1.65.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -2090,6 +2090,35 @@ function casesLibres(p){
     Volontairement séparée de pickBuildings : celle-là choisit quoi construire
     et se tait dès qu'une file est occupée ou que des satellites arrivent, ce
     qui est juste pour choisir et faux pour avertir. */
+/**
+ * Ce qui vide le plus vite la ressource `j` ici, parmi ce qui est payable tout
+ * de suite : montée de bâtiment ou case de forme de vie.
+ *
+ * Un hangar plus grand n'est pas la réponse quand le stock est DÉJÀ au plafond.
+ * Il met des heures à monter, et la production reste à l'arrêt tout ce
+ * temps-là : le hangar se prévoit avant la saturation, il ne la répare pas.
+ * Ce qui redémarre la production, c'est dépenser — et dépenser gros, pour que
+ * le plafond ne revienne pas dans l'heure.
+ *
+ * Les montées qui demandent une centrale en plus (`extraSolar`) sont écartées :
+ * leur coût est celui du paquet, et le pas réel est la centrale, pas la mine.
+ * @param {object} p planète, réelle ou simulée
+ * @param {number} j 0 métal, 1 cristal, 2 deutérium
+ * @param {number[]} st le stock au sol — `stockNow(p)` sur une vraie planète,
+ *   `p.st` sur une copie simulée
+ * @returns {{what:string, cost:number[], k?:string, lvl?:number}|null}
+ */
+function plusGrosseDepense(p, j, st){
+  const payable = c => [0,1,2].every(i => c[i] <= st[i]);
+  const out = [];
+  for(const u of rankUpgrades(p))
+    if(B[u.key] && !u.extraSolar && u.cost[j] > 0 && payable(u.cost))
+      out.push({what:`${B_SHORT[u.key]} ${u.lvl}`, k:u.key, lvl:u.lvl, cost:u.cost});
+  for(const q of ['lfbuilding','lfresearch'])
+    for(const c of lfCandidates(p, q))
+      if(c.cost[j] > 0 && payable(c.cost)) out.push({what:`${c.nom} ${c.next}`, cost:c.cost});
+  return out.sort((a,b)=>b.cost[j]-a.cost[j])[0] || null;
+}
 function planetAlerts(p){
   const out = [], pr = production(p), st = stockNow(p), r = rankUpgrades(p);
   const where = S.planets.length>1 ? ` sur ${p.name}` : '';
@@ -2117,11 +2146,19 @@ function planetAlerts(p){
   else if(libres === 1) out.push({sev:'warn', what:`Un seul emplacement libre${where}`, why:`${p.cases.pris} sur ${p.cases.max}. La prochaine construction prend le dernier, et plus rien ne se posera ensuite. Le Terraformeur en agrandit la planète, mais il lui faut cet emplacement-là pour être construit : garde-le-lui si tu le vises.`});
   ['m','c','d'].forEach((x,k)=>{
     const rate=[pr.m,pr.c,pr.d][k], name=['Hangar de métal','Hangar de cristal','Réservoir de deutérium'][k], bk=['smetal','scrystal','sdeut'][k];
-    if(st[k]>=pr.cap[k]*0.98) out.push({sev:'bad', what:`${name} plein${where}`, why:`La production de ${['métal','cristal','deutérium'][k]} est arrêtée. Dépense ou monte ${name} ${p.b[bk]+1}.`});
-    // Huit heures, et non l'intervalle de connexion : l'avertissement sert
-    // à prévoir le hangar avant une longue absence, pas avant la prochaine
-    // connexion. Le garde sur le débit évite une durée infinie.
-    else if(rate>0 && (pr.cap[k]-st[k])/rate<8) out.push({sev:'warn', what:`${name} plein dans ${dur((pr.cap[k]-st[k])/rate*3600)}${where}`, why:`Prévois ${name} ${p.b[bk]+1} avant une longue absence.`});
+    const mont = buildTime(bk, p.b[bk]+1, p);
+    if(st[k]>=pr.cap[k]*0.98){
+      /* Au plafond, le hangar arrive trop tard : il met des heures à sortir et
+         la production ne repart pas avant. Ce qui la relance, c'est le plus
+         gros chantier payable ici. */
+      const d = plusGrosseDepense(p, k, st);
+      out.push({sev:'bad', what:`${name} plein${where}`, why:`La production de ${NOM_RES[k]} est arrêtée. ${d ? `Lance ${d.what} : c'est le plus gros chantier payable tout de suite ici, ${fmt(d.cost[k])} de ${NOM_RES[k]} d'un coup.` : `Rien n'est payable ici pour la vider : fais partir un transport.`} Monter ${name} ${p.b[bk]+1} prend ${dur(mont)}, et la production reste à l'arrêt jusque-là.`});
+    }
+    // Le délai couvre le temps de montée du hangar, et au moins huit heures :
+    // l'avertissement doit sortir assez tôt pour que le hangar soit MONTÉ avant
+    // le plafond, et servir aussi à prévoir une longue absence. Le garde sur le
+    // débit évite une durée infinie.
+    else if(rate>0 && (pr.cap[k]-st[k])/rate < Math.max(8, mont/3600)) out.push({sev:'warn', what:`${name} plein dans ${dur((pr.cap[k]-st[k])/rate*3600)}${where}`, why:`Lance ${name} ${p.b[bk]+1} maintenant : il met ${dur(mont)} à sortir, et au plafond la production s'arrête.`});
   });
   return out;
 }
@@ -2852,7 +2889,23 @@ function pickBuildings(p, ctx){
   const ranked = rankUpgrades(p).filter(u=>u.payback<Infinity && B[u.key]);
   const satsSoon = p.satPending && p.satPending > ctx.T;
   if(pr.factor<1 && !satsSoon) add('solar', 'Énergie négative : tes mines tournent au ralenti', true);
-  for(let j=0;j<3;j++) if(rates[j]>0 && p.st[j]+rates[j]*iv*2 >= pr.cap[j]*.98) add(sk[j], 'Hangar plein avant ta prochaine connexion', true);
+  /* Deux régimes, deux gestes. Avant la saturation, le hangar — mais assez tôt
+     pour être MONTÉ avant le plafond : son propre temps de construction fait
+     partie du délai, sinon la carte sortait le jour où il était déjà trop tard.
+     Au plafond, le hangar n'y peut plus rien (voir plusGrosseDepense) : on
+     dépense, et le plus gros chantier payable passe devant. */
+  for(let j=0;j<3;j++){
+    if(!(rates[j]>0)) continue;
+    if(p.st[j] >= pr.cap[j]*.98){
+      const d = plusGrosseDepense(p, j, p.st);
+      /* Même garde que le secours d'énergie juste au-dessus : des satellites
+         déjà en chantier apportent l'énergie, et une centrale de plus serait
+         payée pour rien — même pour vider un hangar. */
+      if(d && d.k && !(d.k === 'solar' && satsSoon)){ add(d.k, `Le ${NOM_RES[j]} est au plafond : ta production est arrêtée, et c'est le plus gros chantier payable tout de suite`, true); continue; }
+    }
+    const mont = buildTime(sk[j], (p.b[sk[j]]||0)+1, p), lead = Math.max(iv*2, iv + mont/3600);
+    if(p.st[j]+rates[j]*lead >= pr.cap[j]*.98) add(sk[j], `Hangar plein dans moins de ${dur(lead*3600)}, et il met ${dur(mont)} à sortir`, true);
+  }
   /* La priorité du joueur passe ici : derrière les deux secours — une mine au
      ralenti coûte de la production à chaque heure, une priorité repoussée ne
      coûte que du temps — et devant tout le classement par amortissement, qui
@@ -3366,7 +3419,14 @@ function simulateDay(){
         if(lfMode()==='off') return;
         for(const p of P) for(const q of ['lfbuilding','lfresearch']){
           if(p.lfq[q]>Tm) continue;
-          const ch = lfCandidates(p, q)[0]; if(!ch) continue;
+          const liste = lfCandidates(p, q); if(!liste.length) continue;
+          /* Au plafond, cette file sert à vider le stock : la case la plus
+             chère qu'on peut payer tout de suite y fait plus que la moins
+             chère, qui laisse le plafond en place. Hors plafond, le tri de
+             lfCandidates garde la main. */
+          const prLf = production(p), plein = [0,1,2].find(j => [prLf.m,prLf.c,prLf.d][j] > 0 && p.st[j] >= prLf.cap[j]*.98);
+          const ch = plein == null ? liste[0]
+            : (liste.filter(c => c.cost[plein] > 0 && can(p, c.cost, null)).sort((a,b)=>b.cost[plein]-a.cost[plein])[0] || liste[0]);
           // softRes ne retient que les chantiers de moins de trois heures : c'est
           // le bon arbitrage pour la flotte, qui part et revient. Pour les
           // formes de vie, « après les bâtiments » doit valoir aussi pour une
