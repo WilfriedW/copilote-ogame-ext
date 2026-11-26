@@ -450,7 +450,12 @@ function poseNom(k){
   if(poseKind(k) === 'b') return B[k].n;
   const noms = new Set();
   for(const p of S.planets) for(const id of lfIds(p)) if(lfCle(id) === k) noms.add(lfNom(p, id));
-  return [...noms].join(' / ') || k;
+  const vus = [...noms].join(' / ') || k;
+  /* Les trois rôles communs devant les noms, quand le rang en a un. Les
+     recherches n'en ont pas : leur rang 1 est « Ambassadeurs intergalactiques »,
+     pas l'hébergement. */
+  const role = k.startsWith('lfbuilding:') ? LF_ROLE[+k.split(':')[1]] : null;
+  return role ? `${role} — ${vus}` : vus;
 }
 /* Le niveau que le joueur vise, ou NaN tant qu'il n'a rien tapé. */
 function poseVise(){ return parseInt(poseEtat().lvl); }
@@ -5389,11 +5394,43 @@ function lfRows(p){
     return `<label class="f">${esc(nom)}<span class="lv"><input type="number" value="${num(v.lvl)}" readonly tabindex="-1" aria-label="${esc(nom)} : niveau relevé"><input class="prio" type="number" min="${num(v.lvl)+1}" data-pid="${p.id}" data-prio="${id}" data-kind="lf" value="${prioLvl('lf', p.id, id)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${esc(nom)} : niveau visé"></span></label>`;
   }).join('');
 }
+/* Les cinq premiers rangs ont le même rôle chez les quatre espèces. Les
+   suivants, non — et ça se vérifie, ça ne se suppose pas.
+
+   Deux sources, apportées par le joueur le 26/11/2026. Le guide d'Always For
+   Keyboard (27/02/2024) nomme les trois premiers rôles et donne les quatre
+   noms de chacun :
+     Hébergement  — Secteur résidentiel (Humains) / Enclave stoïque (Roctas) /
+                    Refugium (Kaeleshs) / Chaîne de production (Mécas)
+     Nourriture   — Ferme biosphérique / Culture du cristal /
+                    Condensateur d'antimatière / Usine de fusion de cellules
+     Technologies — Centre de recherche / Centre technologique runique /
+                    Salle à vortex / Centre de recherche en robotique
+   La page officielle de Gameforge (gameforge.com/fr-FR/games/ogame-formes-vie)
+   donne les douze bâtiments des Mécas et des Kaeleshs dans l'ordre, chacun
+   avec ce qu'il fait. Alignés rang par rang, les rangs 4 et 5 disent la même
+   chose des deux : « entraîne les T1 en T2 », puis « entraîne les T2 en T3 »
+   (Update Network / Halls of Realisation, puis Quantum Computer Centre /
+   Forum of Transcendence). Chez les Humains ce sont l'Académie des sciences
+   et le Centre de neurocalibrage, aux mêmes rangs.
+
+   À partir du rang 6, les deux listes divergent : le rang 6 réduit le temps de
+   construction des navires chez les Mécas et la consommation de nourriture
+   chez les Kaeleshs ; le rang 9 augmente la population chez les premiers et le
+   nombre de cases de la planète chez les seconds. Il n'y a donc pas de rôle
+   commun à nommer au-delà de 5, et ces rangs gardent les noms que le relevé
+   leur connaît — ne pas « compléter » cette table de mémoire.
+
+   Le rang ne se devine pas plus que les rôles : il se lit du nom humain dans
+   OG_LF_BUILD, que le relevé a posé — « Secteur résidentiel » y est 11101,
+   donc le rang 1. */
+const LF_ROLE = {1:'Hébergement', 2:'Nourriture', 3:'Technologies',
+                 4:'Population T1 → T2', 5:'Population T2 → T3'};
 /* Les paliers de population. Le wiki dit la même chose des quatre espèces :
    « each race has a building that generates population and another that
    generates food », et chez chacune ce sont les deux premières cases — Secteur
-   résidentiel puis Ferme biosphérique chez les Humains, Enclave de méditation
-   puis Ferme de cristal chez les Roctas. Le rôle ne se devine donc pas, il est
+   résidentiel puis Ferme biosphérique chez les Humains, Enclave stoïque puis
+   Culture du cristal chez les Roctas. Le rôle ne se devine donc pas, il est
    documenté. Les identifiants, eux, ne le sont pas : on ne les invente pas, on
    prend ceux que le relevé a vus ici et on exige qu'ils finissent par 01 et 02
    dans la même série. Si ce n'est pas le cas, on ne propose rien plutôt que de

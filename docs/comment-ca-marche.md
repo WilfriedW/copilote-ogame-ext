@@ -780,18 +780,44 @@ sont écrits nulle part dans le copilote, c'est la page de ton espèce dans le
 jeu qui les apprend.
 
 **Une entrée par rang, pas par case.** Le jeu range les cases dans le même
-ordre chez les quatre espèces : le rang 1 est partout le logement, le rang 2
-partout la nourriture. La liste n'offre donc pas « Secteur résidentiel » *et*
-« Enclave de méditation » — elle offre **le rang**, et la pose donne à chaque
+ordre chez les quatre espèces. La liste n'offre donc pas « Secteur résidentiel »
+*et* « Enclave stoïque » — elle offre **le rang**, et la pose donne à chaque
 planète la case de son espèce à elle. Sur un empire à deux espèces, l'entrée
-porte les deux noms (« Secteur résidentiel / Enclave de méditation »), et
-chaque ligne de planète nomme la case qu'elle va recevoir.
+porte les deux noms, et chaque ligne de planète nomme la case qu'elle va
+recevoir :
 
-Les noms viennent du relevé, jamais d'un intitulé de rôle inventé : au-delà du
-logement et de la nourriture, documentés chez les quatre espèces, le jeu ne
-donne pas le même rôle au même rang — le rang 9 est une Tour d'habitation chez
-les Humains et autre chose ailleurs. Mieux vaut lire les vrais noms que croire
-à une équivalence qui n'existe pas.
+```text
+Hébergement — Secteur résidentiel / Enclave stoïque
+
+Planète mère  1:142:8     Secteur résidentiel 3   → 21
+Colonie       1:142:6     Enclave stoïque 2       → 21
+```
+
+**Les cinq premiers rangs portent leur rôle**, parce que les quatre espèces le
+partagent : hébergement, nourriture, bâtiment de recherche, puis les deux qui
+font monter la population d'un palier (T1 → T2, puis T2 → T3).
+
+| Rang | Rôle | Humains | Roctas |
+|---|---|---|---|
+| 1 | Hébergement | Secteur résidentiel | Enclave stoïque |
+| 2 | Nourriture | Ferme biosphérique | Culture du cristal |
+| 3 | Technologies | Centre de recherche | Centre technologique runique |
+| 4 | Population T1 → T2 | Académie des sciences | — |
+| 5 | Population T2 → T3 | Centre de neurocalibrage | — |
+
+**À partir du rang 6, il n'y a plus de rôle commun à nommer**, et le copilote
+n'en invente pas : le rang 6 réduit le temps de construction des navires chez
+les Mécas et la consommation de nourriture chez les Kaeleshs ; le rang 9
+augmente la population chez les premiers et le nombre de cases de la planète
+chez les seconds. Ces rangs portent donc les seuls noms du relevé. Poser un
+rang au-delà de 5 reste possible — c'est le même rang chez chaque espèce,
+simplement pas le même effet, et les noms affichés le montrent.
+
+Les rôles et les noms viennent de deux sources, pas de la mémoire : le guide
+d'Always For Keyboard du 27/02/2024 pour les trois premiers rôles et leurs
+quatre noms, et la page officielle `gameforge.com/fr-FR/games/ogame-formes-vie`
+pour les douze bâtiments des Mécas et des Kaeleshs dans l'ordre, qui est ce qui
+permet de vérifier où l'alignement s'arrête.
 
 Une planète dont l'espèce n'ouvre pas ce rang, ou qui n'a rien relevé, dit
 « pas relevée ici » et ne reçoit rien, plutôt qu'une priorité qui ne

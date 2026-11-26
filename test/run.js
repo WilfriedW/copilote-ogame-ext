@@ -10450,21 +10450,61 @@ t('des décochées au mauvais type ne gèlent pas Empire', () => {
 const DEUX_ESPECES = s => {
   s.planets[0].lf = { 11101: { lvl: 3, nom: 'Secteur résidentiel' },
                       11102: { lvl: 1, nom: 'Ferme biosphérique' },
+                      11103: { lvl: 0, nom: 'Centre de recherche' },
+                      11104: { lvl: 0, nom: 'Académie des sciences' },
+                      11105: { lvl: 0, nom: 'Centre de neurocalibrage' },
+                      11106: { lvl: 0, nom: 'Fusion à haute énergie' },
                       11201: { lvl: 2, nom: 'Ambassadeurs intergalactiques' } };
-  s.planets[1].lf = { 11301: { lvl: 2, nom: 'Enclave de méditation' } };
+  s.planets[1].lf = { 11301: { lvl: 2, nom: 'Enclave stoïque' } };
 };
 const OPTIONS = h => [...h.matchAll(/<option value="([^"]+)"/g)].map(m => m[1]);
 
 t('un seul rang dans la liste, quelles que soient les espèces', () => {
   const g = app(s => { DEUX_ESPECES(s); POSE('metal', 43)(s); });
   const o = OPTIONS(g.poseBloc()).filter(x => x.startsWith('lf'));
-  assert.deepEqual(o, ['lfbuilding:1', 'lfbuilding:2', 'lfresearch:1'], o.join(','));
+  assert.deepEqual(o, ['lfbuilding:1', 'lfbuilding:2', 'lfbuilding:3', 'lfbuilding:4',
+                       'lfbuilding:5', 'lfbuilding:6', 'lfresearch:1'], o.join(','));
 });
 
 t('le rang porte les noms que le relevé lui connaît, des deux espèces', () => {
   const g = app(s => { DEUX_ESPECES(s); POSE('metal', 43)(s); });
   const h = lu(g.poseBloc());
-  assert.ok(h.includes('Secteur résidentiel / Enclave de méditation'), h);
+  assert.ok(h.includes('Secteur résidentiel / Enclave stoïque'), h);
+});
+
+/* Les trois rôles que les quatre espèces partagent — hébergement, nourriture,
+   bâtiment de recherche — sont documentés, et eux seuls. Le rang de chacun se
+   lit du nom humain, que le relevé connaît : « Secteur résidentiel » est
+   11101, donc le rang 1. Au-delà du rang 3, la source se tait et le copilote
+   aussi : ces rangs gardent les noms du relevé, sans rôle inventé. */
+
+t('les trois rôles communs nomment leur rang', () => {
+  const g = app(s => { DEUX_ESPECES(s); POSE('metal', 43)(s); });
+  const h = lu(g.poseBloc());
+  assert.ok(h.includes('Hébergement — Secteur résidentiel / Enclave stoïque'), h);
+  assert.ok(h.includes('Nourriture — Ferme biosphérique'), h);
+  assert.ok(h.includes('Technologies — Centre de recherche'), h);
+});
+
+t('les deux rangs qui font monter la population portent leur rôle', () => {
+  const g = app(s => { DEUX_ESPECES(s); POSE('metal', 43)(s); });
+  const h = lu(g.poseBloc());
+  assert.ok(h.includes('Population T1 → T2 — Académie des sciences'), h);
+  assert.ok(h.includes('Population T2 → T3 — Centre de neurocalibrage'), h);
+});
+
+t('au-delà du rang 5, le rang garde les seuls noms du relevé', () => {
+  // Les espèces y divergent : le rang 6 réduit le temps de construction des
+  // navires chez les Mécas et la consommation de nourriture chez les Kaeleshs.
+  const g = app(s => { DEUX_ESPECES(s); POSE('metal', 43)(s); });
+  assert.ok(lu(g.poseBloc()).includes('>Fusion à haute énergie<'), 'sans rôle devant');
+});
+
+t('le rang 1 des recherches ne porte pas le rôle des bâtiments', () => {
+  const g = app(s => { DEUX_ESPECES(s); POSE('metal', 43)(s); });
+  const h = lu(g.poseBloc());
+  assert.ok(h.includes('>Ambassadeurs intergalactiques<'), h);
+  assert.equal(h.match(/Hébergement/g).length, 1, 'un seul rang porte l\'hébergement');
 });
 
 t('poser un rang donne à chaque planète la case de son espèce', () => {
@@ -10493,7 +10533,7 @@ t('chaque ligne nomme la case de sa propre planète', () => {
   const g = app(s => { DEUX_ESPECES(s); POSE('lfbuilding:1', 21)(s); });
   const h = lu(g.poseBloc());
   assert.ok(h.includes('Secteur résidentiel 3'), h);
-  assert.ok(h.includes('Enclave de méditation 2'), h);
+  assert.ok(h.includes('Enclave stoïque 2'), h);
 });
 
 t('un rang que personne n\'a relevé retombe sur la mine de métal', () => {
