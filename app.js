@@ -3458,7 +3458,7 @@ function simulateDay(){
       tryResearch('pre');
       if(wantColony && !sim.colShip && sim.tech.impulse>=3 && dep.b.shipyard>=4 && dep.sq<=Tm && !(dep.bq>Tm && dep.bqKey==='shipyard')){
         const c = COL_SHIP_COST, key='ship:col', mine = goals.find(g=>g.key===key);
-        if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*ecoSpeed())*3600, fin=Tm+d*1000; dep.sq=fin; sim.colShip=true; sim.colReady=fin; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'', cost:c, dur:d, end:fin, kind:'ship', p:dep.i}); }
+        if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*ecoSpeed())*3600, fin=Tm+d*1000; dep.sq=fin; sim.colShip=true; sim.colReady=fin; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'Sans lui, pas de planète de plus : il porte la colonie choisie dans Outils › Colonie.', cost:c, dur:d, end:fin, kind:'ship', p:dep.i}); }
         else {
           /* La carte que la priorité écarte le plus souvent : sans `heldBy`,
              le vaisseau n'était jamais construit et sa ligne ne disait pas un
@@ -3529,7 +3529,14 @@ function simulateDay(){
         if(libres-garde<=0) break;
         if(!dst || q===dst || (q.transferAt||0)>Tm) continue;
         const pr = production(q), want = [0,0,0];
-        for(const g of goals) if(g.p===dst) g.cost.forEach((x,j)=>want[j]=Math.max(want[j], x-dst.st[j]));
+        /* Les objectifs servis sont nommés : sans eux la carte annonçait un
+           tonnage sans dire à quoi il allait. */
+        const pour = [];
+        for(const g of goals) if(g.p===dst){
+          let utile = false;
+          g.cost.forEach((x,j)=>{ const d = x-dst.st[j]; if(d>0) utile = true; want[j]=Math.max(want[j], d); });
+          if(utile) pour.push(g.label);
+        }
         /* Le manque d'une planète bridée est un besoin comme un objectif : sans
            lui ici, la destination changeait et rien ne partait. */
         const secours = bridees.includes(dst);
@@ -3570,7 +3577,13 @@ function simulateDay(){
         // et les vaisseaux ne seraient plus là pour charger. C'est ce premier
         // trajet qu'on annonce, et le minuteur prévient quand ils se posent.
         const charge = `${fmt(sent[0])} M, ${fmt(sent[1])} C, ${fmt(sent[2])} D`;
-        const motif = secours ? `${planetRef(dst)} tourne au ralenti faute d'énergie et n'a pas de quoi payer sa centrale · ` : '';
+        /* Trois raisons possibles d'un rapatriement, dans l'ordre où elles
+           priment : le secours d'une planète à l'arrêt, un objectif qui épargne
+           à destination, et sinon des hangars qui se remplissent ici. L'une des
+           trois est vraie, sans quoi `want` serait vide et rien ne partirait. */
+        const motif = (secours ? `${planetRef(dst)} tourne au ralenti faute d'énergie et n'a pas de quoi payer sa centrale.`
+          : pour.length ? `${planetRef(dst)} épargne pour ${pour.join(' et ')} et n'y arrive pas seule.`
+          : `Les hangars de ${planetRef(q)} se remplissent : ces ressources travaillent mieux sur ${planetRef(dst)}.`) + ' ';
         acts.push(own
           ? {q:'Flotte · '+planetRef(q), what:`Rapatrier vers ${planetRef(dst)} : ${charge}`,
              why:`${motif}${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${hm(arrive)}`,
@@ -3594,7 +3607,7 @@ function simulateDay(){
         const ret = Tm + total*1000, out = Object.assign({}, f.ships);
         expoBusy.push(ret);
         sim.ev.push({at:ret, fn:()=>{ for(const [k,n] of Object.entries(out)){ p.ships[k]=(p.ships[k]||0)+n; sim.away[k]-=n; } }});
-        acts.push({q:'Flotte · '+planetRef(p), what:'Expédition : '+shipList(f.ships), why:`vers ${tgt}, retour vers ${hm(ret)} · ${fmt(fuel)} deut · soute ${fmt(f.cargo)} pour ${fmt(f.cap)} max`, cost:c, dur:total, end:ret, kind:'expo', ships:out, p:p.i, dest:tgt, mission:15});
+        acts.push({q:'Flotte · '+planetRef(p), what:'Expédition : '+shipList(f.ships), why:`Ramène des ressources, parfois des vaisseaux, pour ${fmt(fuel)} deut de carburant · vers ${tgt}, retour vers ${hm(ret)} · soute ${fmt(f.cargo)} pour ${fmt(f.cap)} max`, cost:c, dur:total, end:ret, kind:'expo', ships:out, p:p.i, dest:tgt, mission:15});
       }
       for(const p of P){
         if(p.b.shipyard<1 || p.sq>Tm) continue;
@@ -3838,16 +3851,38 @@ function copyChips(a){
    un <details> ne sait pas séparer son résumé de son corps, d'où ce repli à la
    main. `button` est déjà exclu du clic qui ouvre le jeu : le ⓘ ne navigue pas. */
 let whyN = 0;
-/** @returns {string[]} [le bouton ⓘ, le texte replié] — vides s'il n'y a rien à dire. */
+/* La raison tient en une phrase : c'est elle que la carte montre, sous le quoi
+   faire. Le reste — les chiffres, le détail du trajet, ce que le lien fait —
+   attend toujours derrière le ⓘ. Chaque `why` commence donc par sa raison,
+   et `whyLead` n'en garde que la première phrase, jamais plus d'une ligne. */
+/** @returns {string} la première phrase d'un pourquoi, vide s'il n'y en a pas. */
+function whyLead(s){
+  const t = String(s||'').trim(); if(!t) return '';
+  const i = t.search(/(?:[.!?](?=\s)|\s·\s)/);
+  let out = i > 0 ? t.slice(0, i+1).trim() : t;
+  if(out.length > 120) out = out.slice(0, 119).replace(/\s+\S*$/, '') + '…';
+  return out.replace(/[\s·]+$/, '');
+}
+/** @returns {string[]} [le bouton ⓘ, le texte replié, la raison en une phrase]. */
 function whyParts(parts){
   const p = parts.filter(Boolean);
-  if(!p.length) return ['', ''];
+  if(!p.length) return ['', '', ''];
+  const lead = whyLead(p[0]);
+  // Un ⓘ qui rouvrirait la phrase déjà lue sur la carte ne sert à rien.
+  if(p.length === 1 && lead === p[0]) return ['', '', lead];
   const id = 'why' + (++whyN);
+  /* Le repli ne redit pas la phrase que la carte porte déjà : il reprend le
+     premier pourquoi à partir d'où elle s'arrête. Sans ça, ouvrir le ⓘ relit
+     la même ligne avant d'arriver aux chiffres, et c'est pour les chiffres
+     qu'on l'ouvre. */
+  const reste = p[0].startsWith(lead) ? p[0].slice(lead.length).replace(/^[\s·.]+/, '') : p[0];
+  const corps = (reste ? [reste] : []).concat(p.slice(1));
   return [`<button class="i" type="button" aria-expanded="false" aria-controls="${id}" aria-label="Pourquoi cette action">ⓘ</button>`,
-    `<div class="why" id="${id}" hidden>${p.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`];
+    `<div class="why" id="${id}" hidden>${corps.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`,
+    lead];
 }
 function actHtml(a, withBtn){
-  const [wi, wb] = whyParts([a.why,
+  const [wi, wb, lead] = whyParts([a.why,
     a.src==='estimé' ? 'Prix et durée estimés d\'après les niveaux déjà vus, pas lus sur le jeu ; la durée est probablement sous-estimée.' : a.src==='lu' && a.at ? `Prix lu à ${hm(a.at)}.` : '',
     goNote(a)]);
   const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', copyChips(a)].filter(Boolean).join('');
@@ -3855,7 +3890,7 @@ function actHtml(a, withBtn){
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,pid:(S.planets[a.p]||{}).id,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
   if(withBtn && NO_KINDS[a.kind]) btn = `<span class="btns">${btn}${noBtn(moveKey(a.kind, (S.planets[a.p]||{}).id, a.dest))}</span>`;
-  return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div></div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
+  return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div>${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
 }
 
 /* ---------- mise à l'abri ---------- */
