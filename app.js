@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.6.3';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -93,7 +93,12 @@ function expoFind(pf){ return EXPO_CAPS[top1Tier()][1]*ecoSpeed()*(S.settings.cl
 function sample(){
   return {
     v:1, sample:true,
-    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, sats:false, muet:false, debris:LUNE_DF, skin:'relief'},
+    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, sats:false, muet:false, debris:LUNE_DF, skin:'relief',
+      /* Le modèle de défense visé, son palier, et le ratio que le joueur
+         écrit lui-même. Le ratio par défaut recopie celui du Framework mineur,
+         en clair plutôt que par référence : sample() tourne au chargement,
+         bien avant la table DEF_MODELES. */
+      defModele:'framework', defPalier:20, defPerso:{rl:40, ll:25, hl:10, ic:0, gc:4, pt:1}},
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
@@ -114,6 +119,10 @@ function sample(){
          dit sa propre fin, parce qu'au matin rien ne distingue un réveil d'une
          absence qui commence. Zéro quand le mode jour est en place. */
       backHour:null, askedOn:'', until:0},
+    /* Comment le joueur joue : son style, la classe qu'il vise, sa présence,
+       et les focus ponctuels posés par-dessus. Tout vide tant qu'il n'a pas
+       répondu — et vide veut dire « ne pondère rien », pas « mineur ». */
+    profil:{style:'', classe:'', activite:'regulier', focus:[], set:false},
     lf:{found:['humans','rocktal']},
     centre:null, raid:null, raids:{}, prio:[], prioAsk:[],
     daily:{done:{}, no:{}},
@@ -142,6 +151,11 @@ function newPlanet(name, coords, tmax, b){
 let S;
 try{ S = JSON.parse(LS.getItem(KEY)) || sample(); }catch(e){ S = sample(); }
 S = Object.assign(sample(), S);
+/* Les réglages se fusionnent comme `tech` et `day` juste en dessous :
+   `Object.assign` ne descend pas d'un niveau, et une sauvegarde d'avant un
+   réglage ne porte pas sa clé — le menu se serait affiché vide et le calcul
+   aurait lu `undefined`. */
+S.settings = Object.assign(sample().settings, S.settings);
 S.tech = Object.assign(sample().tech, S.tech);
 S.day = Object.assign(sample().day, S.day);
 S.ui = Object.assign(sample().ui, S.ui);
@@ -162,6 +176,10 @@ migratePlanetIds();
    la case du volet Empire afficherait « undefined » et le joueur l'y saisirait. */
 for(const p of S.planets || []) p.b = Object.assign(Object.fromEntries(Object.keys(B).map(k=>[k,0])), p.b);
 S.daily = Object.assign(sample().daily, S.daily);
+/* Le profil indexe des tables par ses propres clés : une clé inconnue y lève,
+   et `sainEtat` ne passe qu'à l'import d'une sauvegarde ou au retour d'une
+   synchro. Il se remet donc d'aplomb ici aussi, au démarrage. */
+profilSain();
 /* Une sauvegarde perdue en silence est pire qu'une erreur : l'écran montre la
    case cochée, et le rechargement suivant l'a oubliée. */
 function saveFailed(e){ console.error('Copilote : sauvegarde impossible', e); try{ toast('Sauvegarde impossible : recharge le panneau'); }catch(err){} }
@@ -3805,6 +3823,11 @@ function simulateDay(){
     const ups = [];
     P.forEach((p,i)=>{ for(const k of Object.keys(B)){ const a=real.planets[i].b[k], b=p.b[k]; if(b>a) ups.push(`${B_SHORT[k]} ${a}→${b}${P.length>1?' ('+p.name+')':''}`); } });
     for(const k of Object.keys(T)){ const a=real.tech[k], b=sim.tech[k]; if(b>a) ups.push(`${T[k].n.replace('Technologie ','')} ${a}→${b}`); }
+    /* Le profil décide de l'ordre des cartes d'une même connexion : à
+       ressources égales, ce qu'il met en avant se lit d'abord. Aucune n'est
+       retirée — une étape cachée serait une étape que le plan a pourtant
+       payée, et ses chiffres ne tomberaient plus. */
+    for(const x of sessions) x.acts.sort((a, b) => poidsCat(catActe(b)) - poidsCat(catActe(a)));
     return {now, sessions, busy, startV, endV, ups, alerts};
   } finally { S.tech = real.tech; S.planets = real.planets; }
 }
@@ -4700,7 +4723,12 @@ function dailyMissions(){
      publiée dans la page du jeu lit cette liste-ci. Trier plus loin, dans le
      rafraîchissement, laissait « Hangar de métal 1 » au-dessus de « sors ta
      flotte » là où le joueur regarde vraiment. */
-  out.sort((a, b) => (a.id === 'lune-sors' ? 0 : 1) - (b.id === 'lune-sors' ? 0 : 1));
+  /* Le profil décide ici aussi de ce qui sort : une carte de défense n'a rien
+     à dire à un raideur, un focus Expéditions remonte les siennes. Le tri de
+     la lune passe après, c'est lui qui a le dernier mot. */
+  const tri = out.filter(m => poidsCat(catMission(m)) > 0)
+    .sort((a, b) => poidsCat(catMission(b)) - poidsCat(catMission(a)))
+    .sort((a, b) => (a.id === 'lune-sors' ? 0 : 1) - (b.id === 'lune-sors' ? 0 : 1));
   /* Mode nuit : le joueur va dormir. Seule la rubrique Sécurité parle de
      mettre les ressources à l'abri ; tout le reste attendra le réveil.
 
@@ -4708,7 +4736,7 @@ function dailyMissions(){
      avant un impact *est* de la mise à l'abri. Un tir qui tombe à 2 h du matin
      ferait sinon disparaître la carte la plus critique de toutes. La dette et
      les débris, eux, attendent le réveil comme le reste. */
-  return S.day.night ? out.filter(m=>m.q === 'Sécurité' || m.id === 'lune-sors') : out;
+  return S.day.night ? tri.filter(m=>m.q === 'Sécurité' || m.id === 'lune-sors') : tri;
 }
 /* Le copilote ne voit pas ce que le joueur décide dans le jeu : une carte qu'il
    a choisi de ne pas suivre revient au plan suivant, et au suivant — cinq fois
@@ -4883,6 +4911,41 @@ const DEF_POURQUOI = {
   sd: 'soixante-quinze points de bouclier par millier dépensé, sept fois tout le reste, et personne n\'a de tir rapide contre lui',
   ld: 'dix mille points de bouclier d\'un bloc, sans tir rapide de personne',
 };
+
+/* ---------- les modèles de défense ---------- */
+
+/* Chaque joueur suit un ratio différent selon son style, et le wiki OGame en
+   recense plusieurs sous « Defense Build Strategies ». Les voici, ramenés à une
+   seule lecture : le nombre de pièces qu'il faut par lanceur de plasma. Le
+   palier que le joueur vise se compte alors en lanceurs de plasma, et tout le
+   reste suit — ce que le wiki écrit « 100 lasers légers » ou « 40 PL » dit la
+   même proportion sous une autre ancre.
+   Les deux boucliers n'y sont pas : le wiki en veut un de chaque, pas une
+   proportion, et `defPlan` les pose hors ratio.
+   Ces modèles ne nourrissent pas le plan du jour. `defMix` garde son propre
+   budget — la moitié d'une nuit de production — parce qu'il dimensionne la
+   défense sur ce qu'un pilleur viendrait prendre, pas sur une cible que le
+   joueur a choisie. Les deux cohabitent, et la carte le dit.
+   ponytail: une table dans le code, pas un fichier de config à charger. Un
+   modèle de plus, c'est une ligne de plus, et rien à empaqueter ni à lire au
+   démarrage. */
+const DEF_MODELES = {
+  framework: {n:'Framework mineur',           r:{rl:40,   ll:25,   hl:10,  ic:0,   gc:4,   pt:1}},
+  balanced:  {n:'Balanced Defense',           r:{rl:20,   ll:100,  hl:10,  ic:20,  gc:10,  pt:5}},
+  vetter:    {n:'Ryan A. Vetter',             r:{rl:270,  ll:180,  hl:45,  ic:15,  gc:5,   pt:1}},
+  turtle:    {n:'Late Game Turtle',           r:{rl:1000, ll:1000, hl:400, ic:100, gc:100, pt:40}},
+  fodder:    {n:'Fodder build-up',            r:{rl:900,  ll:300,  hl:50,  ic:30,  gc:18,  pt:9}},
+  plasma:    {n:'Plasma pur et chair à canon', r:{rl:50,  ll:0,    hl:0,   ic:0,   gc:0,   pt:1}},
+  /* Le ratio du joueur vit dans ses réglages, pas ici : la table reste ce que
+     le wiki dit, et `defRatio` sait où chercher le sien. */
+  perso:     {n:'Personnalisé', r:null},
+};
+/* Les pièces qu'un ratio nomme : tout sauf les deux boucliers. */
+const DEF_RATIO = DEF_ORDER.filter(k=>!DEF[k].un);
+/* Les paliers proposés. Une liste fermée, et pas un champ libre : le menu dit
+   ce que le joueur peut viser, et `sainEtat` n'a qu'elle à vérifier. */
+const DEF_PALIERS = [10, 20, 40, 60];
+
 /* ---------- le tir de lune ---------- */
 
 /* Un tir de lune se chiffre avant de partir, et il se chiffre exactement : la
@@ -5353,6 +5416,94 @@ function defNeed(p, lot){
 }
 /** Le mélange visé en clair : « 120 lanceurs de missiles, 120 lasers légers… ». */
 function defMixList(p){ const m = defMix(p); return m ? shipList(m.cible) : ''; }
+
+/** Le modèle que cette planète suit : le sien d'abord, celui des réglages
+    ensuite. @returns {string} une clé de DEF_MODELES */
+function defModeleK(p){ const k = p && p.defModele; return k && DEF_MODELES[k] ? k : S.settings.defModele; }
+/** Le ratio d'un modèle. Celui du joueur sort de ses réglages. */
+function defRatio(k){ return k === 'perso' ? S.settings.defPerso : (DEF_MODELES[k] || {}).r; }
+/** La pièce qui compte le palier : le lanceur de plasma, ou, si le modèle n'en
+    veut aucun, la première que son ratio nomme. Sans elle, un ratio perso sans
+    plasma ferait diviser par zéro. */
+function defAncre(r){ return r && r.pt > 0 ? 'pt' : (DEF_RATIO.find(k=>r && r[k] > 0) || 'pt'); }
+/** Le palier visé sur cette planète : le sien d'abord. `'fill'` veut dire
+    « compléter autour de ce qui est déjà au sol ». */
+function defPalierDe(p){ const v = p && p.defPalier != null ? p.defPalier : S.settings.defPalier; return v === 'fill' ? 'fill' : num(v, 20); }
+/**
+ * Ce qu'il manque à une planète pour tenir son modèle, pièce par pièce, et ce
+ * que ça coûte. Lecture seule : rien n'est construit, aucune file n'est ouverte.
+ *
+ * Le manque ne descend jamais sous zéro — une planète qui a plus que la cible
+ * porte un excédent, qui compte quand même et ne vient pas rogner le reste du
+ * calcul. Les deux boucliers sortent du ratio : un de chaque, comme le wiki.
+ *
+ * @param {object} p planète
+ * @returns {{modele:string, nom:string, ancre:string, palier:number,
+ *   lignes:Array<{k:string, n:number, cible:number, manque:number, exces:number,
+ *   cout:number[], req:string}>, cout:number[], stock:number[], payable:boolean}|null}
+ *   null quand la défense de cette planète n'a jamais été relevée : zéro et
+ *   « inconnu » ne sont pas la même chose, et annoncer un manque complet
+ *   enverrait le joueur reconstruire ce qui est déjà au sol.
+ */
+function defPlan(p){
+  const have = p && defsOf(p);
+  if(!have) return null;
+  const k = defModeleK(p), r = defRatio(k) || {}, ancre = defAncre(r), vise = defPalierDe(p);
+  /* « Compléter » : c'est ce qui est au sol qui fixe la taille, et le reste du
+     modèle se remet à niveau autour. */
+  const palier = vise === 'fill' ? Math.max(0, have[ancre] || 0) : Math.max(0, vise);
+  const f = r[ancre] > 0 ? palier / r[ancre] : 0;
+  const lignes = DEF_ORDER.map(j=>{
+    const cible = DEF[j].un ? 1 : Math.ceil(num(r[j], 0) * f);
+    const n = Math.max(0, have[j] || 0), manque = Math.max(0, cible - n);
+    return {k:j, n, cible, manque, exces: Math.max(0, n - cible),
+      cout: DEF[j].c.map(x=>x * manque),
+      /* Le prérequis ne se dit que s'il bloque quelque chose : un lanceur de
+         plasma hors de portée sur une planète qui n'en veut pas n'est pas un
+         problème à signaler. */
+      req: manque > 0 && !shipReqOk(j, p) ? defPrereq(j, p) : ''};
+  }).filter(l=>l.cible > 0 || l.n > 0);
+  const cout = [0,1,2].map(i=>lignes.reduce((a,l)=>a + l.cout[i], 0)), stock = stockNow(p);
+  return {modele:k, nom:DEF_MODELES[k].n, ancre, palier, lignes, cout, stock,
+    payable: cout.every((x,i)=>x <= stock[i])};
+}
+/** Ce qui bloque une pièce, en clair : « Chantier spatial 8, Technologie Plasma 7 ». */
+function defPrereq(j, p){
+  const r = DEF[j].r;
+  return Object.entries(r.b).filter(([b,l])=>num(p.b[b]) < l).map(([b,l])=>`${B[b].n} ${l}`)
+    .concat(Object.entries(r.t).filter(([t,l])=>num(S.tech[t]) < l).map(([t,l])=>`${T[t].n} ${l}`))
+    .join(', ');
+}
+/** Une planète dans l'onglet Défense : son modèle, ses pièces, son manque.
+    Les deux menus portent `data-dp` : c'est lui qui distingue la surcharge
+    d'une planète du réglage global, qui n'en a pas. */
+function defCarte(p){
+  const tete = `<div class="row spread"><h2>${esc(p.name)} <span class="note">${esc(p.coords)}</span></h2></div>`;
+  const menus = `<div class="grid">
+      <label class="f">Modèle<select data-def="modele" data-dp="${p.id}"><option value="">Comme les réglages</option>${Object.keys(DEF_MODELES).map(k=>`<option value="${k}" ${p.defModele===k?'selected':''}>${esc(DEF_MODELES[k].n)}</option>`).join('')}</select></label>
+      <label class="f">Palier<select data-def="palier" data-dp="${p.id}"><option value="">Comme les réglages</option>${defPalierOpts(p.defPalier)}</select></label>
+    </div>`;
+  const d = defPlan(p);
+  if(!d) return `<div class="card">${tete}${menus}<p class="note">Défense jamais relevée ici : ouvre la page Défense de cette planète dans le jeu, ou clique Actualiser. Tant qu'elle est inconnue, annoncer un manque reviendrait à faire reconstruire ce qui est déjà au sol.</p></div>`;
+  const exces = d.lignes.filter(l=>l.exces > 0), bloques = d.lignes.filter(l=>l.req);
+  return `<div class="card">${tete}${menus}
+    <p class="note">${esc(d.nom)} · ${d.palier} ${esc(DEF[d.ancre].p)}${defPalierDe(p)==='fill' ? ' déjà au sol' : ''}</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Pièce</th><th class="n">Au sol</th><th class="n">Cible</th><th class="n">Manque</th><th>Coût du manque</th></tr></thead><tbody>
+      ${d.lignes.map(l=>`<tr><td>${esc(DEF[l.k].n)}</td><td class="n">${fmt(l.n)}</td><td class="n">${fmt(l.cible)}</td><td class="n">${l.manque ? fmt(l.manque) : l.exces ? `<span class="note">+${fmt(l.exces)}</span>` : '—'}</td><td>${l.manque ? costHtml(l.cout) : ''}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="row" style="gap:8px;margin-top:8px">${d.cout.some(x=>x > 0)
+      ? `<span class="pill ${d.payable ? 'good' : 'warn'}">${d.payable ? 'Payable avec son stock' : 'Plus que son stock'}</span>${costHtml(d.cout)}`
+      : `<span class="pill good">Le modèle est tenu</span>`}</div>
+    ${exces.length ? `<p class="note">Au-dessus du modèle, et ça compte quand même : ${exces.map(l=>`${fmt(l.exces)} ${esc(DEF[l.k].p)}`).join(', ')}.</p>` : ''}
+    ${bloques.length ? `<p class="pill warn" style="margin-top:8px">Hors de portée pour l'instant : ${bloques.map(l=>`${esc(DEF[l.k].o)} (${esc(l.req)})`).join(' · ')}</p>` : ''}
+  </div>`;
+}
+/** Les paliers d'un menu, le choisi marqué. */
+function defPalierOpts(v){
+  return DEF_PALIERS.map(x=>`<option value="${x}" ${+v===x?'selected':''}>${x}</option>`).join('')
+    + `<option value="fill" ${v==='fill'?'selected':''}>Compléter l'existant</option>`;
+}
+
 /** Ce que cette planète produit entre deux connexions, en métal. */
 function tournee(p){ const r = production(p); return mse(r.m, r.c, r.d) * Math.max(15,+S.day.interval||90)/60; }
 function hubIndex(){ let best=0; S.planets.forEach((p,i)=>{ if(p.b.lab+p.b.shipyard > S.planets[best].b.lab+S.planets[best].b.shipyard) best=i; }); return best; }
@@ -5640,7 +5791,7 @@ const SRV_ROWS = [
 
 /* Un outil retiré laisse son nom dans les réglages du joueur : on ne demande à
    VIEWS que ce qu'il sait encore dessiner. */
-const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['moon','Lune'],['server','Serveur']];
+const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['defense','Défense'],['moon','Lune'],['server','Serveur']];
 function toolTab(){ return TOOLS.some(([k])=>k===S.ui.tool) ? S.ui.tool : 'colony'; }
 
 /** Ce que la carte du centre dit sous la case : le risque que le wiki nomme,
@@ -5813,19 +5964,165 @@ function lfBloc(p){
 const bascule = (id, attr, label, on, note='') =>
   `<label class="f bascule"><span>${label}</span><input type="checkbox" id="${id}" ${attr} ${on?'checked':''}>${note?`<span class="note">${note}</span>`:''}</label>`;
 
-/* Ce que le plan vise décide de la feuille de route, de la colonisation et de
-   la forme de vie conseillée — et il vivait au troisième menu des Réglages,
-   où personne n'allait : le premier joueur à qui on a montré le panneau a
-   demandé qu'on lui pose la question, sans savoir qu'elle existait déjà. Elle
-   se pose donc une fois, en tête de la page qu'il regarde, et s'efface dès
-   qu'il a répondu ; les Réglages restent l'endroit où en changer ensuite. */
-function profilCard(){
-  if(S.day.focusSet) return '';
-  return `<div class="card"><h2>Tu joues comment ?</h2>
-    <p class="note">Le plan ne vise pas la même chose selon ta façon de jouer. Tu pourras en changer dans Réglages.</p>
-    <ul class="advice" style="margin-top:10px">${Object.entries(FOCUS).map(([k,l])=>
-      `<li><button class="btn sm ${k===S.day.focus?'primary':'ghost'}" style="min-width:152px" data-focus="${k}">${esc(l)}</button><span class="why">${esc(AIDE_JOUR.focus.v[k]||'')}</span></li>`).join('')}</ul>
+/* ---------- profil de jeu ---------- */
+/* Un mineur, un raideur et un explorateur regardent la même liste de cartes
+   et n'y cherchent pas la même chose. Le profil dit laquelle passe devant et
+   laquelle ne sort pas du tout ; les poids, eux, sont dans `profils.js`, pour
+   qu'on puisse les discuter sans relire le code qui les applique.
+
+   Le style sert deux fois : il pèse les cartes, et il pose « Ce que le plan
+   vise » — la question était déjà là, au troisième menu des Réglages, où
+   personne n'allait. Elle se pose donc une fois, en tête de la page que le
+   joueur regarde, avec les deux qui la complètent ; les Réglages restent
+   l'endroit où en changer ensuite. */
+
+/** La clé si la table la porte en propre, sinon null : sans ce garde-fou, une
+    sauvegarde truquée ferait passer `__proto__` pour un style. */
+function profilConnu(t, k){ return Object.prototype.hasOwnProperty.call(t, String(k)) ? String(k) : null; }
+/* Le profil remis d'aplomb : chaque clé relue dans sa table, le reste jeté.
+   Une sauvegarde d'une autre version, une synchro abîmée ou un fichier bricolé
+   à la main y mettraient sinon de quoi faire lever la ligne du profil. */
+function profilSain(){
+  const def = {style:'', classe:'', activite:'regulier', focus:[], set:false};
+  if(!S.profil || typeof S.profil !== 'object') S.profil = def;
+  S.profil.style    = profilConnu(PROFILS.styles, S.profil.style) || def.style;
+  S.profil.classe   = profilConnu(PROFILS.classes, S.profil.classe) || def.classe;
+  S.profil.activite = profilConnu(PROFILS.activites, S.profil.activite) || def.activite;
+  S.profil.focus = (Array.isArray(S.profil.focus) ? S.profil.focus : [])
+    .map(k => profilConnu(PROFILS.focus, k)).filter(Boolean);
+  // Répondu sans style : le questionnaire n'a pas abouti, il se repose.
+  S.profil.set = !!S.profil.set && !!S.profil.style;
+}
+/* Les deux réglages que le style pose, et qu'il ne reprend jamais : ce que le
+   plan vise, et le modèle de défense. Un turtle vise la tortue de fin de
+   partie et les mines, un raideur le pillage et rien qui fortifie.
+
+   Aucun des deux ne s'impose. Le réglage ne dit pas qui l'a écrit, alors le
+   copilote s'en tient à ce qu'il peut savoir : tant que la valeur en place est
+   celle du style d'avant — ou celle d'usine, pour qui n'a jamais répondu —
+   elle suit ; dès qu'elle s'en écarte, c'est un choix du joueur et l'assistant
+   n'y touche plus. Les deux ensemble, parce que c'est la même règle : l'avoir
+   écrite pour le modèle de défense et oubliée pour le plan du jour est
+   exactement ce que la relecture a trouvé.
+
+   Ça compte d'autant plus pour le plan que deux de ses cinq valeurs —
+   « Équilibré » et « Économie pure » — ne sont atteignables que par le menu
+   des Réglages : aucun style ne les vise, donc ce sont précisément celles que
+   l'assistant écraserait sans jamais pouvoir les rendre. */
+/** @param {string} avant le style d'avant, vide s'il n'y en avait pas
+    @param {string} apres le style qu'on vient de choisir */
+function styleRepose(avant, apres){
+  const neuf = PROFILS.styles[apres]; if(!neuf) return;
+  const vieux = PROFILS.styles[avant], def = sample();
+  // `dayValue` relit la clé dans FOCUS, comme pour le menu des Réglages.
+  if(S.day.focus === (vieux ? vieux.plan : def.day.focus))
+    S.day.focus = dayValue('focus', neuf.plan, S.day.focus);
+  if(S.settings.defModele === (vieux ? vieux.defense : def.settings.defModele))
+    S.settings.defModele = neuf.defense;
+}
+/** La classe que le style conseille, vide tant qu'aucun style n'est choisi. */
+function classeSuggeree(){ const s = PROFILS.styles[S.profil.style]; return s ? s.classe : ''; }
+/** La classe que le profil vise : celle demandée, ou celle que le style conseille. */
+function classeVoulue(){ return S.profil.classe || classeSuggeree(); }
+/* Le copilote ne change pas de classe dans le jeu, et il ne calcule pas sur une
+   classe que le compte n'a pas : ce qu'il peut faire, c'est le dire. */
+/** L'écart entre la classe lue dans le jeu et celle que le profil vise, ou ''. */
+function classeEcart(){
+  const v = classeVoulue();
+  if(!v || v === S.settings.cls) return '';
+  return `Ton compte joue ${PROFILS.classes[S.settings.cls] || 'sans classe'}, ton profil vise ${PROFILS.classes[v]}. Rien n'est bloqué : les calculs suivent la classe lue dans le jeu, le profil ne décide que de l'ordre des cartes.`;
+}
+/**
+ * Ce que vaut une catégorie pour le profil en place : 3 passe devant, 0 ne
+ * sort pas. Une catégorie que la table ne nomme pas garde la place qu'elle
+ * avait avant le profil — et tant que le questionnaire n'a pas de réponse,
+ * c'est le cas de toutes.
+ * @param {string} cat clé de `PROFILS.cats`, ou '' pour « sans catégorie »
+ * @returns {number} 0 à 4
+ */
+function poidsCat(cat){
+  if(!cat) return PROFILS.neutre;
+  const pr = S.profil;
+  /* La mise à l'abri ne se pondère pas, elle se place : chez qui passe peu,
+     elle passe devant tout le reste. */
+  if(cat === 'abri') return PROFILS.abri[pr.activite] || 3;
+  let w = (PROFILS.poids[pr.style] || {})[cat];
+  if(w == null) return PROFILS.neutre;
+  // Un focus ajoute +2 une fois, pas +2 par focus qui le réclame.
+  if(pr.focus.some(f => (PROFILS.focus[f] || {cats:[]}).cats.indexOf(cat) >= 0)) w = Math.min(3, w + 2);
+  const cap = (PROFILS.plafonds[pr.activite] || {})[cat];
+  return cap == null ? w : Math.min(w, cap);
+}
+/** La catégorie d'une carte du plan, '' quand elle sert tous les styles. */
+function catActe(a){
+  const t = PROFILS.actes;
+  if(a.kind === 'b') return t.bat[a.k] || '';
+  if(a.kind === 't') return t.tech[a.k] || '';
+  // Un chantier vaut ce qu'il sort : c'est le vaisseau qui décide, pas la file.
+  if(a.kind === 'shipbuild') return t.vaisseaux[Object.keys(a.ships || {})[0]] || '';
+  return t.kinds[a.kind] || '';
+}
+/** La catégorie d'une carte à faire : sa rubrique, sauf les quelques exceptions. */
+function catMission(m){ return PROFILS.missions.id[m.id] || PROFILS.missions.q[m.q] || ''; }
+/** Le profil en une ligne : « Turtle · Collecteur · Régulier · + Expéditions ». */
+function profilLigne(){
+  const p = S.profil, st = PROFILS.styles[p.style];
+  if(!st) return '';
+  const f = p.focus.map(k => PROFILS.focus[k].n);
+  return [st.n, PROFILS.classes[classeVoulue()], PROFILS.activites[p.activite].n]
+    .concat(f.length ? '+ ' + f.join(', ') : []).join(' · ');
+}
+/** Les six focus ponctuels en cases à cocher. */
+function profilFocusHtml(){
+  return Object.entries(PROFILS.focus).map(([k,f]) => {
+    const mis = S.profil.focus.indexOf(k) >= 0;
+    return `<label class="pill ${mis?'good':'info'}" style="cursor:pointer;padding:6px 12px"><input type="checkbox" data-pfocus="${k}" ${mis?'checked':''} style="width:auto;margin-right:6px">${esc(f.n)}</label>`;
+  }).join('');
+}
+/* Trois questions, une par écran : la deuxième dépend de la première, puisque
+   la classe conseillée n'existe qu'une fois le style choisi. L'assistant
+   s'ouvre tant que la réponse manque, et « Refaire le questionnaire » le
+   relance avec les réponses en place — un clic change un choix, pas trois. */
+let profilEtape = 0;
+/** @param {number} [etape] 0 à 2 ; l'étape en cours par défaut. */
+function profilCard(etape){
+  if(S.profil.set) return '';
+  const p = S.profil, e = Math.max(0, Math.min(2, etape == null ? profilEtape : etape));
+  const titres = ['Tu joues comment ?', 'Quelle classe veux-tu viser ?', 'Tu passes souvent ?'];
+  const notes = [
+    'Le plan ne vise pas la même chose selon ta façon de jouer, et les cartes ne se rangent pas dans le même ordre. Tu pourras en changer dans Réglages.',
+    `${PROFILS.styles[p.style] ? `Pour un ${esc(PROFILS.styles[p.style].n)}, la classe conseillée est <b>${esc(PROFILS.classes[classeSuggeree()])}</b>. ` : ''}Tu peux en viser une autre : le copilote le dira, il ne t'en empêchera pas.`,
+    'Ta présence décide de ce qui passe devant : qui passe peu met ses ressources à l\'abri avant tout le reste.',
+  ];
+  const ligne = (attr, k, lib, aide, actif) =>
+    `<li><button class="btn sm ${k===actif?'primary':'ghost'}" style="min-width:152px" data-${attr}="${k}">${esc(lib)}</button><span class="why">${aide}</span></li>`;
+  const corps = e === 0
+    ? Object.entries(PROFILS.styles).map(([k,s]) => ligne('pstyle', k, s.n, esc(s.aide), p.style)).join('')
+    : e === 1
+    ? Object.entries(PROFILS.classes).map(([k,l]) => ligne('pclasse', k, l,
+        k === classeSuggeree() ? '<b>Conseillée pour ton style.</b>' : k === '' ? 'Le copilote prendra celle que ton style conseille.' : '', p.classe)).join('')
+    : Object.entries(PROFILS.activites).map(([k,a]) => ligne('pactivite', k, a.n, esc(a.aide), p.activite)).join('');
+  // L'écart de classe se dit là où le joueur choisit la classe, pas ailleurs.
+  const ecart = e === 1 ? classeEcart() : '';
+  return `<div class="card"><div class="row spread"><h2>${esc(titres[e])}</h2><span class="pill info">Étape ${e+1} sur 3</span></div>
+    <p class="note">${notes[e]}</p>
+    <ul class="advice" style="margin-top:10px">${corps}</ul>
+    ${ecart ? `<p class="note">${esc(ecart)}</p>` : ''}
+    ${e || p.style ? `<div class="row">${e ? `<button class="btn sm ghost" data-petape="${e-1}">Revenir</button>` : ''}${p.style
+      ? `<button class="btn sm ghost" data-pferme="1">Fermer</button>` : ''}</div>` : ''}
   </div>`;
+}
+/* Le profil en place, là où le joueur lit ses cartes : la ligne se voit sans
+   rien ouvrir, et les focus sont à un clic — c'est l'ordre des cartes qu'il
+   vient vérifier en les cochant. */
+function profilBloc(){
+  if(!S.profil.set) return '';
+  const ec = classeEcart();
+  return `<details class="card volet"${fold('profil', false)}><summary data-fold="profil"><b>Ton profil</b> <span class="note">${esc(profilLigne())}</span></summary>
+    <div class="chips" style="margin-top:8px">${profilFocusHtml()}</div>
+    <p class="note" style="margin-top:8px">Un focus remonte ses cartes sans remplacer ton style, et il y reste tant que tu ne le décoches pas.${ec ? ' ' + esc(ec) : ''}</p>
+    <div class="row" style="margin-top:10px"><button class="btn sm ghost" data-refaire="1">Refaire le questionnaire</button></div>
+  </details>`;
 }
 
 const VIEWS = {
@@ -5836,7 +6133,7 @@ const VIEWS = {
 today(){
   const d=S.day;
   return `<section class="panel">
-    ${profilCard()}
+    ${profilCard()}${profilBloc()}
     <div class="card"><h2>Maintenant</h2><div id="tdNow"></div></div>
     <div id="tdAlerts"></div>
     <details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
@@ -6044,6 +6341,19 @@ moon(){
     </div>
   </section>`;
 },
+/* Le modèle se choisit dans les Réglages, une fois pour tout l'empire ; ici
+   chaque planète dit ce qu'il lui manque pour le tenir, et peut en prendre un
+   autre. Les deux endroits lisent le même réglage, personne ne le recopie. */
+defense(){
+  const s = S.settings, anc = defAncre(defRatio(s.defModele) || {});
+  return `<section class="panel">
+    <div class="card"><h2>Modèle de défense</h2>
+      <p class="note"><b>${esc(DEF_MODELES[s.defModele].n)}</b> · ${s.defPalier === 'fill' ? 'compléter l\'existant' : `${s.defPalier} ${esc(DEF[anc].p)}`} <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
+      <p class="note">Le modèle donne la proportion entre les pièces, le palier la taille. Rien ne se construit ici, et le plan du jour garde son propre budget : la moitié d'une nuit de production, de quoi rendre le pillage non rentable.</p>
+    </div>
+    ${S.planets.map(defCarte).join('')}
+  </section>`;
+},
 fleet(){
   const ex=S.expo, fc=S.fleetCalc;
   return `<section class="panel">
@@ -6118,7 +6428,16 @@ colony(){
 },
 settings(){
   const s=S.settings, d=S.day;
+  const ecart = classeEcart();
   return `<section class="panel">
+    <div class="card"><h2>Profil</h2>
+      <p class="note">${S.profil.set ? `Ton profil : <b>${esc(profilLigne())}</b>.` : 'Pas encore renseigné : l\'assistant t\'attend en tête d\'Aujourd\'hui.'}</p>
+      ${S.profil.set ? `<div class="chips" style="margin-top:8px">${profilFocusHtml()}</div>
+      <p class="note" style="margin-top:8px">Les focus ponctuels remontent leurs cartes sans remplacer ton style.</p>` : ''}
+      ${ecart ? `<p class="note">${esc(ecart)}</p>` : ''}
+      <div class="row"><button class="btn sm ghost" data-refaire="1">Refaire le questionnaire</button></div>
+      <p class="note">Ton style décide de l'ordre des cartes, et pose ce que le plan vise, ci-dessous, ainsi que le modèle de défense — jusqu'à ce que tu les changes toi-même ici. Les poids de chaque catégorie sont dans <code>profils.js</code>.</p>
+    </div>
     <div class="card"><h2>Plan du jour</h2>
       <div class="grid">
         <label class="f">Ce que le plan vise<select id="dFocus" data-day="focus">${Object.entries(FOCUS).map(([k,l])=>`<option value="${k}" ${d.focus===k?'selected':''}>${l}</option>`).join('')}</select></label>
@@ -6148,6 +6467,17 @@ settings(){
       <div class="grid">
         <label class="f">Ratio d'échange M:C:D<input id="sRatio" data-set="ratio" value="${s.ratio.join(':')}"></label>
       </div>
+    </div>
+    <div class="card"><h2>Modèle de défense</h2>
+      <div class="grid">
+        <label class="f">Modèle<select id="sDefM" data-def="modele">${Object.keys(DEF_MODELES).map(k=>`<option value="${k}" ${s.defModele===k?'selected':''}>${esc(DEF_MODELES[k].n)}</option>`).join('')}</select></label>
+        <label class="f">Palier visé<select id="sDefP" data-def="palier">${defPalierOpts(s.defPalier)}</select><span class="note">En ${esc(DEF[defAncre(defRatio(s.defModele) || {})].p)}. « Compléter » part de ce que la planète a déjà.</span></label>
+      </div>
+      ${s.defModele === 'perso' ? `<div class="grid tight">${DEF_RATIO.map(k=>`<label class="f">${esc(DEF[k].n)}<input id="sDefR-${k}" type="number" min="0" step="1" data-def="${k}" value="${num(S.settings.defPerso[k])}"></label>`).join('')}</div>
+      <p class="note">Combien de pièces par lanceur de plasma. Les deux boucliers restent hors ratio : un de chaque.</p>` : ''}
+      ${S.profil.set && s.defModele === (PROFILS.styles[S.profil.style] || {}).defense
+        ? `<p class="note">Posé par ton profil (<b>${esc(PROFILS.styles[S.profil.style].n)}</b>). En choisir un autre ici le détache du profil : refaire le questionnaire ne le remettra plus.</p>` : ''}
+      <p class="note">Outils › Défense dit, planète par planète, ce qui manque pour tenir ce modèle et ce que ça coûte. Une planète peut y prendre un autre modèle que celui-ci.</p>
     </div>
     <div class="card"><h2>Énergie</h2>
       <div class="bascules">
@@ -6534,12 +6864,50 @@ function bind(){
   view.querySelectorAll('[data-centre]').forEach(el=>el.addEventListener('change',()=>{ S.centre = el.checked ? el.dataset.centre : null; save(); render(); }));
   view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ applyReport(el.value); save(); render(); return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); if(k!=='safe') S.raid.at=Date.now(); save(); REFRESH.explore(); }));
   view.querySelectorAll('[data-lf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.lf, f=new Set(S.lf.found); el.checked ? f.add(k) : f.delete(k); S.lf.found=[...f]; save(); render(); }));
-  /* Répondre, c'est à la fois choisir et clore la question : le plan entier
-     change, donc la vue se redessine — et la carte disparaît par la même
-     occasion. `dayValue` relit la clé dans FOCUS, comme pour le menu. */
-  view.querySelectorAll('[data-focus]').forEach(el=>el.addEventListener('click',()=>{
-    S.day.focus = dayValue('focus', el.dataset.focus, S.day.focus);
-    S.day.focusSet = true; save(); render();
+  /* Répondre, c'est à la fois choisir et passer à la suite : le plan entier
+     change, donc la vue se redessine — et l'assistant disparaît à la dernière
+     réponse. Chaque clé est relue dans sa table avant d'être posée. */
+  view.querySelectorAll('[data-pstyle]').forEach(el=>el.addEventListener('click',()=>{
+    const k = profilConnu(PROFILS.styles, el.dataset.pstyle); if(!k) return;
+    /* Avant d'écraser le style : la règle a besoin de celui d'avant pour savoir
+       si le plan et le modèle de défense en place venaient de lui ou du joueur. */
+    styleRepose(S.profil.style, k);
+    S.profil.style = k;
+    // La question a été posée, quoi qu'il advienne des réglages qu'elle propose.
+    S.day.focusSet = true;
+    profilEtape = 1; save(); render();
+  }));
+  view.querySelectorAll('[data-pclasse]').forEach(el=>el.addEventListener('click',()=>{
+    S.profil.classe = profilConnu(PROFILS.classes, el.dataset.pclasse) || '';
+    profilEtape = 2; save(); render();
+  }));
+  view.querySelectorAll('[data-pactivite]').forEach(el=>el.addEventListener('click',()=>{
+    const k = profilConnu(PROFILS.activites, el.dataset.pactivite); if(!k) return;
+    S.profil.activite = k; S.profil.set = true; profilEtape = 0; save(); render();
+  }));
+  view.querySelectorAll('[data-petape]').forEach(el=>el.addEventListener('click',()=>{
+    profilEtape = Math.max(0, Math.min(2, parseInt(el.dataset.petape) || 0)); render();
+  }));
+  /* Qui ouvre l'assistant pour voir doit pouvoir en sortir : sans ça, « Refaire
+     le questionnaire » laissait la carte en tête d'Aujourd'hui, au-dessus de ce
+     que le joueur vient lire, jusqu'à ce qu'il reclique les trois réponses.
+     « Fermer » ne défait rien — ce qui a déjà été cliqué est déjà posé — il
+     referme, et le bouton n'existe pas tant qu'aucun style n'a été choisi. */
+  view.querySelectorAll('[data-pferme]').forEach(el=>el.addEventListener('click',()=>{
+    if(!S.profil.style) return;
+    S.profil.set = true; profilEtape = 0; save(); render();
+  }));
+  /* Un focus se coche là où le joueur lit ses cartes : l'ordre change à
+     l'instant, c'est ce qu'il vient vérifier. */
+  view.querySelectorAll('[data-pfocus]').forEach(el=>el.addEventListener('change',()=>{
+    const k = profilConnu(PROFILS.focus, el.dataset.pfocus); if(!k) return;
+    const f = new Set(S.profil.focus); el.checked ? f.add(k) : f.delete(k);
+    S.profil.focus = [...f]; save(); render();
+  }));
+  /* Refaire le questionnaire, c'est le rouvrir là où il s'ouvre : en tête
+     d'Aujourd'hui, avec les réponses en place. */
+  view.querySelectorAll('[data-refaire]').forEach(el=>el.addEventListener('click',()=>{
+    S.profil.set = false; profilEtape = 0; save(); allerOnglet('today');
   }));
   view.querySelectorAll('[data-day]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k = el.dataset.day; S.day[k] = dayValue(k, el.value, S.day[k]);
@@ -6623,6 +6991,26 @@ function bind(){
     else if(k==='coords') S.lune.rendu.coords = el.value.trim();
     else S.lune.rendu[k] = Math.max(0, parseInt(el.value, 10)||0);
     luneTouche(); changed(); }));
+  /* Le modèle de défense passe tout entier par ici : le réglage global, le
+     palier, chaque pièce du ratio perso, et la surcharge d'une planète, que
+     `data-dp` distingue. Un menu vide retire la surcharge plutôt que de poser
+     une valeur : sans ça le joueur ne pourrait plus revenir aux réglages.
+     `render()` et pas `refresh()` : le choix du modèle fait apparaître ou
+     disparaître les cases du ratio, et la carte entière change. */
+  view.querySelectorAll('[data-def]').forEach(el=>el.addEventListener('change',()=>{
+    const k = el.dataset.def, q = el.dataset.dp ? planetById(el.dataset.dp) : null, v = el.value;
+    if(k === 'modele'){
+      if(!q) S.settings.defModele = DEF_MODELES[v] ? v : 'framework';
+      else if(DEF_MODELES[v]) q.defModele = v; else delete q.defModele;
+    }else if(k === 'palier'){
+      const n = v === 'fill' ? 'fill' : DEF_PALIERS.includes(+v) ? +v : null;
+      if(!q) S.settings.defPalier = n == null ? 20 : n;
+      else if(n == null) delete q.defPalier; else q.defPalier = n;
+    /* Le ratio du joueur : des nombres entiers, jamais négatifs. C'est la seule
+       valeur de ce bloc qu'il écrit lui-même, donc la seule à borner. */
+    }else if(DEF_RATIO.includes(k)) S.settings.defPerso[k] = Math.max(0, Math.round(num(v, 0)));
+    S.sample = false; save(); render();
+  }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
   view.querySelectorAll('[data-ship]').forEach(el=>el.addEventListener('input',()=>{ S.fleetCalc.ships[el.dataset.ship]=Math.max(0,parseInt(el.value)||0); changed(); }));
   /* Le presse-papiers du panneau latéral refuse l'écriture dès que le focus est
@@ -6792,6 +7180,20 @@ function sainEtat(){
   const r = Array.isArray(S.settings.ratio) ? S.settings.ratio.map(Number) : [];
   S.settings.ratio = (r.length === 3 && r.every(x => Number.isFinite(x) && x > 0)) ? r : def.settings.ratio;
 
+  /* Le modèle de défense : la clé vient d'un menu, mais aussi d'une
+     sauvegarde ou de l'autre poste, et le ratio perso est le seul endroit du
+     panneau où le joueur écrit des nombres qui repartent dans un `value=""`. */
+  if(!(S.settings.defModele in DEF_MODELES)) S.settings.defModele = def.settings.defModele;
+  if(S.settings.defPalier !== 'fill' && !DEF_PALIERS.includes(num(S.settings.defPalier, -1))) S.settings.defPalier = def.settings.defPalier;
+  const perso = S.settings.defPerso;
+  S.settings.defPerso = perso && typeof perso === 'object'
+    ? Object.fromEntries(DEF_RATIO.map(k=>[k, nb(Math.round(num(perso[k], 0)), 0, 0, 1e7)]))
+    : def.settings.defPerso;
+  for(const q of S.planets || []){
+    if(q.defModele != null && !(q.defModele in DEF_MODELES)) delete q.defModele;
+    if(q.defPalier != null && q.defPalier !== 'fill' && !DEF_PALIERS.includes(num(q.defPalier, -1))) delete q.defPalier;
+  }
+
   if(!S.day || typeof S.day !== 'object') S.day = def.day;
   S.day.interval   = nb(S.day.interval,   def.day.interval,   1, 24*60);
   S.day.horizon    = nb(S.day.horizon,    def.day.horizon,    1, 24*30);
@@ -6808,6 +7210,8 @@ function sainEtat(){
   /* Un `until` truqué garderait le plan en veille pour toujours, ou le
      rallumerait à chaque battement. */
   S.day.until = Number.isFinite(Number(S.day.until)) ? Math.max(0, +S.day.until) : 0;
+
+  profilSain();
 
   /* Une sauvegarde d'avant les identifiants n'en porte pas : sans ça, tout
      l'onglet Planètes s'affiche en `pn-undefined`. Même jeton que
@@ -7061,7 +7465,7 @@ chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioA
    composée à la main par `luneOut` / `luneIn`, comme `prio` et `centre`. Son
    compteur est indexé par identifiant de planète, tiré au sort sur chaque
    poste ; envoyé tel quel il désignait la mauvaise planète à l'arrivée. */
-const SYNC_KEYS = ['settings','day','expo','lf','raids','daily'];
+const SYNC_KEYS = ['settings','day','expo','lf','raids','daily','profil'];
 const gidDe = pid => { const p = planetById(pid); return p && p.gid != null ? String(p.gid) : null; };
 const pidDe = gid => { const p = (S.planets || []).find(x => x.gid != null && String(x.gid) === String(gid)); return p ? p.id : null; };
 /* Une recherche ne porte pas de pid : elle voyage telle quelle.

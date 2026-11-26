@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -11079,29 +11079,309 @@ t('un labo qui monte ailleurs ne retient aucune recherche', () => {
     'le centre cherche pendant qu\'une colonie monte son labo');
 });
 
-/* ---------- la question du profil, posée une fois ---------- */
+/* ---------- le profil de jeu ---------- */
 
-t('tant que le joueur n\'a pas dit comment il joue, la question est en tête', () => {
-  const h = lu(app(s => { s.day.focusSet = false; }).VIEWS.today());
-  assert.ok(/Tu joues comment/.test(h), 'la carte est là');
-  for (const k of ['equi', 'ecocol', 'eco', 'fleet', 'raid'])
-    assert.ok(h.includes(`data-focus="${k}"`), `le choix ${k} est proposé`);
+/** Un profil posé, répondu : le cas d'un joueur qui a passé l'assistant. */
+const PROFIL = (style, extra) => s => {
+  s.profil = Object.assign({style, classe: '', activite: 'regulier', focus: [], set: true}, extra || {});
+};
+
+t('l\'assistant s\'ouvre au premier lancement, en tête d\'Aujourd\'hui', () => {
+  const h = lu(app().VIEWS.today());
+  assert.ok(/Tu joues comment/.test(h), 'la première question est là');
+  assert.ok(/Étape 1 sur 3/.test(h), 'et elle se dit première sur trois');
+  for (const k of ['mineur', 'turtle', 'raideur', 'fleeter', 'explorateur'])
+    assert.ok(h.includes(`data-pstyle="${k}"`), `le style ${k} est proposé`);
   assert.ok(h.indexOf('Tu joues comment') < h.indexOf('Maintenant'),
     'avant la carte du moment, pas après');
 });
 
-t('une fois répondu, la question ne revient pas', () => {
-  const g = app(s => { s.day.focusSet = false; });
-  const bouton = {dataset: {focus: 'eco'}};
-  g.S.day.focus = g.dayValue('focus', bouton.dataset.focus, g.S.day.focus);
-  g.S.day.focusSet = true;
-  assert.equal(g.S.day.focus, 'eco', 'le plan vise ce qu\'il a cliqué');
-  assert.ok(!/Tu joues comment/.test(g.VIEWS.today()), 'et la carte s\'efface');
+/* Le style ne pèse pas que les cartes : il pose « Ce que le plan vise », qui
+   décide de la feuille de route et de la colonisation. Un plan inconnu de
+   FOCUS serait refusé par `dayValue` en silence, et le style ne ferait rien. */
+t('chaque style vise un plan que le panneau connaît', () => {
+  const g = app();
+  for (const [k, s] of Object.entries(g.PROFILS.styles))
+    assert.equal(g.dayValue('focus', s.plan, 'equi'), s.plan,
+      `le plan « ${s.plan} » du style ${k} n\'est pas un choix de FOCUS`);
 });
 
-t('un focusSet truqué ne vaut que vrai ou faux', () => {
-  const g = app(s => { s.day.focusSet = '<b>oui'; });
-  assert.strictEqual(g.S.day.focusSet, true, 'sainEtat le ramène à un booléen');
+t('la classe conseillée s\'affiche à l\'étape 2, selon le style choisi', () => {
+  const g = app(s => { s.profil = {style: 'turtle', classe: '', activite: 'regulier', focus: [], set: false}; });
+  const h = lu(g.profilCard(1));
+  assert.ok(/Étape 2 sur 3/.test(h), 'c\'est bien la deuxième question');
+  assert.ok(/la classe conseillée est <b>Collecteur<\/b>/.test(h), 'un turtle appelle le Collecteur');
+  assert.ok(h.includes('data-pclasse=""'), 'et « Pas de préférence » reste proposé');
+});
+
+/* Le copilote ne change pas de classe dans le jeu : tout ce qu'il peut faire
+   d'un écart, c'est le dire — et laisser le joueur choisir quand même. */
+t('un écart de classe se dit, sans rien bloquer', () => {
+  const g = app(s => {
+    s.settings.cls = 'collector';
+    s.profil = {style: 'raideur', classe: 'general', activite: 'regulier', focus: [], set: false};
+  });
+  const h = lu(g.profilCard(1));
+  assert.ok(/Ton compte joue Collecteur, ton profil vise Général/.test(h), 'l\'écart est nommé');
+  assert.ok(/Rien n\'est bloqué/.test(h), 'et il est dit non bloquant');
+  assert.ok(h.includes('data-pclasse="general"'), 'les choix restent cliquables');
+});
+
+t('rien à dire quand le compte joue déjà la classe visée', () => {
+  const g = app(PROFIL('turtle'));
+  assert.equal(g.S.settings.cls, 'collector', 'le compte est Collecteur');
+  assert.equal(g.classeEcart(), '', 'et c\'est ce que le style conseille');
+});
+
+t('« Pas de préférence » vaut la classe que le style conseille', () => {
+  const g = app(PROFIL('explorateur'));
+  assert.equal(g.classeVoulue(), 'explorer', 'celle du style');
+  assert.ok(/^Explorateur · Explorateur/.test(g.profilLigne()), 'et elle se lit sur la ligne');
+});
+
+t('une fois les trois réponses données, l\'assistant s\'efface', () => {
+  const g = app(PROFIL('turtle', {focus: ['expo']}));
+  assert.equal(g.profilCard(), '', 'plus d\'assistant');
+  const h = lu(g.VIEWS.today());
+  assert.ok(!/Tu joues comment/.test(h), 'la question ne revient pas');
+  assert.ok(/Ton profil/.test(h), 'la ligne du profil prend sa place');
+  assert.ok(h.includes('Turtle · Collecteur · Régulier · + Expéditions'), 'profil en une ligne');
+});
+
+t('les focus se cochent depuis le panneau principal', () => {
+  const h = lu(app(PROFIL('turtle', {focus: ['expo']})).VIEWS.today());
+  for (const k of ['mines', 'def', 'expo', 'raids', 'combat', 'recherche'])
+    assert.ok(h.includes(`data-pfocus="${k}"`), `le focus ${k} est proposé`);
+  assert.ok(/data-pfocus="expo" checked/.test(h), 'et celui qui est posé est coché');
+});
+
+t('les Réglages portent le profil et de quoi refaire le questionnaire', () => {
+  const h = lu(app(PROFIL('turtle')).VIEWS.settings());
+  assert.ok(/<h2>Profil<\/h2>/.test(h), 'la section est là');
+  assert.ok(h.includes('data-refaire="1"'), 'avec le bouton qui relance l\'assistant');
+  assert.ok(h.includes('Turtle · Collecteur · Régulier'), 'et le profil en place');
+});
+
+t('le profil survit à la fermeture du panneau', () => {
+  const g = app(PROFIL('turtle', {activite: 'peu', focus: ['def']}));
+  assert.equal(g.S.profil.style, 'turtle', 'relu du stockage au démarrage');
+  assert.equal(g.S.profil.activite, 'peu', 'l\'activité aussi');
+  assert.deepEqual(g.S.profil.focus, ['def'], 'et les focus posés');
+});
+
+t('le profil part sur l\'autre poste entier', () => {
+  const g = app(PROFIL('turtle', {focus: ['expo']}));
+  const envoye = g.syncOut()['sy:profil'];
+  assert.equal(envoye.style, 'turtle', 'le style voyage');
+  assert.deepEqual(envoye.focus, ['expo'], 'les focus avec lui');
+});
+
+/* Une sauvegarde ou une synchro peut porter n'importe quoi, `__proto__`
+   compris : une clé qui passe par la chaîne de prototypes aurait l'air connue
+   et ferait écrire « undefined » dans la ligne du profil. */
+t('un profil truqué ne survit pas à sainEtat', () => {
+  const g = app(s => {
+    s.profil = {style: '__proto__', classe: '<b>oui', activite: 'jamais', focus: ['expo', 'pirate', 2], set: true};
+  });
+  assert.equal(g.S.profil.style, '', 'un style inconnu ne passe pas, même par le prototype');
+  assert.equal(g.S.profil.classe, '', 'ni une classe inconnue');
+  assert.equal(g.S.profil.activite, 'regulier', 'l\'activité retombe sur le défaut');
+  assert.deepEqual(g.S.profil.focus, ['expo'], 'seuls les focus connus restent');
+  assert.strictEqual(g.S.profil.set, false, 'et sans style, la question se repose');
+});
+
+t('sans profil, rien n\'est pondéré', () => {
+  const g = app();
+  for (const cat of Object.keys(g.PROFILS.cats))
+    assert.equal(g.poidsCat(cat), g.PROFILS.neutre, `${cat} garde sa place`);
+});
+
+t('le poids d\'une catégorie suit le style', () => {
+  const tu = app(PROFIL('turtle'));
+  assert.equal(tu.poidsCat('def'), 3, 'un turtle vise la défense');
+  assert.equal(tu.poidsCat('combat'), 0, 'et jamais la flotte de combat');
+  const ra = app(PROFIL('raideur'));
+  assert.equal(ra.poidsCat('def'), 0, 'un raideur ne fortifie pas');
+  assert.equal(ra.poidsCat('espio'), 3, 'il espionne, il va vite');
+});
+
+t('un focus ajoute +2, plafonné à 3', () => {
+  assert.equal(app(PROFIL('turtle', {focus: ['expo']})).poidsCat('expo'), 3, '1 + 2 = 3');
+  assert.equal(app(PROFIL('turtle', {focus: ['def']})).poidsCat('def'), 3, 'déjà à 3, il n\'y a pas de 5');
+  const d = app(PROFIL('mineur', {focus: ['raids']}));
+  assert.equal(d.poidsCat('cargo'), 3, 'un focus porte sur chacune de ses catégories');
+  assert.equal(d.poidsCat('espio'), 3, 'les deux, pas la première');
+  assert.equal(d.poidsCat('mines'), 3, 'et il n\'efface pas le style : les mines restent');
+});
+
+t('peu présent plafonne ce qui demande d\'être là, et met l\'abri devant', () => {
+  const g = app(PROFIL('fleeter', {activite: 'peu'}));
+  assert.equal(g.poidsCat('combat'), 1, 'la flotte de combat attend');
+  assert.equal(g.poidsCat('espio'), 1, 'les raids aussi');
+  assert.ok(g.poidsCat('abri') > g.poidsCat('mines'), 'la mise à l\'abri passe devant tout');
+  const a = app(PROFIL('fleeter', {activite: 'actif'}));
+  assert.equal(a.poidsCat('combat'), 3, 'très actif : aucun plafond');
+  assert.equal(a.poidsCat('abri'), 3, 'et l\'abri redevient une carte comme une autre');
+});
+
+t('la catégorie d\'une carte se lit sur ce qu\'elle construit', () => {
+  const g = app();
+  assert.equal(g.catActe({kind: 'b', k: 'metal'}), 'mines');
+  assert.equal(g.catActe({kind: 'b', k: 'smetal'}), 'stock');
+  assert.equal(g.catActe({kind: 't', k: 'astro'}), 'techeco');
+  assert.equal(g.catActe({kind: 't', k: 'shielding'}), 'techdef');
+  assert.equal(g.catActe({kind: 'expo'}), 'expo');
+  assert.equal(g.catActe({kind: 'fleet'}), 'abri', 'la mise à l\'abri n\'est pas une préférence');
+  assert.equal(g.catActe({kind: 'b', k: 'lab'}), '', 'un labo sert tous les styles');
+  // Un chantier vaut ce qu'il sort, pas la file dont il relève.
+  assert.equal(g.catActe({kind: 'def', ships: {rl: 20}}), 'def');
+  assert.equal(g.catActe({kind: 'shipbuild', ships: {lc: 3}}), 'cargo');
+  assert.equal(g.catActe({kind: 'shipbuild', ships: {lf: 12}}), 'combat');
+  assert.equal(g.catActe({kind: 'shipbuild', ships: {pr: 5}}), 'espio');
+  assert.equal(g.catActe({kind: 'shipbuild', ships: {}}), '', 'un lot vide ne relève de rien');
+  assert.equal(g.catMission({id: 'expocargo', q: 'Exploration'}), 'cargo', 'l\'identifiant tranche avant la rubrique');
+  assert.equal(g.catMission({id: 'night', q: 'Sécurité'}), 'abri');
+  assert.equal(g.catMission({id: 'defseen', q: 'Sécurité'}), 'abri', 'une carte de relevé garde sa rubrique');
+});
+
+t('le profil écarte les cartes de poids nul et classe le reste', () => {
+  const g = app(PROFIL('raideur'));
+  const l = g.dailyMissions();
+  assert.ok(l.length, 'il reste des cartes');
+  assert.ok(l.every(m => g.poidsCat(g.catMission(m)) > 0), 'aucune carte de poids nul');
+  const w = l.filter(m => m.id !== 'lune-sors').map(m => g.poidsCat(g.catMission(m)));
+  for (let i = 1; i < w.length; i++)
+    assert.ok(w[i] <= w[i - 1], `la liste descend en poids : ${w.join(' ')}`);
+});
+
+t('cocher Expéditions remonte les cartes d\'exploration', () => {
+  const rang = g => g.dailyMissions().findIndex(m => m.q === 'Exploration');
+  const sans = rang(app(PROFIL('turtle'))), avec = rang(app(PROFIL('turtle', {focus: ['expo']})));
+  assert.ok(sans > 0, 'un turtle ne les a pas en tête');
+  assert.ok(avec < sans, `le focus les fait remonter : ${avec} contre ${sans}`);
+});
+
+t('à ressources égales, le plan montre d\'abord ce que le profil pousse', () => {
+  const g = app(PROFIL('turtle'));
+  for (const x of g.simulateDay().sessions) {
+    const w = x.acts.map(a => g.poidsCat(g.catActe(a)));
+    for (let i = 1; i < w.length; i++)
+      assert.ok(w[i] <= w[i - 1], `les cartes de ${new Date(x.T).toLocaleTimeString('fr-FR')} descendent en poids : ${w.join(' ')}`);
+  }
+});
+
+/* Le style pose deux réglages, et rien de plus : ce que le joueur a choisi
+   lui-même dans les Réglages lui appartient. La règle vaut pour les deux —
+   l'avoir écrite pour le modèle de défense et oubliée pour le plan du jour est
+   ce que la relecture de la PR a trouvé. */
+t('le style pose le plan et le modèle de défense, sans écraser un choix du joueur', () => {
+  const g = app();
+  for (const [k, s] of Object.entries(g.PROFILS.styles))
+    assert.ok(g.DEF_MODELES[s.defense], `le modèle « ${s.defense} » du style ${k} n\'existe pas`);
+
+  const neuf = app(s => { s.day.focus = 'equi'; });
+  assert.equal(neuf.S.settings.defModele, 'framework', 'le panneau part sur le framework');
+  assert.equal(neuf.S.day.focus, 'equi', 'et sur le plan d\'usine, celui de qui n\'a jamais répondu');
+  neuf.styleRepose('', 'turtle');
+  assert.equal(neuf.S.settings.defModele, 'turtle', 'un turtle vise la tortue de fin de partie');
+  assert.equal(neuf.S.day.focus, 'ecocol', 'et le plan qui mine et colonise');
+
+  const choisi = app(s => { s.settings.defModele = 'vetter'; s.day.focus = 'eco'; });
+  choisi.styleRepose('', 'turtle');
+  assert.equal(choisi.S.settings.defModele, 'vetter', 'un modèle posé à la main tient bon');
+  assert.equal(choisi.S.day.focus, 'eco', 'un plan posé à la main aussi');
+
+  const suit = app(s => { s.settings.defModele = 'turtle'; s.day.focus = 'ecocol'; });
+  suit.styleRepose('turtle', 'raideur');
+  assert.equal(suit.S.settings.defModele, 'framework', 'et les deux suivent quand le style change');
+  assert.equal(suit.S.day.focus, 'raid');
+});
+
+/* « Économie pure » et « Équilibré » ne sont visés par aucun style : refaire le
+   questionnaire est le seul moment où l'assistant pourrait les effacer, et il
+   ne saurait pas les rendre. */
+t('refaire le questionnaire ne reprend pas un plan que le joueur a posé', () => {
+  const g = app(s => {
+    s.day.focus = 'eco';
+    s.profil = {style: 'mineur', classe: '', activite: 'regulier', focus: [], set: true};
+  });
+  g.styleRepose('mineur', 'mineur');
+  assert.equal(g.S.day.focus, 'eco', 'le plan du joueur survit à une réponse identique');
+  g.styleRepose('mineur', 'turtle');
+  assert.equal(g.S.day.focus, 'eco', 'et à un changement de style');
+});
+
+/* Une carte qui demande d'ouvrir une page du jeu remplit ce que le copilote ne
+   sait pas : la masquer prive le joueur de bien plus que sa rubrique. `defseen`
+   commande `p.def`, dont dépendent aussi les satellites solaires — un raideur
+   qui ne la voit plus perd son énergie la moins chère, et garde l'alerte
+   « Satellites écartés » qui le renvoie vers une carte disparue. */
+t('aucun style ne masque la carte qui fait lire la page Défense', () => {
+  for (const style of Object.keys(app().PROFILS.styles)) {
+    const g = app(PROFIL(style));
+    assert.ok(g.dailyMissions().some(m => m.id === 'defseen'),
+      `le style ${style} fait disparaître « Ouvrir la page Défense »`);
+  }
+});
+
+t('les Réglages disent quand le modèle de défense vient du profil', () => {
+  const h = lu(app(s => {
+    s.settings.defModele = 'turtle';
+    s.profil = {style: 'turtle', classe: '', activite: 'regulier', focus: [], set: true};
+  }).VIEWS.settings());
+  assert.ok(/Posé par ton profil \(<b>Turtle<\/b>\)/.test(h), 'la note nomme le style');
+  const autre = lu(app(s => {
+    s.settings.defModele = 'vetter';
+    s.profil = {style: 'turtle', classe: '', activite: 'regulier', focus: [], set: true};
+  }).VIEWS.settings());
+  assert.ok(!/Posé par ton profil/.test(autre), 'et se tait dès que le joueur en a choisi un autre');
+});
+
+/* La relecture de la PR a trouvé que `combat` n'était attribuée à aucune carte :
+   le 0 du mineur et du turtle ne pesait sur rien, et le contrat annoncé — « une
+   catégorie à 0 ne sort pas » — était vrai sans l'être. Une catégorie qu'on
+   pondère sans jamais l'attribuer est une promesse qui ne tient qu'à l'œil de
+   qui relit la table. */
+t('chaque catégorie pondérée est attribuée quelque part', () => {
+  const P = app().PROFILS;
+  const vues = new Set([].concat(
+    Object.values(P.actes.kinds), Object.values(P.actes.bat),
+    Object.values(P.actes.tech), Object.values(P.actes.vaisseaux),
+    Object.values(P.missions.q), Object.values(P.missions.id)));
+  for (const c of Object.keys(P.cats))
+    assert.ok(vues.has(c), `la catégorie « ${c} » est pondérée mais aucune carte ne la porte`);
+});
+
+t('un turtle lit sa défense avant les chasseurs, un fleeter l\'inverse', () => {
+  const def = {kind: 'def', ships: {rl: 20}}, chasse = {kind: 'shipbuild', ships: {lf: 12}};
+  const poids = (g, a) => g.poidsCat(g.catActe(a));
+  const tu = app(PROFIL('turtle'));
+  assert.ok(poids(tu, def) > poids(tu, chasse), 'le turtle fortifie');
+  const fl = app(PROFIL('fleeter'));
+  assert.ok(poids(fl, chasse) > poids(fl, def), 'le fleeter arme');
+});
+
+/* « Refaire le questionnaire » ouvrait une porte sans sortie : tant que les
+   trois réponses n'étaient pas recliquées, l'assistant restait en tête
+   d'Aujourd'hui, au-dessus de la carte que le joueur vient lire. */
+t('l\'assistant se referme sans qu\'on reclique les trois réponses', () => {
+  const vierge = app(s => { s.profil = {style: '', classe: '', activite: 'regulier', focus: [], set: false}; });
+  assert.ok(!/data-pferme/.test(vierge.profilCard(0)),
+    'rien à refermer tant qu\'aucun style n\'est choisi : il n\'y a pas de profil derrière');
+  const refait = app(s => { s.profil = {style: 'turtle', classe: '', activite: 'regulier', focus: [], set: false}; });
+  assert.ok(/data-pferme="1"/.test(refait.profilCard(0)), 'qui a déjà un style peut refermer');
+  assert.ok(/data-pferme="1"/.test(refait.profilCard(2)), 'à n\'importe quelle étape');
+});
+
+/* Les poids sont des réglages : les relire et les corriger ne doit pas obliger
+   à relire la logique qui les applique. Un style nommé en dur dans app.js est
+   le premier pas vers une table recopiée à deux endroits. */
+t('les styles et leurs poids vivent dans profils.js, pas dans app.js', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  for (const k of ['mineur', 'turtle', 'raideur', 'fleeter', 'explorateur'])
+    assert.ok(!src.includes(`'${k}'`), `app.js nomme le style ${k} : il doit passer par PROFILS`);
+  const cfg = require('fs').readFileSync(require('path').join(__dirname, '..', 'profils.js'), 'utf8');
+  assert.ok(/poids:/.test(cfg), 'et la table des poids y est');
 });
 
 /* ---------- le plan du pilleur ---------- */
@@ -11138,6 +11418,214 @@ t('le pilleur n\'a pas de centre, comme le joueur de flotte', () => {
   assert.equal(app(s => { s.day.focus = 'raid'; }).centreIndex(), -1, 'aucun centre');
   const h = lu(app(s => { s.day.focus = 'raid'; }).VIEWS.planets());
   assert.ok(/Pillage d'inactifs : pas de centre/.test(h), 'et la carte dit pourquoi');
+});
+
+
+/* ---------- le modèle de défense ---------- */
+
+/* Les trois planètes des critères d'acceptation. La première est celle de
+   l'énoncé : 13 lanceurs de plasma, 54 canons de Gauss, et tout le reste du
+   Framework mineur déjà au sol. Les niveaux sont ceux qu'il faut pour que rien
+   ne soit hors de portée, sans quoi le manque se doublerait d'un prérequis. */
+const DEFENSE = s => {
+  s.tech = Object.assign(s.tech, {laser: 12, ion: 5, energy: 8, plasma: 7, weapons: 3, shielding: 6});
+  s.planets[0].b.shipyard = 8;
+  s.planets[0].defs = {rl: 800, ll: 500, hl: 200, ic: 0, gc: 54, pt: 13, sd: 1, ld: 1};
+  s.planets[1].b.shipyard = 8;
+  s.planets[1].defs = {rl: 40, ll: 25, hl: 10, ic: 0, gc: 4, pt: 1, sd: 1, ld: 1};
+  /* Une troisième, nue mais capable : elle montre le manque entier. */
+  s.planets.push({id: 'trois', name: 'Avant-poste', coords: '1:142:4', tmax: 30,
+    b: Object.assign({}, s.planets[1].b, {shipyard: 8}), sats: 0, ships: {}, shipsAt: 0,
+    defs: {}, stock: {m: 5e6, c: 5e6, d: 5e6, at: 0}});
+};
+/** Le manque d'une pièce dans un plan. */
+const dManque = (d, k) => { const l = d.lignes.find(x => x.k === k); return l ? l.manque : null; };
+const dCible = (d, k) => { const l = d.lignes.find(x => x.k === k); return l ? l.cible : null; };
+
+t('les six modèles du wiki sont proposés, plus le perso', () => {
+  const g = app();
+  assert.deepEqual(Object.keys(g.DEF_MODELES),
+    ['framework', 'balanced', 'vetter', 'turtle', 'fodder', 'plasma', 'perso']);
+  assert.equal(g.S.settings.defModele, 'framework', 'et le Framework mineur par défaut');
+});
+
+t('Framework mineur, palier 20 : 7 lanceurs de plasma et 26 Gauss manquent', () => {
+  const g = app(DEFENSE);
+  const d = g.defPlan(g.S.planets[0]);
+  assert.equal(d.nom, 'Framework mineur');
+  assert.equal(dManque(d, 'pt'), 7, '20 visés, 13 au sol');
+  assert.equal(dManque(d, 'gc'), 26, '80 visés, 54 au sol');
+  assert.equal(dManque(d, 'll'), 0, 'les lasers légers sont au complet');
+  assert.equal(dManque(d, 'hl'), 0, 'les lasers lourds aussi');
+  /* Le coût ne compte que le manque : 7 lanceurs de plasma et 26 Gauss. */
+  assert.deepEqual(d.cout, [7 * 50000 + 26 * 20000, 7 * 50000 + 26 * 15000, 7 * 30000 + 26 * 2000]);
+});
+
+t('Balanced Defense change les manques sur la même planète', () => {
+  const g = app(s => { DEFENSE(s); s.settings.defModele = 'balanced'; });
+  const d = g.defPlan(g.S.planets[0]);
+  /* 20 lanceurs de plasma visés sur un modèle qui en veut 5 : facteur 4. */
+  assert.equal(dCible(d, 'ic'), 80, '20 artilleries par lanceur de plasma, facteur 4');
+  assert.equal(dManque(d, 'ic'), 80, 'aucune au sol');
+  assert.equal(dManque(d, 'gc'), 0, '40 visés, 54 au sol');
+  assert.equal(dManque(d, 'pt'), 7);
+});
+
+t('une planète peut prendre un autre modèle que les réglages', () => {
+  const g = app(s => { DEFENSE(s); s.planets[0].defModele = 'plasma'; });
+  const d = g.defPlan(g.S.planets[0]);
+  assert.equal(d.modele, 'plasma', 'la surcharge passe devant le réglage global');
+  assert.equal(dCible(d, 'gc'), 0, 'ce modèle ne veut aucun Gauss');
+  assert.equal(g.defPlan(g.S.planets[1]).modele, 'framework', 'les autres gardent le global');
+});
+
+t('une planète peut aussi prendre son propre palier', () => {
+  const g = app(s => { DEFENSE(s); s.planets[0].defPalier = 40; });
+  assert.equal(dCible(g.defPlan(g.S.planets[0]), 'pt'), 40);
+  assert.equal(dCible(g.defPlan(g.S.planets[1]), 'pt'), 20, 'le global reste à 20');
+});
+
+t('« compléter » cale le palier sur les lanceurs de plasma déjà au sol', () => {
+  const g = app(s => { DEFENSE(s); s.settings.defPalier = 'fill'; });
+  const d = g.defPlan(g.S.planets[0]);
+  assert.equal(d.palier, 13, 'treize au sol, treize visés');
+  assert.equal(dManque(d, 'pt'), 0, 'rien à ajouter de ce côté');
+  assert.equal(dCible(d, 'gc'), 52, '4 Gauss par lanceur de plasma');
+  assert.equal(dManque(d, 'gc'), 0, '54 au sol, 52 suffisent');
+});
+
+t('un excédent s\'affiche sans jamais rogner le calcul', () => {
+  const g = app(s => { DEFENSE(s); s.planets[0].defs.rl = 2000; });
+  const d = g.defPlan(g.S.planets[0]);
+  const l = d.lignes.find(x => x.k === 'rl');
+  assert.equal(l.manque, 0, 'un manque ne devient jamais négatif');
+  assert.equal(l.exces, 1200, '800 visés, 2000 au sol');
+  assert.deepEqual(l.cout, [0, 0, 0], 'et il ne rapporte rien au budget');
+  assert.equal(dManque(d, 'pt'), 7, 'le reste du plan ne bouge pas');
+});
+
+t('les deux boucliers restent hors ratio : un de chaque', () => {
+  const g = app(s => { DEFENSE(s); delete s.planets[0].defs.sd; delete s.planets[0].defs.ld; });
+  const d = g.defPlan(g.S.planets[0]);
+  assert.equal(dCible(d, 'sd'), 1);
+  assert.equal(dCible(d, 'ld'), 1);
+  assert.equal(dManque(d, 'sd'), 1, 'absents, donc demandés');
+  /* Et le modèle plasma pur, qui ne nomme ni l'un ni l'autre, les veut quand même. */
+  const p = g.defPlan(Object.assign({}, g.S.planets[0], {defModele: 'plasma'}));
+  assert.equal(dCible(p, 'ld'), 1);
+});
+
+t('un prérequis manquant est nommé, bâtiment et recherche', () => {
+  const g = app(s => { DEFENSE(s); s.planets[0].b.shipyard = 4; s.tech.plasma = 0; });
+  const l = g.defPlan(g.S.planets[0]).lignes.find(x => x.k === 'pt');
+  assert.ok(/Chantier spatial 8/.test(l.req), 'le chantier : ' + l.req);
+  assert.ok(/Plasma 7/.test(l.req), 'et la recherche : ' + l.req);
+  const h = lu(g.VIEWS.defense());
+  assert.ok(/Hors de portée pour l'instant/.test(h), 'et la carte le dit');
+});
+
+t('un prérequis ne se signale que s\'il bloque quelque chose', () => {
+  // le modèle plasma pur ne veut aucun Gauss : son prérequis absent n'est pas un problème
+  const g = app(s => { DEFENSE(s); s.planets[0].defModele = 'plasma'; s.tech.weapons = 0; });
+  assert.ok(g.defPlan(g.S.planets[0]).lignes.every(l => !l.req), 'rien à signaler');
+});
+
+t('la carte dit si la planète peut payer son manque', () => {
+  const g = app(s => { DEFENSE(s); s.planets[0].stock = {m: 1e9, c: 1e9, d: 1e9, at: 0}; });
+  assert.equal(g.defPlan(g.S.planets[0]).payable, true);
+  const pauvre = app(s => { DEFENSE(s); s.planets[0].stock = {m: 1000, c: 1000, d: 0, at: 0}; });
+  assert.equal(pauvre.defPlan(pauvre.S.planets[0]).payable, false);
+});
+
+t('une défense jamais relevée ne réclame rien', () => {
+  const g = app(s => { DEFENSE(s); delete s.planets[0].defs; delete s.planets[0].def; });
+  assert.equal(g.defPlan(g.S.planets[0]), null, 'inconnu n\'est pas zéro');
+  assert.ok(/jamais relevée/.test(lu(g.defCarte(g.S.planets[0]))), 'et la carte le dit plutôt que de chiffrer');
+});
+
+t('les trois planètes de test sortent chacune leur tableau', () => {
+  const g = app(DEFENSE);
+  const h = lu(g.VIEWS.defense());
+  for (const p of g.S.planets) assert.ok(h.includes(p.name), p.name + ' est dans la carte');
+  assert.ok(/Avant-poste/.test(h));
+  /* La planète nue doit son modèle entier : 800 lanceurs de missiles. */
+  const d = g.defPlan(g.S.planets[2]);
+  assert.equal(dManque(d, 'rl'), 800);
+  assert.equal(dManque(d, 'pt'), 20);
+});
+
+t('le ratio perso se saisit, se valide et voyage avec les réglages', () => {
+  const g = app(s => {
+    DEFENSE(s);
+    s.settings.defModele = 'perso';
+    s.settings.defPerso = {rl: 10, ll: '5', hl: -3, ic: null, gc: 'x', pt: 1};
+  });
+  g.sainEtat();
+  assert.deepEqual(g.S.settings.defPerso, {rl: 10, ll: 5, hl: 0, ic: 0, gc: 0, pt: 1},
+    'des nombres entiers, jamais négatifs');
+  const d = g.defPlan(g.S.planets[0]);
+  assert.equal(dCible(d, 'rl'), 200, '10 par lanceur de plasma, palier 20');
+  assert.equal(dCible(d, 'gc'), 0, 'zéro reste zéro');
+  assert.deepEqual(g.syncOut()['sy:settings'].defPerso, g.S.settings.defPerso,
+    'et il part sur l\'autre poste avec le reste des réglages');
+});
+
+t('un ratio perso sans lanceur de plasma ne divise pas par zéro', () => {
+  const g = app(s => {
+    DEFENSE(s);
+    s.settings.defModele = 'perso';
+    s.settings.defPerso = {rl: 40, ll: 25, hl: 0, ic: 0, gc: 0, pt: 0};
+  });
+  const d = g.defPlan(g.S.planets[0]);
+  assert.equal(d.ancre, 'rl', 'le palier se compte alors en lanceurs de missiles');
+  assert.equal(dCible(d, 'll'), Math.ceil(25 * 20 / 40));
+  assert.ok(d.lignes.every(l => Number.isFinite(l.cible)), 'aucune cible infinie');
+});
+
+t('un modèle ou un palier venus d\'ailleurs sont écartés', () => {
+  const g = app(s => {
+    DEFENSE(s);
+    s.settings.defModele = 'inconnu';
+    s.settings.defPalier = 999;
+    s.planets[0].defModele = '<script>';
+    s.planets[0].defPalier = 7;
+  });
+  g.sainEtat();
+  assert.equal(g.S.settings.defModele, 'framework');
+  assert.equal(g.S.settings.defPalier, 20);
+  assert.equal(g.S.planets[0].defModele, undefined, 'la surcharge douteuse part');
+  assert.equal(g.S.planets[0].defPalier, undefined, 'et le palier hors menu aussi');
+});
+
+t('le palier « compléter » survit à sainEtat', () => {
+  const g = app(s => { DEFENSE(s); s.settings.defPalier = 'fill'; s.planets[0].defPalier = 'fill'; });
+  g.sainEtat();
+  assert.equal(g.S.settings.defPalier, 'fill');
+  assert.equal(g.S.planets[0].defPalier, 'fill');
+});
+
+t('l\'onglet Défense se dessine sans toucher au jeu', () => {
+  const g = app(s => { DEFENSE(s); s.ui.tool = 'defense'; });
+  const h = lu(g.VIEWS.tools());
+  assert.ok(/Modèle de défense/.test(h), 'la carte est là');
+  assert.ok(/Framework mineur/.test(h));
+  assert.ok(!/data-launch|data-sent/.test(h), 'aucun bouton d\'action : lecture seule');
+});
+
+t('les Réglages proposent le modèle, et le ratio perso quand il est choisi', () => {
+  const sans = lu(app(DEFENSE).VIEWS.settings());
+  assert.ok(/Palier visé/.test(sans));
+  assert.ok(!/sDefR-rl/.test(sans), 'pas de cases de ratio hors modèle perso');
+  const avec = lu(app(s => { DEFENSE(s); s.settings.defModele = 'perso'; }).VIEWS.settings());
+  assert.ok(/sDefR-rl/.test(avec), 'une case par pièce du ratio');
+  assert.ok(!/sDefR-sd/.test(avec), 'sauf les boucliers, hors ratio');
+});
+
+t('une sauvegarde d\'avant le modèle de défense en reçoit un', () => {
+  const g = app(s => { DEFENSE(s); delete s.settings.defModele; delete s.settings.defPalier; delete s.settings.defPerso; });
+  assert.equal(g.S.settings.defModele, 'framework');
+  assert.equal(g.S.settings.defPalier, 20);
+  assert.ok(g.defPlan(g.S.planets[0]), 'et le calcul tourne quand même');
 });
 
 if (failures.length) {
