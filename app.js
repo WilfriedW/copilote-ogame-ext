@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.66.5';
+const APP_VERSION = '1.66.6';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -567,11 +567,33 @@ function poseChamp(quoi, valeur){
     —, les cases de forme de vie ont la leur, qui ne gèle pas la planète. */
 function prioOrdre(kind, pid, k){
   const file = (kind === 'lf' ? priosLf() : prios()).filter(x => x.pid === pid);
-  if(file.length < 2) return '';
+  if(file.length < 2) return null;
   const i = file.findIndex(x => x.k === k);
-  return i < 0 ? '' : `rang ${i + 1} sur ${file.length}`;
+  return i < 0 ? null : {i, n: file.length};
 }
-const prioRangHtml = (kind, pid, k) => { const r = prioOrdre(kind, pid, k); return r ? ` <span class="note">${r}</span>` : ''; };
+const prioRangHtml = (kind, pid, k) => { const r = prioOrdre(kind, pid, k); return r ? ` <span class="note">rang ${r.i + 1} sur ${r.n}</span>` : ''; };
+/** Faire passer une priorité devant les autres de sa planète.
+    L'ordre de pose arbitre tout — le tour, les rapatriements — et ne se
+    corrigeait que par un retrait suivi d'une nouvelle pose, qui perdait le
+    second palier au passage et renvoyait la priorité en fin de file de toute
+    façon. Ici l'entrée se déplace, entière.
+    Devant sa propre file seulement : un bâtiment et une case de forme de vie
+    ne se disputent pas le tour, et passer devant l'autre ne voudrait rien
+    dire. Une recherche appartient à la file du centre, comme pour le tour. */
+function prioDevant(ref){
+  /* Même prudence que prioRetire : une référence mal encodée lève URIError, et
+     ce qui lève dans le gestionnaire de clic le tue sans un mot. */
+  let kind, a, b;
+  try{ [kind, a, b] = String(ref).split('|').map(decodeURIComponent); }catch(e){ return; }
+  const i = kind === 't' ? prioIdx('t', null, a) : kind === 'lf' ? prioIdx('lf', a, +b) : kind === 'b' ? prioIdx('b', a, b) : -1;
+  if(i < 0) return;
+  const centre = (labPlanet() || {}).id;
+  const file = x => (x.kind === 'lf' ? 'lf' : 'plan') + ':' + (x.kind === 't' ? centre : x.pid);
+  const mienne = file(S.prio[i]);
+  const j = S.prio.findIndex(x => x && file(x) === mienne);
+  if(j < 0 || j >= i) return;
+  S.prio.splice(j, 0, S.prio.splice(i, 1)[0]);
+}
 /* Ce qu'une ligne du bloc ajoute quand un second palier attend derrière. */
 function prioSuite(kind, pid, k, lvl){
   const e = (S.prio || []).find(x => x && x.kind === kind && x.k === k && (kind === 't' || x.pid === pid));
@@ -646,16 +668,20 @@ function prioHtml(plan){
   if(!l.length && !lf.length && !at.length && !loin.length) return `<div class="card"><h2>Tes priorités</h2><p class="note" style="margin:0">Aucune pour l'instant. Dans le jeu, fais un <b>clic droit</b> sur la case d'un bâtiment, d'une recherche ou d'une forme de vie : elle devient une priorité, et le plan la sert. Ici, dans <b>Empire</b>, déplie les niveaux d'une planète — ou les recherches — et écris le niveau que tu vises dans le petit champ <b>→</b>, à droite du niveau actuel. Le plan épargnera pour l'atteindre, et le dira sur ses cartes.</p></div>`;
   const nuit = !!S.day.night;
   const dits = new Map((((plan || simulateDay()).sessions[0] || {}).prio || []).map(e => [e.id, e]));
-  const li = (pill, what, why, ref) => `<li><span class="pill">${pill}</span><span class="what">${what}</span>${why ? `<span class="why">${esc(why)}</span>` : ''}<button class="btn sm ghost" data-prio-del="${esc(ref)}">Retirer</button></li>`;
+  /* « Passer devant » n'apparaît que sur une ligne qui attend : sur la
+     première de sa file, il ne ferait rien, et un bouton qui ne fait rien est
+     un bouton qu'on essaie une fois puis qu'on cesse de croire. */
+  const li = (pill, what, why, ref, attend) => `<li><span class="pill">${pill}</span><span class="what">${what}</span>${why ? `<span class="why">${esc(why)}</span>` : ''}<span class="actes">${attend ? `<button class="btn sm ghost" data-prio-up="${esc(ref)}" title="Met cette priorité en tête de la file de sa planète. Celle qui épargnait aujourd'hui lui cède la place et passe derrière.">En tête</button>` : ''}<button class="btn sm ghost" data-prio-del="${esc(ref)}">Retirer</button></span></li>`;
+  const attendSonTour = (kind, pid, k) => ((prioOrdre(kind, pid, k) || {}).i || 0) > 0;
   const lignes = l.map(x => {
     const p = planetById(x.pid), d = dits.get(`${x.kind}:${x.pid}:${x.k}`) || {};
     const nom = x.kind === 'b' ? B_SHORT[x.k] : T[x.k].n;
     const etat = nuit ? '' : [d.etat, d.recoit ? 'Les rapatriements de l\'empire vont vers elle.' : ''].filter(Boolean).join(' ');
-    return li(x.kind === 'b' ? esc(p.name) : 'Recherche', `${esc(nom)} ${x.lvl}${prioSuite(x.kind, x.pid, x.k, x.lvl)}${prioRangHtml(x.kind, x.pid, x.k)}`, etat, x.kind === 'b' ? prioRef('b', x.pid, x.k) : prioRef('t', x.k));
+    return li(x.kind === 'b' ? esc(p.name) : 'Recherche', `${esc(nom)} ${x.lvl}${prioSuite(x.kind, x.pid, x.k, x.lvl)}${prioRangHtml(x.kind, x.pid, x.k)}`, etat, x.kind === 'b' ? prioRef('b', x.pid, x.k) : prioRef('t', x.k), attendSonTour(x.kind, x.pid, x.k));
   }).concat(lf.map(x => {
     const p = planetById(x.pid), v = (p.lf || {})[x.k] || {};
     const nom = v.nom || v.name || LF_NAMES[x.k] || `Forme de vie ${x.k}`;
-    return li(esc(p.name), `${esc(nom)} ${x.lvl}${prioSuite('lf', x.pid, x.k, x.lvl)}${prioRangHtml('lf', x.pid, x.k)}`, prioLfEtat(p, x, nuit), prioRef('lf', x.pid, x.k));
+    return li(esc(p.name), `${esc(nom)} ${x.lvl}${prioSuite('lf', x.pid, x.k, x.lvl)}${prioRangHtml('lf', x.pid, x.k)}`, prioLfEtat(p, x, nuit), prioRef('lf', x.pid, x.k), attendSonTour('lf', x.pid, x.k));
   }), at.map(d => {
     /* nom est du texte lu dans le DOM du jeu : il passe par esc, comme tout ce qui vient de là. */
     const quoi = d.lvl === 0 ? 'Retrait demandé' : `Niveau ${d.lvl} demandé`;
@@ -6472,6 +6498,7 @@ view.addEventListener('click', e=>{
   const ln = e.target.closest('[data-lune-do]'); if(ln){ const a = ln.dataset.luneDo;
     if(a === 'env') luneEnvoye(); else luneRepond(a === 'oui');
     save(); render(); toast(a === 'oui' ? 'Belle lune' : a === 'env' ? 'Tir envoyé' : 'Tir compté'); return; }
+  const pu = e.target.closest('[data-prio-up]'); if(pu){ prioDevant(pu.dataset.prioUp); save(); render(); publieLePlan(); return; }
   const pd = e.target.closest('[data-prio-del]'); if(pd){ prioRetire(pd.dataset.prioDel); save(); render(); return; }
   /* publieLePlan() comme après un champ de priorité : sans lui, les tuiles du
      jeu ignoreraient ce qu'on vient de poser sur dix planètes d'un coup. */

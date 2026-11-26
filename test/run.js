@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -10628,6 +10628,86 @@ t('les formes de vie comptent dans leur propre file', () => {
   assert.ok(h.includes('rang 1 sur 2'), h);
   assert.ok(h.includes('rang 2 sur 2'), h);
   assert.ok(!h.includes('sur 3'), 'le bâtiment ne grossit pas la file des formes de vie');
+});
+
+/* ---------- et le changer, cet ordre ---------- */
+/* L'ordre de pose arbitre tout — le tour, les rapatriements — et ne se
+   corrigeait que par un retrait suivi d'une nouvelle pose, qui perdait le
+   second palier au passage. « Passer devant » met la priorité en tête de la
+   file de sa planète, sans toucher aux autres files ni aux autres planètes. */
+
+const REF = (...p) => p.map(x => encodeURIComponent(String(x))).join('|');
+
+t('passer devant fait d\'une priorité la première de sa planète', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:43},
+                                 {kind:'b', pid:'mere', k:'lab', lvl:12}]; });
+  g.prioDevant(REF('b', 'mere', 'lab'));
+  assert.deepEqual(g.S.prio.map(x => x.k), ['lab', 'metal']);
+});
+
+t('passer devant laisse les autres planètes où elles sont', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'colo', k:'metal', lvl:20},
+                                 {kind:'b', pid:'mere', k:'metal', lvl:43},
+                                 {kind:'b', pid:'mere', k:'lab', lvl:12}]; });
+  g.prioDevant(REF('b', 'mere', 'lab'));
+  assert.deepEqual(g.S.prio.map(x => x.pid + ':' + x.k),
+    ['colo:metal', 'mere:lab', 'mere:metal'], 'la colonie n\'a pas bougé');
+});
+
+t('une case de forme de vie ne double pas un bâtiment', () => {
+  const g = app(s => { DEUX_ESPECES(s);
+    s.prio = [{kind:'lf', pid:'mere', k:11101, lvl:21},
+              {kind:'b', pid:'mere', k:'metal', lvl:43},
+              {kind:'lf', pid:'mere', k:11102, lvl:21}]; });
+  g.prioDevant(REF('lf', 'mere', 11102));
+  assert.deepEqual(g.S.prio.map(x => String(x.k)), ['11102', '11101', 'metal'],
+    'elle passe devant sa file, pas devant le bâtiment');
+});
+
+t('une recherche passe devant sur le centre', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:43},
+                                 {kind:'t', k:'energy', lvl:10}]; });
+  g.prioDevant(REF('t', 'energy'));
+  assert.deepEqual(g.S.prio.map(x => x.k), ['energy', 'metal']);
+});
+
+t('la première de sa file ne bouge pas', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:43},
+                                 {kind:'b', pid:'mere', k:'lab', lvl:12}]; });
+  g.prioDevant(REF('b', 'mere', 'metal'));
+  assert.deepEqual(g.S.prio.map(x => x.k), ['metal', 'lab']);
+});
+
+t('le second palier survit au changement de rang', () => {
+  // C'est ce que « retirer puis reposer » perdait, et la raison d'être du bouton.
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:43},
+                                 {kind:'lf', pid:'mere', k:11101, lvl:21, puis:41}];
+    DEUX_ESPECES(s); });
+  g.prioDevant(REF('lf', 'mere', 11101));
+  assert.equal(g.S.prio.find(x => x.k === 11101).puis, 41);
+});
+
+t('une référence abîmée ne touche à rien', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:43},
+                                 {kind:'b', pid:'mere', k:'lab', lvl:12}]; });
+  g.prioDevant('b|%E0|lab');
+  assert.deepEqual(g.S.prio.map(x => x.k), ['metal', 'lab'], 'et surtout ne lève pas');
+});
+
+t('seules les lignes qui attendent offrent le bouton', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:43},
+                                 {kind:'b', pid:'mere', k:'lab', lvl:12},
+                                 {kind:'b', pid:'colo', k:'crystal', lvl:20}]; });
+  const h = lu(g.prioHtml());
+  assert.equal((h.match(/data-prio-up=/g) || []).length, 1, 'une seule : celle qui attend');
+});
+
+t('le bouton change vraiment l\'ordre', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:43},
+                                 {kind:'b', pid:'mere', k:'lab', lvl:12}]; });
+  g.click('view', { closest: sel => (sel === '[data-prio-up]'
+    ? { dataset: { prioUp: REF('b', 'mere', 'lab') } } : null) });
+  assert.deepEqual(g.S.prio.map(x => x.k), ['lab', 'metal']);
 });
 
 /* ---------- quand rien ne se pose, la carte dit pourquoi ---------- */

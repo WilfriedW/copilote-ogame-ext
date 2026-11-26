@@ -167,6 +167,13 @@ Les règles, qui expliquent beaucoup de comportements :
 - Le bloc des priorités dit, pour chacune, ce que le plan en fait **à cette
   session** : « elle avance », « elle épargne pour X », « rien ne part pour
   elle », « elle attend son tour derrière Y ». Pas une déduction : l'état réel.
+- Le bouton **« En tête »**, sur chaque ligne qui attend, met cette priorité en
+  première place de la file de sa planète : celle qui épargnait aujourd'hui lui
+  cède le tour et passe derrière. C'est le seul moyen de corriger l'ordre sans
+  retirer puis reposer — ce qui perdait le second palier et renvoyait de toute
+  façon la priorité en fin de file. Elle ne passe devant que **sa propre
+  file** : une case de forme de vie ne double pas un bâtiment, les deux ne se
+  disputant pas le tour.
 - Chaque ligne porte aussi son **rang dans la file de sa planète** — « rang 2
   sur 3 » —, et rien quand elle y est seule. « Derrière Y » ne nomme que celle
   qui agit : à trois priorités, il ne disait pas si tu étais deuxième ou
