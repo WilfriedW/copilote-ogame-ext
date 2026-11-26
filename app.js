@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.7.1';
+const APP_VERSION = '2.7.2';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -3048,6 +3048,10 @@ function nextResearch(){
     const i = tete ? garde : (FOCUS_FLOTTE[S.day.focus] ? list.findIndex(x=>!x.crit) : -1);
     list.splice(i<0 ? list.length : i, 0, {k:r.k, lvl:r.lvl, crit:!!tete, why:w});
   }
+  /* Les recherches mises de côté sortent de la liste, jamais une priorité du
+     joueur : `tryResearch` ne regarde que `list[0]`, donc une recherche écartée
+     laisse la place à la suivante au lieu de taire la file entière. */
+  for(let i=list.length-1; i>=0; i--) if(!list[i].prio && refused(cardKey('t', '', list[i].k))) list.splice(i, 1);
   if(researchMode()==='first' && list[0]) list[0].crit = true;
   return {list, labNeed, prioLab, k:list[0]&&list[0].k, lvl:list[0]&&list[0].lvl};
 }
@@ -3222,7 +3226,12 @@ function pickBuildings(p, ctx){
      Les deux chantiers de secours protègent la production qui paie la
      priorité, et la priorité ne peut pas s'interdire à elle-même de dépenser
      ce qu'elle a mis de côté. */
-  const add = (k, why, libre)=>{ if(!out.some(o=>o.k===k)) out.push({k, lvl:p.b[k]+1, why, libre:!!libre}); };
+  /* Un « Non » se pose ici, avant le choix : écarté de la liste des candidats,
+     le bâtiment laisse la place au pas suivant au lieu de laisser un trou — ce
+     que le joueur attend quand il met le hangar de côté pour monter son usine.
+     La priorité du joueur, plus bas, ne passe pas par `add` : elle ne peut pas
+     s'écarter elle-même. */
+  const add = (k, why, libre)=>{ if(!out.some(o=>o.k===k) && !refused(cardKey('b', p.id, k))) out.push({k, lvl:p.b[k]+1, why, libre:!!libre}); };
   const ranked = rankUpgrades(p).filter(u=>u.payback<Infinity && B[u.key]);
   const satsSoon = p.satPending && p.satPending > ctx.T;
   if(pr.factor<1 && !satsSoon) add('solar', 'Énergie négative : tes mines tournent au ralenti', true);
@@ -3608,7 +3617,7 @@ function simulateDay(){
           waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), held:!!held, heldBy:held, miss:missOf(dep,c), kind:'ship', p:dep.i});
         }
       }
-      if(wantColony && sim.colShip && sim.colReady<=Tm && !refused(moveKey('fleet', (real.planets[dep.i]||{}).id, target))){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight*1000, kind:'fleet', p:dep.i, dest:target, mission:7, ships:{col:1}}); }
+      if(wantColony && sim.colShip && sim.colReady<=Tm && !refused(cardKey('fleet', (real.planets[dep.i]||{}).id, target))){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight*1000, kind:'fleet', p:dep.i, dest:target, mission:7, ships:{col:1}}); }
       const hubP = P[centreIndex()] || P[Math.min(hubIndex(), P.length-1)];
       /* Ce qu'il manque à chaque planète pour son prochain chantier, relevé une
          fois avant le premier envoi : c'est ce manque qui fait d'elle une
@@ -3691,7 +3700,7 @@ function simulateDay(){
         const amt = want.map((w,j)=>Math.max(0, Math.min(w, q.st[j]-keep[j])));
         const sum = amt[0]+amt[1]+amt[2]; if(sum < 5000) continue;
         const own = (q.ships.lc||0)+(q.ships.sc||0) > 0, src = own ? q : hubP, lcC = shipStats('lc').cargoEff, scC = shipStats('sc').cargoEff;
-        if(refused(moveKey('transfer', (real.planets[src.i]||{}).id, (own?dst:q).coords))) continue;
+        if(refused(cardKey('transfer', (real.planets[src.i]||{}).id, (own?dst:q).coords))) continue;
         let left = sum; const lc = Math.min(src.ships.lc||0, Math.ceil(left/lcC)); left -= lc*lcC; const sc = left>0 ? Math.min(src.ships.sc||0, Math.ceil(left/scC)) : 0;
         if(!lc && !sc) continue;
         const ships = {}; if(lc) ships.lc=lc; if(sc) ships.sc=sc;
@@ -3769,6 +3778,7 @@ function simulateDay(){
            le plus besoin. Ce risque-là ne se calcule pas — il se choisit, dans
            les Réglages. planetAlerts dit pourquoi quand le choix est non. */
         if(!satsOk(p)) continue;
+        if(refused(cardKey('sats', p.id, ''))) continue;
         if(wantColony && p===dep && !sim.colShip && sim.tech.impulse>=3 && p.b.shipyard>=4) continue;
         const pr = production(p), best = rankUpgrades(p).find(u=>u.payback<Infinity);
         const satE = satEnergy(p.tmax) * (1 + (S.settings.cls==='collector'?.1:0) + (S.settings.eng?.1:0));
@@ -3795,7 +3805,7 @@ function simulateDay(){
         if(lfMode()==='off') return;
         for(const p of P) for(const q of ['lfbuilding','lfresearch']){
           if(p.lfq[q]>Tm) continue;
-          const liste = lfCandidates(p, q); if(!liste.length) continue;
+          const liste = lfCandidates(p, q).filter(c=>!refused(cardKey('lf', p.id, c.id))); if(!liste.length) continue;
           /* Au plafond, cette file sert à vider le stock : la case la plus
              chère qu'on peut payer tout de suite y fait plus que la moins
              chère, qui laisse le plafond en place. Hors plafond, le tri de
@@ -3926,6 +3936,7 @@ function simulateDay(){
           }
           const res = reserveOf(p,Tm).map((x,j)=>x+softRes(p)[j]);
           for(const w of wants){
+            if(refused(cardKey(DEF[w.k] ? 'def' : 'shipbuild', p.id, w.k))) continue;
             const c = SHIP_COST[w.k], afford = Math.min(...c.map((x,j)=>x>0 ? Math.floor((p.st[j]-res[j])/x) : Infinity));
             const n = Math.min(w.n, afford); if(n<1) continue;
             const cost = c.map(x=>x*n), d = shipTime(w.k,n,p), k=w.k;
@@ -4043,7 +4054,7 @@ function actHtml(a, withBtn){
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,pid:(S.planets[a.p]||{}).id,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
-  if(withBtn && NO_KINDS[a.kind]) btn = `<span class="btns">${btn}${noBtn(moveKey(a.kind, (S.planets[a.p]||{}).id, a.dest))}</span>`;
+  if(withBtn && NO_KINDS[a.kind]) btn = `<span class="btns">${btn}${noBtn(actKey(a))}</span>`;
   return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div>${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
 }
 
@@ -5153,14 +5164,29 @@ function dailyMissions(){
    la même, et le panneau ne sert plus à rien. « Non » la met donc de côté, et
    elle y reste : rien ne la ramène dans le dos du joueur. C'est lui qui la
    remet, d'un bouton, sous les cartes d'Aujourd'hui comme dans Réglages. */
-/* Seuls les mouvements : une construction disparaît dès « Lancé », elle n'a
-   rien à refuser. */
-const NO_KINDS = {transfer:1, expo:1, fleet:1};
-/* Ce qui identifie un mouvement d'un plan au suivant : d'où, vers où, de quel
-   genre. L'identifiant de la planète, pas son rang : le rang change dès qu'on
+/* Tous les genres que le plan propose de lui-même. « Lancé » fait disparaître
+   un chantier, mais seulement une fois lancé : tant que le joueur a un autre
+   projet pour cette planète — monter l'usine de robots avec les ressources
+   qu'il vient d'y faire venir — le hangar que le classement trouve rentable
+   revient à chaque passage, et c'est lui qu'on lit au lieu du plan.
+   Hors du compte : `raid` et `ship`, que le joueur a demandés lui-même dans
+   Outils, et `expo`, dont le plan ne dessine plus la carte. */
+const NO_KINDS = {transfer:1, fleet:1, b:1, t:1, lf:1, sats:1, shipbuild:1, def:1};
+/* Ce qui identifie une carte d'un plan au suivant : son genre, sa planète, et
+   ce qu'elle vise — une destination, un bâtiment, une case de forme de vie.
+   L'identifiant de la planète, pas son rang : le rang change dès qu'on
    oublie une planète, et la simulation échange S.planets contre ses copies, qui
    n'en portent aucun — d'où l'identifiant passé par l'appelant. */
-function moveKey(kind, pid, dest){ return `${kind}:${pid||''}:${dest||''}`; }
+function cardKey(kind, pid, quoi){ return `${kind}:${pid||''}:${quoi||''}`; }
+/* La clé d'une carte déjà dessinée, celle que son bouton « Non » porte. Elle
+   doit tomber sur la même que la garde posée plus haut, à la génération :
+   sinon le bouton ne fait rien et la carte revient au passage suivant.
+   Une recherche est à l'empire, pas à la planète du labo — sans ça, déménager
+   le labo ramenait une carte écartée. */
+function actKey(a){
+  const quoi = a.dest || a.k || a.id || Object.keys(a.ships||{})[0] || '';
+  return cardKey(a.kind, a.kind === 't' ? '' : (S.planets[a.p]||{}).id, quoi);
+}
 function refused(key){ return !!S.daily.no[key]; }
 /** Combien de cartes sont mises de côté en ce moment. */
 function noCount(){ return Object.keys(S.daily.no).length; }
