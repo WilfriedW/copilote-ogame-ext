@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.3.0';
+const APP_VERSION = '2.4.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -93,7 +93,12 @@ function expoFind(pf){ return EXPO_CAPS[top1Tier()][1]*ecoSpeed()*(S.settings.cl
 function sample(){
   return {
     v:1, sample:true,
-    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, muet:false, debris:LUNE_DF, skin:'relief'},
+    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, muet:false, debris:LUNE_DF, skin:'relief',
+      /* Le modèle de défense visé, son palier, et le ratio que le joueur
+         écrit lui-même. Le ratio par défaut recopie celui du Framework mineur,
+         en clair plutôt que par référence : sample() tourne au chargement,
+         bien avant la table DEF_MODELES. */
+      defModele:'framework', defPalier:20, defPerso:{rl:40, ll:25, hl:10, ic:0, gc:4, pt:1}},
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
@@ -142,6 +147,11 @@ function newPlanet(name, coords, tmax, b){
 let S;
 try{ S = JSON.parse(LS.getItem(KEY)) || sample(); }catch(e){ S = sample(); }
 S = Object.assign(sample(), S);
+/* Les réglages se fusionnent comme `tech` et `day` juste en dessous :
+   `Object.assign` ne descend pas d'un niveau, et une sauvegarde d'avant un
+   réglage ne porte pas sa clé — le menu se serait affiché vide et le calcul
+   aurait lu `undefined`. */
+S.settings = Object.assign(sample().settings, S.settings);
 S.tech = Object.assign(sample().tech, S.tech);
 S.day = Object.assign(sample().day, S.day);
 S.ui = Object.assign(sample().ui, S.ui);
@@ -4792,6 +4802,41 @@ const DEF_POURQUOI = {
   sd: 'soixante-quinze points de bouclier par millier dépensé, sept fois tout le reste, et personne n\'a de tir rapide contre lui',
   ld: 'dix mille points de bouclier d\'un bloc, sans tir rapide de personne',
 };
+
+/* ---------- les modèles de défense ---------- */
+
+/* Chaque joueur suit un ratio différent selon son style, et le wiki OGame en
+   recense plusieurs sous « Defense Build Strategies ». Les voici, ramenés à une
+   seule lecture : le nombre de pièces qu'il faut par lanceur de plasma. Le
+   palier que le joueur vise se compte alors en lanceurs de plasma, et tout le
+   reste suit — ce que le wiki écrit « 100 lasers légers » ou « 40 PL » dit la
+   même proportion sous une autre ancre.
+   Les deux boucliers n'y sont pas : le wiki en veut un de chaque, pas une
+   proportion, et `defPlan` les pose hors ratio.
+   Ces modèles ne nourrissent pas le plan du jour. `defMix` garde son propre
+   budget — la moitié d'une nuit de production — parce qu'il dimensionne la
+   défense sur ce qu'un pilleur viendrait prendre, pas sur une cible que le
+   joueur a choisie. Les deux cohabitent, et la carte le dit.
+   ponytail: une table dans le code, pas un fichier de config à charger. Un
+   modèle de plus, c'est une ligne de plus, et rien à empaqueter ni à lire au
+   démarrage. */
+const DEF_MODELES = {
+  framework: {n:'Framework mineur',           r:{rl:40,   ll:25,   hl:10,  ic:0,   gc:4,   pt:1}},
+  balanced:  {n:'Balanced Defense',           r:{rl:20,   ll:100,  hl:10,  ic:20,  gc:10,  pt:5}},
+  vetter:    {n:'Ryan A. Vetter',             r:{rl:270,  ll:180,  hl:45,  ic:15,  gc:5,   pt:1}},
+  turtle:    {n:'Late Game Turtle',           r:{rl:1000, ll:1000, hl:400, ic:100, gc:100, pt:40}},
+  fodder:    {n:'Fodder build-up',            r:{rl:900,  ll:300,  hl:50,  ic:30,  gc:18,  pt:9}},
+  plasma:    {n:'Plasma pur et chair à canon', r:{rl:50,  ll:0,    hl:0,   ic:0,   gc:0,   pt:1}},
+  /* Le ratio du joueur vit dans ses réglages, pas ici : la table reste ce que
+     le wiki dit, et `defRatio` sait où chercher le sien. */
+  perso:     {n:'Personnalisé', r:null},
+};
+/* Les pièces qu'un ratio nomme : tout sauf les deux boucliers. */
+const DEF_RATIO = DEF_ORDER.filter(k=>!DEF[k].un);
+/* Les paliers proposés. Une liste fermée, et pas un champ libre : le menu dit
+   ce que le joueur peut viser, et `sainEtat` n'a qu'elle à vérifier. */
+const DEF_PALIERS = [10, 20, 40, 60];
+
 /* ---------- le tir de lune ---------- */
 
 /* Un tir de lune se chiffre avant de partir, et il se chiffre exactement : la
@@ -5262,6 +5307,94 @@ function defNeed(p, lot){
 }
 /** Le mélange visé en clair : « 120 lanceurs de missiles, 120 lasers légers… ». */
 function defMixList(p){ const m = defMix(p); return m ? shipList(m.cible) : ''; }
+
+/** Le modèle que cette planète suit : le sien d'abord, celui des réglages
+    ensuite. @returns {string} une clé de DEF_MODELES */
+function defModeleK(p){ const k = p && p.defModele; return k && DEF_MODELES[k] ? k : S.settings.defModele; }
+/** Le ratio d'un modèle. Celui du joueur sort de ses réglages. */
+function defRatio(k){ return k === 'perso' ? S.settings.defPerso : (DEF_MODELES[k] || {}).r; }
+/** La pièce qui compte le palier : le lanceur de plasma, ou, si le modèle n'en
+    veut aucun, la première que son ratio nomme. Sans elle, un ratio perso sans
+    plasma ferait diviser par zéro. */
+function defAncre(r){ return r && r.pt > 0 ? 'pt' : (DEF_RATIO.find(k=>r && r[k] > 0) || 'pt'); }
+/** Le palier visé sur cette planète : le sien d'abord. `'fill'` veut dire
+    « compléter autour de ce qui est déjà au sol ». */
+function defPalierDe(p){ const v = p && p.defPalier != null ? p.defPalier : S.settings.defPalier; return v === 'fill' ? 'fill' : num(v, 20); }
+/**
+ * Ce qu'il manque à une planète pour tenir son modèle, pièce par pièce, et ce
+ * que ça coûte. Lecture seule : rien n'est construit, aucune file n'est ouverte.
+ *
+ * Le manque ne descend jamais sous zéro — une planète qui a plus que la cible
+ * porte un excédent, qui compte quand même et ne vient pas rogner le reste du
+ * calcul. Les deux boucliers sortent du ratio : un de chaque, comme le wiki.
+ *
+ * @param {object} p planète
+ * @returns {{modele:string, nom:string, ancre:string, palier:number,
+ *   lignes:Array<{k:string, n:number, cible:number, manque:number, exces:number,
+ *   cout:number[], req:string}>, cout:number[], stock:number[], payable:boolean}|null}
+ *   null quand la défense de cette planète n'a jamais été relevée : zéro et
+ *   « inconnu » ne sont pas la même chose, et annoncer un manque complet
+ *   enverrait le joueur reconstruire ce qui est déjà au sol.
+ */
+function defPlan(p){
+  const have = p && defsOf(p);
+  if(!have) return null;
+  const k = defModeleK(p), r = defRatio(k) || {}, ancre = defAncre(r), vise = defPalierDe(p);
+  /* « Compléter » : c'est ce qui est au sol qui fixe la taille, et le reste du
+     modèle se remet à niveau autour. */
+  const palier = vise === 'fill' ? Math.max(0, have[ancre] || 0) : Math.max(0, vise);
+  const f = r[ancre] > 0 ? palier / r[ancre] : 0;
+  const lignes = DEF_ORDER.map(j=>{
+    const cible = DEF[j].un ? 1 : Math.ceil(num(r[j], 0) * f);
+    const n = Math.max(0, have[j] || 0), manque = Math.max(0, cible - n);
+    return {k:j, n, cible, manque, exces: Math.max(0, n - cible),
+      cout: DEF[j].c.map(x=>x * manque),
+      /* Le prérequis ne se dit que s'il bloque quelque chose : un lanceur de
+         plasma hors de portée sur une planète qui n'en veut pas n'est pas un
+         problème à signaler. */
+      req: manque > 0 && !shipReqOk(j, p) ? defPrereq(j, p) : ''};
+  }).filter(l=>l.cible > 0 || l.n > 0);
+  const cout = [0,1,2].map(i=>lignes.reduce((a,l)=>a + l.cout[i], 0)), stock = stockNow(p);
+  return {modele:k, nom:DEF_MODELES[k].n, ancre, palier, lignes, cout, stock,
+    payable: cout.every((x,i)=>x <= stock[i])};
+}
+/** Ce qui bloque une pièce, en clair : « Chantier spatial 8, Technologie Plasma 7 ». */
+function defPrereq(j, p){
+  const r = DEF[j].r;
+  return Object.entries(r.b).filter(([b,l])=>num(p.b[b]) < l).map(([b,l])=>`${B[b].n} ${l}`)
+    .concat(Object.entries(r.t).filter(([t,l])=>num(S.tech[t]) < l).map(([t,l])=>`${T[t].n} ${l}`))
+    .join(', ');
+}
+/** Une planète dans l'onglet Défense : son modèle, ses pièces, son manque.
+    Les deux menus portent `data-dp` : c'est lui qui distingue la surcharge
+    d'une planète du réglage global, qui n'en a pas. */
+function defCarte(p){
+  const tete = `<div class="row spread"><h2>${esc(p.name)} <span class="note">${esc(p.coords)}</span></h2></div>`;
+  const menus = `<div class="grid">
+      <label class="f">Modèle<select data-def="modele" data-dp="${p.id}"><option value="">Comme les réglages</option>${Object.keys(DEF_MODELES).map(k=>`<option value="${k}" ${p.defModele===k?'selected':''}>${esc(DEF_MODELES[k].n)}</option>`).join('')}</select></label>
+      <label class="f">Palier<select data-def="palier" data-dp="${p.id}"><option value="">Comme les réglages</option>${defPalierOpts(p.defPalier)}</select></label>
+    </div>`;
+  const d = defPlan(p);
+  if(!d) return `<div class="card">${tete}${menus}<p class="note">Défense jamais relevée ici : ouvre la page Défense de cette planète dans le jeu, ou clique Actualiser. Tant qu'elle est inconnue, annoncer un manque reviendrait à faire reconstruire ce qui est déjà au sol.</p></div>`;
+  const exces = d.lignes.filter(l=>l.exces > 0), bloques = d.lignes.filter(l=>l.req);
+  return `<div class="card">${tete}${menus}
+    <p class="note">${esc(d.nom)} · ${d.palier} ${esc(DEF[d.ancre].p)}${defPalierDe(p)==='fill' ? ' déjà au sol' : ''}</p>
+    <div class="tbl-wrap"><table><thead><tr><th>Pièce</th><th class="n">Au sol</th><th class="n">Cible</th><th class="n">Manque</th><th>Coût du manque</th></tr></thead><tbody>
+      ${d.lignes.map(l=>`<tr><td>${esc(DEF[l.k].n)}</td><td class="n">${fmt(l.n)}</td><td class="n">${fmt(l.cible)}</td><td class="n">${l.manque ? fmt(l.manque) : l.exces ? `<span class="note">+${fmt(l.exces)}</span>` : '—'}</td><td>${l.manque ? costHtml(l.cout) : ''}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="row" style="gap:8px;margin-top:8px">${d.cout.some(x=>x > 0)
+      ? `<span class="pill ${d.payable ? 'good' : 'warn'}">${d.payable ? 'Payable avec son stock' : 'Plus que son stock'}</span>${costHtml(d.cout)}`
+      : `<span class="pill good">Le modèle est tenu</span>`}</div>
+    ${exces.length ? `<p class="note">Au-dessus du modèle, et ça compte quand même : ${exces.map(l=>`${fmt(l.exces)} ${esc(DEF[l.k].p)}`).join(', ')}.</p>` : ''}
+    ${bloques.length ? `<p class="pill warn" style="margin-top:8px">Hors de portée pour l'instant : ${bloques.map(l=>`${esc(DEF[l.k].o)} (${esc(l.req)})`).join(' · ')}</p>` : ''}
+  </div>`;
+}
+/** Les paliers d'un menu, le choisi marqué. */
+function defPalierOpts(v){
+  return DEF_PALIERS.map(x=>`<option value="${x}" ${+v===x?'selected':''}>${x}</option>`).join('')
+    + `<option value="fill" ${v==='fill'?'selected':''}>Compléter l'existant</option>`;
+}
+
 /** Ce que cette planète produit entre deux connexions, en métal. */
 function tournee(p){ const r = production(p); return mse(r.m, r.c, r.d) * Math.max(15,+S.day.interval||90)/60; }
 function hubIndex(){ let best=0; S.planets.forEach((p,i)=>{ if(p.b.lab+p.b.shipyard > S.planets[best].b.lab+S.planets[best].b.shipyard) best=i; }); return best; }
@@ -5549,7 +5682,7 @@ const SRV_ROWS = [
 
 /* Un outil retiré laisse son nom dans les réglages du joueur : on ne demande à
    VIEWS que ce qu'il sait encore dessiner. */
-const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['moon','Lune'],['server','Serveur']];
+const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['defense','Défense'],['moon','Lune'],['server','Serveur']];
 function toolTab(){ return TOOLS.some(([k])=>k===S.ui.tool) ? S.ui.tool : 'colony'; }
 
 /** Ce que la carte du centre dit sous la case : le risque que le wiki nomme,
@@ -5952,6 +6085,19 @@ moon(){
     </div>
   </section>`;
 },
+/* Le modèle se choisit dans les Réglages, une fois pour tout l'empire ; ici
+   chaque planète dit ce qu'il lui manque pour le tenir, et peut en prendre un
+   autre. Les deux endroits lisent le même réglage, personne ne le recopie. */
+defense(){
+  const s = S.settings, anc = defAncre(defRatio(s.defModele) || {});
+  return `<section class="panel">
+    <div class="card"><h2>Modèle de défense</h2>
+      <p class="note"><b>${esc(DEF_MODELES[s.defModele].n)}</b> · ${s.defPalier === 'fill' ? 'compléter l\'existant' : `${s.defPalier} ${esc(DEF[anc].p)}`} <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
+      <p class="note">Le modèle donne la proportion entre les pièces, le palier la taille. Rien ne se construit ici, et le plan du jour garde son propre budget : la moitié d'une nuit de production, de quoi rendre le pillage non rentable.</p>
+    </div>
+    ${S.planets.map(defCarte).join('')}
+  </section>`;
+},
 fleet(){
   const ex=S.expo, fc=S.fleetCalc;
   return `<section class="panel">
@@ -6056,6 +6202,15 @@ settings(){
       <div class="grid">
         <label class="f">Ratio d'échange M:C:D<input id="sRatio" data-set="ratio" value="${s.ratio.join(':')}"></label>
       </div>
+    </div>
+    <div class="card"><h2>Modèle de défense</h2>
+      <div class="grid">
+        <label class="f">Modèle<select id="sDefM" data-def="modele">${Object.keys(DEF_MODELES).map(k=>`<option value="${k}" ${s.defModele===k?'selected':''}>${esc(DEF_MODELES[k].n)}</option>`).join('')}</select></label>
+        <label class="f">Palier visé<select id="sDefP" data-def="palier">${defPalierOpts(s.defPalier)}</select><span class="note">En ${esc(DEF[defAncre(defRatio(s.defModele) || {})].p)}. « Compléter » part de ce que la planète a déjà.</span></label>
+      </div>
+      ${s.defModele === 'perso' ? `<div class="grid tight">${DEF_RATIO.map(k=>`<label class="f">${esc(DEF[k].n)}<input id="sDefR-${k}" type="number" min="0" step="1" data-def="${k}" value="${num(S.settings.defPerso[k])}"></label>`).join('')}</div>
+      <p class="note">Combien de pièces par lanceur de plasma. Les deux boucliers restent hors ratio : un de chaque.</p>` : ''}
+      <p class="note">Outils › Défense dit, planète par planète, ce qui manque pour tenir ce modèle et ce que ça coûte. Une planète peut y prendre un autre modèle que celui-ci.</p>
     </div>
     <div class="card"><h2>Allure du panneau</h2>
       <div class="grid">
@@ -6522,6 +6677,26 @@ function bind(){
     else if(k==='coords') S.lune.rendu.coords = el.value.trim();
     else S.lune.rendu[k] = Math.max(0, parseInt(el.value, 10)||0);
     luneTouche(); changed(); }));
+  /* Le modèle de défense passe tout entier par ici : le réglage global, le
+     palier, chaque pièce du ratio perso, et la surcharge d'une planète, que
+     `data-dp` distingue. Un menu vide retire la surcharge plutôt que de poser
+     une valeur : sans ça le joueur ne pourrait plus revenir aux réglages.
+     `render()` et pas `refresh()` : le choix du modèle fait apparaître ou
+     disparaître les cases du ratio, et la carte entière change. */
+  view.querySelectorAll('[data-def]').forEach(el=>el.addEventListener('change',()=>{
+    const k = el.dataset.def, q = el.dataset.dp ? planetById(el.dataset.dp) : null, v = el.value;
+    if(k === 'modele'){
+      if(!q) S.settings.defModele = DEF_MODELES[v] ? v : 'framework';
+      else if(DEF_MODELES[v]) q.defModele = v; else delete q.defModele;
+    }else if(k === 'palier'){
+      const n = v === 'fill' ? 'fill' : DEF_PALIERS.includes(+v) ? +v : null;
+      if(!q) S.settings.defPalier = n == null ? 20 : n;
+      else if(n == null) delete q.defPalier; else q.defPalier = n;
+    /* Le ratio du joueur : des nombres entiers, jamais négatifs. C'est la seule
+       valeur de ce bloc qu'il écrit lui-même, donc la seule à borner. */
+    }else if(DEF_RATIO.includes(k)) S.settings.defPerso[k] = Math.max(0, Math.round(num(v, 0)));
+    S.sample = false; save(); render();
+  }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
   view.querySelectorAll('[data-ship]').forEach(el=>el.addEventListener('input',()=>{ S.fleetCalc.ships[el.dataset.ship]=Math.max(0,parseInt(el.value)||0); changed(); }));
   /* Le presse-papiers du panneau latéral refuse l'écriture dès que le focus est
@@ -6690,6 +6865,20 @@ function sainEtat(){
   if(!S.settings || typeof S.settings !== 'object') S.settings = def.settings;
   const r = Array.isArray(S.settings.ratio) ? S.settings.ratio.map(Number) : [];
   S.settings.ratio = (r.length === 3 && r.every(x => Number.isFinite(x) && x > 0)) ? r : def.settings.ratio;
+
+  /* Le modèle de défense : la clé vient d'un menu, mais aussi d'une
+     sauvegarde ou de l'autre poste, et le ratio perso est le seul endroit du
+     panneau où le joueur écrit des nombres qui repartent dans un `value=""`. */
+  if(!(S.settings.defModele in DEF_MODELES)) S.settings.defModele = def.settings.defModele;
+  if(S.settings.defPalier !== 'fill' && !DEF_PALIERS.includes(num(S.settings.defPalier, -1))) S.settings.defPalier = def.settings.defPalier;
+  const perso = S.settings.defPerso;
+  S.settings.defPerso = perso && typeof perso === 'object'
+    ? Object.fromEntries(DEF_RATIO.map(k=>[k, nb(Math.round(num(perso[k], 0)), 0, 0, 1e7)]))
+    : def.settings.defPerso;
+  for(const q of S.planets || []){
+    if(q.defModele != null && !(q.defModele in DEF_MODELES)) delete q.defModele;
+    if(q.defPalier != null && q.defPalier !== 'fill' && !DEF_PALIERS.includes(num(q.defPalier, -1))) delete q.defPalier;
+  }
 
   if(!S.day || typeof S.day !== 'object') S.day = def.day;
   S.day.interval   = nb(S.day.interval,   def.day.interval,   1, 24*60);

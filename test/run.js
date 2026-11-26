@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -11072,6 +11072,214 @@ t('le pilleur n\'a pas de centre, comme le joueur de flotte', () => {
   assert.equal(app(s => { s.day.focus = 'raid'; }).centreIndex(), -1, 'aucun centre');
   const h = lu(app(s => { s.day.focus = 'raid'; }).VIEWS.planets());
   assert.ok(/Pillage d'inactifs : pas de centre/.test(h), 'et la carte dit pourquoi');
+});
+
+
+/* ---------- le modèle de défense ---------- */
+
+/* Les trois planètes des critères d'acceptation. La première est celle de
+   l'énoncé : 13 lanceurs de plasma, 54 canons de Gauss, et tout le reste du
+   Framework mineur déjà au sol. Les niveaux sont ceux qu'il faut pour que rien
+   ne soit hors de portée, sans quoi le manque se doublerait d'un prérequis. */
+const DEFENSE = s => {
+  s.tech = Object.assign(s.tech, {laser: 12, ion: 5, energy: 8, plasma: 7, weapons: 3, shielding: 6});
+  s.planets[0].b.shipyard = 8;
+  s.planets[0].defs = {rl: 800, ll: 500, hl: 200, ic: 0, gc: 54, pt: 13, sd: 1, ld: 1};
+  s.planets[1].b.shipyard = 8;
+  s.planets[1].defs = {rl: 40, ll: 25, hl: 10, ic: 0, gc: 4, pt: 1, sd: 1, ld: 1};
+  /* Une troisième, nue mais capable : elle montre le manque entier. */
+  s.planets.push({id: 'trois', name: 'Avant-poste', coords: '1:142:4', tmax: 30,
+    b: Object.assign({}, s.planets[1].b, {shipyard: 8}), sats: 0, ships: {}, shipsAt: 0,
+    defs: {}, stock: {m: 5e6, c: 5e6, d: 5e6, at: 0}});
+};
+/** Le manque d'une pièce dans un plan. */
+const dManque = (d, k) => { const l = d.lignes.find(x => x.k === k); return l ? l.manque : null; };
+const dCible = (d, k) => { const l = d.lignes.find(x => x.k === k); return l ? l.cible : null; };
+
+t('les six modèles du wiki sont proposés, plus le perso', () => {
+  const g = app();
+  assert.deepEqual(Object.keys(g.DEF_MODELES),
+    ['framework', 'balanced', 'vetter', 'turtle', 'fodder', 'plasma', 'perso']);
+  assert.equal(g.S.settings.defModele, 'framework', 'et le Framework mineur par défaut');
+});
+
+t('Framework mineur, palier 20 : 7 lanceurs de plasma et 26 Gauss manquent', () => {
+  const g = app(DEFENSE);
+  const d = g.defPlan(g.S.planets[0]);
+  assert.equal(d.nom, 'Framework mineur');
+  assert.equal(dManque(d, 'pt'), 7, '20 visés, 13 au sol');
+  assert.equal(dManque(d, 'gc'), 26, '80 visés, 54 au sol');
+  assert.equal(dManque(d, 'll'), 0, 'les lasers légers sont au complet');
+  assert.equal(dManque(d, 'hl'), 0, 'les lasers lourds aussi');
+  /* Le coût ne compte que le manque : 7 lanceurs de plasma et 26 Gauss. */
+  assert.deepEqual(d.cout, [7 * 50000 + 26 * 20000, 7 * 50000 + 26 * 15000, 7 * 30000 + 26 * 2000]);
+});
+
+t('Balanced Defense change les manques sur la même planète', () => {
+  const g = app(s => { DEFENSE(s); s.settings.defModele = 'balanced'; });
+  const d = g.defPlan(g.S.planets[0]);
+  /* 20 lanceurs de plasma visés sur un modèle qui en veut 5 : facteur 4. */
+  assert.equal(dCible(d, 'ic'), 80, '20 artilleries par lanceur de plasma, facteur 4');
+  assert.equal(dManque(d, 'ic'), 80, 'aucune au sol');
+  assert.equal(dManque(d, 'gc'), 0, '40 visés, 54 au sol');
+  assert.equal(dManque(d, 'pt'), 7);
+});
+
+t('une planète peut prendre un autre modèle que les réglages', () => {
+  const g = app(s => { DEFENSE(s); s.planets[0].defModele = 'plasma'; });
+  const d = g.defPlan(g.S.planets[0]);
+  assert.equal(d.modele, 'plasma', 'la surcharge passe devant le réglage global');
+  assert.equal(dCible(d, 'gc'), 0, 'ce modèle ne veut aucun Gauss');
+  assert.equal(g.defPlan(g.S.planets[1]).modele, 'framework', 'les autres gardent le global');
+});
+
+t('une planète peut aussi prendre son propre palier', () => {
+  const g = app(s => { DEFENSE(s); s.planets[0].defPalier = 40; });
+  assert.equal(dCible(g.defPlan(g.S.planets[0]), 'pt'), 40);
+  assert.equal(dCible(g.defPlan(g.S.planets[1]), 'pt'), 20, 'le global reste à 20');
+});
+
+t('« compléter » cale le palier sur les lanceurs de plasma déjà au sol', () => {
+  const g = app(s => { DEFENSE(s); s.settings.defPalier = 'fill'; });
+  const d = g.defPlan(g.S.planets[0]);
+  assert.equal(d.palier, 13, 'treize au sol, treize visés');
+  assert.equal(dManque(d, 'pt'), 0, 'rien à ajouter de ce côté');
+  assert.equal(dCible(d, 'gc'), 52, '4 Gauss par lanceur de plasma');
+  assert.equal(dManque(d, 'gc'), 0, '54 au sol, 52 suffisent');
+});
+
+t('un excédent s\'affiche sans jamais rogner le calcul', () => {
+  const g = app(s => { DEFENSE(s); s.planets[0].defs.rl = 2000; });
+  const d = g.defPlan(g.S.planets[0]);
+  const l = d.lignes.find(x => x.k === 'rl');
+  assert.equal(l.manque, 0, 'un manque ne devient jamais négatif');
+  assert.equal(l.exces, 1200, '800 visés, 2000 au sol');
+  assert.deepEqual(l.cout, [0, 0, 0], 'et il ne rapporte rien au budget');
+  assert.equal(dManque(d, 'pt'), 7, 'le reste du plan ne bouge pas');
+});
+
+t('les deux boucliers restent hors ratio : un de chaque', () => {
+  const g = app(s => { DEFENSE(s); delete s.planets[0].defs.sd; delete s.planets[0].defs.ld; });
+  const d = g.defPlan(g.S.planets[0]);
+  assert.equal(dCible(d, 'sd'), 1);
+  assert.equal(dCible(d, 'ld'), 1);
+  assert.equal(dManque(d, 'sd'), 1, 'absents, donc demandés');
+  /* Et le modèle plasma pur, qui ne nomme ni l'un ni l'autre, les veut quand même. */
+  const p = g.defPlan(Object.assign({}, g.S.planets[0], {defModele: 'plasma'}));
+  assert.equal(dCible(p, 'ld'), 1);
+});
+
+t('un prérequis manquant est nommé, bâtiment et recherche', () => {
+  const g = app(s => { DEFENSE(s); s.planets[0].b.shipyard = 4; s.tech.plasma = 0; });
+  const l = g.defPlan(g.S.planets[0]).lignes.find(x => x.k === 'pt');
+  assert.ok(/Chantier spatial 8/.test(l.req), 'le chantier : ' + l.req);
+  assert.ok(/Plasma 7/.test(l.req), 'et la recherche : ' + l.req);
+  const h = lu(g.VIEWS.defense());
+  assert.ok(/Hors de portée pour l'instant/.test(h), 'et la carte le dit');
+});
+
+t('un prérequis ne se signale que s\'il bloque quelque chose', () => {
+  // le modèle plasma pur ne veut aucun Gauss : son prérequis absent n'est pas un problème
+  const g = app(s => { DEFENSE(s); s.planets[0].defModele = 'plasma'; s.tech.weapons = 0; });
+  assert.ok(g.defPlan(g.S.planets[0]).lignes.every(l => !l.req), 'rien à signaler');
+});
+
+t('la carte dit si la planète peut payer son manque', () => {
+  const g = app(s => { DEFENSE(s); s.planets[0].stock = {m: 1e9, c: 1e9, d: 1e9, at: 0}; });
+  assert.equal(g.defPlan(g.S.planets[0]).payable, true);
+  const pauvre = app(s => { DEFENSE(s); s.planets[0].stock = {m: 1000, c: 1000, d: 0, at: 0}; });
+  assert.equal(pauvre.defPlan(pauvre.S.planets[0]).payable, false);
+});
+
+t('une défense jamais relevée ne réclame rien', () => {
+  const g = app(s => { DEFENSE(s); delete s.planets[0].defs; delete s.planets[0].def; });
+  assert.equal(g.defPlan(g.S.planets[0]), null, 'inconnu n\'est pas zéro');
+  assert.ok(/jamais relevée/.test(lu(g.defCarte(g.S.planets[0]))), 'et la carte le dit plutôt que de chiffrer');
+});
+
+t('les trois planètes de test sortent chacune leur tableau', () => {
+  const g = app(DEFENSE);
+  const h = lu(g.VIEWS.defense());
+  for (const p of g.S.planets) assert.ok(h.includes(p.name), p.name + ' est dans la carte');
+  assert.ok(/Avant-poste/.test(h));
+  /* La planète nue doit son modèle entier : 800 lanceurs de missiles. */
+  const d = g.defPlan(g.S.planets[2]);
+  assert.equal(dManque(d, 'rl'), 800);
+  assert.equal(dManque(d, 'pt'), 20);
+});
+
+t('le ratio perso se saisit, se valide et voyage avec les réglages', () => {
+  const g = app(s => {
+    DEFENSE(s);
+    s.settings.defModele = 'perso';
+    s.settings.defPerso = {rl: 10, ll: '5', hl: -3, ic: null, gc: 'x', pt: 1};
+  });
+  g.sainEtat();
+  assert.deepEqual(g.S.settings.defPerso, {rl: 10, ll: 5, hl: 0, ic: 0, gc: 0, pt: 1},
+    'des nombres entiers, jamais négatifs');
+  const d = g.defPlan(g.S.planets[0]);
+  assert.equal(dCible(d, 'rl'), 200, '10 par lanceur de plasma, palier 20');
+  assert.equal(dCible(d, 'gc'), 0, 'zéro reste zéro');
+  assert.deepEqual(g.syncOut()['sy:settings'].defPerso, g.S.settings.defPerso,
+    'et il part sur l\'autre poste avec le reste des réglages');
+});
+
+t('un ratio perso sans lanceur de plasma ne divise pas par zéro', () => {
+  const g = app(s => {
+    DEFENSE(s);
+    s.settings.defModele = 'perso';
+    s.settings.defPerso = {rl: 40, ll: 25, hl: 0, ic: 0, gc: 0, pt: 0};
+  });
+  const d = g.defPlan(g.S.planets[0]);
+  assert.equal(d.ancre, 'rl', 'le palier se compte alors en lanceurs de missiles');
+  assert.equal(dCible(d, 'll'), Math.ceil(25 * 20 / 40));
+  assert.ok(d.lignes.every(l => Number.isFinite(l.cible)), 'aucune cible infinie');
+});
+
+t('un modèle ou un palier venus d\'ailleurs sont écartés', () => {
+  const g = app(s => {
+    DEFENSE(s);
+    s.settings.defModele = 'inconnu';
+    s.settings.defPalier = 999;
+    s.planets[0].defModele = '<script>';
+    s.planets[0].defPalier = 7;
+  });
+  g.sainEtat();
+  assert.equal(g.S.settings.defModele, 'framework');
+  assert.equal(g.S.settings.defPalier, 20);
+  assert.equal(g.S.planets[0].defModele, undefined, 'la surcharge douteuse part');
+  assert.equal(g.S.planets[0].defPalier, undefined, 'et le palier hors menu aussi');
+});
+
+t('le palier « compléter » survit à sainEtat', () => {
+  const g = app(s => { DEFENSE(s); s.settings.defPalier = 'fill'; s.planets[0].defPalier = 'fill'; });
+  g.sainEtat();
+  assert.equal(g.S.settings.defPalier, 'fill');
+  assert.equal(g.S.planets[0].defPalier, 'fill');
+});
+
+t('l\'onglet Défense se dessine sans toucher au jeu', () => {
+  const g = app(s => { DEFENSE(s); s.ui.tool = 'defense'; });
+  const h = lu(g.VIEWS.tools());
+  assert.ok(/Modèle de défense/.test(h), 'la carte est là');
+  assert.ok(/Framework mineur/.test(h));
+  assert.ok(!/data-launch|data-sent/.test(h), 'aucun bouton d\'action : lecture seule');
+});
+
+t('les Réglages proposent le modèle, et le ratio perso quand il est choisi', () => {
+  const sans = lu(app(DEFENSE).VIEWS.settings());
+  assert.ok(/Palier visé/.test(sans));
+  assert.ok(!/sDefR-rl/.test(sans), 'pas de cases de ratio hors modèle perso');
+  const avec = lu(app(s => { DEFENSE(s); s.settings.defModele = 'perso'; }).VIEWS.settings());
+  assert.ok(/sDefR-rl/.test(avec), 'une case par pièce du ratio');
+  assert.ok(!/sDefR-sd/.test(avec), 'sauf les boucliers, hors ratio');
+});
+
+t('une sauvegarde d\'avant le modèle de défense en reçoit un', () => {
+  const g = app(s => { DEFENSE(s); delete s.settings.defModele; delete s.settings.defPalier; delete s.settings.defPerso; });
+  assert.equal(g.S.settings.defModele, 'framework');
+  assert.equal(g.S.settings.defPalier, 20);
+  assert.ok(g.defPlan(g.S.planets[0]), 'et le calcul tourne quand même');
 });
 
 if (failures.length) {
