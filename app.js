@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.0.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1943,6 +1943,23 @@ function lfAOuvrir(p, file){
     && (!(v.secs > 0) || !lfCost(v, (v.lvl||0)+1)));
   return e ? e[0] : null;
 }
+/**
+ * Le second arrêt d'une page de forme de vie, quand ses cases viennent juste
+ * d'être lues. La liste des arrêts se fige avant que le relevé commence : sur
+ * une installation neuve, aucune case n'est encore connue, donc aucun arrêt ne
+ * demandait de prix — le relevé entier passait sans en lire un seul, et il
+ * fallait cliquer « Actualiser » une deuxième fois pour que les cartes
+ * « Clique une case » s'en aillent. Une fois la page lue, la case à ouvrir est
+ * là : on y retourne tout de suite.
+ * @param {object} e arrêt qui vient d'être fait
+ * @returns {object|null} l'arrêt de rattrapage, ou null s'il n'y a rien à ouvrir
+ */
+function lfRelance(e){
+  if(!LF_FILE[e.page] || e.tuile) return null;
+  const p = S.planets.find(x => String(x.gid) === String(e.gid));
+  const tuile = p && lfAOuvrir(p, LF_FILE[e.page]);
+  return tuile ? Object.assign({}, e, {tuile, url: e.url + '&openTech=' + encodeURIComponent(tuile)}) : null;
+}
 /** Les arrêts du relevé complet : {gid, page, url}, dans l'ordre. */
 function releveEtapes(filtre){
   /* Les pages de formes de vie n'existent que pour qui en a : sans jamais en
@@ -2057,6 +2074,13 @@ async function faitLeReleve(filtre){
       chrome.runtime.sendMessage({type:'scan', url:e.url});
       const r = await relevePas(e.gid, e.page, e.tuile);
       if(releveEnCours){ releveEnCours.etats.push(r); releveEnCours.fait++; render(); }
+      const rat = releveEnCours && lfRelance(e);
+      if(rat){
+        releveEnCours.total++; render();
+        chrome.runtime.sendMessage({type:'scan', url:rat.url});
+        const r2 = await relevePas(rat.gid, rat.page, rat.tuile);
+        if(releveEnCours){ releveEnCours.etats.push(r2); releveEnCours.fait++; render(); }
+      }
     }
     /* Chaque page visitée déplace la planète courante du côté du jeu, pour
        l'onglet du joueur aussi : le dernier arrêt le remet où il était. */
