@@ -3783,9 +3783,15 @@ t('un numéro de version ne ressert jamais', () => {
   const p = path.join(root, 'dist', 'versions.tsv');
   if (!fs.existsSync(p)) return;
   const ici = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8')).version;
-  const livrees = fs.readFileSync(p, 'utf8').split('\n').filter(Boolean)
-    .map(l => l.split('\t')[0]).slice(1);
-  assert.ok(!livrees.includes(ici),
+  const numeros = fs.readFileSync(p, 'utf8').split('\n').filter(Boolean)
+    .map(l => l.split('\t')[0]);
+  /* La version courante a le droit d'occuper les lignes de tête consécutives :
+     une fusion par commit de fusion reprend le numéro de la tête qu'elle
+     intègre, donc le même numéro s'y répète sans que personne l'ait réutilisé.
+     Ce qui est interdit, c'est qu'il reparaisse après qu'un autre soit passé —
+     là, quelqu'un a repris un numéro déjà dépassé. */
+  let i = 0; while (i < numeros.length && numeros[i] === ici) i++;
+  assert.ok(!numeros.slice(i).includes(ici),
     'la version ' + ici + ' a déjà été livrée : prends le numéro suivant');
 });
 
