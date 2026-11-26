@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.5.1';
+const APP_VERSION = '2.5.2';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -869,6 +869,13 @@ function fleetUrl(a){
   const q = ['page=ingame', 'component=fleetdispatch'];
   if(gid) q.push('cp='+gid);
   q.push('galaxy='+c[0], 'system='+c[1], 'position='+c[2], 'type=1', 'mission='+a.mission);
+  /* L'expédition reste une heure sur place — c'est la durée que le plan
+     chiffre. Arrivé par un lien préparé, le jeu affiche bien « 1 h » mais
+     n'a jamais vu le joueur toucher le menu : il part sans durée, l'envoi
+     échoue, et il faut changer la durée puis revenir pour que ça reparte.
+     On la nomme donc dans le lien. Les deux noms de champ circulent selon
+     les versions du jeu ; celui qu'il ignore ne coûte rien. */
+  if(+a.mission === 15) q.push('expeditiontime=1', 'holdingtime=1');
   for(const [k,n] of Object.entries(a.ships||{})) if(n>0 && SHIP_ID[k]) q.push('am'+SHIP_ID[k]+'='+n);
   return `https://${S.host}/game/index.php?${q.join('&')}`;
 }

@@ -2934,6 +2934,12 @@ t('un rapatriement part en Transporter, un vol à vide en Stationner', () => {
   assert.ok(/mission=3(&|$)/.test(g.actGo(r)), g.actGo(r));
 });
 
+t('le lien d\'expédition porte sa durée d\'une heure', () => {
+  const u = app(relie).actGo({ kind: 'expo', p: 0, dest: '1:142:16', mission: 15, ships: { lc: 10 } });
+  assert.ok(/expeditiontime=1(&|$)/.test(u), 'sinon le jeu part sans durée et refuse l\'envoi : ' + u);
+  assert.ok(/holdingtime=1(&|$)/.test(u), u);
+});
+
 t('sans destination, le lien reste la simple page de flotte', () => {
   assert.equal(app(relie).actGo({ kind: 'fleet', p: 0 }),
     'https://s199-fr.ogame.gameforge.com/game/index.php?page=ingame&component=fleetdispatch&cp=33601');
