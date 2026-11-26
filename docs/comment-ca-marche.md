@@ -311,6 +311,23 @@ OGame, et réinjecte le script de page quand l'extension a été rechargée.
 journée, les missions quotidiennes, et tout l'affichage. Il écrit son état dans
 le stockage local sous la clé `ogame-copilot-v1`.
 
+**`profils.js`** tient le profil de jeu : les cinq styles (Mineur, Turtle,
+Raideur, Fleeter, Explorateur), la classe que chacun conseille, le plan qu'il
+vise, le modèle de défense qu'il pose par défaut, et le poids de chaque
+catégorie de carte — 0 veut dire « ne la montre pas », 3 « mets-la devant ».
+`app.js` ne fait que les appliquer, par `poidsCat(catégorie)` : l'assistant en
+trois questions d'Aujourd'hui pose le style, la classe visée et la présence, et
+les focus ponctuels du panneau ajoutent +2 à leurs catégories sans remplacer le
+style. Changer l'ordre des conseils se fait donc dans ce fichier, pas dans le
+code.
+
+Le style pose trois réglages d'un coup, et aucun ne lui reste attaché : « Ce
+que le plan vise », le modèle de défense (seul le Turtle vise la *Late Game
+Turtle*, les autres le *Framework mineur*) et la classe conseillée. Un modèle
+de défense choisi à la main dans les Réglages n'est jamais réécrit par
+l'assistant — le réglage ne dit pas qui l'a posé, alors le copilote considère
+que tout ce qui s'écarte du modèle du style vient du joueur.
+
 **Le bouton « Actualiser »** (en haut, visible seulement quand le relevé a plus
 de 10 minutes) fait le tour complet : il enchaîne, pour chaque planète, les
 pages Ressources → Paramétrage de production → Chantier → Défense →
