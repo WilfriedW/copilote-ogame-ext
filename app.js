@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.65.0';
+const APP_VERSION = '1.66.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -2095,9 +2095,25 @@ function casesLibres(p){
     Volontairement séparée de pickBuildings : celle-là choisit quoi construire
     et se tait dès qu'une file est occupée ou que des satellites arrivent, ce
     qui est juste pour choisir et faux pour avertir. */
+/* Les quatre bâtiments qui engloutissent des ressources sans rien produire, et
+   que le classement par amortissement ne proposera donc jamais. Ils sont les
+   bons puits pour vider un hangar : chacun sert à quelque chose plus tard — le
+   labo aux recherches, les robots et les nanites à la vitesse des chantiers, le
+   chantier spatial aux vaisseaux.
+   Le Dépôt, le Silo, le Dock et le Terraformeur n'y sont pas : ils coûtent cher
+   mais ne servent qu'à un usage précis, et les proposer pour vider un hangar
+   ferait dépenser un emplacement de planète pour rien. La Fusion non plus : elle
+   mange du deutérium tous les jours, et ce choix-là ne se prend pas pour
+   désaturer un stock. Les hangars eux-mêmes sont écartés : c'est eux qu'on
+   contourne. */
+const PUITS = ['lab', 'robot', 'shipyard', 'nanite'];
+/** Une recherche tourne-t-elle en ce moment ? Le jeu n'en permet qu'une. */
+function rechercheEnCours(){
+  return (S.timers || []).some(t => t.kind === 't' && !t.done && t.end > Date.now());
+}
 /**
  * Ce qui vide le plus vite la ressource `j` ici, parmi ce qui est payable tout
- * de suite : montée de bâtiment ou case de forme de vie.
+ * de suite. La plus grosse dépense d'abord.
  *
  * Un hangar plus grand n'est pas la réponse quand le stock est DÉJÀ au plafond.
  * Il met des heures à monter, et la production reste à l'arrêt tout ce
@@ -2105,24 +2121,49 @@ function casesLibres(p){
  * Ce qui redémarre la production, c'est dépenser — et dépenser gros, pour que
  * le plafond ne revienne pas dans l'heure.
  *
- * Les montées qui demandent une centrale en plus (`extraSolar`) sont écartées :
- * leur coût est celui du paquet, et le pas réel est la centrale, pas la mine.
+ * Quatre familles, et chacune a sa raison d'être traitée à part :
+ *  - les mines et la centrale passent par `rankUpgrades`, qui sait ce qu'une
+ *    montée oblige à payer en centrale ; celles qui en demandent une
+ *    (`extraSolar`) sont écartées, le pas réel étant la centrale, pas la mine ;
+ *  - les quatre puits de `PUITS` se lisent en direct : aucun ne consomme
+ *    d'énergie, donc rien à arbitrer ;
+ *  - les cases de forme de vie, par `lfCandidates`, qui tient déjà leurs prix ;
+ *  - les recherches, mais seulement depuis la planète du labo — le jeu les paie
+ *    là — et seulement si aucune ne tourne, puisqu'il n'en permet qu'une.
  * @param {object} p planète, réelle ou simulée
  * @param {number} j 0 métal, 1 cristal, 2 deutérium
  * @param {number[]} st le stock au sol — `stockNow(p)` sur une vraie planète,
  *   `p.st` sur une copie simulée
- * @returns {{what:string, cost:number[], k?:string, lvl?:number}|null}
+ * @returns {{kind:string, what:string, cost:number[], k?:string, lvl?:number}[]}
+ *   la plus grosse dépense en premier ; vide quand rien n'est payable
  */
-function plusGrosseDepense(p, j, st){
-  const payable = c => [0,1,2].every(i => c[i] <= st[i]);
+function depensesPayables(p, j, st){
+  const payable = c => c[j] > 0 && [0,1,2].every(i => c[i] <= st[i]);
   const out = [];
-  for(const u of rankUpgrades(p))
-    if(B[u.key] && !u.extraSolar && u.cost[j] > 0 && payable(u.cost))
-      out.push({what:`${B_SHORT[u.key]} ${u.lvl}`, k:u.key, lvl:u.lvl, cost:u.cost});
+  /* Chaque niveau de bâtiment prend un emplacement : sur une planète pleine le
+     jeu refuse tout, et un chantier proposé là serait un mensonge. Sans relevé
+     des emplacements, `casesLibres` rend null et rien ne change. */
+  if(casesLibres(p) !== 0){
+    for(const u of rankUpgrades(p))
+      if(B[u.key] && !u.extraSolar && payable(u.cost))
+        out.push({kind:'b', what:`${B_SHORT[u.key]} ${u.lvl}`, k:u.key, lvl:u.lvl, cost:u.cost});
+    for(const k of PUITS){
+      if(reqOk(B[k].req, p).length) continue;
+      const lvl = (p.b[k] || 0) + 1, c = levelCost(B[k], lvl);
+      if(payable(c)) out.push({kind:'b', puits:true, what:`${B_SHORT[k]} ${lvl}`, k, lvl, cost:c});
+    }
+  }
   for(const q of ['lfbuilding','lfresearch'])
     for(const c of lfCandidates(p, q))
-      if(c.cost[j] > 0 && payable(c.cost)) out.push({what:`${c.nom} ${c.next}`, cost:c.cost});
-  return out.sort((a,b)=>b.cost[j]-a.cost[j])[0] || null;
+      if(payable(c.cost)) out.push({kind:'lf', what:`${c.nom} ${c.next}`, cost:c.cost});
+  const lab = labPlanet();
+  if(lab && lab.id === p.id && !rechercheEnCours())
+    for(const k of Object.keys(T)){
+      if(reqOk(T[k].req, p).length) continue;
+      const lvl = (S.tech[k] || 0) + 1, c = levelCost(T[k], lvl);
+      if(payable(c)) out.push({kind:'t', what:`${T[k].n} ${lvl}`, k, lvl, cost:c});
+    }
+  return out.sort((a,b)=>b.cost[j]-a.cost[j]);
 }
 function planetAlerts(p){
   const out = [], pr = production(p), st = stockNow(p), r = rankUpgrades(p);
@@ -2156,8 +2197,8 @@ function planetAlerts(p){
       /* Au plafond, le hangar arrive trop tard : il met des heures à sortir et
          la production ne repart pas avant. Ce qui la relance, c'est le plus
          gros chantier payable ici. */
-      const d = plusGrosseDepense(p, k, st);
-      out.push({sev:'bad', what:`${name} plein${where}`, why:`La production de ${NOM_RES[k]} est arrêtée. ${d ? `Lance ${d.what} : c'est le plus gros chantier payable tout de suite ici, ${fmt(d.cost[k])} de ${NOM_RES[k]} d'un coup.` : `Rien n'est payable ici pour la vider : fais partir un transport.`} Monter ${name} ${p.b[bk]+1} prend ${dur(mont)}, et la production reste à l'arrêt jusque-là.`});
+      const d = depensesPayables(p, k, st)[0];
+      out.push({sev:'bad', what:`${name} plein${where}`, why:`La production de ${NOM_RES[k]} est arrêtée. ${d ? `Lance ${d.what} : c'est la plus grosse dépense payable tout de suite ${d.kind === 't' ? 'depuis ton labo' : 'ici'}, ${fmt(d.cost[k])} de ${NOM_RES[k]} d'un coup.` : `Rien n'est payable ici pour la vider : fais partir un transport.`} Monter ${name} ${p.b[bk]+1} prend ${dur(mont)}, et la production reste à l'arrêt jusque-là.`});
     }
     // Le délai couvre le temps de montée du hangar, et au moins huit heures :
     // l'avertissement doit sortir assez tôt pour que le hangar soit MONTÉ avant
@@ -2897,12 +2938,28 @@ function pickBuildings(p, ctx){
   /* Deux régimes, deux gestes. Avant la saturation, le hangar — mais assez tôt
      pour être MONTÉ avant le plafond : son propre temps de construction fait
      partie du délai, sinon la carte sortait le jour où il était déjà trop tard.
-     Au plafond, le hangar n'y peut plus rien (voir plusGrosseDepense) : on
+     Au plafond, le hangar n'y peut plus rien (voir depensesPayables) : on
      dépense, et le plus gros chantier payable passe devant. */
   for(let j=0;j<3;j++){
     if(!(rates[j]>0)) continue;
     if(p.st[j] >= pr.cap[j]*.98){
-      const d = plusGrosseDepense(p, j, p.st);
+      /* Le plan ne pose ici que des chantiers : une recherche ou une case de
+         forme de vie suit sa propre file, et l'alerte de la planète, elle, les
+         nomme toutes.
+         Et il ne pose qu'une montée productive — une mine, la centrale : elle
+         vide le stock ET produit davantage, donc le plafond met plus longtemps
+         à revenir. Les puits de `PUITS` sont écartés ici, même quand ils sont
+         plus chers. Deux raisons, et la seconde est la vraie :
+           — classer sur le seul prix faisait monter « Chantier spatial 8 » tous
+             les deux tours sur une planète sans vaisseaux à construire, et la
+             défense n'avait plus rien ;
+           — quand aucune mine n'est payable, c'est que le hangar plafonne le
+             stock SOUS le prix du niveau suivant. Le hangar est alors la bonne
+             réponse, et la seule : il relève le plafond jusqu'à ce que la mine
+             devienne payable. Un puits payé à sa place reporte le problème d'un
+             tour. On laisse donc le hangar sortir — l'alerte de la planète, qui
+             conseille et ne pose rien, nomme le puits et la recherche en plus. */
+      const d = depensesPayables(p, j, p.st).find(x => x.kind === 'b' && !x.puits);
       /* Même garde que le secours d'énergie juste au-dessus : des satellites
          déjà en chantier apportent l'énergie, et une centrale de plus serait
          payée pour rien — même pour vider un hangar. */

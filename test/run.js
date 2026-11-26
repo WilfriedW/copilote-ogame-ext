@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -3987,6 +3987,45 @@ t('au plafond, le plan met le gros chantier devant le hangar', () => {
   const hangar = c.findIndex(x => x.k === 'smetal');
   assert.ok(vide >= 0, 'un chantier sort pour vider le métal : ' + JSON.stringify(c.map(x => [x.k, x.why])));
   assert.ok(hangar < 0 || vide < hangar, 'et il passe devant le hangar : ' + JSON.stringify(c.map(x => x.k)));
+});
+
+t('l\'alerte du plafond nomme le puits quand c\'est la plus grosse depense', () => {
+  // Sur la planète mère, Robots 7 coûte 25 600 de métal, plus que Métal 15
+  // (17 515) : c'est lui qui vide le hangar le plus vite.
+  const g = app(ENERGIE);
+  const a = g.planetAlerts(g.S.planets[0]).find(x => /Hangar de métal plein/.test(x.what));
+  assert.ok(/Lance Robots 7/.test(a.why), 'le puits passe devant la mine : ' + a.why);
+});
+
+t('la plus grosse depense compte les recherches, depuis le labo seulement', () => {
+  const g = app(ENERGIE);
+  const [mere, colo] = g.S.planets;
+  const d = g.depensesPayables(mere, 0, [120000, 60000, 18000]);
+  assert.ok(d.some(x => x.kind === 't'), 'le labo est ici, les recherches comptent : ' + JSON.stringify(d.map(x => x.what)));
+  // Le jeu paie une recherche depuis la planète du labo : ailleurs, en proposer
+  // une ferait dépenser un stock qui n'est pas celui-là.
+  const ailleurs = g.depensesPayables(colo, 0, [120000, 60000, 18000]);
+  assert.ok(!ailleurs.some(x => x.kind === 't'), 'pas de recherche depuis une colonie sans labo');
+});
+
+t('une recherche en cours ecarte les recherches de la liste', () => {
+  // Le jeu n'en permet qu'une : en proposer une seconde serait un chantier que
+  // le joueur ne peut pas lancer.
+  const g = app(s => { ENERGIE(s); s.timers = [{ kind: 't', k: 'energy', lvl: 4, end: SOIR + 36e5 }]; });
+  const d = g.depensesPayables(g.S.planets[0], 0, [120000, 60000, 18000]);
+  assert.ok(!d.some(x => x.kind === 't'), 'aucune recherche tant que la première tourne : ' + JSON.stringify(d.map(x => x.what)));
+});
+
+t('au plafond, le plan ne pose qu\'une montee productive', () => {
+  // L'alerte conseille le puits, le plan ne le pose pas : « Chantier spatial 8 »
+  // tous les deux tours affamait la défense, et quand aucune mine n'est payable
+  // c'est le hangar qu'il faut, lui seul relève le plafond.
+  const g = app(ENERGIE);
+  const p = Object.assign({}, g.S.planets[0], { st: [120000, 60000, 18000] });
+  const c = g.pickBuildings(p, { T: SOIR, iv: 1.5, goals: [] }).find(x => /au plafond/.test(x.why || ''));
+  assert.ok(c, 'un chantier sort pour vider le métal');
+  assert.ok(['metal', 'crystal', 'deut', 'solar'].includes(c.k),
+    'et c\'est une montée productive, pas un puits : ' + c.k);
 });
 
 t('le hangar se propose assez tot pour etre monte avant le plafond', () => {
