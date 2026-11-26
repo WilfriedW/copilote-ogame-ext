@@ -10,6 +10,20 @@ cd "$(dirname "$0")"
 FICHIERS="README.md manifest.json background.js boot.js ids.js profils.js content.js app.js sidepanel.html panel.css icon32.png icon128.png oxanium.woff2 plex-sans.woff2 jetbrains-mono.woff2"
 rm -rf dist && mkdir dist
 cp $FICHIERS dist/
+
+# L'historique des versions, que Réglages › Version affiche : une ligne par
+# commit, et c'est l'empreinte du commit qu'on passe à `git checkout` pour
+# revenir en arrière. Une ligne par commit et non par version : le numéro est
+# bourré à presque chaque fois, mais deux commits de suite peuvent porter le
+# même. Ce numéro ne vit pas dans le message mais dans le manifeste, d'où le
+# `git show` par ligne. Tabulé et non JSON : un sujet de commit à guillemets casserait un JSON
+# écrit au shell, une tabulation, il n'en porte pas. `|| :` parce qu'un dépôt
+# sans git ne doit pas empêcher de construire — la carte dira juste qu'il n'y a
+# pas d'historique.
+{ git log -n 40 --date=short --pretty=format:'%h%x09%ad%x09%s' | while IFS="$(printf '\t')" read -r h d s; do
+    v=$(git show "$h:manifest.json" 2>/dev/null | sed -n 's/.*"version" *: *"\([^"]*\)".*/\1/p' | head -1)
+    printf '%s\t%s\t%s\t%s\n' "${v:-?}" "$d" "$h" "$s"
+  done; } > dist/versions.tsv 2>/dev/null || :
 rm -f copilote-ogame.zip
 (cd dist && zip -qr ../copilote-ogame.zip .)
 

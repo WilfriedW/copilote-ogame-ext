@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -3346,6 +3346,72 @@ t('le manifeste donné au joueur reste du JSON, sans notre clé', () => {
   const m = JSON.parse(coupe);
   assert.ok(!m.key, 'la clé survit à la découpe de pack.sh');
   assert.equal(m.version, JSON.parse(brut).version, 'la découpe a emporté autre chose que la clé');
+});
+
+/* ---------- version, historique, mise à jour ---------- */
+
+t('une version se compare nombre par nombre, pas comme une chaîne', () => {
+  const g = app();
+  assert.ok(g.plusRecente('2.9.0', '2.10.0'), '2.10.0 vient après 2.9.0, ce que l\'ordre des chaînes dit à l\'envers');
+  assert.ok(!g.plusRecente('2.10.0', '2.9.0'));
+  assert.ok(g.plusRecente('2.4.0', '2.4.1'));
+  assert.ok(!g.plusRecente('2.4.0', '2.4.0'), 'la même version n\'est pas plus récente');
+  assert.ok(g.plusRecente('2.4', '2.4.1'), 'un numéro plus court se complète par des zéros');
+  assert.ok(!g.plusRecente('3.0.0', '2.99.99'));
+});
+
+t('la carte Version dit quoi taper quand le dépôt est devant', () => {
+  const g = app();
+  const h = lu(g.versionCard('9.9.9', []));
+  assert.match(h, /v9\.9\.9/, 'la version du dépôt est annoncée');
+  assert.match(h, /git pull && \.\/pack\.sh/, 'la commande à taper, telle quelle');
+  assert.match(h, /chrome:\/\/extensions/, 'et le rechargement, que la commande ne fait pas');
+});
+
+t("la carte Version ne réclame rien quand le panneau est à jour", () => {
+  const g = app();
+  const h = lu(g.versionCard('0.0.1', []));
+  assert.ok(!/git pull/.test(h), 'un dépôt en retard sur le panneau ne demande pas de mise à jour');
+  assert.match(h, /dernière du dépôt/);
+});
+
+t("la carte Version ne prétend pas être à jour quand le dépôt est muet", () => {
+  const g = app();
+  const h = lu(g.versionCard(null, []));
+  assert.ok(!/dernière du dépôt/.test(h), 'réseau coupé : le panneau ne sait pas, et le dit');
+  assert.match(h, /n'a pas pu être lue/);
+});
+
+t("l'historique liste chaque version avec son empreinte, et l'échappe", () => {
+  const g = app();
+  const h = g.versionCard(null, [['2.4.0', '2026-11-26', '2e4e020', 'feat: <b>gras</b> & co']]);
+  assert.match(h, /v2\.4\.0/);
+  assert.match(h, /2e4e020/, 'l\'empreinte est là : c\'est ce qu\'on passe à git checkout');
+  assert.match(lu(h), /git checkout/, 'et la commande pour y revenir');
+  assert.ok(!/<b>gras<\/b>/.test(h), 'un sujet de commit est du texte, pas du HTML');
+});
+
+t("sans historique, la carte Version le dit au lieu de montrer un vide", () => {
+  const g = app();
+  assert.match(lu(g.versionCard(null, [])), /au prochain <code>\.\/pack\.sh/);
+});
+
+t('dist/versions.tsv porte quatre colonnes par version', () => {
+  /* Le fichier est écrit au shell par pack.sh et relu par le panneau : une
+     colonne de travers et l'historique disparaît sans rien dire (le filtre
+     jette les lignes courtes). Rien à vérifier tant que dist/ n'existe pas. */
+  const fs = require('fs'), path = require('path');
+  const p = path.join(__dirname, '..', 'dist', 'versions.tsv');
+  if (!fs.existsSync(p)) return;
+  const lignes = fs.readFileSync(p, 'utf8').split('\n').filter(Boolean);
+  assert.ok(lignes.length, 'dist/versions.tsv est vide : pack.sh n\'a rien pu lire de git');
+  for (const l of lignes) {
+    const c = l.split('\t');
+    assert.equal(c.length, 4, 'ligne mal formée : ' + l);
+    assert.match(c[0], /^\d+\.\d+\.\d+$/, 'le numéro de version : ' + l);
+    assert.match(c[1], /^\d{4}-\d{2}-\d{2}$/, 'la date : ' + l);
+    assert.match(c[2], /^[0-9a-f]{7,}$/, 'l\'empreinte : ' + l);
+  }
 });
 
 t('un dist/ déjà construit ne reste pas en retard sur le dépôt', () => {

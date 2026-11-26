@@ -13,7 +13,8 @@
     "downloads"
   ],
   "host_permissions": [
-    "https://*.ogame.gameforge.com/*"
+    "https://*.ogame.gameforge.com/*",
+    "https://raw.githubusercontent.com/WilfriedW/copilote-ogame-ext/*"
   ],
   "background": {
     "service_worker": "background.js"
