@@ -240,6 +240,8 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 .acts>li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;align-items:center;background:var(--surface-2);border-radius:var(--r-sm);padding:9px 12px}
 .acts .q{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .acts .w{font-weight:600;overflow-wrap:anywhere}
+/* La raison, sous le quoi faire : une phrase, le reste reste derrière le ⓘ. */
+.acts .but{font-size:12px;line-height:1.35;color:var(--muted);overflow-wrap:anywhere;margin-top:1px}
 .acts .btns{display:flex;gap:6px;align-items:center}
 .acts .m{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)}
 .acts li.wait{background:transparent;border:1px dashed var(--line)}

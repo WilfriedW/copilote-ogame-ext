@@ -1,6 +1,11 @@
 
-const APP_VERSION = '2.6.3';
+const APP_VERSION = '2.6.5';
 const KEY = 'ogame-copilot-v1';
+/** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
+let VERSIONS = [];
+/** La version du dépôt, quand on a pu la lire. */
+let MAJ = null;
+
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
 const B = {
@@ -3473,7 +3478,7 @@ function simulateDay(){
       tryResearch('pre');
       if(wantColony && !sim.colShip && sim.tech.impulse>=3 && dep.b.shipyard>=4 && dep.sq<=Tm && !(dep.bq>Tm && dep.bqKey==='shipyard')){
         const c = COL_SHIP_COST, key='ship:col', mine = goals.find(g=>g.key===key);
-        if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*ecoSpeed())*3600, fin=Tm+d*1000; dep.sq=fin; sim.colShip=true; sim.colReady=fin; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'', cost:c, dur:d, end:fin, kind:'ship', p:dep.i}); }
+        if(can(dep,c,reserveOf(dep,Tm,mine))){ pay(dep,c); dropGoal(key); const d=(c[0]+c[1])/(2500*(1+dep.b.shipyard)*Math.pow(2,dep.b.nanite)*ecoSpeed())*3600, fin=Tm+d*1000; dep.sq=fin; sim.colShip=true; sim.colReady=fin; acts.push({q:'Chantier spatial · '+planetRef(dep), what:'1 Vaisseau de colonisation', why:'Sans lui, pas de planète de plus : il porte la colonie choisie dans Outils › Colonie.', cost:c, dur:d, end:fin, kind:'ship', p:dep.i}); }
         else {
           /* La carte que la priorité écarte le plus souvent : sans `heldBy`,
              le vaisseau n'était jamais construit et sa ligne ne disait pas un
@@ -3544,7 +3549,14 @@ function simulateDay(){
         if(libres-garde<=0) break;
         if(!dst || q===dst || (q.transferAt||0)>Tm) continue;
         const pr = production(q), want = [0,0,0];
-        for(const g of goals) if(g.p===dst) g.cost.forEach((x,j)=>want[j]=Math.max(want[j], x-dst.st[j]));
+        /* Les objectifs servis sont nommés : sans eux la carte annonçait un
+           tonnage sans dire à quoi il allait. */
+        const pour = [];
+        for(const g of goals) if(g.p===dst){
+          let utile = false;
+          g.cost.forEach((x,j)=>{ const d = x-dst.st[j]; if(d>0) utile = true; want[j]=Math.max(want[j], d); });
+          if(utile) pour.push(g.label);
+        }
         /* Le manque d'une planète bridée est un besoin comme un objectif : sans
            lui ici, la destination changeait et rien ne partait. */
         const secours = bridees.includes(dst);
@@ -3585,7 +3597,13 @@ function simulateDay(){
         // et les vaisseaux ne seraient plus là pour charger. C'est ce premier
         // trajet qu'on annonce, et le minuteur prévient quand ils se posent.
         const charge = `${fmt(sent[0])} M, ${fmt(sent[1])} C, ${fmt(sent[2])} D`;
-        const motif = secours ? `${planetRef(dst)} tourne au ralenti faute d'énergie et n'a pas de quoi payer sa centrale · ` : '';
+        /* Trois raisons possibles d'un rapatriement, dans l'ordre où elles
+           priment : le secours d'une planète à l'arrêt, un objectif qui épargne
+           à destination, et sinon des hangars qui se remplissent ici. L'une des
+           trois est vraie, sans quoi `want` serait vide et rien ne partirait. */
+        const motif = (secours ? `${planetRef(dst)} tourne au ralenti faute d'énergie et n'a pas de quoi payer sa centrale.`
+          : pour.length ? `${planetRef(dst)} épargne pour ${pour.join(' et ')} et n'y arrive pas seule.`
+          : `Les hangars de ${planetRef(q)} se remplissent : ces ressources travaillent mieux sur ${planetRef(dst)}.`) + ' ';
         acts.push(own
           ? {q:'Flotte · '+planetRef(q), what:`Rapatrier vers ${planetRef(dst)} : ${charge}`,
              why:`${motif}${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${hm(arrive)}`,
@@ -3609,7 +3627,7 @@ function simulateDay(){
         const ret = Tm + total*1000, out = Object.assign({}, f.ships);
         expoBusy.push(ret);
         sim.ev.push({at:ret, fn:()=>{ for(const [k,n] of Object.entries(out)){ p.ships[k]=(p.ships[k]||0)+n; sim.away[k]-=n; } }});
-        acts.push({q:'Flotte · '+planetRef(p), what:'Expédition : '+shipList(f.ships), why:`vers ${tgt}, retour vers ${hm(ret)} · ${fmt(fuel)} deut · soute ${fmt(f.cargo)} pour ${fmt(f.cap)} max`, cost:c, dur:total, end:ret, kind:'expo', ships:out, p:p.i, dest:tgt, mission:15});
+        acts.push({q:'Flotte · '+planetRef(p), what:'Expédition : '+shipList(f.ships), why:`Ramène des ressources, parfois des vaisseaux, pour ${fmt(fuel)} deut de carburant · vers ${tgt}, retour vers ${hm(ret)} · soute ${fmt(f.cargo)} pour ${fmt(f.cap)} max`, cost:c, dur:total, end:ret, kind:'expo', ships:out, p:p.i, dest:tgt, mission:15});
       }
       for(const p of P){
         if(p.b.shipyard<1 || p.sq>Tm) continue;
@@ -3857,16 +3875,38 @@ function copyChips(a){
    un <details> ne sait pas séparer son résumé de son corps, d'où ce repli à la
    main. `button` est déjà exclu du clic qui ouvre le jeu : le ⓘ ne navigue pas. */
 let whyN = 0;
-/** @returns {string[]} [le bouton ⓘ, le texte replié] — vides s'il n'y a rien à dire. */
+/* La raison tient en une phrase : c'est elle que la carte montre, sous le quoi
+   faire. Le reste — les chiffres, le détail du trajet, ce que le lien fait —
+   attend toujours derrière le ⓘ. Chaque `why` commence donc par sa raison,
+   et `whyLead` n'en garde que la première phrase, jamais plus d'une ligne. */
+/** @returns {string} la première phrase d'un pourquoi, vide s'il n'y en a pas. */
+function whyLead(s){
+  const t = String(s||'').trim(); if(!t) return '';
+  const i = t.search(/(?:[.!?](?=\s)|\s·\s)/);
+  let out = i > 0 ? t.slice(0, i+1).trim() : t;
+  if(out.length > 120) out = out.slice(0, 119).replace(/\s+\S*$/, '') + '…';
+  return out.replace(/[\s·]+$/, '');
+}
+/** @returns {string[]} [le bouton ⓘ, le texte replié, la raison en une phrase]. */
 function whyParts(parts){
   const p = parts.filter(Boolean);
-  if(!p.length) return ['', ''];
+  if(!p.length) return ['', '', ''];
+  const lead = whyLead(p[0]);
+  // Un ⓘ qui rouvrirait la phrase déjà lue sur la carte ne sert à rien.
+  if(p.length === 1 && lead === p[0]) return ['', '', lead];
   const id = 'why' + (++whyN);
+  /* Le repli ne redit pas la phrase que la carte porte déjà : il reprend le
+     premier pourquoi à partir d'où elle s'arrête. Sans ça, ouvrir le ⓘ relit
+     la même ligne avant d'arriver aux chiffres, et c'est pour les chiffres
+     qu'on l'ouvre. */
+  const reste = p[0].startsWith(lead) ? p[0].slice(lead.length).replace(/^[\s·.]+/, '') : p[0];
+  const corps = (reste ? [reste] : []).concat(p.slice(1));
   return [`<button class="i" type="button" aria-expanded="false" aria-controls="${id}" aria-label="Pourquoi cette action">ⓘ</button>`,
-    `<div class="why" id="${id}" hidden>${p.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`];
+    `<div class="why" id="${id}" hidden>${corps.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`,
+    lead];
 }
 function actHtml(a, withBtn){
-  const [wi, wb] = whyParts([a.why,
+  const [wi, wb, lead] = whyParts([a.why,
     a.src==='estimé' ? 'Prix et durée estimés d\'après les niveaux déjà vus, pas lus sur le jeu ; la durée est probablement sous-estimée.' : a.src==='lu' && a.at ? `Prix lu à ${hm(a.at)}.` : '',
     goNote(a)]);
   const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', copyChips(a)].filter(Boolean).join('');
@@ -3874,7 +3914,7 @@ function actHtml(a, withBtn){
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,pid:(S.planets[a.p]||{}).id,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
   if(withBtn && NO_KINDS[a.kind]) btn = `<span class="btns">${btn}${noBtn(moveKey(a.kind, (S.planets[a.p]||{}).id, a.dest))}</span>`;
-  return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div></div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
+  return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div>${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
 }
 
 /* ---------- mise à l'abri ---------- */
@@ -6508,6 +6548,7 @@ settings(){
       <div class="row"><button class="btn" id="ioImport">Importer le texte collé</button></div>
       ${noCount() ? `<div class="row" style="margin-top:8px">${noRestore()}<span class="note">Un « Non » met la carte de côté jusqu'à ce que tu la remettes.</span></div>` : ''}
     </div>
+    ${versionCard()}
     <div class="card"><h2>Fiabilité des calculs</h2>
       <p class="note">Formules communautaires (wiki OGame, forum officiel). Production, coûts et temps de vol sont stables depuis des années. Moins sûrs : la production de deutérium (formule des univers récents, dépend de la température max), la durée des bâtiments de niveau 1 à 5, et les plafonds d'expédition. Compare une fois avec ton jeu et ajuste les réglages si besoin.</p>
     </div>
@@ -7759,3 +7800,84 @@ chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.night
 armeNuit();
 finDeNuit();
 nightBar();
+
+/* ---------- version, historique, mise à jour ---------- */
+
+/* Deux choses que le dépôt sait et que le panneau ignorait : d'où il vient, et
+   s'il est en retard. L'historique est écrit par ./pack.sh dans `versions.tsv`,
+   une ligne par commit : c'est son empreinte qu'on passe à `git checkout` pour
+   revenir en arrière. La version du dépôt se lit sur son manifeste public.
+   Ni l'un ni l'autre n'installe quoi que ce soit : une extension ne peut pas
+   écrire dans son propre dossier, et le manifeste v3 lui interdit d'exécuter du
+   code distant. Le panneau dit donc quoi taper, et s'arrête là. */
+
+const DEPOT_MANIFEST = 'https://raw.githubusercontent.com/WilfriedW/copilote-ogame-ext/main/manifest.json';
+/** On ne redemande pas la version du dépôt plus souvent que ça. */
+const MAJ_TTL = 6 * 3600e3;
+
+/**
+ * Vrai si `b` est une version plus récente que `a`. Nombre par nombre :
+ * l'ordre des chaînes mettrait « 2.10.0 » avant « 2.9.0 ».
+ * @param {string} a @param {string} b
+ */
+function plusRecente(a, b){
+  const n = v => String(v).split('.').map(x => parseInt(x, 10) || 0);
+  const x = n(a), y = n(b);
+  for(let i = 0; i < Math.max(x.length, y.length); i++){
+    const xi = x[i] || 0, yi = y[i] || 0;
+    if(yi !== xi) return yi > xi;
+  }
+  return false;
+}
+
+/**
+ * La carte Réglages › Version : où en est ce panneau, et quoi taper pour le
+ * déplacer. Les deux lectures sont passées en argument pour que le test puisse
+ * poser un dépôt en avance sans attendre le réseau.
+ */
+function versionCard(maj = MAJ, vers = VERSIONS){
+  const retard = maj && plusRecente(APP_VERSION, maj);
+  const etat = retard ? `Le dépôt est en <b>v${esc(maj)}</b>.`
+    : maj ? 'C\'est la dernière du dépôt.'
+    : 'La version du dépôt n\'a pas pu être lue.';
+  return `<div class="card"><h2>Version</h2>
+    <p class="note">Ce panneau tourne en <b>v${esc(APP_VERSION)}</b>. ${etat}</p>
+    ${retard ? `<p class="pill warn">v${esc(maj)} disponible</p>
+    <p class="note">Depuis le dépôt : <code>git pull &amp;&amp; ./pack.sh</code>. Depuis le zip : retélécharge-le et remplace le dossier. Puis « Recharger » sur <code>chrome://extensions</code>.</p>` : ''}
+    ${vers.length ? `<details${fold('vers', false)}><summary class="note" data-fold="vers">Historique des versions (${vers.length})</summary>
+      <ul class="list" style="margin-top:8px">${vers.map(([v,d,h,s])=>`<li><div><b>v${esc(v)}</b> <span class="note">${esc(d)}</span><br><span class="note">${esc(s)}</span></div><code>${esc(h)}</code></li>`).join('')}</ul>
+      <p class="note" style="margin-top:8px">Revenir à l'une d'elles : <code>git checkout <i>empreinte</i> &amp;&amp; ./pack.sh</code>, puis « Recharger ». Une version plus ancienne relit un stockage écrit par la nouvelle : garde un <code>save.json</code> d'avant sous la main.</p>` : `<p class="note">L'historique arrive au prochain <code>./pack.sh</code>.</p>`}
+  </div>`;
+}
+
+/** Ce que la version du dépôt change à l'écran, qu'elle sorte du réseau ou du
+    stockage. Le numéro vit dans l'en-tête, que le panneau étroit cache : sans
+    le toast, une version neuve ne se verrait qu'en ouvrant les réglages. */
+function annonceMaj(){
+  if(plusRecente(APP_VERSION, MAJ)) toast(`v${MAJ} disponible`);
+  if(tab === 'settings') render();
+}
+
+/* Les deux lectures se font une fois, à l'ouverture du panneau. Hors de
+   l'extension — la page de démonstration, le harnais de test — `getURL`
+   n'existe pas et il n'y a rien à lire. */
+if(IS_EXT && chrome.runtime.getURL) (function(){
+  fetch(chrome.runtime.getURL('versions.tsv')).then(r => r.ok ? r.text() : '').then(t => {
+    VERSIONS = t.split('\n').map(l => l.split('\t')).filter(c => c.length >= 4);
+    if(VERSIONS.length && tab === 'settings') render();
+  }).catch(()=>{});
+  /* Le fichier est public et demandé sans identifiant ni cookie, mais une
+     requête à chaque ouverture du panneau dirait quand même à GitHub à quelle
+     heure ce joueur joue, jour après jour. La réponse est donc gardée six
+     heures, et le reste du temps le panneau affiche ce qu'il sait déjà. */
+  chrome.storage.local.get(['majAt', 'majVer'], d => {
+    if(d.majVer){ MAJ = d.majVer; annonceMaj(); }
+    if(d.majAt && Date.now() - d.majAt < MAJ_TTL) return;
+    fetch(DEPOT_MANIFEST, {credentials:'omit'}).then(r => r.ok ? r.json() : null).then(m => {
+      if(!m || !m.version) return;
+      MAJ = m.version;
+      try{ chrome.storage.local.set({majAt: Date.now(), majVer: MAJ}); }catch(e){}
+      annonceMaj();
+    }).catch(()=>{});
+  });
+})();

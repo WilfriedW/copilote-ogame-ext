@@ -34,6 +34,19 @@ hors du Store : laisse-le, il ne casse rien.
 
 Ensuite il se tient à jour tout seul au fil de ta navigation.
 
+## Mettre à jour
+
+**Réglages › Version** dit en quelle version tourne le panneau, si le dépôt en
+a une plus récente, et liste les versions passées — date, empreinte du commit
+et ce qu'elle apportait. Pour prendre la dernière : refais l'installation
+ci-dessus avec le nouveau zip, puis **Recharger** sur `chrome://extensions`.
+Tes données restent, elles ne vivent pas dans le dossier.
+
+Depuis le dépôt, c'est `git pull && ./pack.sh`, puis **Recharger**. Pour
+revenir à une version passée, `git checkout` son empreinte et `./pack.sh` —
+mais une version plus ancienne relit un stockage écrit par la nouvelle, donc
+garde un `save.json` d'avant sous la main.
+
 ## À savoir
 
 **Il faut jouer en français.** Le Copilote lit le tableau de production, les
@@ -44,7 +57,9 @@ files continuent de marcher, mais ces quatre-là restent vides sans rien dire.
 Tes données ne sortent jamais de ton navigateur : elles sont rangées dans le
 stockage local de l'extension. Rien n'est envoyé nulle part. Le seul appel
 réseau va à l'API publique de ton univers, celle que tout le monde peut lire,
-pour le classement — sans aucun identifiant.
+pour le classement — sans aucun identifiant. À l'ouverture, le panneau lit
+aussi le numéro de version du dépôt public sur GitHub, pour te dire s'il en
+existe une plus récente : un fichier public, sans identifiant ni cookie.
 
 **Réglages › Sauvegarde › Enregistrer dans un fichier** écrit `save.json`, et
 **Charger un fichier…** le relit. C'est comme ça qu'on porte ses réglages d'un
