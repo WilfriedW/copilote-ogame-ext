@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.6.3';
+const APP_VERSION = '2.6.4';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -7812,6 +7812,8 @@ nightBar();
    code distant. Le panneau dit donc quoi taper, et s'arrête là. */
 
 const DEPOT_MANIFEST = 'https://raw.githubusercontent.com/WilfriedW/copilote-ogame-ext/main/manifest.json';
+/** On ne redemande pas la version du dépôt plus souvent que ça. */
+const MAJ_TTL = 6 * 3600e3;
 
 /**
  * Vrai si `b` est une version plus récente que `a`. Nombre par nombre :
@@ -7848,6 +7850,14 @@ function versionCard(maj = MAJ, vers = VERSIONS){
   </div>`;
 }
 
+/** Ce que la version du dépôt change à l'écran, qu'elle sorte du réseau ou du
+    stockage. Le numéro vit dans l'en-tête, que le panneau étroit cache : sans
+    le toast, une version neuve ne se verrait qu'en ouvrant les réglages. */
+function annonceMaj(){
+  if(plusRecente(APP_VERSION, MAJ)) toast(`v${MAJ} disponible`);
+  if(tab === 'settings') render();
+}
+
 /* Les deux lectures se font une fois, à l'ouverture du panneau. Hors de
    l'extension — la page de démonstration, le harnais de test — `getURL`
    n'existe pas et il n'y a rien à lire. */
@@ -7856,14 +7866,18 @@ if(IS_EXT && chrome.runtime.getURL) (function(){
     VERSIONS = t.split('\n').map(l => l.split('\t')).filter(c => c.length >= 4);
     if(VERSIONS.length && tab === 'settings') render();
   }).catch(()=>{});
-  /* Un fichier public, sans identifiant ni cookie : le dépôt ne peut pas savoir
-     qui regarde. `no-store` parce qu'une version mise en cache ne sert à rien. */
-  fetch(DEPOT_MANIFEST, {cache:'no-store', credentials:'omit'}).then(r => r.ok ? r.json() : null).then(m => {
-    if(!m || !m.version) return;
-    MAJ = m.version;
-    /* Le numéro vit dans l'en-tête, que le panneau étroit cache : sans ce
-       passage, une nouvelle version ne se verrait qu'en ouvrant les réglages. */
-    if(plusRecente(APP_VERSION, MAJ)) toast(`v${MAJ} disponible`);
-    if(tab === 'settings') render();
-  }).catch(()=>{});
+  /* Le fichier est public et demandé sans identifiant ni cookie, mais une
+     requête à chaque ouverture du panneau dirait quand même à GitHub à quelle
+     heure ce joueur joue, jour après jour. La réponse est donc gardée six
+     heures, et le reste du temps le panneau affiche ce qu'il sait déjà. */
+  chrome.storage.local.get(['majAt', 'majVer'], d => {
+    if(d.majVer){ MAJ = d.majVer; annonceMaj(); }
+    if(d.majAt && Date.now() - d.majAt < MAJ_TTL) return;
+    fetch(DEPOT_MANIFEST, {credentials:'omit'}).then(r => r.ok ? r.json() : null).then(m => {
+      if(!m || !m.version) return;
+      MAJ = m.version;
+      try{ chrome.storage.local.set({majAt: Date.now(), majVer: MAJ}); }catch(e){}
+      annonceMaj();
+    }).catch(()=>{});
+  });
 })();
