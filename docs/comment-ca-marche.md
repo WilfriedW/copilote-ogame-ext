@@ -761,7 +761,7 @@ clic droit la corrige comme avant.
 
 | Champ | Valeurs | Effet |
 |---|---|---|
-| Bâtiment | les 17 bâtiments | Celui que la pose vise |
+| Bâtiment ou forme de vie | les 17 bâtiments, puis les cases de forme de vie relevées | Celle que la pose vise |
 | Niveau visé | entier ≥ 1, vide tant que rien n'est tapé | Le niveau posé sur chaque planète cochée |
 | Une case par planète | cochée par défaut | Décochée, la planète ne reçoit rien — **et le reste pour ce bâtiment-là seulement** |
 | Poser sur N planètes | bouton | Pose, et dit combien |
@@ -772,6 +772,14 @@ actuel, puis `→ 43` si elle monte, « déjà à 45 » si elle y est, « déjà
 derniers cas **ne sont pas posés et ne comptent pas** : la carte ne fait que
 monter un niveau visé, jamais le descendre, et ne retire jamais rien. Un champ
 vide ne pose donc rien non plus.
+
+**Les formes de vie sont dans la même liste**, sous leur nom, dans un groupe
+à part sous les bâtiments. Elles n'y figurent que si le relevé les a vues :
+leurs prix changent d'une espèce à l'autre et ne sont écrits nulle part dans
+le copilote, c'est la page de ton espèce dans le jeu qui les apprend. Une
+planète d'une autre espèce n'a pas la case, et une planète pas encore relevée
+n'en a aucune : ces lignes-là disent « pas relevée ici » et ne reçoivent rien,
+plutôt que de recevoir une priorité qui ne correspond à rien chez elles.
 
 La mémoire des planètes décochées est **locale à ce navigateur** : elle ne
 voyage pas d'un poste à l'autre, contrairement aux priorités elles-mêmes.

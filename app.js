@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.63.8';
+const APP_VERSION = '1.63.9';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -406,7 +406,27 @@ function poseK(){
   const k = poseEtat().k;
   /* hasOwnProperty et non `in` : « __proto__ » appartient à tout objet, et une
      sauvegarde abîmée ferait lire p.b['__proto__'] — jamais un niveau. */
-  return Object.prototype.hasOwnProperty.call(B, k) ? k : 'metal';
+  if(Object.prototype.hasOwnProperty.call(B, k)) return k;
+  /* Une case de forme de vie se désigne par son identifiant, et seulement si
+     l'empire l'a relevée : un nombre inventé viserait une case qui n'existe
+     nulle part, et la carte poserait dans le vide. Le nombre, et non la
+     chaîne venue du select, parce que c'est lui qui distingue ensuite les
+     deux genres de case. */
+  return poseLfIds().includes(+k) ? +k : 'metal';
+}
+/* Les cases de forme de vie que l'empire a vues, une fois chacune. Elles ne
+   sont pas dans B — leurs prix changent d'une espèce à l'autre et s'apprennent
+   au relevé —, donc la liste vient du relevé et non d'une table. */
+function poseLfIds(){
+  return [...new Set(S.planets.flatMap(lfIds))].sort((a, b) => a - b);
+}
+/* Le genre de la case en cours : 'lf' pour une forme de vie, 'b' sinon. */
+function poseKind(k){ return typeof k === 'number' ? 'lf' : 'b'; }
+/* Son nom. Celui du relevé d'abord : c'est celui de la partie en cours. */
+function poseNom(k){
+  if(poseKind(k) === 'b') return B[k].n;
+  const v = ((S.planets.find(p => lfIds(p).includes(k)) || {}).lf || {})[k] || {};
+  return v.nom || v.name || LF_NAMES[k] || ('Forme de vie ' + k);
 }
 /* Le niveau que le joueur vise, ou NaN tant qu'il n'a rien tapé. */
 function poseVise(){ return parseInt(poseEtat().lvl); }
@@ -422,14 +442,18 @@ function poseHors(k){ const h = poseEtat().hors[k]; return Array.isArray(h) ? h 
     planète qui visait 50 abaisserait ce que le joueur a posé à la main, et
     rien ici ne se défait. */
 function poseLignes(){
-  const k = poseK(), hors = poseHors(k), vise = poseVise();
+  const k = poseK(), kind = poseKind(k), hors = poseHors(k), vise = poseVise();
   return S.planets.map(p => {
+    /* Une case de forme de vie n'existe pas partout : l'espèce diffère d'une
+       planète à l'autre, et une planète pas encore relevée n'en a aucune. On
+       ne pose pas une priorité sur une case que cette planète n'a pas. */
+    const ici = kind === 'b' || lfIds(p).includes(k);
     /* num() et non `|| 0` : un niveau venu d'une sauvegarde abîmée est une
        chaîne, et la carte l'interpole sans esc comme tout niveau du panneau. */
-    const actuel = num(p.b[k]), coche = !hors.includes(p.id);
-    const brut = prioLvl('b', p.id, k), deja = brut === '' ? null : brut;
-    return {pid: p.id, name: p.name, coords: p.coords, actuel, deja, coche,
-            agit: coche && vise > actuel && !(deja != null && deja >= vise)};
+    const actuel = num(prioActuel(kind, p.id, k)), coche = !hors.includes(p.id);
+    const brut = prioLvl(kind, p.id, k), deja = brut === '' ? null : brut;
+    return {pid: p.id, name: p.name, coords: p.coords, actuel, deja, coche, ici,
+            agit: ici && coche && vise > actuel && !(deja != null && deja >= vise)};
   });
 }
 /** Pose le niveau visé sur les planètes cochées, et rend combien en ont reçu.
@@ -439,7 +463,7 @@ function poseLignes(){
     tout ce que le joueur a posé tuile par tuile. */
 function posePartout(){
   const k = poseK(), lvl = poseVise(), agissent = poseLignes().filter(x => x.agit);
-  for(const x of agissent) prioPose('b', x.pid, k, lvl);
+  for(const x of agissent) prioPose(poseKind(k), x.pid, k, lvl);
   return agissent.length;
 }
 /* Cocher et décocher, hors du gestionnaire : la carte est le seul écrivain de
@@ -5312,7 +5336,12 @@ function lfPosePaliers(p){
     moments, et dépliée elle pousserait l'empire hors de l'écran. */
 function poseBloc(){
   const k = poseK(), l = poseLignes(), n = l.filter(x => x.agit).length, vise = poseVise();
-  const options = Object.keys(B).map(j => `<option value="${j}" ${j===k?'selected':''}>${esc(B[j].n)}</option>`).join('');
+  const vies = poseLfIds();
+  /* Les formes de vie dans leur propre groupe, à la suite des bâtiments :
+     mêlées à eux elles seraient présentes sans être trouvables — le reproche
+     qui leur a déjà valu leur bloc à elles dans la grille des niveaux. */
+  const options = Object.keys(B).map(j => `<option value="${j}" ${j===k?'selected':''}>${esc(B[j].n)}</option>`).join('')
+    + (vies.length ? `<optgroup label="Formes de vie">${vies.map(id => `<option value="${id}" ${id===k?'selected':''}>${esc(poseNom(id))}</option>`).join('')}</optgroup>` : '');
   /* Une seule pastille par ligne, et elle dit pourquoi. Deux pastilles
      indépendantes — le niveau déjà visé d'un côté, la flèche de l'autre — se
      lisaient comme deux faits séparés, jamais comme « ton 50 va devenir 43 ».
@@ -5320,18 +5349,19 @@ function poseBloc(){
      sur chaque ligne ne répétait que le nombre d'à côté. */
   const lignes = l.map(x => {
     const etat = !x.coche ? '<span class="note">décochée</span>'
+      : !x.ici ? '<span class="note">pas relevée ici</span>'
       : !(vise > 0) ? ''
       : x.agit ? `<b class="mono">→ ${vise}</b>`
       : x.deja != null && x.deja >= vise ? `<span class="note">déjà visé ${x.deja}</span>`
       : `<span class="note">déjà à ${x.actuel}</span>`;
     return `<li><label class="row" style="gap:8px"><input type="checkbox" data-posep="${esc(x.pid)}" ${x.coche?'checked':''} style="width:auto">
       <span><b>${esc(x.name)}</b> <span class="note">${esc(x.coords)}</span></span></label>
-      <span class="row" style="gap:8px"><span class="mono note">${B_SHORT[k]} ${x.actuel}</span>${etat}</span></li>`;
+      <span class="row" style="gap:8px"><span class="mono note">${esc(poseKind(k) === 'b' ? B_SHORT[k] : poseNom(k))} ${x.ici ? x.actuel : '—'}</span>${etat}</span></li>`;
   }).join('');
   return `<details class="card"${fold('pose', false)}><summary data-fold="pose">Poser sur toutes les planètes <span class="note">${n} planète${n>1?'s':''}</span></summary>
     <p class="note" style="margin:8px 0 0">Le même niveau visé sur toutes les planètes cochées, d'un coup. Chaque planète garde ensuite sa priorité à elle : le clic droit dans le jeu la corrige comme avant. Les planètes décochées le restent pour ce bâtiment.</p>
     <div class="grid" style="margin-top:8px">
-      <label class="f">Bâtiment<select data-pose="k">${options}</select></label>
+      <label class="f">Bâtiment ou forme de vie<select data-pose="k">${options}</select></label>
       <label class="f">Niveau visé<input type="number" min="1" data-pose="lvl" value="${vise > 0 ? vise : ''}" placeholder="43"></label>
     </div>
     <ul class="list" style="margin-top:8px">${lignes}</ul>

@@ -7321,7 +7321,10 @@ t('une priorité venue de l\'autre poste se retire comme les autres', () => {
 
 t('les cases de forme de vie relevées entrent dans la grille des niveaux', () => {
   const g = app(s => { s.planets[0].lf = { 11102: { lvl: 7, state: 'ok' }, 11101: { lvl: 3, state: 'ok' } }; });
-  const h = g.VIEWS.planets();
+  /* Après la carte de pose : depuis qu'elle propose les cases de forme de vie,
+     elle nomme « Secteur résidentiel » avant la grille, et un indexOf pris sur
+     la vue entière mesurerait sa liste déroulante au lieu de la grille. */
+  const h = g.VIEWS.planets().split('data-posego').pop();
   /* Dans l'ordre du jeu : les clés entières s'énumèrent en ordre croissant,
      quel que soit l'ordre où le relevé les a posées. */
   assert.ok(h.indexOf('Secteur résidentiel') < h.indexOf('Ferme biosphérique'), 'rangées par identifiant');
@@ -10390,6 +10393,53 @@ t('des décochées au mauvais type ne gèlent pas Empire', () => {
   const g = app(s => { s.ui.pose = {k:'metal', lvl:43, hors:{metal:3}}; });
   assert.deepEqual(g.poseLignes().map(x => x.coche), [true, true]);
   assert.ok(lu(g.VIEWS.planets()).includes('Poser sur toutes les planètes'));
+});
+
+/* ---------- et les formes de vie, dans la même carte ---------- */
+/* Les cases de forme de vie ne sont pas dans B : leurs prix changent d'une
+   espèce à l'autre, et c'est le relevé qui les nomme. La liste se construit
+   donc de ce que l'empire a vu. Une planète d'une autre espèce n'a pas la
+   case : la carte le dit, au lieu de poser une priorité dans le vide. */
+
+const VIE = s => {
+  s.planets[0].lf = { 11101: { lvl: 3, nom: 'Secteur résidentiel' }, 11102: { lvl: 1, nom: 'Ferme biosphérique' } };
+  s.planets[1].lf = { 11101: { lvl: 0, nom: 'Secteur résidentiel' } };
+};
+
+t('la liste de la carte propose les cases de forme de vie relevées', () => {
+  const g = app(s => { VIE(s); POSE('metal', 43)(s); });
+  const h = lu(g.poseBloc());
+  assert.ok(h.includes('Secteur résidentiel'), h);
+  assert.ok(h.includes('Ferme biosphérique'), h);
+});
+
+t('une case de forme de vie se pose sur toutes les planètes', () => {
+  const g = app(s => { VIE(s); POSE(11101, 21)(s); });
+  assert.deepEqual(g.poseLignes().map(x => x.actuel), [3, 0]);
+  assert.equal(g.posePartout(), 2);
+  assert.equal(g.prioLvl('lf', 'mere', 11101), 21);
+  assert.equal(g.prioLvl('lf', 'colo', 11101), 21);
+});
+
+t("une planète qui n'a pas la case ne la reçoit pas", () => {
+  const g = app(s => { VIE(s); POSE(11102, 21)(s); });
+  assert.deepEqual(g.poseLignes().map(x => x.agit), [true, false]);
+  assert.equal(g.posePartout(), 1);
+  assert.equal(g.prioLvl('lf', 'colo', 11102), '');
+  assert.ok(lu(g.poseBloc()).includes('pas relevée ici'));
+});
+
+t('une case de forme de vie inconnue retombe sur la mine de métal', () => {
+  const g = app(s => { VIE(s); POSE(11999, 21)(s); });
+  assert.equal(g.poseK(), 'metal');
+});
+
+t('une planète décochée pour une case de forme de vie reste cochée pour la mine', () => {
+  const g = app(s => { VIE(s); POSE(11101, 21)(s); });
+  g.poseCoche('colo', false);
+  assert.deepEqual(g.poseLignes().map(x => x.coche), [true, false]);
+  g.S.ui.pose.k = 'metal';
+  assert.deepEqual(g.poseLignes().map(x => x.coche), [true, true]);
 });
 
 /* ---------- l'horloge du plan : une file occupée reste occupée ---------- */
