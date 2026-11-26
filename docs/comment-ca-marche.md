@@ -756,7 +756,45 @@ attend le prochain échange, comme une priorité dans le même cas.
   nombre, le coût et la durée de chantier ; tu lances le chantier. Faire entrer
   des vaisseaux de combat dans l'arbitrage du plan demande ses propres garde-fous.
 
-### 6.12 Empire — par planète
+### 6.12 Réglages › Modèle de défense, et Outils › Défense
+
+Un ratio de défense est un style : le mineur, le turtle, l'anti-RIP n'ont pas
+les mêmes proportions. Les six modèles du wiki (« Defense Build Strategies »)
+sont proposés, plus un ratio que tu écris toi-même, et chaque planète peut en
+prendre un autre que le réglage global.
+
+| Réglage | Clé | Valeurs | Défaut | Effet |
+|---|---|---|---|---|
+| Modèle | `settings.defModele` | Framework mineur · Balanced Defense · Ryan A. Vetter · Late Game Turtle · Fodder build-up · Plasma pur et chair à canon · Personnalisé | **Framework mineur** | La proportion entre les pièces |
+| Palier visé | `settings.defPalier` | 10 · 20 · 40 · 60 · *compléter l'existant* | **20** | La taille, en lanceurs de plasma. « Compléter » prend ceux qui sont déjà au sol et remet le reste du modèle à niveau autour |
+| Ratio personnalisé | `settings.defPerso` | un entier ≥ 0 par pièce | *(celui du Framework mineur)* | Visible seulement quand le modèle « Personnalisé » est choisi |
+| Modèle de cette planète | `defModele` sur la planète | les mêmes, ou vide | *(celui des réglages)* | **Passe devant le réglage global** |
+| Palier de cette planète | `defPalier` sur la planète | les mêmes, ou vide | *(celui des réglages)* | Idem |
+
+Les trois premiers **suivent sur ton autre poste** avec le reste des réglages.
+Les deux surcharges vivent sur la planète, donc sur ce poste-ci.
+
+Outils › Défense donne alors, planète par planète : ce qui est au sol, la cible
+du modèle, le manque pièce par pièce, et le coût du manque en métal, cristal et
+deutérium — avec une pastille qui dit si le stock de la planète suffit.
+
+Trois choses qu'il faut savoir lire :
+
+- **L'excédent n'est pas un manque.** Une planète au-dessus du modèle l'affiche
+  comme tel et ne vient jamais rogner le reste du calcul.
+- **Les deux boucliers sortent du ratio.** Le wiki en veut un de chaque, pas une
+  proportion : la cible est 1, toujours.
+- **Un prérequis manquant est nommé** — « lanceur de plasma (Chantier spatial 8,
+  Technologie Plasma 7) » — et seulement s'il bloque une pièce que le modèle
+  demande vraiment.
+
+Cette carte ne construit rien et n'ouvre aucune file : c'est une calculatrice,
+comme Outils › Flotte. **Le plan du jour garde son propre budget**, la moitié
+d'une nuit de production (§ 2.8) : il dimensionne la défense sur ce qu'un
+pilleur viendrait prendre, pas sur une cible que tu as choisie. Les deux
+cohabitent, et la carte le dit.
+
+### 6.13 Empire — par planète
 
 | Champ | Valeurs | Effet |
 |---|---|---|
@@ -773,7 +811,7 @@ Dépôt de ravitaillement, Silo, Terraformeur et Dock ne produisent ni ne
 stockent : **le classement par amortissement ne les propose jamais de
 lui-même**. Ils sont là pour que tu puisses les viser.
 
-### 6.13 Empire — poser sur toutes les planètes
+### 6.14 Empire — poser sur toutes les planètes
 
 Une carte repliée, en haut d'Empire, qui pose le **même niveau visé** sur
 plusieurs planètes d'un coup. Elle ne remplace pas le clic droit dans le jeu ni
@@ -879,14 +917,14 @@ laboratoire en chantier empêche de chercher depuis cette planète-là, et depui
 elle seule. Un labo qui monte sur une colonie ne retient donc pas les
 recherches de ton centre ; c'est le labo du centre qui les retient.
 
-### 6.14 Empire — recherches
+### 6.15 Empire — recherches
 
 15 technologies, chacune avec son **niveau** et son **niveau visé** : Énergie,
 Laser, Ions, Hyperespace, Plasma, Combustion, Impulsion, Propulsion
 hyperespace, Espionnage, Ordinateur, Astrophysique, Réseau intergalactique,
 Armes, Bouclier, Protection des vaisseaux.
 
-### 6.15 Réglages implicites (par clic, pas par formulaire)
+### 6.16 Réglages implicites (par clic, pas par formulaire)
 
 | Geste | Où | Ce que ça règle |
 |---|---|---|
@@ -898,7 +936,7 @@ Armes, Bouclier, Protection des vaisseaux.
 | Replier / déplier une carte | Aujourd'hui | Mémorisé (`ui.fold`) |
 | Onglet d'Outils | Outils | Mémorisé (`ui.tool`) |
 
-### 6.16 Ce qui n'est pas réglable — les choix figés
+### 6.17 Ce qui n'est pas réglable — les choix figés
 
 À connaître, parce que ce sont eux qui décident quand aucun réglage ne parle :
 
@@ -920,7 +958,7 @@ Armes, Bouclier, Protection des vaisseaux.
 | Sondes au centre | 5 | Pour espionner les inactifs |
 | Seuil de rapatriement | 5 000 ressources, ou hangar à plus de 70 % | En dessous, aucun vol |
 
-### 6.17 Fiabilité annoncée des calculs
+### 6.18 Fiabilité annoncée des calculs
 
 Le panneau le dit lui-même, dernière carte de Réglages : les formules viennent
 du wiki et du forum officiel. **Stables** : production, coûts, temps de vol.
