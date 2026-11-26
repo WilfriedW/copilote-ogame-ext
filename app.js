@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.66.4';
+const APP_VERSION = '1.66.5';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -557,6 +557,21 @@ function poseChamp(quoi, valeur){
   if(quoi === 'lvl') u.lvl = n > 0 ? n : '';
   else u.k = valeur;
 }
+/** Le rang d'une priorité dans la file de sa planète — « rang 2 sur 3 » —, et
+    rien quand elle y est seule : un « rang 1 sur 1 » sur chaque ligne ne dirait
+    que ce que l'absence des autres dit déjà.
+    « Elle attend son tour, derrière Mine de métal 43 » ne nomme que celle qui
+    agit : à trois, le joueur ne savait pas s'il était deuxième ou dernier.
+    Deux files par planète, jamais une seule. Les bâtiments et les recherches
+    partagent la leur — une recherche se range sur le centre et y prend le tour
+    —, les cases de forme de vie ont la leur, qui ne gèle pas la planète. */
+function prioOrdre(kind, pid, k){
+  const file = (kind === 'lf' ? priosLf() : prios()).filter(x => x.pid === pid);
+  if(file.length < 2) return '';
+  const i = file.findIndex(x => x.k === k);
+  return i < 0 ? '' : `rang ${i + 1} sur ${file.length}`;
+}
+const prioRangHtml = (kind, pid, k) => { const r = prioOrdre(kind, pid, k); return r ? ` <span class="note">${r}</span>` : ''; };
 /* Ce qu'une ligne du bloc ajoute quand un second palier attend derrière. */
 function prioSuite(kind, pid, k, lvl){
   const e = (S.prio || []).find(x => x && x.kind === kind && x.k === k && (kind === 't' || x.pid === pid));
@@ -636,11 +651,11 @@ function prioHtml(plan){
     const p = planetById(x.pid), d = dits.get(`${x.kind}:${x.pid}:${x.k}`) || {};
     const nom = x.kind === 'b' ? B_SHORT[x.k] : T[x.k].n;
     const etat = nuit ? '' : [d.etat, d.recoit ? 'Les rapatriements de l\'empire vont vers elle.' : ''].filter(Boolean).join(' ');
-    return li(x.kind === 'b' ? esc(p.name) : 'Recherche', `${esc(nom)} ${x.lvl}${prioSuite(x.kind, x.pid, x.k, x.lvl)}`, etat, x.kind === 'b' ? prioRef('b', x.pid, x.k) : prioRef('t', x.k));
+    return li(x.kind === 'b' ? esc(p.name) : 'Recherche', `${esc(nom)} ${x.lvl}${prioSuite(x.kind, x.pid, x.k, x.lvl)}${prioRangHtml(x.kind, x.pid, x.k)}`, etat, x.kind === 'b' ? prioRef('b', x.pid, x.k) : prioRef('t', x.k));
   }).concat(lf.map(x => {
     const p = planetById(x.pid), v = (p.lf || {})[x.k] || {};
     const nom = v.nom || v.name || LF_NAMES[x.k] || `Forme de vie ${x.k}`;
-    return li(esc(p.name), `${esc(nom)} ${x.lvl}${prioSuite('lf', x.pid, x.k, x.lvl)}`, prioLfEtat(p, x, nuit), prioRef('lf', x.pid, x.k));
+    return li(esc(p.name), `${esc(nom)} ${x.lvl}${prioSuite('lf', x.pid, x.k, x.lvl)}${prioRangHtml('lf', x.pid, x.k)}`, prioLfEtat(p, x, nuit), prioRef('lf', x.pid, x.k));
   }), at.map(d => {
     /* nom est du texte lu dans le DOM du jeu : il passe par esc, comme tout ce qui vient de là. */
     const quoi = d.lvl === 0 ? 'Retrait demandé' : `Niveau ${d.lvl} demandé`;

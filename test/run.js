@@ -10588,6 +10588,48 @@ t('une planète décochée pour un rang reste cochée pour la mine', () => {
   assert.deepEqual(g.poseLignes().map(x => x.coche), [true, true]);
 });
 
+/* ---------- l'ordre des cibles, écrit ---------- */
+/* « Elle attend son tour, derrière Mine de métal 43 » ne nomme que celle qui
+   agit : à trois priorités sur une planète, on ne savait pas si on était
+   deuxième ou dernier. Chaque ligne porte donc son rang — et deux files par
+   planète, jamais une seule : les cases de forme de vie ne prennent pas le
+   tour des bâtiments. */
+
+t('deux priorités sur une planète portent leur rang', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:43},
+                                 {kind:'b', pid:'mere', k:'lab', lvl:12}]; });
+  const h = lu(g.prioHtml());
+  assert.ok(h.includes('rang 1 sur 2'), h);
+  assert.ok(h.includes('rang 2 sur 2'), h);
+});
+
+t("une priorité seule sur sa planète n'annonce aucun rang", () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:43},
+                                 {kind:'b', pid:'colo', k:'metal', lvl:43}]; });
+  assert.ok(!lu(g.prioHtml()).includes('rang '), 'une par planète : rien à départager');
+});
+
+t('une recherche prend son rang sur le centre', () => {
+  // Une recherche n'appartient à aucune planète : prios() la range sur le
+  // centre, et elle y prend le tour comme un bâtiment.
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:43},
+                                 {kind:'t', k:'energy', lvl:10}]; });
+  const h = lu(g.prioHtml());
+  assert.ok(h.includes('rang 1 sur 2'), h);
+  assert.ok(h.includes('rang 2 sur 2'), h);
+});
+
+t('les formes de vie comptent dans leur propre file', () => {
+  const g = app(s => { DEUX_ESPECES(s);
+    s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:43},
+              {kind:'lf', pid:'mere', k:11101, lvl:21},
+              {kind:'lf', pid:'mere', k:11102, lvl:21}]; });
+  const h = lu(g.prioHtml());
+  assert.ok(h.includes('rang 1 sur 2'), h);
+  assert.ok(h.includes('rang 2 sur 2'), h);
+  assert.ok(!h.includes('sur 3'), 'le bâtiment ne grossit pas la file des formes de vie');
+});
+
 /* ---------- quand rien ne se pose, la carte dit pourquoi ---------- */
 /* Le joueur voit une planète au niveau 12 sous un objectif de 21 et un bouton
    éteint : il en conclut que la carte est cassée, alors qu'elle a déjà fait le
