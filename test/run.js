@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -11013,29 +11013,199 @@ t('un labo qui monte ailleurs ne retient aucune recherche', () => {
     'le centre cherche pendant qu\'une colonie monte son labo');
 });
 
-/* ---------- la question du profil, posée une fois ---------- */
+/* ---------- le profil de jeu ---------- */
 
-t('tant que le joueur n\'a pas dit comment il joue, la question est en tête', () => {
-  const h = lu(app(s => { s.day.focusSet = false; }).VIEWS.today());
-  assert.ok(/Tu joues comment/.test(h), 'la carte est là');
-  for (const k of ['equi', 'ecocol', 'eco', 'fleet', 'raid'])
-    assert.ok(h.includes(`data-focus="${k}"`), `le choix ${k} est proposé`);
+/** Un profil posé, répondu : le cas d'un joueur qui a passé l'assistant. */
+const PROFIL = (style, extra) => s => {
+  s.profil = Object.assign({style, classe: '', activite: 'regulier', focus: [], set: true}, extra || {});
+};
+
+t('l\'assistant s\'ouvre au premier lancement, en tête d\'Aujourd\'hui', () => {
+  const h = lu(app().VIEWS.today());
+  assert.ok(/Tu joues comment/.test(h), 'la première question est là');
+  assert.ok(/Étape 1 sur 3/.test(h), 'et elle se dit première sur trois');
+  for (const k of ['mineur', 'turtle', 'raideur', 'fleeter', 'explorateur'])
+    assert.ok(h.includes(`data-pstyle="${k}"`), `le style ${k} est proposé`);
   assert.ok(h.indexOf('Tu joues comment') < h.indexOf('Maintenant'),
     'avant la carte du moment, pas après');
 });
 
-t('une fois répondu, la question ne revient pas', () => {
-  const g = app(s => { s.day.focusSet = false; });
-  const bouton = {dataset: {focus: 'eco'}};
-  g.S.day.focus = g.dayValue('focus', bouton.dataset.focus, g.S.day.focus);
-  g.S.day.focusSet = true;
-  assert.equal(g.S.day.focus, 'eco', 'le plan vise ce qu\'il a cliqué');
-  assert.ok(!/Tu joues comment/.test(g.VIEWS.today()), 'et la carte s\'efface');
+/* Le style ne pèse pas que les cartes : il pose « Ce que le plan vise », qui
+   décide de la feuille de route et de la colonisation. Un plan inconnu de
+   FOCUS serait refusé par `dayValue` en silence, et le style ne ferait rien. */
+t('chaque style vise un plan que le panneau connaît', () => {
+  const g = app();
+  for (const [k, s] of Object.entries(g.PROFILS.styles))
+    assert.equal(g.dayValue('focus', s.plan, 'equi'), s.plan,
+      `le plan « ${s.plan} » du style ${k} n\'est pas un choix de FOCUS`);
 });
 
-t('un focusSet truqué ne vaut que vrai ou faux', () => {
-  const g = app(s => { s.day.focusSet = '<b>oui'; });
-  assert.strictEqual(g.S.day.focusSet, true, 'sainEtat le ramène à un booléen');
+t('la classe conseillée s\'affiche à l\'étape 2, selon le style choisi', () => {
+  const g = app(s => { s.profil = {style: 'turtle', classe: '', activite: 'regulier', focus: [], set: false}; });
+  const h = lu(g.profilCard(1));
+  assert.ok(/Étape 2 sur 3/.test(h), 'c\'est bien la deuxième question');
+  assert.ok(/la classe conseillée est <b>Collecteur<\/b>/.test(h), 'un turtle appelle le Collecteur');
+  assert.ok(h.includes('data-pclasse=""'), 'et « Pas de préférence » reste proposé');
+});
+
+/* Le copilote ne change pas de classe dans le jeu : tout ce qu'il peut faire
+   d'un écart, c'est le dire — et laisser le joueur choisir quand même. */
+t('un écart de classe se dit, sans rien bloquer', () => {
+  const g = app(s => {
+    s.settings.cls = 'collector';
+    s.profil = {style: 'raideur', classe: 'general', activite: 'regulier', focus: [], set: false};
+  });
+  const h = lu(g.profilCard(1));
+  assert.ok(/Ton compte joue Collecteur, ton profil vise Général/.test(h), 'l\'écart est nommé');
+  assert.ok(/Rien n\'est bloqué/.test(h), 'et il est dit non bloquant');
+  assert.ok(h.includes('data-pclasse="general"'), 'les choix restent cliquables');
+});
+
+t('rien à dire quand le compte joue déjà la classe visée', () => {
+  const g = app(PROFIL('turtle'));
+  assert.equal(g.S.settings.cls, 'collector', 'le compte est Collecteur');
+  assert.equal(g.classeEcart(), '', 'et c\'est ce que le style conseille');
+});
+
+t('« Pas de préférence » vaut la classe que le style conseille', () => {
+  const g = app(PROFIL('explorateur'));
+  assert.equal(g.classeVoulue(), 'explorer', 'celle du style');
+  assert.ok(/^Explorateur · Explorateur/.test(g.profilLigne()), 'et elle se lit sur la ligne');
+});
+
+t('une fois les trois réponses données, l\'assistant s\'efface', () => {
+  const g = app(PROFIL('turtle', {focus: ['expo']}));
+  assert.equal(g.profilCard(), '', 'plus d\'assistant');
+  const h = lu(g.VIEWS.today());
+  assert.ok(!/Tu joues comment/.test(h), 'la question ne revient pas');
+  assert.ok(/Ton profil/.test(h), 'la ligne du profil prend sa place');
+  assert.ok(h.includes('Turtle · Collecteur · Régulier · + Expéditions'), 'profil en une ligne');
+});
+
+t('les focus se cochent depuis le panneau principal', () => {
+  const h = lu(app(PROFIL('turtle', {focus: ['expo']})).VIEWS.today());
+  for (const k of ['mines', 'def', 'expo', 'raids', 'combat', 'recherche'])
+    assert.ok(h.includes(`data-pfocus="${k}"`), `le focus ${k} est proposé`);
+  assert.ok(/data-pfocus="expo" checked/.test(h), 'et celui qui est posé est coché');
+});
+
+t('les Réglages portent le profil et de quoi refaire le questionnaire', () => {
+  const h = lu(app(PROFIL('turtle')).VIEWS.settings());
+  assert.ok(/<h2>Profil<\/h2>/.test(h), 'la section est là');
+  assert.ok(h.includes('data-refaire="1"'), 'avec le bouton qui relance l\'assistant');
+  assert.ok(h.includes('Turtle · Collecteur · Régulier'), 'et le profil en place');
+});
+
+t('le profil survit à la fermeture du panneau', () => {
+  const g = app(PROFIL('turtle', {activite: 'peu', focus: ['def']}));
+  assert.equal(g.S.profil.style, 'turtle', 'relu du stockage au démarrage');
+  assert.equal(g.S.profil.activite, 'peu', 'l\'activité aussi');
+  assert.deepEqual(g.S.profil.focus, ['def'], 'et les focus posés');
+});
+
+t('le profil part sur l\'autre poste entier', () => {
+  const g = app(PROFIL('turtle', {focus: ['expo']}));
+  const envoye = g.syncOut()['sy:profil'];
+  assert.equal(envoye.style, 'turtle', 'le style voyage');
+  assert.deepEqual(envoye.focus, ['expo'], 'les focus avec lui');
+});
+
+/* Une sauvegarde ou une synchro peut porter n'importe quoi, `__proto__`
+   compris : une clé qui passe par la chaîne de prototypes aurait l'air connue
+   et ferait écrire « undefined » dans la ligne du profil. */
+t('un profil truqué ne survit pas à sainEtat', () => {
+  const g = app(s => {
+    s.profil = {style: '__proto__', classe: '<b>oui', activite: 'jamais', focus: ['expo', 'pirate', 2], set: true};
+  });
+  assert.equal(g.S.profil.style, '', 'un style inconnu ne passe pas, même par le prototype');
+  assert.equal(g.S.profil.classe, '', 'ni une classe inconnue');
+  assert.equal(g.S.profil.activite, 'regulier', 'l\'activité retombe sur le défaut');
+  assert.deepEqual(g.S.profil.focus, ['expo'], 'seuls les focus connus restent');
+  assert.strictEqual(g.S.profil.set, false, 'et sans style, la question se repose');
+});
+
+t('sans profil, rien n\'est pondéré', () => {
+  const g = app();
+  for (const cat of Object.keys(g.PROFILS.cats))
+    assert.equal(g.poidsCat(cat), g.PROFILS.neutre, `${cat} garde sa place`);
+});
+
+t('le poids d\'une catégorie suit le style', () => {
+  const tu = app(PROFIL('turtle'));
+  assert.equal(tu.poidsCat('def'), 3, 'un turtle vise la défense');
+  assert.equal(tu.poidsCat('combat'), 0, 'et jamais la flotte de combat');
+  const ra = app(PROFIL('raideur'));
+  assert.equal(ra.poidsCat('def'), 0, 'un raideur ne fortifie pas');
+  assert.equal(ra.poidsCat('espio'), 3, 'il espionne, il va vite');
+});
+
+t('un focus ajoute +2, plafonné à 3', () => {
+  assert.equal(app(PROFIL('turtle', {focus: ['expo']})).poidsCat('expo'), 3, '1 + 2 = 3');
+  assert.equal(app(PROFIL('turtle', {focus: ['def']})).poidsCat('def'), 3, 'déjà à 3, il n\'y a pas de 5');
+  const d = app(PROFIL('mineur', {focus: ['raids']}));
+  assert.equal(d.poidsCat('cargo'), 3, 'un focus porte sur chacune de ses catégories');
+  assert.equal(d.poidsCat('espio'), 3, 'les deux, pas la première');
+  assert.equal(d.poidsCat('mines'), 3, 'et il n\'efface pas le style : les mines restent');
+});
+
+t('peu présent plafonne ce qui demande d\'être là, et met l\'abri devant', () => {
+  const g = app(PROFIL('fleeter', {activite: 'peu'}));
+  assert.equal(g.poidsCat('combat'), 1, 'la flotte de combat attend');
+  assert.equal(g.poidsCat('espio'), 1, 'les raids aussi');
+  assert.ok(g.poidsCat('abri') > g.poidsCat('mines'), 'la mise à l\'abri passe devant tout');
+  const a = app(PROFIL('fleeter', {activite: 'actif'}));
+  assert.equal(a.poidsCat('combat'), 3, 'très actif : aucun plafond');
+  assert.equal(a.poidsCat('abri'), 3, 'et l\'abri redevient une carte comme une autre');
+});
+
+t('la catégorie d\'une carte se lit sur ce qu\'elle construit', () => {
+  const g = app();
+  assert.equal(g.catActe({kind: 'b', k: 'metal'}), 'mines');
+  assert.equal(g.catActe({kind: 'b', k: 'smetal'}), 'stock');
+  assert.equal(g.catActe({kind: 't', k: 'astro'}), 'techeco');
+  assert.equal(g.catActe({kind: 't', k: 'shielding'}), 'techdef');
+  assert.equal(g.catActe({kind: 'expo'}), 'expo');
+  assert.equal(g.catActe({kind: 'fleet'}), 'abri', 'la mise à l\'abri n\'est pas une préférence');
+  assert.equal(g.catActe({kind: 'b', k: 'lab'}), '', 'un labo sert tous les styles');
+  assert.equal(g.catMission({id: 'defseen', q: 'Chantier'}), 'def', 'l\'identifiant tranche avant la rubrique');
+  assert.equal(g.catMission({id: 'night', q: 'Sécurité'}), 'abri');
+});
+
+t('le profil écarte les cartes de poids nul et classe le reste', () => {
+  const g = app(PROFIL('raideur'));
+  const l = g.dailyMissions();
+  assert.ok(l.length, 'il reste des cartes');
+  assert.ok(l.every(m => g.poidsCat(g.catMission(m)) > 0), 'aucune carte de poids nul');
+  const w = l.filter(m => m.id !== 'lune-sors').map(m => g.poidsCat(g.catMission(m)));
+  for (let i = 1; i < w.length; i++)
+    assert.ok(w[i] <= w[i - 1], `la liste descend en poids : ${w.join(' ')}`);
+});
+
+t('cocher Expéditions remonte les cartes d\'exploration', () => {
+  const rang = g => g.dailyMissions().findIndex(m => m.q === 'Exploration');
+  const sans = rang(app(PROFIL('turtle'))), avec = rang(app(PROFIL('turtle', {focus: ['expo']})));
+  assert.ok(sans > 0, 'un turtle ne les a pas en tête');
+  assert.ok(avec < sans, `le focus les fait remonter : ${avec} contre ${sans}`);
+});
+
+t('à ressources égales, le plan montre d\'abord ce que le profil pousse', () => {
+  const g = app(PROFIL('turtle'));
+  for (const x of g.simulateDay().sessions) {
+    const w = x.acts.map(a => g.poidsCat(g.catActe(a)));
+    for (let i = 1; i < w.length; i++)
+      assert.ok(w[i] <= w[i - 1], `les cartes de ${new Date(x.T).toLocaleTimeString('fr-FR')} descendent en poids : ${w.join(' ')}`);
+  }
+});
+
+/* Les poids sont des réglages : les relire et les corriger ne doit pas obliger
+   à relire la logique qui les applique. Un style nommé en dur dans app.js est
+   le premier pas vers une table recopiée à deux endroits. */
+t('les styles et leurs poids vivent dans profils.js, pas dans app.js', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  for (const k of ['mineur', 'turtle', 'raideur', 'fleeter', 'explorateur'])
+    assert.ok(!src.includes(`'${k}'`), `app.js nomme le style ${k} : il doit passer par PROFILS`);
+  const cfg = require('fs').readFileSync(require('path').join(__dirname, '..', 'profils.js'), 'utf8');
+  assert.ok(/poids:/.test(cfg), 'et la table des poids y est');
 });
 
 /* ---------- le plan du pilleur ---------- */
