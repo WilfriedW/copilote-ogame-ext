@@ -765,6 +765,7 @@ clic droit la corrige comme avant.
 | Niveau visé | entier ≥ 1, vide tant que rien n'est tapé | Le niveau posé sur chaque planète cochée |
 | Une case par planète | cochée par défaut | Décochée, la planète ne reçoit rien — **et le reste pour ce bâtiment-là seulement** |
 | Poser sur N planètes | bouton | Pose, et dit combien |
+| Retirer sur N planètes | bouton, absent s'il n'y a rien à retirer | Enlève le niveau visé de cette case sur les planètes cochées |
 
 Chaque ligne annonce ce que la pose lui ferait avant le clic : son niveau
 actuel, puis `→ 43` si elle monte, « déjà à 45 » si elle y est, « déjà visé
@@ -822,6 +823,18 @@ permet de vérifier où l'alignement s'arrête.
 Une planète dont l'espèce n'ouvre pas ce rang, ou qui n'a rien relevé, dit
 « pas relevée ici » et ne reçoit rien, plutôt qu'une priorité qui ne
 correspond à rien chez elle.
+
+**Retirer est le geste inverse, et il est à part.** La carte pose sur huit
+planètes d'un clic ; sans lui, revenir en arrière après un essai demandait
+huit clics droits dans le jeu. Il enlève le niveau visé de la case choisie sur
+les planètes cochées — le plan cesse d'épargner pour elle, et **les niveaux
+déjà construits ne bougent pas**, c'est une intention qu'on retire, pas un
+bâtiment qu'on démolit. Il ne regarde pas le champ « Niveau visé » : on défait
+une pose, on ne la compare pas.
+
+C'est volontairement un bouton nommé, et non un niveau plus bas qu'on
+taperait : **poser n'abaisse jamais**, sans quoi un objectif tapé de travers
+effacerait en silence ce que tu as réglé tuile par tuile.
 
 **Quand le bouton est à zéro, il dit pourquoi.** « Rien à poser : 2 planètes
 déjà au-dessus de 21, 1 vise déjà 21. » Sans cette ligne, une planète au

@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -10596,9 +10596,11 @@ t('une planète décochée pour un rang reste cochée pour la mine', () => {
 
 t('le bouton à zéro dit ce qui retient chaque planète', () => {
   const g = app(s => { s.prio = [{kind:'b', pid:'colo', k:'metal', lvl:10}]; POSE('metal', 10)(s); });
+  // « vise déjà 10 » serait faux dès que l'objectif tapé est plus bas que ce
+  // que la planète porte : c'est bien « aussi haut », pas « ce nombre-là ».
   const h = lu(g.poseBloc());
   assert.ok(/Poser sur 0 planète/.test(h), h);
-  assert.ok(h.includes('Rien à poser : 1 planète déjà au-dessus de 10, 1 vise déjà 10.'), h);
+  assert.ok(h.includes('Rien à poser : 1 planète déjà à ce niveau ou plus haut, 1 vise déjà aussi haut.'), h);
 });
 
 t('les décochées et les cases absentes comptent dans ce que la carte dit', () => {
@@ -10615,6 +10617,67 @@ t('tant qu\'aucun niveau n\'est tapé, la carte ne se justifie pas', () => {
 t('dès qu\'une planète peut recevoir, la carte ne se justifie plus', () => {
   const g = app(POSE('metal', 43));
   assert.ok(!lu(g.poseBloc()).includes('Rien à poser'));
+});
+
+/* ---------- et le geste inverse : retirer ---------- */
+/* La carte posait sur huit planètes d'un clic et demandait huit clics droits
+   dans le jeu pour défaire. Un essai — « je mets 10 pour voir » — coûtait donc
+   une tournée complète. Retirer est un geste à part, nommé, et non un niveau
+   plus bas qu'on taperait : un objectif abaissé par mégarde effacerait en
+   silence ce que le joueur a réglé tuile par tuile. */
+
+t('retirer enlève la priorité des planètes cochées', () => {
+  const g = app(POSE('metal', 43));
+  assert.equal(g.posePartout(), 2);
+  assert.equal(g.poseRetireTout(), 2);
+  assert.equal(g.prioLvl('b', 'mere', 'metal'), '');
+  assert.equal(g.prioLvl('b', 'colo', 'metal'), '');
+});
+
+t('retirer laisse la planète décochée tranquille', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:43},
+                                 {kind:'b', pid:'colo', k:'metal', lvl:43}];
+                       POSE('metal', 43, {metal: ['colo']})(s); });
+  assert.equal(g.poseRetireTout(), 1);
+  assert.equal(g.prioLvl('b', 'colo', 'metal'), 43, 'la décochée garde la sienne');
+});
+
+t('retirer ne touche que la case choisie', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'mere', k:'metal', lvl:43},
+                                 {kind:'b', pid:'mere', k:'lab', lvl:12}];
+                       POSE('metal', 43)(s); });
+  g.poseRetireTout();
+  assert.equal(g.prioLvl('b', 'mere', 'metal'), '');
+  assert.equal(g.prioLvl('b', 'mere', 'lab'), 12, 'le labo ne bouge pas');
+});
+
+t('retirer un rang de forme de vie suit chaque espèce', () => {
+  const g = app(s => { DEUX_ESPECES(s); POSE('lfbuilding:1', 21)(s); });
+  g.posePartout();
+  assert.equal(g.poseRetireTout(), 2);
+  assert.equal(g.prioLvl('lf', 'mere', 11101), '');
+  assert.equal(g.prioLvl('lf', 'colo', 11301), '');
+});
+
+t('sans rien de posé, il n\'y a rien à retirer', () => {
+  const g = app(POSE('metal', 43));
+  assert.equal(g.poseRetireTout(), 0);
+});
+
+t('la carte offre le retrait et dit sur combien de planètes', () => {
+  const g = app(POSE('metal', 43));
+  assert.ok(!/data-posedel="1"[^>]*>Retirer sur 1/.test(lu(g.poseBloc())), 'rien à retirer au départ');
+  g.posePartout();
+  const h = lu(g.poseBloc());
+  assert.ok(/Retirer sur 2 planètes/.test(h), h);
+});
+
+t('le bouton de retrait retire vraiment', () => {
+  const g = app(POSE('metal', 43));
+  g.posePartout();
+  g.click('view', { closest: sel => (sel === '[data-posedel]' ? { dataset: { posedel: '1' } } : null) });
+  assert.equal(g.prioLvl('b', 'mere', 'metal'), '');
+  assert.equal(g.prioLvl('b', 'colo', 'metal'), '');
 });
 
 /* ---------- l'horloge du plan : une file occupée reste occupée ---------- */

@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.66.2';
+const APP_VERSION = '1.66.3';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -487,7 +487,10 @@ function poseLignes(){
        rang. */
     const quoi = !ici ? '' : kind === 'b' ? B_SHORT[k] : lfNom(p, id);
     return {pid: p.id, name: p.name, coords: p.coords, id, quoi, actuel, deja, coche, ici,
-            agit: ici && coche && vise > actuel && !(deja != null && deja >= vise)};
+            agit: ici && coche && vise > actuel && !(deja != null && deja >= vise),
+            /* Ce que le retrait emporterait. Il ne regarde pas le niveau visé :
+               on défait une pose, on ne la compare pas. */
+            retire: ici && coche && deja != null};
   });
 }
 /** Pose le niveau visé sur les planètes cochées, et rend combien en ont reçu.
@@ -499,6 +502,19 @@ function posePartout(){
   const k = poseK(), kind = poseKind(k), lvl = poseVise(), agissent = poseLignes().filter(x => x.agit);
   for(const x of agissent) prioPose(kind, x.pid, x.id, lvl);
   return agissent.length;
+}
+/** Défaire. La carte posait sur huit planètes d'un clic et demandait huit
+    clics droits dans le jeu pour revenir en arrière : un essai — « je mets 10
+    pour voir » — coûtait une tournée complète.
+    C'est un geste à part, nommé, et non un niveau plus bas qu'on taperait :
+    poser n'abaisse jamais, sans quoi un objectif tapé de travers effacerait en
+    silence ce que le joueur a réglé tuile par tuile. Ici il demande le
+    retrait, il voit sur combien de planètes, et chaque ligne nomme déjà ce
+    qu'elle vise. Rendu : combien de priorités sont parties. */
+function poseRetireTout(){
+  const k = poseK(), kind = poseKind(k), cibles = poseLignes().filter(x => x.retire);
+  for(const x of cibles){ const i = prioIdx(kind, x.pid, x.id); if(i >= 0) S.prio.splice(i, 1); }
+  return cibles.length;
 }
 /** Pourquoi le bouton est à zéro, quand il l'est. Sans cette phrase, le joueur
     voit une planète au niveau 12 sous un objectif de 21 et un bouton éteint :
@@ -518,8 +534,10 @@ function poseRien(){
   const haut = n(x => x.coche && x.ici && x.actuel >= vise);
   const deja = n(x => x.coche && x.ici && x.actuel < vise && x.deja != null && x.deja >= vise);
   const bouts = [];
-  if(haut) bouts.push(`${haut} planète${haut>1?'s':''} déjà au-dessus de ${vise}`);
-  if(deja) bouts.push(`${deja} vise${deja>1?'nt':''} déjà ${vise}`);
+  /* « 3 visent déjà 1 » était faux quand elles visent 10 : l'objectif tapé
+     n'est pas celui qu'elles portent, il est seulement plus bas. */
+  if(haut) bouts.push(`${haut} planète${haut>1?'s':''} déjà à ce niveau ou plus haut`);
+  if(deja) bouts.push(`${deja} vise${deja>1?'nt':''} déjà aussi haut`);
   if(hors) bouts.push(`${hors} décochée${hors>1?'s':''}`);
   if(absent) bouts.push(`${absent} sans cette case`);
   return bouts.length ? `Rien à poser : ${bouts.join(', ')}.` : '';
@@ -5543,6 +5561,9 @@ function lfPosePaliers(p){
     moments, et dépliée elle pousserait l'empire hors de l'écran. */
 function poseBloc(){
   const k = poseK(), l = poseLignes(), n = l.filter(x => x.agit).length, vise = poseVise();
+  /* Le bouton de retrait n'apparaît que s'il a de quoi faire : sur une case
+     vierge, il ne serait qu'un bouton mort de plus à côté de l'autre. */
+  const d = l.filter(x => x.retire).length;
   const vies = poseLfCles();
   /* Les formes de vie dans leurs propres groupes, à la suite des bâtiments :
      mêlées à eux elles seraient présentes sans être trouvables — le reproche
@@ -5575,7 +5596,9 @@ function poseBloc(){
       <label class="f">Niveau visé<input type="number" min="1" data-pose="lvl" value="${vise > 0 ? vise : ''}" placeholder="43"></label>
     </div>
     <ul class="list" style="margin-top:8px">${lignes}</ul>
-    <div class="row" style="margin-top:6px"><button class="btn" data-posego="1" ${n?'':'disabled'}>Poser sur ${n} planète${n>1?'s':''}</button>${(()=>{ const r = poseRien(); return r ? `<span class="note">${esc(r)}</span>` : ''; })()}</div>
+    <div class="row" style="margin-top:6px"><button class="btn" data-posego="1" ${n?'':'disabled'}>Poser sur ${n} planète${n>1?'s':''}</button>${
+      d ? `<button class="btn ghost" data-posedel="1" title="Enlève le niveau visé de cette case sur les planètes cochées. Le plan cesse d'épargner pour elle ; les niveaux déjà construits ne bougent pas.">Retirer sur ${d} planète${d>1?'s':''}</button>` : ''
+    }${(()=>{ const r = poseRien(); return r ? `<span class="note">${esc(r)}</span>` : ''; })()}</div>
   </details>`;
 }
 /** Les formes de vie sous leur nom, et non mêlées aux bâtiments : posées à la
@@ -6440,6 +6463,10 @@ view.addEventListener('click', e=>{
   const pg = e.target.closest('[data-posego]');
   if(pg){ const n = posePartout();
     if(n){ save(); render(); publieLePlan(); toast(`Posé sur ${n} planète${n>1?'s':''}`); }
+    return; }
+  const pdel = e.target.closest('[data-posedel]');
+  if(pdel){ const n = poseRetireTout();
+    if(n){ save(); render(); publieLePlan(); toast(`Retiré sur ${n} planète${n>1?'s':''}`); }
     return; }
   const lp = e.target.closest('[data-lfpaliers]');
   if(lp){ const p = planetById(lp.dataset.lfpaliers);
