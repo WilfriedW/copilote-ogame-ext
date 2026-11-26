@@ -11749,7 +11749,13 @@ t('la catégorie d\'une carte se lit sur ce qu\'elle construit', () => {
   assert.equal(g.catActe({kind: 't', k: 'shielding'}), 'techdef');
   assert.equal(g.catActe({kind: 'expo'}), 'expo');
   assert.equal(g.catActe({kind: 'fleet'}), 'abri', 'la mise à l\'abri n\'est pas une préférence');
-  assert.equal(g.catActe({kind: 'b', k: 'lab'}), '', 'un labo sert tous les styles');
+  assert.equal(g.catActe({kind: 'b', k: 'lab'}), 'infra', 'un labo est une installation');
+  assert.equal(g.catActe({kind: 'b', k: 'nanite'}), 'infra');
+  /* Les formes de vie n'ont pas de catégorie, et c'est voulu : leur place dans
+     le plan se règle dans Réglages (« Place des formes de vie »), qui décide
+     avant / après / jamais — bien plus qu'un ordre. Un focus qui les pousserait
+     aussi ferait deux commandes pour une seule chose. */
+  assert.equal(g.catActe({kind: 'lf', id: 11201}), '', 'une forme de vie a son propre réglage');
   // Un chantier vaut ce qu'il sort, pas la file dont il relève.
   assert.equal(g.catActe({kind: 'def', ships: {rl: 20}}), 'def');
   assert.equal(g.catActe({kind: 'shipbuild', ships: {lc: 3}}), 'cargo');
@@ -11888,6 +11894,55 @@ t('l\'assistant se referme sans qu\'on reclique les trois réponses', () => {
   const refait = app(s => { s.profil = {style: 'turtle', classe: '', activite: 'regulier', focus: [], set: false}; });
   assert.ok(/data-pferme="1"/.test(refait.profilCard(0)), 'qui a déjà un style peut refermer');
   assert.ok(/data-pferme="1"/.test(refait.profilCard(2)), 'à n\'importe quelle étape');
+});
+
+/* Le garde d'origine ne regardait que dans un sens : il refusait une catégorie
+   pondérée que personne ne porte, jamais une carte qui ne relève d'aucune
+   catégorie. C'est par là que six bâtiments — robot, chantier, labo, nanites,
+   terraformeur, dock — sont restés au poids neutre sans que rien ne le dise,
+   et sans qu'aucun focus puisse les remonter. Le joueur l'a vu avant les
+   tests, en lisant la liste des focus. */
+t('aucun bâtiment n\'échappe aux catégories', () => {
+  const g = app();
+  const sans = Object.keys(g.B).filter(k => !g.PROFILS.actes.bat[k]);
+  assert.deepEqual(sans, [], 'bâtiments sans catégorie : ' + sans.map(k => g.B[k].n).join(', '));
+});
+
+t('aucun vaisseau constructible n\'échappe aux catégories', () => {
+  const g = app();
+  /* Le vaisseau de colonisation est la seule exception, et elle est dans la
+     table : il ne sort pas du chantier comme un lot, il a sa propre carte, que
+     rien ne pondère. */
+  const sans = Object.keys(g.SHIPS).filter(k => k !== 'col' && !g.PROFILS.actes.vaisseaux[k]);
+  assert.deepEqual(sans, [], 'vaisseaux sans catégorie : ' + sans.map(k => g.SHIPS[k].n).join(', '));
+});
+
+t('les huit focus se cochent depuis le panneau', () => {
+  const h = lu(app(PROFIL('turtle')).VIEWS.today());
+  for (const k of ['mines', 'stock', 'infra', 'def', 'expo', 'raids', 'combat', 'recherche'])
+    assert.ok(h.includes(`data-pfocus="${k}"`), `le focus ${k} est proposé`);
+  assert.ok(h.includes('Installations'), 'les installations ont leur case');
+  assert.ok(h.includes('Stockage'), 'le stockage aussi');
+});
+
+/* Un libellé qui promet plus qu'il ne tient fait douter du panneau entier. */
+t('le focus Recherche dit qu\'il ne porte pas les formes de vie', () => {
+  const g = app();
+  assert.deepEqual(g.PROFILS.focus.recherche.cats, ['techdef', 'techeco'],
+    'il ne pousse que les deux familles de technologies');
+  assert.ok(/armes et économie/i.test(g.PROFILS.focus.recherche.n),
+    'et son libellé le dit : ' + g.PROFILS.focus.recherche.n);
+  /* La case a la place de le dire, la ligne du profil non : elle doit tenir
+     sur une ligne, et c'est là que le joueur lit son profil d'un coup d'œil. */
+  const ligne = app(PROFIL('turtle', {focus: ['recherche', 'expo']})).profilLigne();
+  assert.ok(!/armes et économie/.test(ligne), 'la ligne garde le nom court : ' + ligne);
+  assert.ok(ligne.endsWith('+ Recherche, Expéditions'), ligne);
+});
+
+t('cocher Installations remonte le labo et le chantier', () => {
+  const nu = app(PROFIL('mineur')), focalise = app(PROFIL('mineur', {focus: ['infra']}));
+  assert.equal(nu.poidsCat('infra'), 2, 'sans focus, une installation garde sa place');
+  assert.equal(focalise.poidsCat('infra'), 3, 'avec, elle passe devant');
 });
 
 /* Les poids sont des réglages : les relire et les corriger ne doit pas obliger
