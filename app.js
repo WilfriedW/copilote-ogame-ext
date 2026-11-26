@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.6.0';
+const APP_VERSION = '2.6.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -5902,19 +5902,32 @@ function profilSain(){
   // Répondu sans style : le questionnaire n'a pas abouti, il se repose.
   S.profil.set = !!S.profil.set && !!S.profil.style;
 }
-/* Le modèle de défense par défaut suit le style : un turtle vise la tortue de
-   fin de partie, les autres le framework du mineur. Il ne suit que tant que le
-   joueur n'a rien choisi lui-même — repasser par l'assistant ne doit pas
-   effacer un modèle qu'il est allé poser à la main dans les Réglages, et c'est
-   tout ce que le copilote peut savoir de son intention : le réglage ne dit pas
-   qui l'a écrit. */
+/* Les deux réglages que le style pose, et qu'il ne reprend jamais : ce que le
+   plan vise, et le modèle de défense. Un turtle vise la tortue de fin de
+   partie et les mines, un raideur le pillage et rien qui fortifie.
+
+   Aucun des deux ne s'impose. Le réglage ne dit pas qui l'a écrit, alors le
+   copilote s'en tient à ce qu'il peut savoir : tant que la valeur en place est
+   celle du style d'avant — ou celle d'usine, pour qui n'a jamais répondu —
+   elle suit ; dès qu'elle s'en écarte, c'est un choix du joueur et l'assistant
+   n'y touche plus. Les deux ensemble, parce que c'est la même règle : l'avoir
+   écrite pour le modèle de défense et oubliée pour le plan du jour est
+   exactement ce que la relecture a trouvé.
+
+   Ça compte d'autant plus pour le plan que deux de ses cinq valeurs —
+   « Équilibré » et « Économie pure » — ne sont atteignables que par le menu
+   des Réglages : aucun style ne les vise, donc ce sont précisément celles que
+   l'assistant écraserait sans jamais pouvoir les rendre. */
 /** @param {string} avant le style d'avant, vide s'il n'y en avait pas
     @param {string} apres le style qu'on vient de choisir */
-function defModeleSuitLeStyle(avant, apres){
+function styleRepose(avant, apres){
   const neuf = PROFILS.styles[apres]; if(!neuf) return;
-  const vieux = PROFILS.styles[avant];
-  // Sans style d'avant, seul le modèle d'usine se laisse remplacer.
-  if(S.settings.defModele === (vieux ? vieux.defense : 'framework')) S.settings.defModele = neuf.defense;
+  const vieux = PROFILS.styles[avant], def = sample();
+  // `dayValue` relit la clé dans FOCUS, comme pour le menu des Réglages.
+  if(S.day.focus === (vieux ? vieux.plan : def.day.focus))
+    S.day.focus = dayValue('focus', neuf.plan, S.day.focus);
+  if(S.settings.defModele === (vieux ? vieux.defense : def.settings.defModele))
+    S.settings.defModele = neuf.defense;
 }
 /** La classe que le style conseille, vide tant qu'aucun style n'est choisi. */
 function classeSuggeree(){ const s = PROFILS.styles[S.profil.style]; return s ? s.classe : ''; }
@@ -6326,7 +6339,7 @@ settings(){
       <p class="note" style="margin-top:8px">Les focus ponctuels remontent leurs cartes sans remplacer ton style.</p>` : ''}
       ${ecart ? `<p class="note">${esc(ecart)}</p>` : ''}
       <div class="row"><button class="btn sm ghost" data-refaire="1">Refaire le questionnaire</button></div>
-      <p class="note">Ton style décide de ce que le plan vise, ci-dessous, et de l'ordre des cartes. Les poids de chaque catégorie sont dans <code>profils.js</code>.</p>
+      <p class="note">Ton style décide de l'ordre des cartes, et pose ce que le plan vise, ci-dessous, ainsi que le modèle de défense — jusqu'à ce que tu les changes toi-même ici. Les poids de chaque catégorie sont dans <code>profils.js</code>.</p>
     </div>
     <div class="card"><h2>Plan du jour</h2>
       <div class="grid">
@@ -6753,13 +6766,11 @@ function bind(){
      réponse. Chaque clé est relue dans sa table avant d'être posée. */
   view.querySelectorAll('[data-pstyle]').forEach(el=>el.addEventListener('click',()=>{
     const k = profilConnu(PROFILS.styles, el.dataset.pstyle); if(!k) return;
-    // Avant d'écraser le style : la règle a besoin de celui d'avant.
-    defModeleSuitLeStyle(S.profil.style, k);
+    /* Avant d'écraser le style : la règle a besoin de celui d'avant pour savoir
+       si le plan et le modèle de défense en place venaient de lui ou du joueur. */
+    styleRepose(S.profil.style, k);
     S.profil.style = k;
-    /* Le style pose aussi ce que le plan vise : c'est la même question, et le
-       joueur n'a pas à aller la rechercher au troisième menu des Réglages.
-       `dayValue` relit la clé dans FOCUS, comme pour le menu. */
-    S.day.focus = dayValue('focus', PROFILS.styles[k].plan, S.day.focus);
+    // La question a été posée, quoi qu'il advienne des réglages qu'elle propose.
     S.day.focusSet = true;
     profilEtape = 1; save(); render();
   }));

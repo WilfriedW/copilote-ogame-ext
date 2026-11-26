@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'defModeleSuitLeStyle'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -11167,8 +11167,9 @@ t('la catégorie d\'une carte se lit sur ce qu\'elle construit', () => {
   assert.equal(g.catActe({kind: 'expo'}), 'expo');
   assert.equal(g.catActe({kind: 'fleet'}), 'abri', 'la mise à l\'abri n\'est pas une préférence');
   assert.equal(g.catActe({kind: 'b', k: 'lab'}), '', 'un labo sert tous les styles');
-  assert.equal(g.catMission({id: 'defseen', q: 'Chantier'}), 'def', 'l\'identifiant tranche avant la rubrique');
+  assert.equal(g.catMission({id: 'expocargo', q: 'Exploration'}), 'cargo', 'l\'identifiant tranche avant la rubrique');
   assert.equal(g.catMission({id: 'night', q: 'Sécurité'}), 'abri');
+  assert.equal(g.catMission({id: 'defseen', q: 'Sécurité'}), 'abri', 'une carte de relevé garde sa rubrique');
 });
 
 t('le profil écarte les cartes de poids nul et classe le reste', () => {
@@ -11197,25 +11198,58 @@ t('à ressources égales, le plan montre d\'abord ce que le profil pousse', () =
   }
 });
 
-/* Le style pose le modèle de défense par défaut, et rien de plus : ce que le
-   joueur a choisi lui-même dans les Réglages lui appartient. */
-t('le modèle de défense suit le style, sans écraser un choix du joueur', () => {
+/* Le style pose deux réglages, et rien de plus : ce que le joueur a choisi
+   lui-même dans les Réglages lui appartient. La règle vaut pour les deux —
+   l'avoir écrite pour le modèle de défense et oubliée pour le plan du jour est
+   ce que la relecture de la PR a trouvé. */
+t('le style pose le plan et le modèle de défense, sans écraser un choix du joueur', () => {
   const g = app();
   for (const [k, s] of Object.entries(g.PROFILS.styles))
     assert.ok(g.DEF_MODELES[s.defense], `le modèle « ${s.defense} » du style ${k} n\'existe pas`);
 
-  const neuf = app();
+  const neuf = app(s => { s.day.focus = 'equi'; });
   assert.equal(neuf.S.settings.defModele, 'framework', 'le panneau part sur le framework');
-  neuf.defModeleSuitLeStyle('', 'turtle');
+  assert.equal(neuf.S.day.focus, 'equi', 'et sur le plan d\'usine, celui de qui n\'a jamais répondu');
+  neuf.styleRepose('', 'turtle');
   assert.equal(neuf.S.settings.defModele, 'turtle', 'un turtle vise la tortue de fin de partie');
+  assert.equal(neuf.S.day.focus, 'ecocol', 'et le plan qui mine et colonise');
 
-  const choisi = app(s => { s.settings.defModele = 'vetter'; });
-  choisi.defModeleSuitLeStyle('', 'turtle');
+  const choisi = app(s => { s.settings.defModele = 'vetter'; s.day.focus = 'eco'; });
+  choisi.styleRepose('', 'turtle');
   assert.equal(choisi.S.settings.defModele, 'vetter', 'un modèle posé à la main tient bon');
+  assert.equal(choisi.S.day.focus, 'eco', 'un plan posé à la main aussi');
 
-  const suit = app(s => { s.settings.defModele = 'turtle'; });
-  suit.defModeleSuitLeStyle('turtle', 'raideur');
-  assert.equal(suit.S.settings.defModele, 'framework', 'et il suit quand le style change');
+  const suit = app(s => { s.settings.defModele = 'turtle'; s.day.focus = 'ecocol'; });
+  suit.styleRepose('turtle', 'raideur');
+  assert.equal(suit.S.settings.defModele, 'framework', 'et les deux suivent quand le style change');
+  assert.equal(suit.S.day.focus, 'raid');
+});
+
+/* « Économie pure » et « Équilibré » ne sont visés par aucun style : refaire le
+   questionnaire est le seul moment où l'assistant pourrait les effacer, et il
+   ne saurait pas les rendre. */
+t('refaire le questionnaire ne reprend pas un plan que le joueur a posé', () => {
+  const g = app(s => {
+    s.day.focus = 'eco';
+    s.profil = {style: 'mineur', classe: '', activite: 'regulier', focus: [], set: true};
+  });
+  g.styleRepose('mineur', 'mineur');
+  assert.equal(g.S.day.focus, 'eco', 'le plan du joueur survit à une réponse identique');
+  g.styleRepose('mineur', 'turtle');
+  assert.equal(g.S.day.focus, 'eco', 'et à un changement de style');
+});
+
+/* Une carte qui demande d'ouvrir une page du jeu remplit ce que le copilote ne
+   sait pas : la masquer prive le joueur de bien plus que sa rubrique. `defseen`
+   commande `p.def`, dont dépendent aussi les satellites solaires — un raideur
+   qui ne la voit plus perd son énergie la moins chère, et garde l'alerte
+   « Satellites écartés » qui le renvoie vers une carte disparue. */
+t('aucun style ne masque la carte qui fait lire la page Défense', () => {
+  for (const style of Object.keys(app().PROFILS.styles)) {
+    const g = app(PROFIL(style));
+    assert.ok(g.dailyMissions().some(m => m.id === 'defseen'),
+      `le style ${style} fait disparaître « Ouvrir la page Défense »`);
+  }
 });
 
 t('les Réglages disent quand le modèle de défense vient du profil', () => {

@@ -107,10 +107,19 @@ var PROFILS = {
   },
 
   /* De quoi relève une carte à faire, d'après sa rubrique — et, pour les
-     quelques-unes dont la rubrique ne suffit pas, d'après son identifiant. */
+     quelques-unes dont la rubrique ne suffit pas, d'après son identifiant.
+
+     Une carte qui demande d'ouvrir une page du jeu n'est pas un conseil : elle
+     remplit ce que le copilote ne sait pas encore, et ce qu'elle rapporte sert
+     bien au-delà de sa rubrique. `defseen` en est l'exemple : sans la page
+     Défense lue, `p.def` reste nul, et c'est lui qui commande aussi les
+     satellites solaires. La ranger sous « Défense » la faisait disparaître
+     chez le raideur, qui perdait du même coup son énergie la moins chère.
+     Ces cartes-là gardent donc leur rubrique — « Sécurité », donc `abri` —
+     et aucun style ne peut les masquer. */
   missions: {
     q: {'Sécurité':'abri', 'Lune':'abri', 'Exploration':'expo', 'Pillage':'espio',
       'Flotte':'espio', 'Colonie':'techeco', 'Chantier':'cargo'},
-    id: {defseen:'def', expocargo:'cargo'},
+    id: {expocargo:'cargo'},
   },
 };
