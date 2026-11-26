@@ -1,6 +1,11 @@
 
-const APP_VERSION = '2.4.0';
+const APP_VERSION = '2.5.1';
 const KEY = 'ogame-copilot-v1';
+/** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
+let VERSIONS = [];
+/** La version du dépôt, quand on a pu la lire. */
+let MAJ = null;
+
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
 const B = {
@@ -6235,6 +6240,7 @@ settings(){
       <div class="row"><button class="btn" id="ioImport">Importer le texte collé</button></div>
       ${noCount() ? `<div class="row" style="margin-top:8px">${noRestore()}<span class="note">Un « Non » met la carte de côté jusqu'à ce que tu la remettes.</span></div>` : ''}
     </div>
+    ${versionCard()}
     <div class="card"><h2>Fiabilité des calculs</h2>
       <p class="note">Formules communautaires (wiki OGame, forum officiel). Production, coûts et temps de vol sont stables depuis des années. Moins sûrs : la production de deutérium (formule des univers récents, dépend de la température max), la durée des bâtiments de niveau 1 à 5, et les plafonds d'expédition. Compare une fois avec ton jeu et ajuste les réglages si besoin.</p>
     </div>
@@ -7440,3 +7446,70 @@ chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.night
 armeNuit();
 finDeNuit();
 nightBar();
+
+/* ---------- version, historique, mise à jour ---------- */
+
+/* Deux choses que le dépôt sait et que le panneau ignorait : d'où il vient, et
+   s'il est en retard. L'historique est écrit par ./pack.sh dans `versions.tsv`,
+   une ligne par commit : c'est son empreinte qu'on passe à `git checkout` pour
+   revenir en arrière. La version du dépôt se lit sur son manifeste public.
+   Ni l'un ni l'autre n'installe quoi que ce soit : une extension ne peut pas
+   écrire dans son propre dossier, et le manifeste v3 lui interdit d'exécuter du
+   code distant. Le panneau dit donc quoi taper, et s'arrête là. */
+
+const DEPOT_MANIFEST = 'https://raw.githubusercontent.com/WilfriedW/copilote-ogame-ext/main/manifest.json';
+
+/**
+ * Vrai si `b` est une version plus récente que `a`. Nombre par nombre :
+ * l'ordre des chaînes mettrait « 2.10.0 » avant « 2.9.0 ».
+ * @param {string} a @param {string} b
+ */
+function plusRecente(a, b){
+  const n = v => String(v).split('.').map(x => parseInt(x, 10) || 0);
+  const x = n(a), y = n(b);
+  for(let i = 0; i < Math.max(x.length, y.length); i++){
+    const xi = x[i] || 0, yi = y[i] || 0;
+    if(yi !== xi) return yi > xi;
+  }
+  return false;
+}
+
+/**
+ * La carte Réglages › Version : où en est ce panneau, et quoi taper pour le
+ * déplacer. Les deux lectures sont passées en argument pour que le test puisse
+ * poser un dépôt en avance sans attendre le réseau.
+ */
+function versionCard(maj = MAJ, vers = VERSIONS){
+  const retard = maj && plusRecente(APP_VERSION, maj);
+  const etat = retard ? `Le dépôt est en <b>v${esc(maj)}</b>.`
+    : maj ? 'C\'est la dernière du dépôt.'
+    : 'La version du dépôt n\'a pas pu être lue.';
+  return `<div class="card"><h2>Version</h2>
+    <p class="note">Ce panneau tourne en <b>v${esc(APP_VERSION)}</b>. ${etat}</p>
+    ${retard ? `<p class="pill warn">v${esc(maj)} disponible</p>
+    <p class="note">Depuis le dépôt : <code>git pull &amp;&amp; ./pack.sh</code>. Depuis le zip : retélécharge-le et remplace le dossier. Puis « Recharger » sur <code>chrome://extensions</code>.</p>` : ''}
+    ${vers.length ? `<details${fold('vers', false)}><summary class="note" data-fold="vers">Historique des versions (${vers.length})</summary>
+      <ul class="list" style="margin-top:8px">${vers.map(([v,d,h,s])=>`<li><div><b>v${esc(v)}</b> <span class="note">${esc(d)}</span><br><span class="note">${esc(s)}</span></div><code>${esc(h)}</code></li>`).join('')}</ul>
+      <p class="note" style="margin-top:8px">Revenir à l'une d'elles : <code>git checkout <i>empreinte</i> &amp;&amp; ./pack.sh</code>, puis « Recharger ». Une version plus ancienne relit un stockage écrit par la nouvelle : garde un <code>save.json</code> d'avant sous la main.</p>` : `<p class="note">L'historique arrive au prochain <code>./pack.sh</code>.</p>`}
+  </div>`;
+}
+
+/* Les deux lectures se font une fois, à l'ouverture du panneau. Hors de
+   l'extension — la page de démonstration, le harnais de test — `getURL`
+   n'existe pas et il n'y a rien à lire. */
+if(IS_EXT && chrome.runtime.getURL) (function(){
+  fetch(chrome.runtime.getURL('versions.tsv')).then(r => r.ok ? r.text() : '').then(t => {
+    VERSIONS = t.split('\n').map(l => l.split('\t')).filter(c => c.length >= 4);
+    if(VERSIONS.length && tab === 'settings') render();
+  }).catch(()=>{});
+  /* Un fichier public, sans identifiant ni cookie : le dépôt ne peut pas savoir
+     qui regarde. `no-store` parce qu'une version mise en cache ne sert à rien. */
+  fetch(DEPOT_MANIFEST, {cache:'no-store', credentials:'omit'}).then(r => r.ok ? r.json() : null).then(m => {
+    if(!m || !m.version) return;
+    MAJ = m.version;
+    /* Le numéro vit dans l'en-tête, que le panneau étroit cache : sans ce
+       passage, une nouvelle version ne se verrait qu'en ouvrant les réglages. */
+    if(plusRecente(APP_VERSION, MAJ)) toast(`v${MAJ} disponible`);
+    if(tab === 'settings') render();
+  }).catch(()=>{});
+})();
