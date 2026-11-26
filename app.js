@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.6.1';
+const APP_VERSION = '2.6.2';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -5965,7 +5965,11 @@ function poidsCat(cat){
 /** La catégorie d'une carte du plan, '' quand elle sert tous les styles. */
 function catActe(a){
   const t = PROFILS.actes;
-  return (a.kind === 'b' ? t.bat[a.k] : a.kind === 't' ? t.tech[a.k] : t.kinds[a.kind]) || '';
+  if(a.kind === 'b') return t.bat[a.k] || '';
+  if(a.kind === 't') return t.tech[a.k] || '';
+  // Un chantier vaut ce qu'il sort : c'est le vaisseau qui décide, pas la file.
+  if(a.kind === 'shipbuild') return t.vaisseaux[Object.keys(a.ships || {})[0]] || '';
+  return t.kinds[a.kind] || '';
 }
 /** La catégorie d'une carte à faire : sa rubrique, sauf les quelques exceptions. */
 function catMission(m){ return PROFILS.missions.id[m.id] || PROFILS.missions.q[m.q] || ''; }
@@ -6013,7 +6017,8 @@ function profilCard(etape){
     <p class="note">${notes[e]}</p>
     <ul class="advice" style="margin-top:10px">${corps}</ul>
     ${ecart ? `<p class="note">${esc(ecart)}</p>` : ''}
-    ${e ? `<div class="row"><button class="btn sm ghost" data-petape="${e-1}">Revenir</button></div>` : ''}
+    ${e || p.style ? `<div class="row">${e ? `<button class="btn sm ghost" data-petape="${e-1}">Revenir</button>` : ''}${p.style
+      ? `<button class="btn sm ghost" data-pferme="1">Fermer</button>` : ''}</div>` : ''}
   </div>`;
 }
 /* Le profil en place, là où le joueur lit ses cartes : la ligne se voit sans
@@ -6784,6 +6789,15 @@ function bind(){
   }));
   view.querySelectorAll('[data-petape]').forEach(el=>el.addEventListener('click',()=>{
     profilEtape = Math.max(0, Math.min(2, parseInt(el.dataset.petape) || 0)); render();
+  }));
+  /* Qui ouvre l'assistant pour voir doit pouvoir en sortir : sans ça, « Refaire
+     le questionnaire » laissait la carte en tête d'Aujourd'hui, au-dessus de ce
+     que le joueur vient lire, jusqu'à ce qu'il reclique les trois réponses.
+     « Fermer » ne défait rien — ce qui a déjà été cliqué est déjà posé — il
+     referme, et le bouton n'existe pas tant qu'aucun style n'a été choisi. */
+  view.querySelectorAll('[data-pferme]').forEach(el=>el.addEventListener('click',()=>{
+    if(!S.profil.style) return;
+    S.profil.set = true; profilEtape = 0; save(); render();
   }));
   /* Un focus se coche là où le joueur lit ses cartes : l'ordre change à
      l'instant, c'est ce qu'il vient vérifier. */

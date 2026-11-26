@@ -11167,6 +11167,12 @@ t('la catégorie d\'une carte se lit sur ce qu\'elle construit', () => {
   assert.equal(g.catActe({kind: 'expo'}), 'expo');
   assert.equal(g.catActe({kind: 'fleet'}), 'abri', 'la mise à l\'abri n\'est pas une préférence');
   assert.equal(g.catActe({kind: 'b', k: 'lab'}), '', 'un labo sert tous les styles');
+  // Un chantier vaut ce qu'il sort, pas la file dont il relève.
+  assert.equal(g.catActe({kind: 'def', ships: {rl: 20}}), 'def');
+  assert.equal(g.catActe({kind: 'shipbuild', ships: {lc: 3}}), 'cargo');
+  assert.equal(g.catActe({kind: 'shipbuild', ships: {lf: 12}}), 'combat');
+  assert.equal(g.catActe({kind: 'shipbuild', ships: {pr: 5}}), 'espio');
+  assert.equal(g.catActe({kind: 'shipbuild', ships: {}}), '', 'un lot vide ne relève de rien');
   assert.equal(g.catMission({id: 'expocargo', q: 'Exploration'}), 'cargo', 'l\'identifiant tranche avant la rubrique');
   assert.equal(g.catMission({id: 'night', q: 'Sécurité'}), 'abri');
   assert.equal(g.catMission({id: 'defseen', q: 'Sécurité'}), 'abri', 'une carte de relevé garde sa rubrique');
@@ -11263,6 +11269,42 @@ t('les Réglages disent quand le modèle de défense vient du profil', () => {
     s.profil = {style: 'turtle', classe: '', activite: 'regulier', focus: [], set: true};
   }).VIEWS.settings());
   assert.ok(!/Posé par ton profil/.test(autre), 'et se tait dès que le joueur en a choisi un autre');
+});
+
+/* La relecture de la PR a trouvé que `combat` n'était attribuée à aucune carte :
+   le 0 du mineur et du turtle ne pesait sur rien, et le contrat annoncé — « une
+   catégorie à 0 ne sort pas » — était vrai sans l'être. Une catégorie qu'on
+   pondère sans jamais l'attribuer est une promesse qui ne tient qu'à l'œil de
+   qui relit la table. */
+t('chaque catégorie pondérée est attribuée quelque part', () => {
+  const P = app().PROFILS;
+  const vues = new Set([].concat(
+    Object.values(P.actes.kinds), Object.values(P.actes.bat),
+    Object.values(P.actes.tech), Object.values(P.actes.vaisseaux),
+    Object.values(P.missions.q), Object.values(P.missions.id)));
+  for (const c of Object.keys(P.cats))
+    assert.ok(vues.has(c), `la catégorie « ${c} » est pondérée mais aucune carte ne la porte`);
+});
+
+t('un turtle lit sa défense avant les chasseurs, un fleeter l\'inverse', () => {
+  const def = {kind: 'def', ships: {rl: 20}}, chasse = {kind: 'shipbuild', ships: {lf: 12}};
+  const poids = (g, a) => g.poidsCat(g.catActe(a));
+  const tu = app(PROFIL('turtle'));
+  assert.ok(poids(tu, def) > poids(tu, chasse), 'le turtle fortifie');
+  const fl = app(PROFIL('fleeter'));
+  assert.ok(poids(fl, chasse) > poids(fl, def), 'le fleeter arme');
+});
+
+/* « Refaire le questionnaire » ouvrait une porte sans sortie : tant que les
+   trois réponses n'étaient pas recliquées, l'assistant restait en tête
+   d'Aujourd'hui, au-dessus de la carte que le joueur vient lire. */
+t('l\'assistant se referme sans qu\'on reclique les trois réponses', () => {
+  const vierge = app(s => { s.profil = {style: '', classe: '', activite: 'regulier', focus: [], set: false}; });
+  assert.ok(!/data-pferme/.test(vierge.profilCard(0)),
+    'rien à refermer tant qu\'aucun style n\'est choisi : il n\'y a pas de profil derrière');
+  const refait = app(s => { s.profil = {style: 'turtle', classe: '', activite: 'regulier', focus: [], set: false}; });
+  assert.ok(/data-pferme="1"/.test(refait.profilCard(0)), 'qui a déjà un style peut refermer');
+  assert.ok(/data-pferme="1"/.test(refait.profilCard(2)), 'à n\'importe quelle étape');
 });
 
 /* Les poids sont des réglages : les relire et les corriger ne doit pas obliger

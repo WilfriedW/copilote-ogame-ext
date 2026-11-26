@@ -97,7 +97,15 @@ var PROFILS = {
      listé nulle part garde son rang : un chantier spatial ou un laboratoire
      sert tous les styles. */
   actes: {
-    kinds: {sats:'mines', expo:'expo', transfer:'cargo', raid:'espio', fleet:'abri'},
+    kinds: {sats:'mines', expo:'expo', transfer:'cargo', raid:'espio', fleet:'abri', def:'def'},
+    /* Un chantier se juge sur ce qu'il sort : un lot de grands transporteurs et
+       un lot de chasseurs ne servent pas le même joueur. Sans cette table, la
+       catégorie `combat` n'était attribuée nulle part et le 0 du mineur comme
+       du turtle ne pesait sur rien. Le vaisseau de colonisation n'y est pas :
+       il sort par sa propre carte, que rien ne pondère. */
+    vaisseaux: {sc:'cargo', lc:'cargo', rec:'cargo', pr:'espio', pf:'expo',
+      lf:'combat', hf:'combat', cr:'combat', bs:'combat', bc:'combat',
+      bb:'combat', ds:'combat', rp:'combat'},
     bat: {metal:'mines', crystal:'mines', deut:'mines', solar:'mines', fusion:'mines',
       smetal:'stock', scrystal:'stock', sdeut:'stock', silo:'stock', depot:'cargo'},
     tech: {weapons:'techdef', shielding:'techdef', armour:'techdef',
