@@ -684,7 +684,7 @@ Allure seulement : ni le panneau ni les calculs ne changent.
 | **Copier mes données** | Met tout l'état en JSON dans le presse-papiers et dans la zone de texte. **C'est la seule copie de tes réglages** : à faire avant de désinstaller ou de changer de machine |
 | **Importer** | Remplace l'état par un JSON collé (refusé s'il n'a ni `planets` ni `settings`) |
 | **Réinitialiser…** | Remet les données d'exemple. Demande confirmation (deux clics) |
-| **Remettre les cartes refusées** | Apparaît seulement s'il y a des « Non » en mémoire. Les remet toutes d'un coup |
+| **Cartes mises de côté** | Apparaît seulement s'il y a des « Non » en mémoire, ici comme sous les cartes d'Aujourd'hui. Une ligne par carte, nommée (« Bâtiment · Planète mère · Centrale électrique solaire »), avec son propre **Remettre** ; **Tout remettre** en dessous dès qu'il y en a deux. Le libellé se reconstruit depuis la clé, donc une vieille sauvegarde se nomme aussi bien |
 
 ### 6.8 Outils › Flotte
 

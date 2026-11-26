@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.7.5';
+const APP_VERSION = '2.7.6';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -5191,10 +5191,63 @@ function refused(key){ return !!S.daily.no[key]; }
 /** Combien de cartes sont mises de côté en ce moment. */
 function noCount(){ return Object.keys(S.daily.no).length; }
 function noBtn(key){ return `<button class="btn sm ghost" data-no="${esc(key)}" title="Ne plus proposer ça">Non</button>`; }
-/** Le bouton qui remet toutes les cartes refusées — vide s'il n'y en a aucune. */
-function noRestore(){
-  const n = noCount();
-  return n ? `<button class="btn sm ghost" data-noclear="1">Remettre ${n} carte${n>1?'s':''} refusée${n>1?'s':''}</button>` : '';
+/** Le genre d'une carte, en clair. `expo` reste du passé : le plan n'en dessine
+    plus, mais un vieux refus en stockage doit se nommer pour se retirer. */
+const NO_NOM = {b:'Bâtiment', t:'Recherche', lf:'Forme de vie', sats:'Satellites',
+  shipbuild:'Chantier spatial', def:'Défense', transfer:'Rapatriement', fleet:'Flotte',
+  expo:'Expédition', m:'À faire'};
+/**
+ * Le nom lisible d'une carte mise de côté. Sans lui la liste afficherait
+ * `b:k3x9f1a:smetal`, et remettre une carte reviendrait à tirer au sort.
+ * Le libellé se reconstruit depuis la clé, jamais depuis un texte rangé à
+ * côté : une sauvegarde d'avant cette liste se nomme donc aussi bien, et
+ * rien ne se désynchronise.
+ * @param {string} key la clé rangée dans `S.daily.no`
+ * @param {object[]} [miss] les missions du jour, pour les clés `m:`
+ * @returns {string}
+ */
+function noLabel(key, miss){
+  const k = String(key);
+  // Une mission ne porte que son identifiant : c'est la carte du jour qui dit
+  // son texte. Absente — période passée, condition retombée — l'identifiant
+  // reste, et il vaut mieux que rien.
+  if(k.slice(0,2) === 'm:'){ const m = (miss||[]).find(x=>'m:'+x.id === k); return `${NO_NOM.m} · ${m ? m.what : k.slice(2)}`; }
+  /* Une destination porte ses propres deux-points (`1:142:6`) : on découpe sur
+     les deux premiers, pas sur tous. */
+  const parts = k.match(/^([^:]*):([^:]*):(.*)$/);
+  if(!parts) return k;
+  const [, kind, pid, quoi] = parts;
+  const p = pid ? planetById(pid) : null;
+  /* Chaque genre a sa table : `B` et `T` partagent des clés, et chercher dans
+     les deux nommerait une recherche d'après un bâtiment. */
+  let nom = quoi;
+  if(kind === 'b') nom = (B[quoi]||{}).n || quoi;
+  else if(kind === 't') nom = (T[quoi]||{}).n || quoi;
+  else if(kind === 'def') nom = (DEF[quoi]||{}).n || quoi;
+  else if(kind === 'shipbuild') nom = (SHIPS[quoi]||{}).n || quoi;
+  else if(kind === 'lf') nom = p ? lfNom(p, quoi) : quoi;
+  else if(kind === 'sats') nom = '';
+  // transfer, fleet, expo : la destination se lit telle quelle.
+  return [NO_NOM[kind] || kind, p ? planetRef(p) : (pid || ''), nom].filter(Boolean).join(' · ');
+}
+/**
+ * Ce qui est de côté, une ligne par carte, avec son propre « Remettre ».
+ * Un seul bouton en bloc obligeait à tout reprendre pour récupérer une carte —
+ * et surtout il ne disait pas ce qui était écarté : un compte, pas une liste.
+ * @returns {string} vide quand rien n'est de côté
+ */
+function noListe(){
+  const keys = Object.keys(S.daily.no);
+  if(!keys.length) return '';
+  // Les missions ne se nomment qu'en les recalculant : on ne le fait que s'il
+  // y en a une de côté.
+  const miss = keys.some(k=>k.slice(0,2) === 'm:') ? dailyMissions() : [];
+  const lignes = keys.map(k=>`<div class="row"><span class="note" style="flex:1">${esc(noLabel(k, miss))}</span><button class="btn sm ghost" data-noone="${esc(k)}">Remettre</button></div>`).join('');
+  return `<details class="volet"${fold('refus', false)}><summary class="note" data-fold="refus">Cartes mises de côté (${keys.length})</summary>
+    <div style="margin-top:6px">${lignes}</div>
+    <p class="note">Un « Non » met la carte de côté jusqu'à ce que tu la remettes : rien ne la ramène tout seul.</p>
+    ${keys.length>1 ? `<div class="row"><button class="btn sm ghost" data-noclear="1">Tout remettre</button></div>` : ''}
+  </details>`;
 }
 
 /* Une carte de flotte dit d'envoyer des vaisseaux quelque part. Quand le
@@ -6951,7 +7004,7 @@ settings(){
       <div class="row"><button class="btn" id="ioSave">Enregistrer dans un fichier</button><button class="btn" id="ioLoad">Charger un fichier…</button><input type="file" id="ioFile" accept="application/json,.json" hidden><button class="btn ghost" id="ioReset">Réinitialiser…</button><span class="note" id="ioMsg"></span></div>
       <textarea id="ioText" aria-label="Données JSON" placeholder="Ou colle ici une sauvegarde pour l'importer"></textarea>
       <div class="row"><button class="btn" id="ioImport">Importer le texte collé</button></div>
-      ${noCount() ? `<div class="row" style="margin-top:8px">${noRestore()}<span class="note">Un « Non » met la carte de côté jusqu'à ce que tu la remettes.</span></div>` : ''}
+      ${noListe()}
     </div>
     ${versionCard()}
     <div class="card"><h2>Fiabilité des calculs</h2>
@@ -7038,7 +7091,7 @@ today(){
   const nextS = plan.sessions.slice(1).find(x=>actsVus(x).length);
   if(!a0.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
   const aide = `<details${fold('aide', false)}><summary class="note" data-fold="aide">Comment lire ces cartes</summary><p class="note" style="margin-top:6px"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. <b>Non</b> met la carte de côté jusqu'à ce que tu la remettes. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p></details>`;
-  const remets = noCount() ? `<div class="row">${noRestore()}</div>` : '';
+  const remets = noListe();
   document.getElementById('tdNow').innerHTML = nowParts.join('') + aide + prioHtml(plan) + remets;
   /* Le bloc Expéditions se recalcule à chaque passage, comme le reste : un
      emplacement qui se libère — retour de flotte, échec, annulation — fait
@@ -7569,6 +7622,7 @@ view.addEventListener('click', e=>{
   if(lp){ const p = planetById(lp.dataset.lfpaliers);
     if(p && lfPosePaliers(p)){ save(); render(); publieLePlan(); toast('Paliers de population posés'); }
     return; }
+  const n1 = e.target.closest('[data-noone]'); if(n1){ delete S.daily.no[n1.dataset.noone]; save(); render(); toast('Carte remise'); return; }
   const nc = e.target.closest('[data-noclear]'); if(nc){ S.daily.no = {}; save(); render(); toast('Cartes refusées remises'); return; }
   const sm = e.target.closest('summary[data-fold]');
   // Le repli bascule tout seul : on ne note que l'état où il va.
