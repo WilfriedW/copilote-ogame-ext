@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -5426,17 +5426,83 @@ t('sans bridage, la carte ne parle pas d\'Ordinateur', () => {
 const sats = g => g.simulateDay().sessions.flatMap(x => x.acts).filter(a => a.kind === 'sats');
 /* La planète mère de la fixture tourne déjà à 82 % faute d'énergie. */
 
-t('sans défense vue sur la planète, aucun satellite proposé', () => {
+/** Le réglage du compte, et la surcharge de la planète mère. */
+const OUI = s => { s.settings.sats = true; };
+const nrj = g => g.planetAlerts(g.S.planets[0]).find(x => /Rétablir l'énergie/.test(x.what));
+
+t('par défaut les satellites ne sont pas autorisés', () => {
   const g = app();
-  assert.equal(sats(g).length, 0, 'ils partiraient en débris au premier raid');
-  const a = g.planetAlerts(g.S.planets[0]).find(x => /Satellites écartés/.test(x.what));
-  assert.ok(a, 'et la raison est dite');
+  // une sauvegarde d'avant ce réglage n'a pas la clé : absente vaut non
+  assert.ok(!g.S.settings.sats, 'le compte dit non tant que le joueur n\'a rien dit');
+  assert.equal(g.satsOk(g.S.planets[0]), false);
 });
 
-t('avec une défense sur la planète, les satellites reviennent', () => {
-  const g = app(s => { s.planets[0].def = 12; });
-  assert.ok(sats(g).length > 0, 'la planète est défendue, le prix décide');
-  assert.ok(!g.planetAlerts(g.S.planets[0]).some(x => /Satellites écartés/.test(x.what)), 'rien à expliquer');
+t('réglage à non : aucune recommandation ne parle de satellites', () => {
+  const g = app();
+  assert.equal(sats(g).length, 0, 'ils partiraient en débris au premier raid');
+  const a = nrj(g);
+  assert.ok(a, 'le manque d\'énergie se dit quand même : ' + JSON.stringify(g.planetAlerts(g.S.planets[0])));
+  assert.ok(!/satellite/i.test(a.why), 'rien que des centrales : ' + a.why);
+  assert.ok(/[Cc]entrale/.test(a.why), 'et une centrale est nommée : ' + a.why);
+});
+
+t('réglage à oui : les satellites reviennent, avec leur prix', () => {
+  const g = app(OUI);
+  const a = sats(g);
+  assert.ok(a.length > 0, 'le prix décide, maintenant que le joueur les accepte');
+  assert.ok(a[0].cost[1] > 0 && a[0].cost[2] > 0, 'cristal et deutérium : ' + JSON.stringify(a[0].cost));
+  assert.ok(/\+\d+ énergie/.test(a[0].why), 'et le gain d\'énergie : ' + a[0].why);
+});
+
+t('le non d\'une planète passe devant le oui du compte', () => {
+  const g = app(s => { OUI(s); s.planets[0].satsOk = false; });
+  assert.equal(g.satsOk(g.S.planets[0]), false);
+  assert.equal(sats(g).filter(a => a.p === 0).length, 0, 'pas sur celle-là');
+});
+
+t('le oui d\'une planète passe devant le non du compte', () => {
+  const g = app(s => { s.planets[0].satsOk = true; });
+  assert.equal(g.satsOk(g.S.planets[0]), true);
+  assert.ok(sats(g).some(a => a.p === 0), 'celle-là les accepte');
+});
+
+t('les satellites déjà posés comptent, réglage ou non', () => {
+  const g0 = app(s => { s.planets[0].sats = 0; });
+  const sans = g0.production(g0.S.planets[0]);
+  const g = app(s => { s.planets[0].sats = 10; });
+  const avec = g.production(g.S.planets[0]);
+  assert.ok(!g.satsOk(g.S.planets[0]), 'et pourtant le réglage dit non');
+  assert.ok(avec.eProd - sans.eProd >= 10 * g.satEnergy(g.S.planets[0].tmax),
+    'dix satellites rendent leur énergie : ' + (avec.eProd - sans.eProd));
+});
+
+/* ---------- les sources d'énergie comparées ---------- */
+
+t('la liste des options va de la moins chère à la plus chère par point', () => {
+  const g = app(OUI);
+  const o = g.energyOptions(g.S.planets[0]);
+  assert.ok(o.length >= 2, 'au moins la centrale et les satellites : ' + JSON.stringify(o.map(x => x.kind)));
+  for(let i = 1; i < o.length; i++) assert.ok(o[i-1].perPoint <= o[i].perPoint, 'triées par prix du point');
+  for(const x of o) assert.ok(x.gain > 0, x.kind + ' doit rapporter de l\'énergie');
+});
+
+t('la centrale solaire est toujours posable, la fusion seulement avec ses prérequis', () => {
+  const g = app(s => { s.planets[0].b.deut = 0; s.tech.energy = 0; });
+  const o = g.energyOptions(g.S.planets[0]);
+  const sol = o.find(x => x.kind === 'solar'), fus = o.find(x => x.kind === 'fusion');
+  assert.ok(sol && sol.prete, 'la centrale solaire ne demande rien');
+  assert.ok(!fus || !fus.prete, 'la fusion demande Synthétiseur 5 et Énergie 3');
+  if(fus) assert.ok(/manque/.test(fus.pourquoiPas), fus.pourquoiPas);
+});
+
+t('une option écartée ne se dit que si elle était la moins chère', () => {
+  const g = app();
+  const o = g.energyOptions(g.S.planets[0]);
+  const sat = o.find(x => x.kind === 'sats'), best = o.filter(x => x.prete)[0];
+  assert.ok(sat && !sat.prete, 'le réglage par défaut les écarte');
+  const dit = g.planetAlerts(g.S.planets[0]).some(x => /Satellites écartés/.test(x.what));
+  assert.equal(dit, sat.perPoint < best.perPoint,
+    'on en parle exactement quand le réglage coûte quelque chose au joueur');
 });
 
 /* ---------- mines bridées à la main ---------- */
