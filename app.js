@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.0.1';
+const APP_VERSION = '2.0.2';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -4338,7 +4338,10 @@ function dailyMissions(){
      recherche lue nulle part : on ne sait rien, la carte sort comme avant. */
   const lfrP = S.planets.filter(p=>Object.keys(p.lf||{}).some(id=>lfQueue(id)==='lfresearch'));
   const lfrLibre = !lfrP.length || lfrP.some(p=>!(S.timers||[]).some(t=>t.queue==='lfresearch' && t.pid===p.id && !t.done && t.end>now));
-  if(lfrLibre && S.artefacts!=null && S.artefacts>=200) out.push({id:'artefacts', q:'Formes de vie', every:24, sev:'good', what:`${fmt(S.artefacts)} artefacts : choisis une technologie de forme de vie`, why:'Au palier 1, 200 artefacts permettent de choisir précisément la technologie d\'un slot au lieu du tirage aléatoire.', how:['Forme de vie › Recherche : sur un slot libre, choisis la technologie voulue.', 'Attention : changer un slot déjà pris oblige à réinitialiser tout le palier.']});
+  /* Une semaine, et non un jour : le copilote ne sait pas lire quels slots de
+     palier sont déjà choisis, donc il ne peut que proposer — et proposer tous
+     les jours ce qui est fait une fois pour toutes, c'est du bruit. */
+  if(lfrLibre && S.artefacts!=null && S.artefacts>=200) out.push({id:'artefacts', q:'Formes de vie', every:24*7, sev:'good', what:`${fmt(S.artefacts)} artefacts : choisis une technologie de forme de vie`, why:'Au palier 1, 200 artefacts permettent de choisir précisément la technologie d\'un slot au lieu du tirage aléatoire.', how:['Forme de vie › Recherche : sur un slot libre, choisis la technologie voulue.', 'Attention : changer un slot déjà pris oblige à réinitialiser tout le palier.']});
   if(IS_EXT && S.syncAt && now - S.syncAt < 3600e3){
     // Trois situations, trois messages : page jamais ouverte, page lue mais
     // aucun prix affiché, ou tout est su — et alors c'est le plan qui parle.
@@ -4641,7 +4644,10 @@ function missionDone(m){
      Noté, pas seulement constaté : le mouvement disparaît des mouvements de
      flotte dès l'arrivée, et la carte reviendrait alors que le geste est fait.
      Un « Fait » posé ici tient le même temps qu'un « Fait » cliqué. */
-  const vivante = d => !!d && (Date.now() - d) < m.every*3600e3 && (m.every<24 || new Date(d).toDateString()===new Date().toDateString());
+  /* La journée civile ne borne que les cartes quotidiennes : une carte plus
+     rare, marquée faite hier, revenait quand même à minuit — sa période ne
+     servait à rien. Au-delà de 24 h, seule la durée compte. */
+  const vivante = d => !!d && (Date.now() - d) < m.every*3600e3 && (m.every!==24 || new Date(d).toDateString()===new Date().toDateString());
   if(!vivante(S.daily.done[m.id]) && flotteEnVol(m)){ S.daily.done[m.id] = Date.now(); save(); }
   return vivante(S.daily.done[m.id]); }
 

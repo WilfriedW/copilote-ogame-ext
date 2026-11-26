@@ -6392,6 +6392,22 @@ t('aucune case de recherche lue : la carte des artefacts sort quand même', () =
     'rien de lu, rien à déduire : on ne cache pas');
 });
 
+t('« Fait » tient une semaine sur la carte des artefacts', () => {
+  /* Le copilote ne sait pas lire quels slots de palier sont déjà choisis : la
+     carte ne peut que proposer, et la reproposer chaque matin est du bruit.
+     Marquée faite hier, elle revenait pourtant — la journée civile bornait
+     toutes les cartes de 24 h et plus. */
+  const hier = SOIR - 23 * 3600e3; // la veille au soir : même durée, autre jour civil
+  const g = app(s => { s.artefacts = 461; s.daily.done = { artefacts: hier }; });
+  const m = g.dailyMissions().find(x => x.id === 'artefacts');
+  assert.equal(m.every, 24 * 7);
+  assert.ok(g.missionDone(m), 'faite hier : elle ne revient pas ce matin');
+  // la carte quotidienne, elle, garde sa journée civile
+  const q = { id: 'autre', every: 24 };
+  g.S.daily.done.autre = hier;
+  assert.ok(!g.missionDone(q), 'une carte du jour repart au jour suivant');
+});
+
 /* ---------- un lot sorti du chantier fait taire le chantier ---------- */
 /* Le jeu nomme ce que son chantier construit, jamais combien, et sa file
    n'annonce que le lot en cours. Le copilote reproposait donc ce qui était
