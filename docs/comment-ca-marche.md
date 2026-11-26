@@ -145,7 +145,9 @@ Les règles, qui expliquent beaucoup de comportements :
 
 - **Une seule priorité agit par planète** à la fois ; les suivantes
   « attendent leur tour », dans l'ordre où tu les as posées. Deux réserves sur
-  une planète la gèleraient deux fois plus longtemps.
+  une planète la gèleraient deux fois plus longtemps. Une priorité de recherche
+  n'appartient à aucune planète : elle se range sur ton **centre**, et y prend
+  le tour comme un bâtiment.
 - Elle passe **derrière les deux secours** (énergie, hangar) et **devant tout
   le classement par amortissement**.
 - Tant qu'une priorité épargne sur une planète, **le moteur ne s'offre plus
@@ -155,6 +157,13 @@ Les règles, qui expliquent beaucoup de comportements :
   posée reçoit, les suivantes ne font que la nourrir.
 - Une priorité de recherche ne saute pas les prérequis : le plan épargne pour
   le **palier lançable** (Laser 1), pas pour la cible lointaine (Plasma 12).
+- **Les cases de forme de vie ne sont pas dans cette file.** Elles ne prennent
+  pas le tour de la planète et ne gèlent rien : une cible de forme de vie met
+  sa case en tête de la liste de sa planète — la carte dit « Tu l'as mise en
+  priorité » — et son attente ne pose qu'une réserve *molle*, que les mines
+  traversent. Un Nanites 10 et un Secteur résidentiel 21 sur la même planète ne
+  se disputent donc pas le tour. Deux cases de forme de vie, si : la première
+  dont le relevé connaît le prix passe.
 - Le bloc des priorités dit, pour chacune, ce que le plan en fait **à cette
   session** : « elle avance », « elle épargne pour X », « rien ne part pour
   elle », « elle attend son tour derrière Y ». Pas une déduction : l'état réel.
