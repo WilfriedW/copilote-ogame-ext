@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.7.0';
+const APP_VERSION = '2.7.1';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -3737,8 +3737,12 @@ function simulateDay(){
            simulées : `expoCandidats` lit S.planets, qui n'est pas encore à
            jour ici. `expoDeja` fait que deux lancements du même passage ne
            visent pas deux fois le même système. */
+        /* Plus de filtre sur un refus : la carte d'expédition ne se dessine
+           plus dans le panneau, donc plus personne ne peut poser ce « Non ».
+           Un vieux refus en stockage écartait une planète ici pendant que le
+           bloc la proposait à côté, sans que rien ne le dise. */
         const cands = P.map(p=>({p, f:expoFleet(p.ships, p), tgt:expoTgt(p)}))
-          .filter(x=>x.f && x.tgt && !refused(moveKey('expo', (real.planets[x.p.i]||{}).id, x.tgt)))
+          .filter(x=>x.f && x.tgt)
           .map(x=>Object.assign(x, expoScore(x.f, x.p.coords, Tm, expoDeja)))
           .sort((a,b)=>b.score-a.score || b.f.cargo-a.f.cargo);
         if(!cands.length) break;
@@ -4649,10 +4653,10 @@ function expoScore(f, coords, now, deja){
  */
 function expoCandidats(now, flottes, deja){
   now = now || Date.now();
-  const out = [];
+  const sol = flottes || expoAuSol(now), out = [];
   for(const [i,p] of S.planets.entries()){
     const tgt = expoTgt(p); if(!tgt) continue;
-    const f = expoFleet(flottes ? flottes[i] : p.ships, p); if(!f) continue;
+    const f = expoFleet(sol[i], p); if(!f) continue;
     const fl = flight(p.coords, tgt, f.ships, 100); if(!fl) continue;
     const heures = expoDuree(fl.secs, now), fuel = Math.round(fl.fuel*2);
     const sys = expoSys(p), pos = (parseC(p.coords)||[0,0,16])[2];
@@ -4665,10 +4669,29 @@ function expoCandidats(now, flottes, deja){
   const choix = entiers.length ? entiers : payables.length ? payables : out;
   return choix.sort((a,b)=>b.score-a.score || b.f.cargo-a.f.cargo);
 }
+/**
+ * La flotte au sol que le bloc peut engager, par rang de planète : celle du
+ * relevé, moins ce qu'une expédition déjà lancée a emporté.
+ *
+ * Un « Lancé » pose un minuteur qui porte sa flotte. Sans le déduire, le bloc
+ * reproposait les mêmes vaisseaux pour l'emplacement d'après — c'est ce que
+ * le plan fait déjà de son côté quand il simule la journée.
+ */
+function expoAuSol(now){
+  now = now || Date.now();
+  const out = S.planets.map(p=>Object.assign({}, p.ships));
+  for(const t of S.timers||[]){
+    if(t.done || t.kind!=='x' || t.k!=='expo' || !t.manual || !t.ships || t.end<=now) continue;
+    const i = S.planets.findIndex(p=>p.id === t.pid);
+    if(i >= 0) for(const [k,n] of Object.entries(t.ships)) out[i][k] = Math.max(0, (out[i][k]||0) - n);
+  }
+  return out;
+}
+
 /** Une recommandation par emplacement libre, chacune avec ses deux suivantes. */
 function expoPropose(now, n){
   now = now || Date.now();
-  const flottes = S.planets.map(p=>Object.assign({}, p.ships)), deja = {}, out = [];
+  const flottes = expoAuSol(now), deja = {}, out = [];
   for(let k=0; k<n; k++){
     const cands = expoCandidats(now, flottes, deja);
     if(!cands.length) break;
@@ -4687,10 +4710,15 @@ function expoEtat(now){
      seul retour porte son minuteur, et proposer sur la foi des minuteurs seuls
      envoyait lancer une expédition que le jeu refuse. */
   const pris = Math.min(max, Math.max(vols.length, lu ? lu.n : 0));
-  return {max, pris, libres: Math.max(0, max - pris), prochain: vols[0] || 0, fs,
-    /* Une expédition prend aussi un emplacement de flotte : tous pris, le jeu
-       refuse le départ et proposer quand même envoie cliquer sur rien. */
-    flotteBloquee: !!(fs && fs[0] >= fs[1])};
+  const libres = Math.max(0, max - pris);
+  /* Une expédition prend aussi un emplacement de flotte : tous pris, le jeu
+     refuse le départ, et proposer quand même envoie cliquer sur rien. D'où
+     deux chiffres — `libres`, ce que le compteur annonce, et `lancables`, ce
+     qui peut vraiment partir. Sans lecture fraîche des emplacements de flotte
+     on ne borne pas : on ne sait pas, et se taire coûterait plus. */
+  const fsLibres = fs ? Math.max(0, fs[1] - fs[0]) : libres;
+  return {max, pris, libres, lancables: Math.min(libres, fsLibres), prochain: vols[0] || 0, fs,
+    flotteBloquee: libres > 0 && fsLibres <= 0};
 }
 
 /**
@@ -4718,20 +4746,26 @@ function expoHtml(){
   if(!S.tech.astro) return {sum:'Astrophysique 1 les débloque',
     html:'<p class="note">Aucune expédition avant <b>Astrophysique 1</b>.</p>'};
   const quand = e.prochain ? `Prochain retour dans ${dur((e.prochain-now)/1000)}` : '';
-  const etat = !e.libres ? (quand || 'Tous les emplacements sont pris')
-    : e.flotteBloquee ? `Emplacements de flotte pleins (${e.fs[0]}/${e.fs[1]})`
+  const etat = e.flotteBloquee ? `Emplacements de flotte pleins (${e.fs[0]}/${e.fs[1]})`
+    : !e.libres ? (quand || 'Tous les emplacements sont pris')
     : 'Prête maintenant';
-  const bon = e.libres && !e.flotteBloquee;
+  const bon = e.lancables > 0;
   const parts = [`<p class="note">Emplacements : <b>${e.pris} utilisé${e.pris>1?'s':''} / ${e.max} disponible${e.max>1?'s':''}</b> · <span class="pill ${bon?'good':'info'}">${esc(etat)}</span>${bon && quand ? ` ${esc(quand)}` : ''}</p>`];
 
-  if(!e.libres) parts.push('<p class="note">Rien à lancer : le jeu refuse une expédition de plus tant qu\'un emplacement ne se libère pas.</p>');
-  else if(e.flotteBloquee) parts.push(`<p class="note">Chaque mission en vol, découvertes comprises, prend un emplacement de flotte. Technologie Ordinateur ${S.tech.computer+1} en ajoute un.</p>`);
+  if(e.flotteBloquee) parts.push(`<p class="note">Chaque mission en vol, découvertes comprises, prend un emplacement de flotte : le jeu refuse le départ tant qu'aucune ne rentre. Technologie Ordinateur ${S.tech.computer+1} en ajoute un.</p>`);
+  else if(!e.libres) parts.push('<p class="note">Rien à lancer : le jeu refuse une expédition de plus tant qu\'un emplacement ne se libère pas.</p>');
 
-  const props = e.libres ? expoPropose(now, e.libres) : [];
-  if(e.libres && !props.length) parts.push('<p class="note">Aucune planète ne peut composer une expédition : il faut au moins un transporteur au sol, hors réserve.</p>');
+  const props = e.lancables > 0 ? expoPropose(now, e.lancables) : [];
+  if(e.lancables > 0 && !props.length) parts.push('<p class="note">Aucune planète ne peut composer une expédition : il faut au moins un transporteur au sol, hors réserve.</p>');
 
   const ligne = x => {
     const url = fleetUrl({dest:x.tgt, mission:FS_MISSION.expedition, ships:x.f.ships, p:x.i});
+    /* « Lancé » pose le minuteur du retour et débite le carburant, comme le
+       faisait la carte du plan. C'est la seule façon pour le panneau de savoir
+       qu'un emplacement vient d'être pris quand le joueur n'ouvre pas la page
+       des mouvements de flotte. */
+    const lance = {kind:'expo', pid:x.p.id, ships:x.f.ships, cost:[0,0,x.fuel],
+      dur:Math.round(2*x.fl.secs + x.heures*3600), what:`Expédition depuis ${planetRef(x.p)}`};
     const ennuis = [];
     if(!x.f.plein) ennuis.push(`plafond non atteint : ${fmt(x.f.pts)} points sur ${fmt(x.f.ptsCap)}, il manque des vaisseaux au sol`);
     if(!x.deut) ennuis.push(`deutérium trop juste : ${fmt(x.fuel)} demandés pour l'aller-retour`);
@@ -4741,7 +4775,7 @@ function expoHtml(){
         <div class="q">${qHtml('Expédition · '+planetRef(x.p))}</div>
         <div class="w">${esc(shipList(x.f.ships))}</div>
       </div>
-      <span class="btns">${url ? `<button class="btn sm primary" data-prep="${esc(url)}">Préparer</button>` : ''}</span>
+      <span class="btns">${url ? `<button class="btn sm primary" data-prep="${esc(url)}">Préparer</button>` : ''}<button class="btn sm" data-launch='${esc(JSON.stringify(lance))}'>Lancé</button></span>
       <div class="m"><span>vers ${coordLink(x.tgt)}</span><span>exploration visée ${x.heures} h</span><span>retour vers ${hm(x.retour)}</span></div>
       <div class="m"><span>${fmt(x.f.pts)} / ${fmt(x.f.ptsCap)} points</span><span>fret ${fmt(x.f.cargo)} pour ${fmt(x.f.fret)} visés</span><span>carburant ${fmt(x.fuel)} deutérium</span></div>
       ${ennuis.length ? `<div class="m">⚠ ${esc(ennuis.join(' · '))}</div>` : ''}
@@ -6913,6 +6947,22 @@ function crawlerPill(p){
   return `<div class="wide"><span class="pill ${have>=max?'good':'info'}">Foreuses ${fmt(have)} / ${fmt(max)} utiles · +${pct} %</span></div>`;
 }
 
+/**
+ * Ce que le panneau DESSINE d'une connexion.
+ *
+ * L'expédition n'en fait plus partie : elle a son bloc, qui la compte, la
+ * compose, la classe et la prépare. La montrer aussi dans la liste des actions
+ * la faisait lire deux fois — et parfois avec deux planètes différentes, le
+ * plan comptant les transporteurs qu'un convoi aura quittés là où le bloc lit
+ * la flotte au sol d'aujourd'hui.
+ *
+ * Le plan, lui, la garde dans `acts` : il lui réserve son deutérium, sort ses
+ * vaisseaux de la flotte au sol pour le reste de la journée, et la colonne
+ * posée sur les pages du jeu la porte toujours — c'est là, sur l'écran de
+ * flotte, qu'elle sert encore.
+ */
+function actsVus(x){ return x.acts.filter(a=>a.kind !== 'expo'); }
+
 const REFRESH = {
 today(){
   const plan = simulateDay(), s0 = plan.sessions[0], night = !!S.day.night;
@@ -6920,7 +6970,7 @@ today(){
      montrer que la mise à l'abri. Le plan est recalculé à chaque passage,
      le vider ici ne perd rien. */
   if(night) for(const x of plan.sessions){ x.acts = []; x.waits = []; }
-  const nowParts = [];
+  const nowParts = [], a0 = actsVus(s0);
   /* Les cartes Lune ne se mettent pas en sommeil : leur état vient de S.lune,
      et un « Non » de réflexe éteindrait « sors ta flotte » pour toute la
      campagne — sur la seule carte qui vaut des millions. */
@@ -6953,13 +7003,13 @@ today(){
   const lun = nowMs.filter(m=>m.id === 'lune-sors'), reste = nowMs.filter(m=>m.id !== 'lune-sors');
   const avant = luneUrgent() ? lun.map(taskHtml).join('') : '';
   const apres = (luneUrgent() ? reste : lun.concat(reste)).map(taskHtml).join('');
-  if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${avant}${s0.acts.map(a=>actHtml(a,true)).join('')}${apres}</ul>`);
+  if(a0.length || nowMs.length) nowParts.push(`<ul class="acts">${avant}${a0.map(a=>actHtml(a,true)).join('')}${apres}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
   if(s0.waits.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${s0.waits.length})</summary><ul class="acts" style="margin-top:6px">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`).join('')}</ul></details>`);
   if(plan.busy.length || infoMs.length) nowParts.push(`<details${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${plan.busy.length + infoMs.length})</summary><ul class="acts" style="margin-top:6px">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${hm(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`).join('')}</ul></details>`);
-  const nextS = plan.sessions.slice(1).find(x=>x.acts.length);
-  if(!s0.acts.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
+  const nextS = plan.sessions.slice(1).find(x=>actsVus(x).length);
+  if(!a0.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
   const aide = `<details${fold('aide', false)}><summary class="note" data-fold="aide">Comment lire ces cartes</summary><p class="note" style="margin-top:6px"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. <b>Non</b> met la carte de côté jusqu'à ce que tu la remettes. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p></details>`;
   const remets = noCount() ? `<div class="row">${noRestore()}</div>` : '';
   document.getElementById('tdNow').innerHTML = nowParts.join('') + aide + prioHtml(plan) + remets;
@@ -6970,8 +7020,8 @@ today(){
   if(eb){ const r = expoHtml(); eb.innerHTML = r.html; document.getElementById('expoSum').textContent = r.sum; }
   const alerts = plan.alerts;
   document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><h2>Alertes</h2><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('')}</ul></div>` : '';
-  const later = plan.sessions.slice(1).filter(x=>x.acts.length || slotMs.has(x));
-  const slot = x=>`<div class="slot"><div class="time">${hm(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${x.acts.map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
+  const later = plan.sessions.slice(1).filter(x=>actsVus(x).length || slotMs.has(x));
+  const slot = x=>`<div class="slot"><div class="time">${hm(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${actsVus(x).map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
   const phases = [], horizonEnd = plan.now + (+S.day.horizon||24)*3600e3;
   for(const x of plan.sessions){ const key = x.goals.map(g=>g.key).join('|') || 'free'; const last = phases[phases.length-1]; if(last && last.key===key) continue; if(last) last.to = x.T; phases.push({key, from:x.T, to:horizonEnd, goals:x.goals}); }
@@ -7024,7 +7074,7 @@ settings(){
   /* Les connexions qui portent quelque chose, dites comme telles : le résumé
      d'Aujourd'hui compte aussi les missions, et deux lignes qui annoncent le
      même mot avec deux chiffres différents est le pire des deux mondes. */
-  const n = plan.sessions.slice(1).filter(x=>x.acts.length).length;
+  const n = plan.sessions.slice(1).filter(x=>actsVus(x).length).length;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
   // Deux heures égales ne font pas une nuit de zéro heure : elles n'en font aucune.
   const nuit = +d.nightStart === +d.nightEnd ? 'aucune nuit' : `nuit ${d.nightStart}h–${d.nightEnd}h`;
