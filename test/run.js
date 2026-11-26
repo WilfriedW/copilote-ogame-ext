@@ -4994,11 +4994,39 @@ t('un prix lu porte l\'heure de sa lecture', () => {
    de porter le même identifiant, le bouton n'ouvre plus rien et rien ne crie. */
 t('le ⓘ ouvre bien son propre texte', () => {
   const g = app();
-  const a = g.simulateDay().sessions[0].acts.find(x => x.why);
+  /* Une carte dont le pourquoi tient en une phrase n'a pas de ⓘ : la phrase
+     est déjà sur la carte. On cherche donc celle qui en a un. */
+  const a = g.simulateDay().sessions[0].acts.find(x => x.why && /aria-controls/.test(g.actHtml(x, false)));
   const h = g.actHtml(a, false);
   const btn = h.match(/aria-controls="(why\d+)"/), txt = h.match(/<div class="why" id="(why\d+)"/);
   assert.ok(btn && txt, 'le ⓘ et son texte sont tous les deux posés');
   assert.equal(btn[1], txt[1], 'le bouton pointe sur son propre texte');
+});
+
+/* La raison ne doit plus demander un clic : la première phrase du pourquoi se
+   lit sur la carte, et le ⓘ ne reste que s'il a davantage à dire. */
+t('la carte porte la raison de l\'action', () => {
+  const g = app();
+  const a = g.simulateDay().sessions[0].acts.find(x => x.why);
+  const h = g.actHtml(a, false);
+  const lead = h.match(/<div class="but">([^<]+)<\/div>/);
+  assert.ok(lead, 'la raison est posée sur la carte');
+  assert.ok(a.why.startsWith(lead[1].replace(/…$/, '').trim().slice(0, 20)), 'c\'est bien le début du pourquoi');
+});
+
+t('un pourquoi d\'une seule phrase se passe du ⓘ', () => {
+  const g = app();
+  const [i, fold, lead] = g.whyParts(['Meilleur rendement']);
+  assert.equal(i, '');
+  assert.equal(fold, '');
+  assert.equal(lead, 'Meilleur rendement');
+});
+
+t('la raison s\'arrête à la première phrase', () => {
+  const g0 = app();
+  assert.equal(g0.whyLead('Deux Grands transporteurs. Le reste suit.'), 'Deux Grands transporteurs.');
+  assert.equal(g0.whyLead('Raison courte · détail · encore'), 'Raison courte');
+  assert.equal(g0.whyLead(''), '');
 });
 
 t('le prix qu\'on vient d\'ouvrir porte aussi son heure de lecture', () => {
