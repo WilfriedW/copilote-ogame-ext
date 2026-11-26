@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.3.0';
+const APP_VERSION = '2.4.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -93,7 +93,7 @@ function expoFind(pf){ return EXPO_CAPS[top1Tier()][1]*ecoSpeed()*(S.settings.cl
 function sample(){
   return {
     v:1, sample:true,
-    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, muet:false, debris:LUNE_DF, skin:'relief'},
+    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, sats:false, muet:false, debris:LUNE_DF, skin:'relief'},
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
@@ -761,6 +761,9 @@ const nf = new Intl.NumberFormat('fr-FR');
     `1200000`, un « 1,20 M » n'aide pas à le recaler. La place ne manque pas
     sur cette ligne : on les écrit en entier. */
 const fmtLigne = n => isFinite(n) ? nf.format(Math.round(n)) : '∞';
+/** Un coût en clair, sans nommer les ressources qu'il ne demande pas. */
+const coutTexte = c => { const l = ['métal','cristal','deutérium'].map((n,i)=>c[i]>0?`${fmt(c[i])} de ${n}`:'').filter(Boolean);
+  return l.length < 2 ? (l[0] || 'rien') : `${l.slice(0,-1).join(', ')} et ${l[l.length-1]}`; };
 function fmt(n){ if(!isFinite(n)) return '∞'; const a=Math.abs(n); if(a>=1e9) return (n/1e9).toFixed(2).replace('.',',')+' G'; if(a>=1e6) return (n/1e6).toFixed(2).replace('.',',')+' M'; if(a>=1e5) return (n/1e3).toFixed(0)+' k'; return nf.format(Math.round(n)); }
 function dur(sec){ if(!isFinite(sec)) return 'jamais'; sec=Math.max(0,Math.round(sec)); const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60), s=sec%60; if(d) return `${d}j ${h}h`; if(h) return `${h}h ${String(m).padStart(2,'0')}m`; if(m) return `${m}m ${String(s).padStart(2,'0')}s`; return `${s}s`; }
 /* L'apostrophe compte autant que le guillemet : data-launch est un attribut
@@ -1506,6 +1509,8 @@ function crawlerBonus(n, cls, overload){
 }
 const CRAWLER_COST = [2000, 2000, 1000];
 const CRAWLER_ENERGY = 50;
+/* Le prix d'un satellite solaire, qui ne dépend de rien. */
+const SAT_COST = [0, 2000, 500];
 
 /**
  * Bonus de forme de vie lu dans le panneau de production, tel que le jeu l'affiche :
@@ -2278,14 +2283,21 @@ function depensesPayables(p, j, st){
   return out.sort((a,b)=>b.cost[j]-a.cost[j]);
 }
 function planetAlerts(p){
-  const out = [], pr = production(p), st = stockNow(p), r = rankUpgrades(p);
+  const out = [], pr = production(p), st = stockNow(p);
   const where = S.planets.length>1 ? ` sur ${p.name}` : '';
   if(pr.factor<1){
-    const best = r[0];
-    out.push({sev:'bad', what:`Rétablir l'énergie${where}`, why:`Tes mines tournent à ${Math.round(pr.factor*100)} %. ${best ? `Le plus rentable : ${B_SHORT[best.key]} ${best.lvl}${best.extraSolar?` avec solaire ${p.b.solar+best.extraSolar}`:''}.` : 'Monte la centrale solaire.'}`});
+    const opts = energyOptions(p), ok = opts.filter(o=>o.prete), best = ok[0];
+    out.push({sev:'bad', what:`Rétablir l'énergie${where}`,
+      why:`Tes mines tournent à ${Math.round(pr.factor*100)} %. ${best
+        ? `Le moins cher par point d'énergie : ${energyLine(best)}.${ok.length>1 ? ` Sinon ${ok.slice(1).map(energyLine).join(', ')}.` : ''}`
+        : 'Monte la centrale solaire.'}`});
+    /* Une option écartée ne se dit que si elle aurait été la moins chère :
+       sinon l'avertissement ferait regretter un réglage qui ne changeait rien. */
+    for(const o of opts)
+      if(!o.prete && (!best || o.perPoint < best.perPoint))
+        out.push({sev:'warn', what:`${o.kind==='sats' ? 'Satellites écartés' : 'Fusion écartée'}${where}`,
+          why:`${energyLine(o)} : moins cher par point d'énergie que ${best ? best.label.toLowerCase() : 'la centrale'}, mais ${o.pourquoiPas}.${o.kind==='sats' ? ' Un satellite part en débris au premier raid, et l\'énergie retombe avec lui.' : ''}`});
   }
-  if(pr.factor<1 && p.b.shipyard>=1 && !p.def)
-    out.push({sev:'warn', what:`Satellites écartés${where}`, why:'Ils coûteraient moins cher que la centrale, mais un satellite part en débris au premier raid et l\'énergie retombe avec lui. Je n\'en propose que sur une planète défendue : ouvre une fois la page Défense pour que je voie la tienne, ou monte la centrale.'});
   /* Le jeu dit son énergie libre mines bridées ; le moteur les compte à 100 %.
      La marge est donc ce qui resterait une fois le bridage levé. */
   const br = bridage(p);
@@ -3151,7 +3163,7 @@ function simulateDay(){
      automatique pour tout le reste de la journée simulée. */
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
-  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
+  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, satsOk:p.satsOk, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
   const expoBusy = [];
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
@@ -3586,25 +3598,24 @@ function simulateDay(){
         /* Un lot sorti du chantier sans être relu : on ne sait plus combien de
            satellites tournent, donc on n'en propose pas d'autres. */
         if(p.flou) continue;
-        /* Le prix n'est pas le seul critère : un satellite ne se répare pas,
-           il part en débris au premier raid et l'énergie retombe le jour où on
-           en a le plus besoin. Sans défense vue sur la planète, la centrale —
-           qui ne se pille pas — l'emporte quelle que soit la différence de
-           prix. planetAlerts dit pourquoi. */
-        if(!p.def) continue;
+        /* Le prix n'est pas le seul critère : un satellite ne se répare pas, il
+           part en débris au premier raid et l'énergie retombe le jour où on en a
+           le plus besoin. Ce risque-là ne se calcule pas — il se choisit, dans
+           les Réglages. planetAlerts dit pourquoi quand le choix est non. */
+        if(!satsOk(p)) continue;
         if(wantColony && p===dep && !sim.colShip && sim.tech.impulse>=3 && p.b.shipyard>=4) continue;
         const pr = production(p), best = rankUpgrades(p).find(u=>u.payback<Infinity);
         const satE = satEnergy(p.tmax) * (1 + (S.settings.cls==='collector'?.1:0) + (S.settings.eng?.1:0));
         let need = pr.factor<1 ? pr.eCons-pr.eProd : 0;
         if(best && best.extraSolar){ const after = production(p,{[best.key]:best.lvl}); need = Math.max(need, after.eCons-after.eProd); }
         if(need<=0) continue;
-        const n = Math.ceil(need/satE) + 1, c = [0, 2000*n, 500*n];
+        const n = Math.ceil(need/satE) + 1, c = SAT_COST.map(x=>x*n);
         const solarAlt = rangeCost(B.solar, p.b.solar, p.b.solar + Math.max(1, best ? best.extraSolar : 1));
         if(mse(...c) >= mse(...solarAlt)) continue;
         if(can(p,c,reserveOf(p,Tm))){
           pay(p,c); const d = n*2000/(2500*(1+p.b.shipyard)*Math.pow(2,p.b.nanite)*ecoSpeed())*3600, pp=p, fin=Tm+d*1000;
           pp.sq=fin; pp.satPending=fin; sim.ev.push({at:fin, fn:()=>{ pp.sats+=n; pp.satPending=0; }});
-          acts.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, why:`+${Math.round(n*satE)} énergie, ${Math.round(mse(...solarAlt)/Math.max(1,mse(...c)))}x moins cher que la centrale`, cost:c, dur:d, end:fin, kind:'sats', n, p:p.i});
+          acts.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, why:`+${Math.round(n*satE)} énergie, ${Math.round(mse(...solarAlt)/Math.max(1,mse(...c)))}x moins cher que la centrale${p.def ? '' : ' · aucune défense vue ici : un raid les emporte tous'}`, cost:c, dur:d, end:fin, kind:'sats', n, p:p.i});
         } else { const e=wait(p,c); soft.push({p, cost:c, eta:e}); waits.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, eta:e, miss:missOf(p,c), kind:'sats', p:p.i}); }
       }
       // Les deux files de forme de vie sont indépendantes de la file des
@@ -4149,10 +4160,90 @@ function lfSettingsHtml(){
 }
 /**
  * Énergie que rend un satellite solaire, qui ne tient qu'à la température.
+ * Formule du wiki : (température max + 140) / 6, arrondie vers le bas. Les
+ * bonus de classe et d'officier n'y sont pas — `production` les applique à la
+ * production d'énergie entière, satellites compris.
  * @param {number} tmax température maximale de la planète
  * @returns {number} énergie par satellite
  */
-function satEnergy(tmax){ return Math.max(1, Math.floor(tmax/4 + 20)); }
+function satEnergy(tmax){ return Math.max(1, Math.floor(((+tmax || 0) + 140) / 6)); }
+/**
+ * Le joueur accepte-t-il des satellites solaires ici ?
+ *
+ * Ce n'est pas un calcul, c'est un choix. Un satellite ne se répare pas : il
+ * part en débris au premier raid, il grossit le butin de l'attaquant, et
+ * l'énergie retombe avec lui le jour où elle manque le plus. D'autres joueurs
+ * les posent volontiers, surtout sur une planète chaude où ils rendent le
+ * double. Le réglage de la planète prime donc sur celui du compte, et le compte
+ * dit non par défaut.
+ *
+ * Les satellites DÉJÀ posés ne passent pas par là : `production` les compte
+ * toujours, quel que soit le réglage. Refuser d'en proposer n'est pas refuser
+ * de voir ceux qui tournent.
+ * @param {object} p planète, réelle ou copie simulée
+ * @returns {boolean}
+ */
+function satsOk(p){ return p && p.satsOk != null ? !!p.satsOk : !!S.settings.sats; }
+/**
+ * Les sources d'énergie posables sur cette planète, chiffrées, de la moins
+ * chère à la plus chère par point d'énergie.
+ *
+ * Le gain se lit sur `production` plutôt que sur la formule : les bonus de
+ * classe et d'officier, l'écart calé sur le panneau du jeu (`eAdj`) et le
+ * forfait de forme de vie s'appliquent à la production d'énergie entière, et un
+ * gain calculé à part les aurait tous oubliés.
+ *
+ * `prete` dit si l'option est proposable — la fusion demande ses prérequis, les
+ * satellites un chantier spatial et l'accord du joueur. Une option écartée
+ * reste dans la liste avec sa raison : c'est elle qui permet de dire « les
+ * satellites auraient coûté moins cher » sans pour autant les proposer.
+ * @param {object} p planète de S.planets
+ * @returns {{kind:string, label:string, cost:number[], gain:number,
+ *   perPoint:number, note:string, prete:boolean, pourquoiPas:string}[]}
+ */
+function energyOptions(p){
+  const base = production(p), manque = Math.max(0, base.eCons - base.eProd), out = [];
+  const add = o => { if(o.gain > 0) out.push(Object.assign({note:'', prete:true, pourquoiPas:'', perPoint: mse(...o.cost)/o.gain}, o)); };
+  /* Chaque option est dimensionnée sur ce qui manque. Comparer « un niveau de
+     centrale » à « huit satellites » ne dirait rien : la moins chère au point
+     serait toujours celle qui monte le moins — un niveau de fusion qui rend
+     trente d'énergie quand il en manque deux cent cinquante. Sans manque, un
+     pas de un, qui est la question que pose alors le joueur : « et si j'en
+     montais une ? »  Même borne que `rankUpgrades`. */
+  const palier = (k, def) => {
+    const de = p.b[k] || 0;
+    for(let n = 1; n <= 15; n++){
+      const gain = production(p, {[k]: de + n}).eProd - base.eProd;
+      if(gain >= manque || n === 15) return {lvl: de + n, n, gain, cost: rangeCost(def, de, de + n)};
+    }
+  };
+  const sol = palier('solar', B.solar);
+  add({kind:'solar', label:`Centrale solaire ${sol.lvl}`, cost:sol.cost, gain:sol.gain,
+       note: sol.n > 1 ? `${sol.n} niveaux à monter` : ''});
+  /* La fusion brûle du deutérium tous les jours : le dire fait partie du prix,
+     et `production` le retranche déjà de la production de la planète. */
+  const fus = palier('fusion', B.fusion), fusMiss = reqOk(B.fusion.req, p);
+  const brule = base.d - production(p, {fusion:fus.lvl}).d;
+  add({kind:'fusion', label:`Centrale de fusion ${fus.lvl}`, cost:fus.cost, gain:fus.gain,
+       note:[fus.n > 1 ? `${fus.n} niveaux à monter` : '', `brûle ${fmt(brule)} de deutérium par heure`].filter(Boolean).join(', '),
+       prete: !fusMiss.length, pourquoiPas: fusMiss.length ? `il manque ${fusMiss.join(', ')}` : ''});
+  /* Un satellite de plus se simule sur une copie : `production` lit `p.sats`,
+     pas les surcharges de niveaux. */
+  const avec = n => production(Object.assign({}, p, {sats:(p.sats||0)+n})).eProd - base.eProd;
+  const un = avec(1);
+  if(un > 0){
+    const n = Math.max(1, Math.ceil(manque / un));
+    add({kind:'sats', label:`${n} satellite${n>1?'s':''} solaire${n>1?'s':''}`, cost:SAT_COST.map(x=>x*n),
+         gain: avec(n), note:`${un} d'énergie par satellite à ${p.tmax} °C`,
+         prete: satsOk(p) && p.b.shipyard >= 1,
+         pourquoiPas: !satsOk(p) ? 'tu ne les autorises pas (Réglages › Énergie)' : 'il manque Chantier spatial 1'});
+  }
+  return out.sort((a,b)=>a.perPoint-b.perPoint);
+}
+/** Une option d'énergie en clair : son prix, et ce qu'elle rapporte. */
+function energyLine(o){
+  return `${o.label} (${coutTexte(o.cost)}, +${Math.round(o.gain)} d'énergie${o.note ? `, ${o.note}` : ''})`;
+}
 /**
  * Race conseillée pour un emplacement, parmi celles que le compte a trouvées.
  * Deux faits suffisent, et le panneau les tient de l'emplacement seul, sans
@@ -5892,6 +5983,7 @@ planets(){
       <div class="grid tight" style="margin-top:8px">
         ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${num(p.b[k])}"${lvLu(p) ? ' readonly tabindex="-1"' : ''}><input class="prio" type="number" min="${num(p.b[k])+1}" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
         <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${num(p.sats)}"${lvLu(p) ? ' readonly tabindex="-1"' : ''}></label>
+        <label class="f">Satellites autorisés<select data-satsok="${p.id}"><option value="">Hériter (${S.settings.sats ? 'oui' : 'non'})</option><option value="1" ${p.satsOk === true ? 'selected' : ''}>Oui</option><option value="0" ${p.satsOk === false ? 'selected' : ''}>Non</option></select></label>
       </div>
       ${lfBloc(p)}
       </details>
@@ -6056,6 +6148,12 @@ settings(){
       <div class="grid">
         <label class="f">Ratio d'échange M:C:D<input id="sRatio" data-set="ratio" value="${s.ratio.join(':')}"></label>
       </div>
+    </div>
+    <div class="card"><h2>Énergie</h2>
+      <div class="bascules">
+        ${bascule('sSats','data-set="sats"','Autoriser les satellites solaires dans les recommandations', s.sats, 'Moins chers que la centrale sur une planète chaude, mais un satellite part en débris au premier raid, grossit le butin de l\'attaquant, et l\'énergie retombe avec lui. Ceux que tu as déjà posés comptent dans ta production, réglage ou non.')}
+      </div>
+      <p class="note">Sans cette case, le copilote ne propose que la centrale solaire et la centrale de fusion. Planète par planète, le réglage se surcharge dans l'onglet Planètes.</p>
     </div>
     <div class="card"><h2>Allure du panneau</h2>
       <div class="grid">
@@ -6469,6 +6567,9 @@ function bind(){
     card.querySelectorAll('input[data-b]').forEach(el=>el.addEventListener('input',()=>{ p.b[el.dataset.b]=Math.max(0,parseInt(el.value)||0); delete p.bNeuve; changed(); }));
     card.querySelectorAll('input[data-p]').forEach(el=>el.addEventListener('input',()=>{ const k=el.dataset.p; p[k] = (k==='tmax'||k==='sats') ? (parseInt(el.value)||0) : el.value; changed(); }));
     card.querySelectorAll('input[data-s]').forEach(el=>el.addEventListener('input',()=>{ const st=stockNow(p); p.stock={m:st[0],c:st[1],d:st[2],at:Date.now()}; p.stock[el.dataset.s]=parseFloat(el.value)||0; changed(); }));
+    /* Trois états, et le vide en est un : hériter du compte n'est pas la même
+       chose que dire non ici. */
+    card.querySelectorAll('[data-satsok]').forEach(el=>el.addEventListener('change',()=>{ p.satsOk = el.value === '' ? null : el.value === '1'; changed(); }));
   });
   view.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{ const p=S.planets[+b.dataset.del]; if(p) forgetPlanet(p.id); save(); render(); }));
   on('addPlanet','click',()=>{ S.planets.push(newPlanet('Colonie '+S.planets.length,'1:1:'+(S.planets.length+4),20,{})); S.sample=false; save(); render(); });
@@ -6503,7 +6604,7 @@ function bind(){
   view.querySelectorAll('[data-set]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k=el.dataset.set, s=S.settings;
     if(k==='ratio'){ const r=el.value.split(':').map(Number); if(r.length===3 && r.every(x=>x>0)) s.ratio=r; }
-    else if(['geo','eng','colCargo','lean','noshop','large','peau','clair','crawlerOverload','muet'].includes(k)) s[k]=el.checked;
+    else if(['geo','eng','colCargo','lean','noshop','large','peau','clair','crawlerOverload','muet','sats'].includes(k)) s[k]=el.checked;
     else if(k==='skin') s.skin=el.value;
     else s[k]=Math.max(k==='top1'?0:1, parseFloat(el.value)||0);
     changed();
@@ -6711,7 +6812,10 @@ function sainEtat(){
   /* Une sauvegarde d'avant les identifiants n'en porte pas : sans ça, tout
      l'onglet Planètes s'affiche en `pn-undefined`. Même jeton que
      `migratePlanetIds`. */
-  for(const q of S.planets || []) if(!q.id) q.id = Math.random().toString(36).slice(2,9);
+  for(const q of S.planets || []){
+    if(!q.id) q.id = Math.random().toString(36).slice(2,9);
+    if(q.satsOk != null) q.satsOk = !!q.satsOk;
+  }
 }
 function changed(){ S.sample=false; save(); refresh(); }
 
