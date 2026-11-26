@@ -761,7 +761,7 @@ clic droit la corrige comme avant.
 
 | Champ | Valeurs | Effet |
 |---|---|---|
-| Bâtiment ou forme de vie | les 17 bâtiments, puis les cases de forme de vie relevées | Celle que la pose vise |
+| Bâtiment ou forme de vie | les 17 bâtiments, puis les **rangs** de forme de vie relevés | Celle que la pose vise |
 | Niveau visé | entier ≥ 1, vide tant que rien n'est tapé | Le niveau posé sur chaque planète cochée |
 | Une case par planète | cochée par défaut | Décochée, la planète ne reçoit rien — **et le reste pour ce bâtiment-là seulement** |
 | Poser sur N planètes | bouton | Pose, et dit combien |
@@ -773,13 +773,29 @@ derniers cas **ne sont pas posés et ne comptent pas** : la carte ne fait que
 monter un niveau visé, jamais le descendre, et ne retire jamais rien. Un champ
 vide ne pose donc rien non plus.
 
-**Les formes de vie sont dans la même liste**, sous leur nom, dans un groupe
-à part sous les bâtiments. Elles n'y figurent que si le relevé les a vues :
-leurs prix changent d'une espèce à l'autre et ne sont écrits nulle part dans
-le copilote, c'est la page de ton espèce dans le jeu qui les apprend. Une
-planète d'une autre espèce n'a pas la case, et une planète pas encore relevée
-n'en a aucune : ces lignes-là disent « pas relevée ici » et ne reçoivent rien,
-plutôt que de recevoir une priorité qui ne correspond à rien chez elles.
+**Les formes de vie sont dans la même liste**, dans deux groupes à part sous
+les bâtiments — bâtiments de forme de vie, puis recherches. Elles n'y figurent
+que si le relevé les a vues : leurs prix changent d'une espèce à l'autre et ne
+sont écrits nulle part dans le copilote, c'est la page de ton espèce dans le
+jeu qui les apprend.
+
+**Une entrée par rang, pas par case.** Le jeu range les cases dans le même
+ordre chez les quatre espèces : le rang 1 est partout le logement, le rang 2
+partout la nourriture. La liste n'offre donc pas « Secteur résidentiel » *et*
+« Enclave de méditation » — elle offre **le rang**, et la pose donne à chaque
+planète la case de son espèce à elle. Sur un empire à deux espèces, l'entrée
+porte les deux noms (« Secteur résidentiel / Enclave de méditation »), et
+chaque ligne de planète nomme la case qu'elle va recevoir.
+
+Les noms viennent du relevé, jamais d'un intitulé de rôle inventé : au-delà du
+logement et de la nourriture, documentés chez les quatre espèces, le jeu ne
+donne pas le même rôle au même rang — le rang 9 est une Tour d'habitation chez
+les Humains et autre chose ailleurs. Mieux vaut lire les vrais noms que croire
+à une équivalence qui n'existe pas.
+
+Une planète dont l'espèce n'ouvre pas ce rang, ou qui n'a rien relevé, dit
+« pas relevée ici » et ne reçoit rien, plutôt qu'une priorité qui ne
+correspond à rien chez elle.
 
 La mémoire des planètes décochées est **locale à ce navigateur** : elle ne
 voyage pas d'un poste à l'autre, contrairement aux priorités elles-mêmes.

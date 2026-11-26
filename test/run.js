@@ -10395,47 +10395,69 @@ t('des décochées au mauvais type ne gèlent pas Empire', () => {
   assert.ok(lu(g.VIEWS.planets()).includes('Poser sur toutes les planètes'));
 });
 
-/* ---------- et les formes de vie, dans la même carte ---------- */
+/* ---------- et les formes de vie, par rang et non par identifiant ---------- */
 /* Les cases de forme de vie ne sont pas dans B : leurs prix changent d'une
-   espèce à l'autre, et c'est le relevé qui les nomme. La liste se construit
-   donc de ce que l'empire a vu. Une planète d'une autre espèce n'a pas la
-   case : la carte le dit, au lieu de poser une priorité dans le vide. */
+   espèce à l'autre, et c'est le relevé qui les nomme. Chaque espèce occupe
+   deux séries — bâtiments puis recherches —, si bien qu'un empire à deux
+   espèces donnait deux entrées pour la même ligne de la liste. La carte offre
+   donc un rang, et chaque planète reçoit la case de son espèce à elle. */
 
-const VIE = s => {
-  s.planets[0].lf = { 11101: { lvl: 3, nom: 'Secteur résidentiel' }, 11102: { lvl: 1, nom: 'Ferme biosphérique' } };
-  s.planets[1].lf = { 11101: { lvl: 0, nom: 'Secteur résidentiel' } };
+const DEUX_ESPECES = s => {
+  s.planets[0].lf = { 11101: { lvl: 3, nom: 'Secteur résidentiel' },
+                      11102: { lvl: 1, nom: 'Ferme biosphérique' },
+                      11201: { lvl: 2, nom: 'Ambassadeurs intergalactiques' } };
+  s.planets[1].lf = { 11301: { lvl: 2, nom: 'Enclave de méditation' } };
 };
+const OPTIONS = h => [...h.matchAll(/<option value="([^"]+)"/g)].map(m => m[1]);
 
-t('la liste de la carte propose les cases de forme de vie relevées', () => {
-  const g = app(s => { VIE(s); POSE('metal', 43)(s); });
+t('un seul rang dans la liste, quelles que soient les espèces', () => {
+  const g = app(s => { DEUX_ESPECES(s); POSE('metal', 43)(s); });
+  const o = OPTIONS(g.poseBloc()).filter(x => x.startsWith('lf'));
+  assert.deepEqual(o, ['lfbuilding:1', 'lfbuilding:2', 'lfresearch:1'], o.join(','));
+});
+
+t('le rang porte les noms que le relevé lui connaît, des deux espèces', () => {
+  const g = app(s => { DEUX_ESPECES(s); POSE('metal', 43)(s); });
   const h = lu(g.poseBloc());
-  assert.ok(h.includes('Secteur résidentiel'), h);
-  assert.ok(h.includes('Ferme biosphérique'), h);
+  assert.ok(h.includes('Secteur résidentiel / Enclave de méditation'), h);
 });
 
-t('une case de forme de vie se pose sur toutes les planètes', () => {
-  const g = app(s => { VIE(s); POSE(11101, 21)(s); });
-  assert.deepEqual(g.poseLignes().map(x => x.actuel), [3, 0]);
+t('poser un rang donne à chaque planète la case de son espèce', () => {
+  const g = app(s => { DEUX_ESPECES(s); POSE('lfbuilding:1', 21)(s); });
+  assert.deepEqual(g.poseLignes().map(x => x.actuel), [3, 2]);
   assert.equal(g.posePartout(), 2);
-  assert.equal(g.prioLvl('lf', 'mere', 11101), 21);
-  assert.equal(g.prioLvl('lf', 'colo', 11101), 21);
+  assert.equal(g.prioLvl('lf', 'mere', 11101), 21, 'la case humaine');
+  assert.equal(g.prioLvl('lf', 'colo', 11301), 21, "la case de l'autre espèce");
 });
 
-t("une planète qui n'a pas la case ne la reçoit pas", () => {
-  const g = app(s => { VIE(s); POSE(11102, 21)(s); });
+t('le rang des recherches ne touche pas celui des bâtiments', () => {
+  const g = app(s => { DEUX_ESPECES(s); POSE('lfresearch:1', 21)(s); });
+  assert.equal(g.posePartout(), 1, 'la mère seule : la colonie n\'a rien relevé là');
+  assert.equal(g.prioLvl('lf', 'mere', 11201), 21);
+  assert.equal(g.prioLvl('lf', 'mere', 11101), '', 'le bâtiment de même rang reste intact');
+});
+
+t("une planète qui n'a pas relevé ce rang ne reçoit rien", () => {
+  const g = app(s => { DEUX_ESPECES(s); POSE('lfbuilding:2', 21)(s); });
   assert.deepEqual(g.poseLignes().map(x => x.agit), [true, false]);
   assert.equal(g.posePartout(), 1);
-  assert.equal(g.prioLvl('lf', 'colo', 11102), '');
   assert.ok(lu(g.poseBloc()).includes('pas relevée ici'));
 });
 
-t('une case de forme de vie inconnue retombe sur la mine de métal', () => {
-  const g = app(s => { VIE(s); POSE(11999, 21)(s); });
+t('chaque ligne nomme la case de sa propre planète', () => {
+  const g = app(s => { DEUX_ESPECES(s); POSE('lfbuilding:1', 21)(s); });
+  const h = lu(g.poseBloc());
+  assert.ok(h.includes('Secteur résidentiel 3'), h);
+  assert.ok(h.includes('Enclave de méditation 2'), h);
+});
+
+t('un rang que personne n\'a relevé retombe sur la mine de métal', () => {
+  const g = app(s => { DEUX_ESPECES(s); POSE('lfbuilding:9', 21)(s); });
   assert.equal(g.poseK(), 'metal');
 });
 
-t('une planète décochée pour une case de forme de vie reste cochée pour la mine', () => {
-  const g = app(s => { VIE(s); POSE(11101, 21)(s); });
+t('une planète décochée pour un rang reste cochée pour la mine', () => {
+  const g = app(s => { DEUX_ESPECES(s); POSE('lfbuilding:1', 21)(s); });
   g.poseCoche('colo', false);
   assert.deepEqual(g.poseLignes().map(x => x.coche), [true, false]);
   g.S.ui.pose.k = 'metal';
