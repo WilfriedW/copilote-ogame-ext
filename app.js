@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.6.5';
+const APP_VERSION = '2.7.1';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -75,6 +75,43 @@ const DRIVE_BONUS = {combustion:.1, impulse:.2, hyperdrive:.3};
 
 const EXPO_CAPS = [[1e4,40000],[1e5,500000],[1e6,1200000],[5e6,1800000],[25e6,2400000],[50e6,3000000],[75e6,3600000],[1e8,4200000],[Infinity,5000000]];
 const EXPO_LABELS = ['< 10 000','< 100 000','< 1 M','< 5 M','< 25 M','< 50 M','< 75 M','< 100 M','≥ 100 M'];
+/* ---------- le framework d'expédition ---------- */
+/* Points d'expédition par vaisseau, et le plafond que la flotte envoyée ne doit
+   pas dépasser. Les deux tables sont recopiées de l'énoncé de la demande — le
+   framework d'expédition qui circule sur les forums — et non relues sur le
+   wiki : l'usage tranchera. EXPO_PTS suit les tranches d'EXPO_CAPS, dont les
+   deux premières partagent le même plafond, la table du framework ne
+   distinguant pas « moins de 10 000 » de « moins de 100 000 ». */
+const EXPO_XP = {lf:20, hf:50, cr:135, bs:300, bc:350, bb:375, ds:550, rp:700, pf:115, sc:20, lc:60, pr:5};
+const EXPO_PTS = [2500, 2500, 6000, 9000, 12000, 15000, 18000, 21000, 25000];
+/* Ce qu'une expédition peut trouver dépend du vaisseau le plus avancé envoyé :
+   on en met un, le meilleur disponible, et un seul — le deuxième ne débloque
+   plus rien et mange le plafond. */
+const EXPO_GROS = ['rp','ds','bc','bs'];
+/* Ce qui complète jusqu'au plafond, du moins cher en carburant par point au
+   plus cher : le plafond se remplit pour que les pirates et les aliens ne
+   coûtent rien, pas pour brûler du deutérium.
+   Les deux grosses coques passent en dernier, contre leur rang de carburant :
+   un faucheur coûte 1,57 deut par point, moins qu'un vaisseau de bataille,
+   mais le deuxième et le troisième ne débloquent plus aucune trouvaille —
+   seul le plus avancé ENVOYÉ compte, et il est déjà parti. L'aperçu en
+   proposait trois quand un seul servait. */
+const EXPO_COMBAT = ['bc','lf','hf','bs','bb','cr','ds','rp'];
+/* Au-delà de cinq pour cent, le plafond est dépassé pour rien. */
+const EXPO_MARGE = 1.05;
+/* Ressources ramenées par point d'expédition. Valeur de départ, à calibrer sur
+   les retours réels : c'est le réglage « facteur de fret ». */
+const EXPO_FRET = 200;
+/* Durées d'exploration que le jeu propose. ponytail: supposées 1 à 4 heures,
+   jamais relues dans le jeu — un serveur qui en propose d'autres se rattrape
+   par le réglage de la durée par défaut. */
+const EXPO_DUREES = [1,2,3,4];
+/* Ce qu'on garde d'historique. Le malus de système ne regarde que vingt-quatre
+   heures et la calibration du fret quelques jours : au-delà, c'est du poids
+   dans une sauvegarde qui passe d'un poste à l'autre. */
+const EXPO_LOG_MAX = 200;
+const EXPO_LOG_TTL = 7*86400e3;
+
 /**
  * Tranche de plafond d'expédition. Elle dépend des points du n°1 de l'univers :
  * le classement public les donne, le réglage manuel ne sert plus que si
@@ -94,6 +131,23 @@ function top1Tier(){
 }
 /** Trouvaille maximale d'une expédition, en équivalent métal. Estimation. */
 function expoFind(pf){ return EXPO_CAPS[top1Tier()][1]*ecoSpeed()*(S.settings.cls==='explorer'?1.5:1)*(pf?2:1); }
+/** Plafond de points d'une expédition, sur la tranche du n°1 de l'univers. */
+function expoPts(){ return EXPO_PTS[top1Tier()]; }
+/** Points de la flotte envoyée. C'est ce chiffre que le plafond borne. */
+function expoPoints(ships){ return Object.entries(ships||{}).reduce((a,[k,n])=>a+(EXPO_XP[k]||0)*(n||0), 0); }
+/**
+ * Fret visé : ce qu'on cherche à embarquer, déduit du plafond de points.
+ *
+ * Le framework ne passe pas par la table des trouvailles maximales — publiée
+ * avant la version 7 du jeu, et que le panneau annonce lui-même comme une
+ * borne haute — mais par un nombre de ressources par point, que les retours
+ * réels calibrent. D'où le réglage : tant qu'il n'est pas calé, la soute part
+ * trop grande ou trop petite, et c'est le joueur qui le voit avant nous.
+ */
+function expoFret(){ return expoPts()*Math.max(1, num(S.settings.expoFret, EXPO_FRET))*ecoSpeed(); }
+/** La réserve de grands transporteurs d'une planète : ceux que les convois et
+    la mise à l'abri gardent, et qu'une expédition immobiliserait des heures. */
+function expoRes(p){ const v = p && p.expoRes != null ? p.expoRes : S.settings.expoRes; return Math.max(0, Math.round(num(v, 0))); }
 
 function sample(){
   return {
@@ -103,7 +157,14 @@ function sample(){
          écrit lui-même. Le ratio par défaut recopie celui du Framework mineur,
          en clair plutôt que par référence : sample() tourne au chargement,
          bien avant la table DEF_MODELES. */
-      defModele:'framework', defPalier:20, defPerso:{rl:40, ll:25, hl:10, ic:0, gc:4, pt:1}},
+      defModele:'framework', defPalier:20, defPerso:{rl:40, ll:25, hl:10, ic:0, gc:4, pt:1},
+      /* Le framework d'expédition. `expoFret` est le nombre de ressources
+         ramenées par point de flotte, à calibrer sur les retours réels ;
+         `expoRes` les grands transporteurs qu'une expédition ne touche pas,
+         à zéro tant que le joueur n'en réserve pas — en réserver d'office
+         ferait taire le bloc chez qui n'en a que vingt ; `expoHold` la durée
+         d'exploration par défaut, celle qui rapporte le plus à l'heure. */
+      expoFret:EXPO_FRET, expoRes:0, expoHold:1},
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
@@ -185,6 +246,7 @@ S.daily = Object.assign(sample().daily, S.daily);
    et `sainEtat` ne passe qu'à l'import d'une sauvegarde ou au retour d'une
    synchro. Il se remet donc d'aplomb ici aussi, au démarrage. */
 profilSain();
+expoSain();
 /* Une sauvegarde perdue en silence est pire qu'une erreur : l'écran montre la
    case cochée, et le rechargement suivant l'a oubliée. */
 function saveFailed(e){ console.error('Copilote : sauvegarde impossible', e); try{ toast('Sauvegarde impossible : recharge le panneau'); }catch(err){} }
@@ -2596,19 +2658,76 @@ function coloVerdict(fields, pos){
   return {sev:'bad', t:'Trop petite : recolonise', why:`${fields} cases pour une moyenne de ${avg}. Abandonne-la avant d'y construire et renvoie un vaisseau (coût ${fmt(COL_SHIP_COST[0])} M, ${fmt(COL_SHIP_COST[1])} C, ${fmt(COL_SHIP_COST[2])} D).`};
 }
 
-/** Expedition fleet from the ships at dock: cargo up to the find cap, plus a pathfinder and a probe if available. */
-function expoFleet(avail){
+/**
+ * La flotte d'une expédition, composée dans l'ordre du framework : une sonde,
+ * un éclaireur, un gros vaisseau, des grands transporteurs jusqu'au fret visé,
+ * puis des vaisseaux de combat jusqu'au plafond de points.
+ *
+ * Le plafond de points est ce que le jeu regarde. En dessous, les pirates et
+ * les aliens coûtent des vaisseaux à chaque mauvaise rencontre ; au-dessus,
+ * l'expédition ne trouve rien de plus et le deutérium du vol est brûlé pour
+ * rien. On le vise donc, à cinq pour cent près, et jamais plus.
+ *
+ * La réserve de grands transporteurs n'est jamais touchée : ce sont ceux des
+ * convois et de la mise à l'abri du soir, et une expédition les garde en l'air
+ * plusieurs heures.
+ *
+ * @param {object} avail vaisseaux au sol, par clé
+ * @param {object} [p] la planète, pour sa réserve propre
+ * @returns {{ships:object, cargo:number, cap:number, fret:number, pts:number,
+ *   ptsCap:number, plein:boolean}|null} null sans transporteur disponible :
+ *   sans soute, une expédition ne ramène rien, et le plafond de points ne
+ *   remplace pas le fret.
+ */
+function expoFleet(avail, p){
   avail = avail || {};
-  const s = S.settings, pf = (avail.pf||0) > 0 ? 1 : 0;
-  const cap = expoFind(pf);
-  let need = Math.max(0, cap - (pf ? shipStats('pf').cargoEff : 0));
-  const lcC = shipStats('lc').cargoEff, scC = shipStats('sc').cargoEff;
-  const lc = Math.min(avail.lc||0, Math.ceil(need/lcC)); need -= lc*lcC;
-  const sc = need>0 ? Math.min(avail.sc||0, Math.ceil(need/scC)) : 0;
-  if(!lc && !sc) return null;
-  const ships = {}; if(lc) ships.lc=lc; if(sc) ships.sc=sc; if(pf) ships.pf=1; if((avail.pr||0)>0) ships.pr=1;
-  return {ships, cap, cargo: lc*lcC + sc*scC + (pf?shipStats('pf').cargoEff:0)};
+  const garde = expoRes(p), ships = {}, ptsCap = expoPts();
+  const libre = k => Math.max(0, (avail[k]||0) - (k==='lc' ? garde : 0)) - (ships[k]||0);
+  const prendre = (k, n) => { n = Math.min(n, libre(k)); if(n>0) ships[k] = (ships[k]||0) + n; return n>0; };
+  const soute = () => Object.keys(ships).reduce((a,k)=>a+ships[k]*shipStats(k).cargoEff, 0);
+
+  if(libre('pr') > 0) prendre('pr', 1);
+  const pf = prendre('pf', 1) ? 1 : 0;
+  const gros = EXPO_GROS.find(k => libre(k) > 0);
+  if(gros) prendre(gros, 1);
+
+  /* Le fret d'abord : c'est lui qui ramène. Le plafond de points ne le borne
+     pas — au facteur par défaut, les transporteurs qu'il demande en consomment
+     toujours moins que le plafond n'en offre.
+     Ce qui le borne, c'est la trouvaille maximale : embarquer plus que ce
+     qu'une expédition peut rapporter brûle du deutérium pour une soute qui
+     revient à moitié vide. Les deux modèles tombent d'accord dès la deuxième
+     tranche — 2,4 M pour 12 000 points, ce sont bien les 200 ressources par
+     point du réglage — et ne divergent que dans un univers tout neuf, où la
+     table des trouvailles est la plus basse. */
+  const fret = Math.min(expoFret(), expoFind(pf));
+  let cargo = soute();
+  for(const k of ['lc','sc']){
+    const u = shipStats(k).cargoEff;
+    if(!u || cargo >= fret) continue;
+    const n = Math.min(libre(k), Math.ceil((fret-cargo)/u));
+    if(n>0 && prendre(k, n)) cargo += n*u;
+  }
+  if(!ships.lc && !ships.sc) return null;
+
+  /* Puis le plafond, sans le dépasser : chaque type en prend autant qu'il en
+     reste de place. Après cette boucle, l'écart qui reste est plus petit que
+     tout ce qui pourrait encore partir. */
+  let pts = expoPoints(ships);
+  for(const k of EXPO_COMBAT){
+    const place = Math.floor((ptsCap - pts)/EXPO_XP[k]);
+    if(place > 0){ const n = Math.min(place, libre(k)); if(n>0 && prendre(k, n)) pts += n*EXPO_XP[k]; }
+  }
+  /* Et le dernier vaisseau, celui qui fait « atteindre le plafond » : le plus
+     petit qui reste, pour que le dépassement tienne dans la marge. */
+  if(pts < ptsCap){
+    const k = EXPO_COMBAT.filter(k=>libre(k) > 0).sort((a,b)=>EXPO_XP[a]-EXPO_XP[b])
+      .find(k=>pts + EXPO_XP[k] <= ptsCap*EXPO_MARGE);
+    if(k && prendre(k, 1)) pts += EXPO_XP[k];
+  }
+  return {ships, cargo:soute(), cap:expoFind(pf), fret, pts, ptsCap, plein: pts >= ptsCap};
 }
+
 const SHIP_PLURAL = {crawl:'foreuses', sc:'petits transporteurs', lc:'grands transporteurs', pf:'éclaireurs', lf:'chasseurs légers', hf:'chasseurs lourds', cr:'croiseurs', bs:'vaisseaux de bataille', bc:'traqueurs', bb:'bombardiers', ds:'destructeurs', rp:'faucheurs', rec:'recycleurs', col:'vaisseaux de colonisation', pr:"sondes d'espionnage"};
 /* DEF complète ces deux tables avec les noms de la défense. */
 const SHIP_ONE = {crawl:'foreuse'};
@@ -3187,7 +3306,7 @@ function simulateDay(){
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
   const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, satsOk:p.satsOk, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
-  const expoBusy = [];
+  const expoBusy = [], expoDeja = {};
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
   const busy = [];
@@ -3614,12 +3733,23 @@ function simulateDay(){
         libres--;
       }
       for(let lance=0; lance<Math.min(3, libres) && expoBusy.filter(e=>e>Tm).length < maxExpo; lance++){
-        const expoTgt = p => { const [g,sy] = parseC(p.coords)||[1,1,1]; return `${g}:${sy}:16`; };
-        const cands = P.map(p=>({p, f:expoFleet(p.ships)})).filter(x=>x.f && !refused(moveKey('expo', (real.planets[x.p.i]||{}).id, expoTgt(x.p)))).sort((a,b)=>b.f.cargo-a.f.cargo);
+        /* Le même classement que le bloc Expéditions, sur les planètes
+           simulées : `expoCandidats` lit S.planets, qui n'est pas encore à
+           jour ici. `expoDeja` fait que deux lancements du même passage ne
+           visent pas deux fois le même système. */
+        /* Plus de filtre sur un refus : la carte d'expédition ne se dessine
+           plus dans le panneau, donc plus personne ne peut poser ce « Non ».
+           Un vieux refus en stockage écartait une planète ici pendant que le
+           bloc la proposait à côté, sans que rien ne le dise. */
+        const cands = P.map(p=>({p, f:expoFleet(p.ships, p), tgt:expoTgt(p)}))
+          .filter(x=>x.f && x.tgt)
+          .map(x=>Object.assign(x, expoScore(x.f, x.p.coords, Tm, expoDeja)))
+          .sort((a,b)=>b.score-a.score || b.f.cargo-a.f.cargo);
         if(!cands.length) break;
-        const {p, f} = cands[0], tgt = expoTgt(p);
+        const {p, f, tgt} = cands[0];
         const fl = flight(p.coords, tgt, f.ships, 100); if(!fl) break;
-        const total = 2*fl.secs + 3600, fuel = fl.fuel*2, c=[0,0,fuel];
+        expoDeja[expoSys(p)] = (expoDeja[expoSys(p)]||0) + 1;
+        const total = 2*fl.secs + expoDuree(fl.secs, Tm)*3600, fuel = fl.fuel*2, c=[0,0,fuel];
         const dRate = Math.max(1, production(p).d), smallFuel = p.st[2] >= fuel && fuel/dRate*3600 <= 15*60;
         if(!smallFuel && !can(p,c,reserveOf(p,Tm))){ waits.push({q:'Flotte · '+planetRef(p), what:'Expédition', eta:wait(p,c), miss:missOf(p,c), kind:'expo', p:p.i}); break; }
         pay(p,c);
@@ -4415,13 +4545,253 @@ function expoWanted(){
   for(const p of S.planets){
     const reste = Object.assign({}, p.ships);
     while(n < 12){
-      const f = expoFleet(reste); if(!f) break;
+      const f = expoFleet(reste, p); if(!f) break;
       for(const [k,c] of Object.entries(f.ships)) reste[k] = (reste[k]||0) - c;
       n++;
     }
   }
   return n;
 }
+/* ---------- où relancer, depuis où, avec quoi ---------- */
+/** Position 16 du système d'une planète : la seule destination d'une expédition. */
+function expoTgt(p){ const c = parseC(p && p.coords); return c ? `${c[0]}:${c[1]}:16` : null; }
+/** Son système, « galaxie:système », tel que l'historique le range. */
+function expoSys(p){ const c = parseC(p && p.coords); return c ? `${c[0]}:${c[1]}` : null; }
+/**
+ * Expéditions parties vers un système ces vingt-quatre heures.
+ *
+ * Les résultats baisseraient quand un système est trop sollicité — c'est ce
+ * que dit le framework, et ce que l'extension n'a pas de quoi vérifier. D'où
+ * un malus de classement et non une exclusion : au pire le joueur part d'une
+ * planète un peu plus lente, jamais de nulle part.
+ * @param {object} [deja] expéditions déjà proposées dans ce même passage,
+ *   par système : sans elles, trois emplacements libres proposaient trois
+ *   fois le même système, chacun ignorant les deux autres.
+ */
+function expoVus(sys, now, deja){
+  now = now || Date.now();
+  const n = (S.expoLog||[]).filter(e=>e.sys===sys && now - e.at < 86400e3).length;
+  return n + ((deja && deja[sys]) || 0);
+}
+/**
+ * Heures de retour des expéditions en vol, la plus proche d'abord.
+ *
+ * Deux sources, qui savent toutes deux QUAND : les minuteurs, puis les
+ * mouvements de flotte du jeu — un retour sans minuteur ferait voir un
+ * emplacement libre là où le jeu affiche « 2/2 ». Le compteur de la page de
+ * flotte, lui, reste dehors : il ne connaît qu'un nombre, et le faire passer
+ * pour une heure de retour annonçait « prochain retour dans 3 h », c'est-à-dire
+ * la fin de sa péremption, sur une flotte qui rentrait quatre heures plus tard.
+ * `expoEtat` le compte à part, là où un nombre suffit.
+ */
+function expoVols(now){
+  now = now || Date.now();
+  const fins = [];
+  for(const t of S.timers||[]) if(!t.done && t.kind==='x' && t.k==='expo' && t.end>now) fins.push(t.end);
+  for(const m of S.moves||[]){
+    if(m.mission !== 15 || !m.ret) continue;
+    const fin = m.arrival*1000;
+    if(fin > now && !fins.includes(fin)) fins.push(fin);
+  }
+  return fins.sort((a,b)=>a-b);
+}
+/**
+ * Durée d'exploration à proposer, en heures.
+ *
+ * Une heure par défaut : c'est elle qui rapporte le plus à l'heure passée en
+ * l'air. Le joueur absent cherche autre chose — une flotte qui vole pendant
+ * qu'il n'est pas là, plutôt qu'une flotte posée qui attend son retour. On
+ * prend alors la plus longue durée qui rentre avant qu'il revienne, et à
+ * défaut la plus longue tout court.
+ *
+ * ponytail: « absent » se lit sur le mode nuit et l'heure de retour, les deux
+ * seules choses que le panneau sache de la présence du joueur. Un vrai niveau
+ * d'activité de profil le dirait mieux.
+ */
+function expoDuree(volSecs, now){
+  now = now || Date.now();
+  const def = Math.max(1, Math.round(num(S.settings.expoHold, 1)));
+  if(!S.day.night) return def;
+  const wake = wakeTime(now);
+  if(!wake || wake <= now) return def;
+  const tient = EXPO_DUREES.filter(h => now + (2*volSecs + h*3600)*1000 <= wake);
+  return tient.length ? Math.max(...tient) : Math.max(def, ...EXPO_DUREES);
+}
+/**
+ * Ce qui classe une planète de départ, et ce qui le justifie en clair.
+ *
+ * Le plan du jour et le bloc Expéditions trient par le même chiffre : deux
+ * classements différents donneraient deux planètes différentes sur deux
+ * écrans voisins, et c'est le panneau qui aurait l'air de se contredire.
+ *
+ * Trois points pour une soute qui atteint le fret visé — c'est elle qui
+ * ramène ; jusqu'à deux pour la proximité de la position 16, qui raccourcit
+ * le vol ; un pour l'éclaireur, qui double les gains ; un de moins par
+ * expédition déjà partie vers ce système.
+ * @returns {{score:number, pourquoi:string[]}}
+ */
+function expoScore(f, coords, now, deja){
+  const c = parseC(coords) || [0,0,16], sys = `${c[0]}:${c[1]}`;
+  const vus = expoVus(sys, now, deja), pourquoi = [];
+  let score = 2*(1 - Math.min(1, Math.abs(16-c[2])/15));
+  if(f.cargo >= f.fret){ score += 3; pourquoi.push('soute au fret visé'); }
+  if(f.ships.pf){ score += 1; pourquoi.push('éclaireur à bord'); }
+  if(vus){ score -= vus; pourquoi.push(`${vus} expédition${vus>1?'s':''} déjà vers ${sys} en 24 h`); }
+  return {score, pourquoi};
+}
+/**
+ * Les planètes d'où partir, la meilleure d'abord.
+ *
+ * Deux conditions ne se négocient pas : le plafond de points atteint, et le
+ * deutérium de l'aller-retour en caisse. Une planète qui manque l'une des deux
+ * ne reste dans la liste que si aucune autre ne les tient — le joueur veut
+ * alors savoir que son meilleur coup est imparfait, pas lire une liste vide.
+ *
+ * @param {object[]} [flottes] vaisseaux au sol à considérer, par rang de
+ *   planète : le bloc en décompte ce qu'il vient de proposer avant de
+ *   proposer l'emplacement suivant.
+ */
+function expoCandidats(now, flottes, deja){
+  now = now || Date.now();
+  const sol = flottes || expoAuSol(now), out = [];
+  for(const [i,p] of S.planets.entries()){
+    const tgt = expoTgt(p); if(!tgt) continue;
+    const f = expoFleet(sol[i], p); if(!f) continue;
+    const fl = flight(p.coords, tgt, f.ships, 100); if(!fl) continue;
+    const heures = expoDuree(fl.secs, now), fuel = Math.round(fl.fuel*2);
+    const sys = expoSys(p), pos = (parseC(p.coords)||[0,0,16])[2];
+    const deut = stockNow(p)[2] >= fuel;
+    const {score, pourquoi} = expoScore(f, p.coords, now, deja);
+    out.push({p, i, f, fl, tgt, sys, fuel, heures, deut, score, pourquoi, pos,
+      retour: now + (2*fl.secs + heures*3600)*1000});
+  }
+  const entiers = out.filter(x=>x.f.plein && x.deut), payables = out.filter(x=>x.deut);
+  const choix = entiers.length ? entiers : payables.length ? payables : out;
+  return choix.sort((a,b)=>b.score-a.score || b.f.cargo-a.f.cargo);
+}
+/**
+ * La flotte au sol que le bloc peut engager, par rang de planète : celle du
+ * relevé, moins ce qu'une expédition déjà lancée a emporté.
+ *
+ * Un « Lancé » pose un minuteur qui porte sa flotte. Sans le déduire, le bloc
+ * reproposait les mêmes vaisseaux pour l'emplacement d'après — c'est ce que
+ * le plan fait déjà de son côté quand il simule la journée.
+ */
+function expoAuSol(now){
+  now = now || Date.now();
+  const out = S.planets.map(p=>Object.assign({}, p.ships));
+  for(const t of S.timers||[]){
+    if(t.done || t.kind!=='x' || t.k!=='expo' || !t.manual || !t.ships || t.end<=now) continue;
+    const i = S.planets.findIndex(p=>p.id === t.pid);
+    if(i >= 0) for(const [k,n] of Object.entries(t.ships)) out[i][k] = Math.max(0, (out[i][k]||0) - n);
+  }
+  return out;
+}
+
+/** Une recommandation par emplacement libre, chacune avec ses deux suivantes. */
+function expoPropose(now, n){
+  now = now || Date.now();
+  const flottes = expoAuSol(now), deja = {}, out = [];
+  for(let k=0; k<n; k++){
+    const cands = expoCandidats(now, flottes, deja);
+    if(!cands.length) break;
+    const b = cands[0];
+    out.push(Object.assign({alts: cands.slice(1,3)}, b));
+    for(const [j,c] of Object.entries(b.f.ships)) flottes[b.i][j] = Math.max(0, (flottes[b.i][j]||0) - c);
+    deja[b.sys] = (deja[b.sys]||0) + 1;
+  }
+  return out;
+}
+/** Emplacements d'expédition : pris, libres, et le prochain retour. */
+function expoEtat(now){
+  now = now || Date.now();
+  const max = expoCap(), vols = expoVols(now), lu = expoInFlight(), fs = fleetSlots();
+  /* Le plus pessimiste des deux comptes : le jeu affiche « 2/2 » alors qu'un
+     seul retour porte son minuteur, et proposer sur la foi des minuteurs seuls
+     envoyait lancer une expédition que le jeu refuse. */
+  const pris = Math.min(max, Math.max(vols.length, lu ? lu.n : 0));
+  const libres = Math.max(0, max - pris);
+  /* Une expédition prend aussi un emplacement de flotte : tous pris, le jeu
+     refuse le départ, et proposer quand même envoie cliquer sur rien. D'où
+     deux chiffres — `libres`, ce que le compteur annonce, et `lancables`, ce
+     qui peut vraiment partir. Sans lecture fraîche des emplacements de flotte
+     on ne borne pas : on ne sait pas, et se taire coûterait plus. */
+  const fsLibres = fs ? Math.max(0, fs[1] - fs[0]) : libres;
+  return {max, pris, libres, lancables: Math.min(libres, fsLibres), prochain: vols[0] || 0, fs,
+    flotteBloquee: libres > 0 && fsLibres <= 0};
+}
+
+/**
+ * Le bloc Expéditions : combien d'emplacements sont pris, quand le prochain se
+ * libère, et pour chacun de ceux qui sont libres d'où partir et avec quoi.
+ *
+ * Le bouton Préparer ouvre le formulaire du jeu avec la planète, les
+ * vaisseaux, la destination et la mission déjà posés — c'est ce que la page
+ * Galaxie du jeu fait elle-même avec ses propres liens. L'envoi reste un clic
+ * du joueur : le copilote ne clique jamais à sa place.
+ *
+ * La durée d'exploration, elle, s'annonce comme ce que le plan VISE, et non
+ * comme un champ que le lien aurait rempli. Les champs existent bien sur la
+ * page de flotte — `expeditiontime`, `holdingtime` — mais sur une page ouverte
+ * par un lien qui porte déjà la mission, l'état interne du jeu garde une durée
+ * à zéro pendant que le menu affiche 1, et c'est lui qui part dans la requête.
+ * Promettre un réglage qui n'a pas pris, c'est faire envoyer une expédition
+ * d'une heure quand le joueur en voulait quatre — ou pire, lui faire cliquer
+ * sur un envoi que le jeu refuse. La forme exacte du lien est l'affaire de
+ * `fleetUrl` : ce bloc l'appelle et héritera de sa correction.
+ * @returns {{sum:string, html:string}} le résumé du titre replié, et le corps
+ */
+function expoHtml(){
+  const now = Date.now(), e = expoEtat(now);
+  if(!S.tech.astro) return {sum:'Astrophysique 1 les débloque',
+    html:'<p class="note">Aucune expédition avant <b>Astrophysique 1</b>.</p>'};
+  const quand = e.prochain ? `Prochain retour dans ${dur((e.prochain-now)/1000)}` : '';
+  const etat = e.flotteBloquee ? `Emplacements de flotte pleins (${e.fs[0]}/${e.fs[1]})`
+    : !e.libres ? (quand || 'Tous les emplacements sont pris')
+    : 'Prête maintenant';
+  const bon = e.lancables > 0;
+  const parts = [`<p class="note">Emplacements : <b>${e.pris} utilisé${e.pris>1?'s':''} / ${e.max} disponible${e.max>1?'s':''}</b> · <span class="pill ${bon?'good':'info'}">${esc(etat)}</span>${bon && quand ? ` ${esc(quand)}` : ''}</p>`];
+
+  if(e.flotteBloquee) parts.push(`<p class="note">Chaque mission en vol, découvertes comprises, prend un emplacement de flotte : le jeu refuse le départ tant qu'aucune ne rentre. Technologie Ordinateur ${S.tech.computer+1} en ajoute un.</p>`);
+  else if(!e.libres) parts.push('<p class="note">Rien à lancer : le jeu refuse une expédition de plus tant qu\'un emplacement ne se libère pas.</p>');
+
+  const props = e.lancables > 0 ? expoPropose(now, e.lancables) : [];
+  if(e.lancables > 0 && !props.length) parts.push('<p class="note">Aucune planète ne peut composer une expédition : il faut au moins un transporteur au sol, hors réserve.</p>');
+
+  const ligne = x => {
+    const url = fleetUrl({dest:x.tgt, mission:FS_MISSION.expedition, ships:x.f.ships, p:x.i});
+    /* « Lancé » pose le minuteur du retour et débite le carburant, comme le
+       faisait la carte du plan. C'est la seule façon pour le panneau de savoir
+       qu'un emplacement vient d'être pris quand le joueur n'ouvre pas la page
+       des mouvements de flotte. */
+    const lance = {kind:'expo', pid:x.p.id, ships:x.f.ships, cost:[0,0,x.fuel],
+      dur:Math.round(2*x.fl.secs + x.heures*3600), what:`Expédition depuis ${planetRef(x.p)}`};
+    const ennuis = [];
+    if(!x.f.plein) ennuis.push(`plafond non atteint : ${fmt(x.f.pts)} points sur ${fmt(x.f.ptsCap)}, il manque des vaisseaux au sol`);
+    if(!x.deut) ennuis.push(`deutérium trop juste : ${fmt(x.fuel)} demandés pour l'aller-retour`);
+    const alts = x.alts.map(a=>`${esc(planetRef(a.p))} (${fmt(a.f.pts)} pts, soute ${fmt(a.f.cargo)})`).join(', ');
+    return `<li class="task">
+      <div>
+        <div class="q">${qHtml('Expédition · '+planetRef(x.p))}</div>
+        <div class="w">${esc(shipList(x.f.ships))}</div>
+      </div>
+      <span class="btns">${url ? `<button class="btn sm primary" data-prep="${esc(url)}">Préparer</button>` : ''}<button class="btn sm" data-launch='${esc(JSON.stringify(lance))}'>Lancé</button></span>
+      <div class="m"><span>vers ${coordLink(x.tgt)}</span><span>exploration visée ${x.heures} h</span><span>retour vers ${hm(x.retour)}</span></div>
+      <div class="m"><span>${fmt(x.f.pts)} / ${fmt(x.f.ptsCap)} points</span><span>fret ${fmt(x.f.cargo)} pour ${fmt(x.f.fret)} visés</span><span>carburant ${fmt(x.fuel)} deutérium</span></div>
+      ${ennuis.length ? `<div class="m">⚠ ${esc(ennuis.join(' · '))}</div>` : ''}
+      ${x.pourquoi.length ? `<div class="m">${esc(x.pourquoi.join(' · '))}</div>` : ''}
+      ${alts ? `<div class="m">Sinon ${alts}</div>` : ''}
+    </li>`;
+  };
+  if(props.length) parts.push(`<ul class="acts">${props.map(ligne).join('')}</ul>`);
+  /* La durée, le fret et la réserve se règlent ailleurs : le dire ici évite
+     de chercher, et rappelle que ces chiffres sont des réglages, pas des lois
+     du jeu. */
+  parts.push(`<p class="note">L'envoi reste à toi : Préparer ouvre le formulaire du jeu avec la planète, les vaisseaux, la destination et la mission, et <b>la durée d'exploration est à choisir dans le jeu</b>. Plafond de points calé sur le n°1 de l'univers (${esc(EXPO_LABELS[top1Tier()])}) : <b>${fmt(expoPts())}</b>. Facteur de fret ${fmt(num(S.settings.expoFret, EXPO_FRET))} ressources par point, réserve de ${fmt(expoRes(null))} grands transporteurs par planète, durée par défaut ${Math.max(1, Math.round(num(S.settings.expoHold,1)))} h — tout cela se change dans <b>Outils › Flotte</b>.</p>`);
+  const sum = `${e.pris}/${e.max} · ${etat}`;
+  return {sum, html: parts.join('')};
+}
+
 /** Context-aware to-do items that sit outside the build and research queues. */
 function dailyMissions(){
   const now = Date.now(), out = [], h = new Date(now).getHours();
@@ -4444,7 +4814,7 @@ function dailyMissions(){
     ? `lu dans le jeu à ${hm(S.slots.at || S.syncAt)} : ${S.slots.expo[0]}/${S.slots.expo[1]}` : null;
   const sFl = fs ? `emplacements de flotte ${fs[0]}/${fs[1]}` : null;
   const source = sExp ? ` (${[sExp, sFl].filter(Boolean).join(`, `)})` : ` (déduit d'Astrophysique ${S.tech.astro} : la page de flotte n'a pas encore été lue)`;
-  const flottes = S.planets.map(p=>expoFleet(Object.assign({}, p.ships))).filter(Boolean);
+  const flottes = S.planets.map(p=>expoFleet(Object.assign({}, p.ships), p)).filter(Boolean);
   /* Une expédition ne rapporte jamais plus que la soute envoyée. Quand toutes
      les flottes sont loin de ce plafond, un emplacement de plus ne rapporte
      rien : réclamer Astrophysique enverrait dépenser pour rien. Ce sont des
@@ -6176,6 +6546,9 @@ today(){
     ${profilCard()}${profilBloc()}
     <div class="card"><h2>Maintenant</h2><div id="tdNow"></div></div>
     <div id="tdAlerts"></div>
+    <details class="card"${fold('expeditions', true)}><summary data-fold="expeditions">Expéditions <span class="note" id="expoSum"></span></summary>
+      <div id="expoBloc"></div>
+    </details>
     <details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
       <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${d.nightStart}h–${d.nightEnd}h <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
       <div id="tdDay"></div>
@@ -6401,6 +6774,11 @@ fleet(){
       <div class="grid">
         <label class="f">Points du n°1 de l'univers<select id="top1" data-set="top1">${EXPO_LABELS.map((l,i)=>`<option value="${i}" ${S.settings.top1==i?'selected':''}>${l}</option>`).join('')}</select>${API && API.scores ? `<span class="note">Lu dans le classement public : ${EXPO_LABELS[top1Tier()]}. Ce réglage ne sert plus.</span>` : '<span class="note">Sera lu dans le classement public dès que l\'extension aura joint l\'API du serveur.</span>'}</label>
       </div>
+      <div class="grid">
+        <label class="f">Facteur de fret<input id="expoFret" type="number" min="1" step="10" data-set="expoFret" value="${num(S.settings.expoFret, EXPO_FRET)}"><span class="note">Ressources ramenées par point de flotte. Le fret visé en découle : ${fmt(expoPts())} points × ce facteur × éco x${ecoSpeed()} = <b>${fmt(expoFret())}</b>. À calibrer sur tes retours réels.</span></label>
+        <label class="f">Réserve de grands transporteurs<input id="expoRes" type="number" min="0" data-set="expoRes" value="${expoRes(null)}"><span class="note">Par planète, jamais pris par une expédition : ce sont ceux des convois et de la mise à l'abri du soir.</span></label>
+        <label class="f">Durée d'exploration par défaut (h)<input id="expoHold" type="number" min="1" max="24" data-set="expoHold" value="${Math.max(1, Math.round(num(S.settings.expoHold,1)))}"><span class="note">Une heure rapporte le plus à l'heure passée en l'air. En mode nuit, le plan allonge de lui-même pour que la flotte rentre à ton retour.</span></label>
+      </div>
       <div class="bascules">
         ${bascule('expoPf','data-expo="pf"','Éclaireur dans la flotte', ex.pf)}
       </div>
@@ -6569,6 +6947,22 @@ function crawlerPill(p){
   return `<div class="wide"><span class="pill ${have>=max?'good':'info'}">Foreuses ${fmt(have)} / ${fmt(max)} utiles · +${pct} %</span></div>`;
 }
 
+/**
+ * Ce que le panneau DESSINE d'une connexion.
+ *
+ * L'expédition n'en fait plus partie : elle a son bloc, qui la compte, la
+ * compose, la classe et la prépare. La montrer aussi dans la liste des actions
+ * la faisait lire deux fois — et parfois avec deux planètes différentes, le
+ * plan comptant les transporteurs qu'un convoi aura quittés là où le bloc lit
+ * la flotte au sol d'aujourd'hui.
+ *
+ * Le plan, lui, la garde dans `acts` : il lui réserve son deutérium, sort ses
+ * vaisseaux de la flotte au sol pour le reste de la journée, et la colonne
+ * posée sur les pages du jeu la porte toujours — c'est là, sur l'écran de
+ * flotte, qu'elle sert encore.
+ */
+function actsVus(x){ return x.acts.filter(a=>a.kind !== 'expo'); }
+
 const REFRESH = {
 today(){
   const plan = simulateDay(), s0 = plan.sessions[0], night = !!S.day.night;
@@ -6576,7 +6970,7 @@ today(){
      montrer que la mise à l'abri. Le plan est recalculé à chaque passage,
      le vider ici ne perd rien. */
   if(night) for(const x of plan.sessions){ x.acts = []; x.waits = []; }
-  const nowParts = [];
+  const nowParts = [], a0 = actsVus(s0);
   /* Les cartes Lune ne se mettent pas en sommeil : leur état vient de S.lune,
      et un « Non » de réflexe éteindrait « sors ta flotte » pour toute la
      campagne — sur la seule carte qui vaut des millions. */
@@ -6609,20 +7003,25 @@ today(){
   const lun = nowMs.filter(m=>m.id === 'lune-sors'), reste = nowMs.filter(m=>m.id !== 'lune-sors');
   const avant = luneUrgent() ? lun.map(taskHtml).join('') : '';
   const apres = (luneUrgent() ? reste : lun.concat(reste)).map(taskHtml).join('');
-  if(s0.acts.length || nowMs.length) nowParts.push(`<ul class="acts">${avant}${s0.acts.map(a=>actHtml(a,true)).join('')}${apres}</ul>`);
+  if(a0.length || nowMs.length) nowParts.push(`<ul class="acts">${avant}${a0.map(a=>actHtml(a,true)).join('')}${apres}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
   if(s0.waits.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${s0.waits.length})</summary><ul class="acts" style="margin-top:6px">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`).join('')}</ul></details>`);
   if(plan.busy.length || infoMs.length) nowParts.push(`<details${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${plan.busy.length + infoMs.length})</summary><ul class="acts" style="margin-top:6px">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${hm(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`).join('')}</ul></details>`);
-  const nextS = plan.sessions.slice(1).find(x=>x.acts.length);
-  if(!s0.acts.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
+  const nextS = plan.sessions.slice(1).find(x=>actsVus(x).length);
+  if(!a0.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
   const aide = `<details${fold('aide', false)}><summary class="note" data-fold="aide">Comment lire ces cartes</summary><p class="note" style="margin-top:6px"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. <b>Non</b> met la carte de côté jusqu'à ce que tu la remettes. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p></details>`;
   const remets = noCount() ? `<div class="row">${noRestore()}</div>` : '';
   document.getElementById('tdNow').innerHTML = nowParts.join('') + aide + prioHtml(plan) + remets;
+  /* Le bloc Expéditions se recalcule à chaque passage, comme le reste : un
+     emplacement qui se libère — retour de flotte, échec, annulation — fait
+     apparaître sa recommandation sans que le joueur recharge la page. */
+  const eb = document.getElementById('expoBloc');
+  if(eb){ const r = expoHtml(); eb.innerHTML = r.html; document.getElementById('expoSum').textContent = r.sum; }
   const alerts = plan.alerts;
   document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><h2>Alertes</h2><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('')}</ul></div>` : '';
-  const later = plan.sessions.slice(1).filter(x=>x.acts.length || slotMs.has(x));
-  const slot = x=>`<div class="slot"><div class="time">${hm(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${x.acts.map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
+  const later = plan.sessions.slice(1).filter(x=>actsVus(x).length || slotMs.has(x));
+  const slot = x=>`<div class="slot"><div class="time">${hm(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${actsVus(x).map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
   const phases = [], horizonEnd = plan.now + (+S.day.horizon||24)*3600e3;
   for(const x of plan.sessions){ const key = x.goals.map(g=>g.key).join('|') || 'free'; const last = phases[phases.length-1]; if(last && last.key===key) continue; if(last) last.to = x.T; phases.push({key, from:x.T, to:horizonEnd, goals:x.goals}); }
@@ -6675,7 +7074,7 @@ settings(){
   /* Les connexions qui portent quelque chose, dites comme telles : le résumé
      d'Aujourd'hui compte aussi les missions, et deux lignes qui annoncent le
      même mot avec deux chiffres différents est le pire des deux mondes. */
-  const n = plan.sessions.slice(1).filter(x=>x.acts.length).length;
+  const n = plan.sessions.slice(1).filter(x=>actsVus(x).length).length;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
   // Deux heures égales ne font pas une nuit de zéro heure : elles n'en font aucune.
   const nuit = +d.nightStart === +d.nightEnd ? 'aucune nuit' : `nuit ${d.nightStart}h–${d.nightEnd}h`;
@@ -7015,7 +7414,7 @@ function bind(){
     if(k==='ratio'){ const r=el.value.split(':').map(Number); if(r.length===3 && r.every(x=>x>0)) s.ratio=r; }
     else if(['geo','eng','colCargo','lean','noshop','large','peau','clair','crawlerOverload','muet','sats'].includes(k)) s[k]=el.checked;
     else if(k==='skin') s.skin=el.value;
-    else s[k]=Math.max(k==='top1'?0:1, parseFloat(el.value)||0);
+    else s[k]=Math.max(k==='top1'||k==='expoRes'?0:1, parseFloat(el.value)||0);
     changed();
     /* Le worker sonne panneau fermé : il ne lit pas les réglages, on lui pose
        donc ce seul bit là où il regarde. */
@@ -7087,6 +7486,16 @@ view.addEventListener('click', e=>{
   else window.open(url, '_blank', 'noopener');
 });
 view.addEventListener('click', e=>{
+  /* « Préparer » ouvre le formulaire de flotte du jeu, déjà rempli. Un bouton
+     et non la carte entière : le clic de carte ignore les boutons exprès, pour
+     que « Lancé » et « Fait » ne fassent jamais changer de page par surprise. */
+  const pr = e.target.closest('[data-prep]');
+  if(pr){
+    const url = pr.dataset.prep;
+    if(IS_EXT) chrome.runtime.sendMessage({type:'go', url});
+    else window.open(url, '_blank', 'noopener');
+    return;
+  }
   const cp = e.target.closest('[data-copos]');
   if(cp){ const pos = +cp.dataset.copos, libre = (API && API.planets ? colonyCandidates() : []).find(c=>c.pos===pos), [g,sy] = coloSystem();
     S.colo.target = libre ? libre.coords : `${g}:${sy}:${pos}`; save(); render(); return; }
@@ -7213,6 +7622,28 @@ function appliqueSauvegarde(txt){
  * et `lf` n'y sont pas parce qu'ils ne servent qu'en comparaison (`=== k`). À
  * relire si un nouveau champ de `S` rejoint un gabarit.
  */
+/**
+ * Remet d'aplomb ce que le framework d'expédition lit du stockage.
+ *
+ * À part, et appelée aux deux endroits — au démarrage et dans `sainEtat` —
+ * parce que le démarrage n'appelle pas `sainEtat` : une clé validée seulement
+ * là arrive telle quelle au premier `render()`. Un facteur de fret absurde
+ * envoie deux cents transporteurs, une réserve négative en rend plus qu'il
+ * n'y en a, et `expoHold` borne une boucle de durées.
+ */
+function expoSain(){
+  const nb = (v, d, min, max) => { const x = Number(v); return Number.isFinite(x) && x >= min && x <= max ? x : d; };
+  if(!S.settings || typeof S.settings !== 'object') return;
+  S.settings.expoFret = nb(S.settings.expoFret, EXPO_FRET, 1, 1e5);
+  S.settings.expoRes  = Math.round(nb(S.settings.expoRes, 0, 0, 1e5));
+  S.settings.expoHold = Math.round(nb(S.settings.expoHold, 1, 1, 24));
+  for(const q of S.planets || []) if(q.expoRes != null) q.expoRes = Math.round(nb(q.expoRes, 0, 0, 1e5));
+  /* L'historique vient aussi d'une sauvegarde et de l'autre poste : il sert de
+     compteur, donc ce doit être une liste de dates, bornée. */
+  S.expoLog = Array.isArray(S.expoLog)
+    ? S.expoLog.filter(e=>e && typeof e.sys === 'string' && Number.isFinite(+e.at)).slice(-EXPO_LOG_MAX)
+    : [];
+}
 function sainEtat(){
   const def = sample();
   const nb = (v, d, min, max) => { const x = Number(v); return Number.isFinite(x) && x >= min && x <= max ? x : d; };
@@ -7234,6 +7665,8 @@ function sainEtat(){
     if(q.defModele != null && !(q.defModele in DEF_MODELES)) delete q.defModele;
     if(q.defPalier != null && q.defPalier !== 'fill' && !DEF_PALIERS.includes(num(q.defPalier, -1))) delete q.defPalier;
   }
+
+  expoSain();
 
   if(!S.day || typeof S.day !== 'object') S.day = def.day;
   S.day.interval   = nb(S.day.interval,   def.day.interval,   1, 24*60);
@@ -7439,6 +7872,22 @@ function applyGame(g){
   /* Une sonde en vol vaut un « Fait » : la cible sort de la liste sans clic.
      Mission 6 = espionnage ; le jeu la montre tant qu'elle n'est pas rentrée. */
   for(const m of S.moves) if(m.mission===6 && !m.ret && m.dest) S.raids[m.dest] = {at:Date.now(), probe:true};
+  /* L'historique des expéditions, pris sur les mouvements du jeu plutôt que
+     sur un clic : le joueur envoie depuis l'écran Flotte, et le copilote ne le
+     voit pas partir. C'est le trajet de RETOUR qu'on enregistre, pas l'aller :
+     l'aller n'est visible que le temps du vol vers la 16, quelques minutes, et
+     une expédition manquée là ne serait jamais comptée. Son heure d'arrivée
+     dédoublonne, et sert de date : un système reste « sollicité » tant que la
+     flotte y est. */
+  for(const m of S.moves){
+    if(m.mission !== 15 || !m.ret || !m.dest) continue;
+    const c = parseC(m.dest); if(!c) continue;
+    const cle = `${m.dest}@${m.arrival}`;
+    if(!Array.isArray(S.expoLog)) S.expoLog = [];
+    if(S.expoLog.some(x=>x.cle === cle)) continue;
+    S.expoLog.push({cle, at:m.arrival*1000, sys:`${c[0]}:${c[1]}`, de:m.origin || ''});
+  }
+  if(Array.isArray(S.expoLog)) S.expoLog = S.expoLog.filter(x=>Date.now()-x.at < EXPO_LOG_TTL).slice(-EXPO_LOG_MAX);
   if(g.artefacts != null) S.artefacts = g.artefacts;
   if(g.slots) S.slots = g.slots;
   if(g.prod && typeof g.prod === 'object'){

@@ -47,6 +47,38 @@ revenir à une version passée, `git checkout` son empreinte et `./pack.sh` —
 mais une version plus ancienne relit un stockage écrit par la nouvelle, donc
 garde un `save.json` d'avant sous la main.
 
+## Les expéditions
+
+Le bloc **Expéditions** d'Aujourd'hui dit combien d'emplacements sont pris,
+quand le prochain rentre, et pour chaque emplacement libre d'où partir, avec
+quoi, vers quelle position 16 et pour quel carburant. **Préparer** ouvre le
+formulaire de flotte du jeu avec la planète, les vaisseaux, la destination et
+la mission déjà posés. **La durée d'exploration reste à choisir dans le
+jeu** : le panneau dit celle qu'il vise, il ne la règle pas. Et l'envoi est
+toujours ton clic — le copilote ne clique jamais à ta place.
+
+La flotte se compose comme le framework d'expédition de la communauté : une
+sonde, un éclaireur, un gros vaisseau — le plus avancé que tu aies, car c'est
+lui qui décide de ce qui se trouve — des grands transporteurs jusqu'au fret
+visé, puis des vaisseaux de combat jusqu'au plafond de points, sans jamais le
+dépasser de plus de 5 %.
+
+Trois réglages dans **Outils › Flotte**, parce que ces chiffres sont des
+estimations à calibrer, pas des lois du jeu :
+
+- **facteur de fret** : les ressources qu'une expédition ramène par point de
+  flotte. 200 au départ. Si tes soutes reviennent à moitié vides, baisse-le ;
+  si elles reviennent pleines à ras bord, monte-le.
+- **réserve de grands transporteurs** : ceux qu'une expédition ne prendra
+  jamais, parce qu'ils servent aux convois et à la mise à l'abri du soir.
+  Zéro au départ.
+- **durée d'exploration par défaut** : une heure, celle qui rapporte le plus à
+  l'heure passée en l'air. En mode nuit, le panneau allonge de lui-même pour
+  que la flotte rentre à ton retour.
+
+Le plafond de points, lui, se déduit des points du n°1 de l'univers, lus dans
+le classement public.
+
 ## À savoir
 
 **Il faut jouer en français.** Le Copilote lit le tableau de production, les
