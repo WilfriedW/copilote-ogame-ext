@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.6.4';
+const APP_VERSION = '2.6.5';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];

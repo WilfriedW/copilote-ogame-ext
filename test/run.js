@@ -3414,6 +3414,26 @@ t('dist/versions.tsv porte quatre colonnes par version', () => {
   }
 });
 
+t('un numéro de version ne ressert jamais', () => {
+  /* Rien ne garde ce numéro : il se tape à la main dans deux fichiers, et quand
+     plusieurs branches avancent ensemble, deux d'entre elles le prennent sans
+     le savoir — c'est arrivé le 2026-11-26, et quatre fois avant sans qu'on le
+     remarque (1.61.0, 1.63.0, 1.65.0 et 2.0.0 sont dans l'historique en double).
+     `versions.tsv` liste les versions déjà livrées, celles de main comprises
+     après un rebase : il suffit de le relire. Sa ligne de tête est la version
+     courante, c'est la seule occurrence permise. Rien à dire tant que `dist/`
+     n'existe pas, un dépôt fraîchement cloné n'en a pas. */
+  const fs = require('fs'), path = require('path');
+  const root = path.join(__dirname, '..');
+  const p = path.join(root, 'dist', 'versions.tsv');
+  if (!fs.existsSync(p)) return;
+  const ici = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8')).version;
+  const livrees = fs.readFileSync(p, 'utf8').split('\n').filter(Boolean)
+    .map(l => l.split('\t')[0]).slice(1);
+  assert.ok(!livrees.includes(ici),
+    'la version ' + ici + ' a déjà été livrée : prends le numéro suivant');
+});
+
 t('un dist/ déjà construit ne reste pas en retard sur le dépôt', () => {
   /* `dist/` est ce que Chrome charge, et il est ignoré par git : il peut donc
      vieillir pendant que `git status` reste propre. C'est ce qui est arrivé le
