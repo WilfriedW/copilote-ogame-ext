@@ -157,6 +157,14 @@ Les règles, qui expliquent beaucoup de comportements :
   posée reçoit, les suivantes ne font que la nourrir.
 - Une priorité de recherche ne saute pas les prérequis : le plan épargne pour
   le **palier lançable** (Laser 1), pas pour la cible lointaine (Plasma 12).
+- Un **prérequis bâtiment** se monte de la même façon : « Nanites 1 » demande
+  Robots 10, alors la priorité monte Robots, épargne pour lui et reçoit les
+  rapatriements de l'empire, un niveau par session. La carte le dit — « Tu as
+  mis Nanites 1 en priorité : l'Usine de nanites demande Robots 10 et
+  Ordinateur 10. On commence par Robots 10. » La cible du joueur ne bouge pas,
+  c'est le pas du moment qui change. Ce qui reste bloquant après ce détour est
+  une **recherche** : rien que cette planète puisse construire, donc elle
+  attend vraiment, et le dit.
 - **Les cases de forme de vie ne sont pas dans cette file.** Elles ne prennent
   pas le tour de la planète et ne gèlent rien : une cible de forme de vie met
   sa case en tête de la liste de sa planète — la carte dit « Tu l'as mise en

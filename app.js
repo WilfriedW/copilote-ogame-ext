@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.7.6';
+const APP_VERSION = '2.7.7';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -3124,6 +3124,29 @@ function prioBloque(p, k){
   return miss.length ? `${B[k].n} demande ${miss.join(' et ')} : ta priorité attend que ce soit là.` : '';
 }
 /**
+ * Le bâtiment à monter avant celui-là, quand un prérequis manque.
+ * Un prérequis bâtiment n'est pas une impasse, c'est le pas à faire : « Nanites 1 »
+ * demande Robots 10, et c'est Robots que la priorité doit monter. La chaîne se
+ * remonte — Terraformeur demande Nanites 1, qui demande Robots 10 — pour rendre
+ * le premier niveau réellement constructible, jamais un palier intermédiaire
+ * que le jeu refuserait encore.
+ * Les prérequis de recherche ne sortent pas d'ici : une recherche ne se monte
+ * pas sur une planète, et c'est `prioBloque` qui continue de les dire.
+ * @param {object} p planète, réelle ou simulée
+ * @param {string} k bâtiment visé
+ * @param {number} [depth] profondeur, garde-fou contre une table abîmée
+ * @returns {{k:string, lvl:number}|null} null quand aucun bâtiment ne manque
+ */
+function prioAvant(p, k, depth){
+  const req = (B[k]||{}).req;
+  if(!req || !req.b || (depth||0) > 6) return null;
+  for(const [rk, rl] of Object.entries(req.b)){
+    if((p.b[rk]||0) >= rl) continue;
+    return prioAvant(p, rk, (depth||0)+1) || {k:rk, lvl:rl};
+  }
+  return null;
+}
+/**
  * Ce qu'il faut construire sur `p` maintenant pour cette priorité.
  * Le coût du prochain niveau peut dépasser ce qu'un hangar de la planète peut
  * loger : la production s'y arrête, l'attente devient infinie et `setGoal`
@@ -3148,7 +3171,10 @@ function prioBloque(p, k){
 function prioStep(p, pr, cost){
   const cap = production(p).cap, sk = ['smetal','scrystal','sdeut'], bat = pr.kind === 'b';
   const suivant = (p.b[pr.k]||0)+1, c = bat ? levelCost(B[pr.k], suivant) : cost;
-  const vise = `Tu as mis ${bat ? B_SHORT[pr.k] : T[pr.k].n} ${pr.lvl} en priorité.`;
+  /* `pr.vise` : la phrase toute faite d'un pas qui n'est pas la cible elle-même
+     — un prérequis. Sans elle, la carte annonçait « Tu as mis Robots 10 en
+     priorité » sur une priorité que le joueur avait posée sur les Nanites. */
+  const vise = pr.vise || `Tu as mis ${bat ? B_SHORT[pr.k] : T[pr.k].n} ${pr.lvl} en priorité.`;
   for(let j=0;j<3;j++) if(c[j] > cap[j]){
     /* Le niveau qui logerait le coût est la destination, pas le pas : le jeu ne
        construit un hangar qu'un niveau à la fois, et viser le niveau 8 depuis le
@@ -3539,13 +3565,23 @@ function simulateDay(){
         }
         // Les prérequis d'une recherche ne sont pas une impasse : `resolveTech`
         // les remonte et le pas lançable est l'un d'eux.
-        const bloque = pr.kind === 'b' ? prioBloque(pp, pr.k) : '';
+        /* Un prérequis bâtiment non plus : la priorité vise alors ce prérequis.
+           Elle épargne pour lui, sort ses cartes et reçoit les rapatriements de
+           l'empire comme n'importe quel objectif — au lieu d'attendre, muette,
+           un niveau que personne ne construisait. La cible du joueur ne bouge
+           pas : c'est le pas du moment qui change, et la phrase le dit. */
+        const avant = pr.kind === 'b' ? prioAvant(pp, pr.k) : null;
+        const but = avant ? {kind:'b', pid:pr.pid, k:avant.k, lvl:avant.lvl,
+          vise:`Tu as mis ${cible} en priorité : ${B[pr.k].n} demande ${reqOk(B[pr.k].req, pp).join(' et ')}. On commence par ${B_SHORT[avant.k]} ${avant.lvl}.`} : pr;
+        // Ce qui reste bloquant après ce détour est une recherche ou un labo :
+        // rien que cette planète puisse construire, donc elle attend vraiment.
+        const bloque = but.kind === 'b' ? prioBloque(pp, but.k) : '';
         if(bloque){
-          waits.push({q:'Bâtiment · '+planetRef(pp), what:`${B[pr.k].n} ${(pp.b[pr.k]||0)+1}`, why:bloque, eta:Infinity, miss:[0,0,0], kind:'b', k:pr.k, p:pp.i});
-          prioEtat.push({id, etat:bloque});
+          waits.push({q:'Bâtiment · '+planetRef(pp), what:`${B[but.k].n} ${(pp.b[but.k]||0)+1}`, why:avant ? `${but.vise} ${bloque}` : bloque, eta:Infinity, miss:[0,0,0], kind:'b', k:but.k, p:pp.i});
+          prioEtat.push({id, etat:avant ? `${but.vise} ${bloque}` : bloque});
           continue;
         }
-        const pas = prioStep(pp, pr, R ? levelCost(T[R.k], R.lvl) : null);
+        const pas = prioStep(pp, but, R ? levelCost(T[R.k], R.lvl) : null);
         if(!pas){
           /* Une recherche qui tient dans les hangars n'a rien à construire ici :
              c'est `tryResearch` qui posera son objectif, sous la clé de la
