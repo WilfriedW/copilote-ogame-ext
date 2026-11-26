@@ -51,6 +51,7 @@ var PROFILS = {
   cats: {
     mines:   'Mines et énergie',
     stock:   'Stockage',
+    infra:   'Installations',
     def:     'Défense',
     techdef: 'Techs défensives',
     techeco: 'Techs économiques',
@@ -62,24 +63,43 @@ var PROFILS = {
 
   /* 0 : jamais. 3 : prioritaire. Une ligne par style, pour qu'on puisse la
      lire d'un bloc — c'est le style qu'on change, pas la catégorie. */
+  /* `infra` vaut 2 presque partout, et c'est voulu : une usine de robots, un
+     labo ou un chantier servent tous les styles, personne ne les écarte. Seul
+     le fleeter monte à 3, parce que le chantier et les nanites sont le goulet
+     de sa flotte. Ce qui donne au joueur une vraie prise, c'est le focus :
+     +2 par-dessus, donc 3 pour tout le monde quand il le coche. */
   poids: {
-    mineur:      {mines:3, stock:2, def:2, techdef:1, techeco:3, cargo:2, combat:0, expo:1, espio:1},
-    turtle:      {mines:3, stock:2, def:3, techdef:3, techeco:2, cargo:2, combat:0, expo:1, espio:1},
-    raideur:     {mines:1, stock:1, def:0, techdef:2, techeco:1, cargo:3, combat:2, expo:1, espio:3},
-    fleeter:     {mines:1, stock:1, def:1, techdef:3, techeco:1, cargo:1, combat:3, expo:1, espio:3},
-    explorateur: {mines:2, stock:2, def:1, techdef:1, techeco:2, cargo:3, combat:1, expo:3, espio:2},
+    mineur:      {mines:3, stock:2, infra:2, def:2, techdef:1, techeco:3, cargo:2, combat:0, expo:1, espio:1},
+    turtle:      {mines:3, stock:2, infra:2, def:3, techdef:3, techeco:2, cargo:2, combat:0, expo:1, espio:1},
+    raideur:     {mines:1, stock:1, infra:2, def:0, techdef:2, techeco:1, cargo:3, combat:2, expo:1, espio:3},
+    fleeter:     {mines:1, stock:1, infra:3, def:1, techdef:3, techeco:1, cargo:1, combat:3, expo:1, espio:3},
+    explorateur: {mines:2, stock:2, infra:2, def:1, techdef:1, techeco:2, cargo:3, combat:1, expo:3, espio:2},
   },
 
   /* Un focus ponctuel ne remplace pas le style : il ajoute +2 à ses
      catégories, plafonné à 3. Il reste posé jusqu'à ce que le joueur le
      retire — aucune date, aucune expiration. */
+  /* Le libellé d'un focus dit ce qu'il pousse, et rien de plus. « Recherche »
+     tout court laissait croire qu'il portait aussi les recherches de forme de
+     vie : il ne les touche pas, elles ont leur propre réglage dans Réglages
+     (« Place des formes de vie »), qui décide bien plus que l'ordre — avant
+     les bâtiments, après, ou pas du tout. Deux commandes pour une même chose
+     s'annuleraient l'une l'autre ; celle qui existait est la plus forte, on la
+     laisse seule et on cesse de promettre à côté. */
   focus: {
     mines:     {n:'Mines',            cats:['mines']},
+    stock:     {n:'Stockage',         cats:['stock']},
+    infra:     {n:'Installations',    cats:['infra']},
     def:       {n:'Défense',          cats:['def']},
     expo:      {n:'Expéditions',      cats:['expo']},
     raids:     {n:'Raids',            cats:['cargo','espio']},
     combat:    {n:'Flotte de combat', cats:['combat']},
-    recherche: {n:'Recherche',        cats:['techdef','techeco']},
+    /* `court` sert la ligne du profil, qui doit tenir sur une ligne ; `n` sert
+       la case à cocher, où il y a la place de dire ce qu'on pousse. Sans les
+       deux, « + Recherche (armes et économie), Expéditions » débordait du
+       résumé — et c'est sur cette ligne-là que le joueur lit son profil d'un
+       coup d'œil. */
+    recherche: {n:'Recherche (armes et économie)', court:'Recherche', cats:['techdef','techeco']},
   },
 
   /* Peu présent : ce qui demande d'être en ligne au bon moment est plafonné à
@@ -106,8 +126,15 @@ var PROFILS = {
     vaisseaux: {sc:'cargo', lc:'cargo', rec:'cargo', pr:'espio', pf:'expo',
       lf:'combat', hf:'combat', cr:'combat', bs:'combat', bc:'combat',
       bb:'combat', ds:'combat', rp:'combat'},
+    /* Tous les bâtiments, sans exception : un test le vérifie. Les six qui
+       manquaient — robot, chantier, labo, nanites, terraformeur, dock —
+       restaient au poids neutre quel que soit le profil, et aucun focus ne
+       pouvait les remonter. C'était invisible parce que le garde ne regardait
+       que dans l'autre sens : il refusait une catégorie inutilisée, pas un
+       bâtiment sans catégorie. */
     bat: {metal:'mines', crystal:'mines', deut:'mines', solar:'mines', fusion:'mines',
-      smetal:'stock', scrystal:'stock', sdeut:'stock', silo:'stock', depot:'cargo'},
+      smetal:'stock', scrystal:'stock', sdeut:'stock', silo:'stock', depot:'cargo',
+      robot:'infra', shipyard:'infra', lab:'infra', nanite:'infra', terra:'infra', dock:'infra'},
     tech: {weapons:'techdef', shielding:'techdef', armour:'techdef',
       plasma:'techeco', energy:'techeco', astro:'techeco',
       espionage:'espio', computer:'espio', combustion:'espio', impulse:'espio', hyperdrive:'espio',

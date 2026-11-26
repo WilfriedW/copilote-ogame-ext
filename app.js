@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.7.4';
+const APP_VERSION = '2.7.5';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -6504,7 +6504,8 @@ function catMission(m){ return PROFILS.missions.id[m.id] || PROFILS.missions.q[m
 function profilLigne(){
   const p = S.profil, st = PROFILS.styles[p.style];
   if(!st) return '';
-  const f = p.focus.map(k => PROFILS.focus[k].n);
+  // Le nom court quand il existe : la ligne doit rester une ligne.
+  const f = p.focus.map(k => PROFILS.focus[k].court || PROFILS.focus[k].n);
   return [st.n, PROFILS.classes[classeVoulue()], PROFILS.activites[p.activite].n]
     .concat(f.length ? '+ ' + f.join(', ') : []).join(' · ');
 }
@@ -6556,7 +6557,7 @@ function profilBloc(){
   const ec = classeEcart();
   return `<details class="card volet"${fold('profil', false)}><summary data-fold="profil"><b>Ton profil</b> <span class="note">${esc(profilLigne())}</span></summary>
     <div class="chips" style="margin-top:8px">${profilFocusHtml()}</div>
-    <p class="note" style="margin-top:8px">Un focus remonte ses cartes sans remplacer ton style, et il y reste tant que tu ne le décoches pas.${ec ? ' ' + esc(ec) : ''}</p>
+    <p class="note" style="margin-top:8px">Un focus remonte ses cartes sans remplacer ton style, et il y reste tant que tu ne le décoches pas. Les formes de vie n'en relèvent pas : leur place se règle dans Réglages.${ec ? ' ' + esc(ec) : ''}</p>
     <div class="row" style="margin-top:10px"><button class="btn sm ghost" data-refaire="1">Refaire le questionnaire</button></div>
   </details>`;
 }
