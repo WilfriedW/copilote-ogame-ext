@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '2.3.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -93,7 +93,7 @@ function expoFind(pf){ return EXPO_CAPS[top1Tier()][1]*ecoSpeed()*(S.settings.cl
 function sample(){
   return {
     v:1, sample:true,
-    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, debris:LUNE_DF, skin:'relief'},
+    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, muet:false, debris:LUNE_DF, skin:'relief'},
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
@@ -2347,7 +2347,7 @@ function timerLabel(tm){
 let audioCtx = null;
 function unlockAudio(){ try{ audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }catch(e){} }
 function chime(){
-  if(!audioCtx) return;
+  if(!audioCtx || S.settings.muet) return;
   try{ const t0=audioCtx.currentTime; [0,.22,.44,.9,1.12,1.34].forEach((d,i)=>{ const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type='sine'; o.frequency.value=[660,880,1100][i%3]; g.gain.setValueAtTime(.0001,t0+d); g.gain.exponentialRampToValueAtTime(.25,t0+d+.02); g.gain.exponentialRampToValueAtTime(.0001,t0+d+.2); o.connect(g).connect(audioCtx.destination); o.start(t0+d); o.stop(t0+d+.22); }); }catch(e){}
 }
 const baseTitle = document.title;
@@ -6062,6 +6062,9 @@ settings(){
         <label class="f">Thème<select id="sSkin" data-set="skin">${Object.entries(HABILLAGES).map(([k,l])=>`<option value="${k}" ${habillage()===k?'selected':''}>${l}</option>`).join('')}</select></label>
       </div>
       <p class="note">Relief suit le clair ou le sombre de ton système ; les trois autres sont sombres. Le changement se voit tout de suite, sur toutes les pages.</p>
+      <div class="bascules">
+        ${bascule('sMuet','data-set="muet"','Couper le son', s.muet, 'Plus de carillon à la fin d\'un minuteur, et les notifications du navigateur arrivent sans bruit.')}
+      </div>
     </div>
     <div class="card"><h2>Page du jeu</h2>
       <div class="bascules">
@@ -6500,10 +6503,13 @@ function bind(){
   view.querySelectorAll('[data-set]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k=el.dataset.set, s=S.settings;
     if(k==='ratio'){ const r=el.value.split(':').map(Number); if(r.length===3 && r.every(x=>x>0)) s.ratio=r; }
-    else if(['geo','eng','colCargo','lean','noshop','large','peau','clair','crawlerOverload'].includes(k)) s[k]=el.checked;
+    else if(['geo','eng','colCargo','lean','noshop','large','peau','clair','crawlerOverload','muet'].includes(k)) s[k]=el.checked;
     else if(k==='skin') s.skin=el.value;
     else s[k]=Math.max(k==='top1'?0:1, parseFloat(el.value)||0);
     changed();
+    /* Le worker sonne panneau fermé : il ne lit pas les réglages, on lui pose
+       donc ce seul bit là où il regarde. */
+    if(k==='muet' && IS_EXT) try{ chrome.storage.local.set({muet: s.muet}); }catch(e){}
     /* `changed()` ne redessine pas : la peau se pose sur <html>, pas dans la vue. */
     if(k==='skin') header();
     if(k==='lean' || k==='noshop' || k==='large' || k==='peau' || k==='clair' || k==='skin') pushLook();

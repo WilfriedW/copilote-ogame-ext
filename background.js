@@ -345,6 +345,8 @@ async function apiRefresh(force) {
 chrome.alarms.create('api', { periodInMinutes: 30 });
 chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name === 'api') { apiRefresh(false); return; }
+  // Le son coupé dans le panneau vaut aussi pour ce qui sonne panneau fermé.
+  const { muet } = await chrome.storage.local.get('muet');
   /* La question du coucher. Le panneau pose l'heure — il est le seul à lire les
      réglages — et le service worker sonne, même panneau fermé. Il ne décide
      rien : le plan de mise à l'abri vit dans le panneau, qui recueille la
@@ -357,6 +359,7 @@ chrome.alarms.onAlarm.addListener(async alarm => {
       message: 'On passe en mode sauvegarde des ressources ?',
       buttons: [{ title: 'Oui' }, { title: 'Non' }],
       requireInteraction: true,
+      silent: !!muet,
       priority: 2
     });
     return;
@@ -372,6 +375,7 @@ chrome.alarms.onAlarm.addListener(async alarm => {
     iconUrl: 'icon128.png',
     title: 'OGame : terminé',
     message: text,
+    silent: !!muet,
     priority: 2
   });
   await showAlertWindow(text);
