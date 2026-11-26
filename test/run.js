@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -641,6 +641,48 @@ t('un rapatriement refusé ne revient pas dans le plan', () => {
   assert.ok(!transfert(g), 'le temps ne ramène pas une carte refusée');
   g.S.daily.no = {};
   assert.ok(transfert(g), 'remise, elle revient');
+});
+
+/* Le joueur a fait venir des ressources pour monter son usine de robots ; le
+   classement, lui, voit un hangar à agrandir et le repropose à chaque passage.
+   Le « Non » se pose donc avant le choix, pas sur la carte déjà dessinée :
+   écarté, le bâtiment laisse la place au pas suivant au lieu d'un trou. */
+const batiments = g => g.simulateDay().sessions[0].acts.filter(a => a.kind === 'b');
+/* Le pas suivant d'une planète : une carte à lancer, ou la même en attente de
+   ressources quand il coûte plus cher que celui qu'on vient d'écarter. */
+const pasSuivant = (g, pid) => { const s = g.simulateDay().sessions[0];
+  return s.acts.concat(s.waits).filter(x => x.kind === 'b' && g.S.planets[x.p].id === pid); };
+
+t('un chantier mis de côté laisse la place au suivant, sur la même planète', () => {
+  const g = app(null, JOUR);
+  const a = batiments(g)[0];
+  assert.ok(a, 'le plan propose un chantier');
+  const pid = g.S.planets[a.p].id;
+  // la clé que porte le bouton « Non » de la carte, pas une clé réécrite ici :
+  // c'est la rencontre des deux qui se vérifie.
+  g.S.daily.no[g.actKey(a)] = JOUR;
+  const apres = pasSuivant(g, pid);
+  assert.ok(!apres.some(x => x.k === a.k), 'ce bâtiment-là ne revient pas');
+  assert.ok(apres.length, 'et la planète a quand même un pas suivant : ' + a.k);
+  g.S.daily.no = {};
+  assert.ok(batiments(g).some(x => x.k === a.k), 'remis, il revient');
+});
+
+t('le bouton « Non » est bien sur la carte de chantier', () => {
+  const g = app(null, JOUR);
+  const a = batiments(g)[0];
+  assert.ok(lu(g.actHtml(a, true)).includes('data-no="' + g.actKey(a) + '"'),
+    'sans ce bouton, rien ne permet de mettre le chantier de côté');
+});
+
+t('une recherche mise de côté laisse la place à la suivante', () => {
+  const g = app(null, JOUR);
+  const r = g.nextResearch().list[0];
+  // Sans planète : le labo peut déménager, le refus reste.
+  assert.equal(g.actKey({ kind: 't', k: r.k, p: 0 }), 't::' + r.k);
+  g.S.daily.no[g.actKey({ kind: 't', k: r.k, p: 0 })] = JOUR;
+  const suivante = g.nextResearch().list[0];
+  assert.ok(suivante && suivante.k !== r.k, 'la file passe à la suivante');
 });
 
 /* Le joueur fait ses rapatriements dans le jeu, pas en cliquant « Lancé » ici.

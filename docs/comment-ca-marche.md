@@ -945,7 +945,7 @@ Armes, Bouclier, Protection des vaisseaux.
 
 | Geste | Où | Ce que ça règle |
 |---|---|---|
-| **Non** sur une carte | Aujourd'hui | Met cette carte de côté indéfiniment (`daily.no`) |
+| **Non** sur une carte | Aujourd'hui | Met cette carte de côté indéfiniment (`daily.no`). Sur tout ce que le plan propose de lui-même : chantier, recherche, case de forme de vie, satellites, vaisseaux, défense, rapatriement, flotte. Le refus est posé **avant** le choix du plan, pas sur la carte dessinée : la planète reçoit donc le pas suivant au lieu d'un trou — c'est ce qui permet de monter son usine quand le classement, lui, veut un hangar. Rien sur les cartes Lune, ni sur un raid ou un vaisseau de colonisation, que tu as demandés toi-même dans Outils |
 | **Fait** sur une carte | Aujourd'hui | Marque la mission faite pour sa période (1 h à 24 h selon la mission) |
 | Flotte partie dans le jeu | mouvements de flotte | Marque **Fait** la carte qui demandait ce mouvement (partie d'une de tes planètes, même destination, même mission ; Transporter et Stationner se valent, l'expédition est exclue) |
 | **Lancé** sur une action | Aujourd'hui | Crée un minuteur et débite le stock de la planète |
