@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '2.2.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -2662,6 +2662,25 @@ const ROADMAPS = {
      Astro 8 et 9 puis colonie. */
   ecocol:[['impulse',3,'c'],['astro',3,'c'],['computer',2],['espionage',4],['astro',5,'c'],['astro',7,'c'],['energy',8],['laser',10],['ion',5],['plasma',4],['astro',9],['computer',6],['plasma',8]],
   eco:[['energy',8],['laser',10],['ion',5],['plasma',6],['impulse',3],['astro',3],['computer',4],['plasma',10]],
+  /* Le pillage que le copilote sait planifier est celui de l'onglet Cibles :
+     des transporteurs sur un inactif, et `raidPlan` refuse la cible dès qu'une
+     défense ou une flotte y tire. La feuille de route sert donc ce raid-là et
+     pas le combat — Armes, Bouclier et Protection n'y sont pas, parce que rien
+     dans le panneau ne saurait quoi en faire et qu'un palier qu'on ne sait pas
+     exploiter n'est qu'un détour.
+     Ce qui compte pour piller : voir les cibles (Espionnage), y aller vite
+     (Combustion sur les transporteurs, puis Impulsion 5, où le petit
+     transporteur change de moteur et double sa vitesse — 5 000 à 10 000), et
+     en mener plusieurs de front (Ordinateur, un emplacement de flotte par
+     niveau). L'économie vient après : un raideur a des mines comme tout le
+     monde, elles ne sont simplement plus ce qui décide de sa journée. */
+  /* Astrophysique n'est pas dans la liste, et c'est voulu : tant qu'il reste
+     une case de planète libre la feuille de route la saute de toute façon, et
+     dès qu'elles sont prises le plafond la remet en tête de lui-même. L'y
+     écrire ne changeait qu'une chose — `roadmapGoal` faisait d'elle la
+     destination d'Espionnage, et le pilleur lisait « prérequis de
+     Astrophysique » là où la vraie raison est de voir ses cibles. */
+  raid:[['espionage',4,'c'],['combustion',6,'c'],['computer',4],['impulse',5,'c'],['computer',6],['espionage',8],['energy',8],['laser',10],['ion',5],['plasma',4]],
   fleet:[['combustion',6,'c'],['impulse',3,'c'],['espionage',4],['computer',6],['astro',4],['hyper',3],['hyperdrive',2],['impulse',5],['astro',6],['energy',8]],
 };
 /* Place des formes de vie dans la journée. Par défaut elles passent après les
@@ -2674,7 +2693,7 @@ const ROADMAPS = {
 const LF_MODE = {after:'Après les bâtiments', first:'Avant les bâtiments', off:'Ne pas s\'en occuper'};
 function lfMode(){ return LF_MODE[S.day.lf] ? S.day.lf : 'after'; }
 
-const FOCUS = {equi:'Équilibré', ecocol:'Économie + colonie', eco:'Économie pure', fleet:'Flotte et expéditions'};
+const FOCUS = {equi:'Équilibré', ecocol:'Économie + colonie', eco:'Économie pure', fleet:'Flotte et expéditions', raid:'Pillage d\'inactifs'};
 /* Place de la recherche dans la journée. Par défaut elle prend son tour : elle
    ne met de côté que ce que la feuille de route juge critique, ou ce qu'elle
    attend depuis trop longtemps. « Avant les bâtiments » rend critique la tête
@@ -2684,7 +2703,12 @@ const FOCUS = {equi:'Équilibré', ecocol:'Économie + colonie', eco:'Économie 
 /* Les deux plans où une expédition ou un pillage de plus compte autant qu'un
    niveau de mine : leurs plafonds — expéditions simultanées, emplacements de
    flotte — doublent la feuille de route au lieu d'attendre leur tour. */
-const FOCUS_FLOTTE = {fleet:1, equi:1};
+const FOCUS_FLOTTE = {fleet:1, equi:1, raid:1};
+/* Les plans qui vivent de leurs vaisseaux. Ils partagent deux conséquences :
+   pas de centre, parce que les planètes doivent rester dispersées — le wiki le
+   dit du joueur de flotte, et un pilleur est une cible pour la même raison —
+   et les Mécas en tête des formes de vie, pour le chantier et les vaisseaux. */
+const FOCUS_VAISSEAU = {fleet:1, raid:1};
 const RESEARCH_MODE = {normal:'À son tour', first:'Avant les bâtiments'};
 /* Les quatre habillages du panneau. La peau ne change que des couleurs et des
    formes dans `panel.css` : aucune vue n'en sait rien, donc les quatre valent
@@ -2704,6 +2728,7 @@ const AIDE_JOUR = {
     ecocol: 'Des mines, et une planète de plus dès qu\'Astrophysique l\'autorise : une colonie rapporte alors plus qu\'un niveau de recherche.',
     eco: 'Des mines, rien d\'autre : le plan ne colonise pas, et la recherche vise la production — Énergie, Laser, Ion, Plasma.',
     fleet: 'Combustion, Impulsion, Ordinateur, Hyperespace : de quoi faire voler plus d\'expéditions et de pillages. Le plan colonise encore.',
+    raid: 'Espionnage, Combustion, Impulsion 5 et Ordinateur : voir les inactifs, y aller vite, en mener plusieurs à la fois. Pas de technologie de combat — l\'onglet Cibles ne pille que ce qui ne tire pas. Le plan colonise encore.',
   }},
   research: {t:'Place de la recherche', v:{
     normal: 'La recherche attend son tour : le plan n\'épargne pour elle que si la feuille de route la juge critique.',
@@ -4144,7 +4169,7 @@ function satEnergy(tmax){ return Math.max(1, Math.floor(tmax/4 + 20)); }
  */
 function lfPourPos(pos){
   const f = foundLifeforms();
-  const ordre = pos >= 13 || S.day.focus==='fleet' ? ['mechas','kaelesh','rocktal','humans'] : ['rocktal','humans','mechas','kaelesh'];
+  const ordre = pos >= 13 || FOCUS_VAISSEAU[S.day.focus] ? ['mechas','kaelesh','rocktal','humans'] : ['rocktal','humans','mechas','kaelesh'];
   return ordre.find(k=>f.includes(k)) || 'humans';
 }
 /**
@@ -5257,7 +5282,7 @@ function centreIndex(auto){
   /* Une planète seule n'est le centre de rien, et le joueur de flotte n'en
      veut pas : dans les deux cas tout le reste retombe sur l'ancien
      comportement. */
-  if(P.length < 2 || S.day.focus === 'fleet') return -1;
+  if(P.length < 2 || FOCUS_VAISSEAU[S.day.focus]) return -1;
   if(!auto && S.centre){ const i = planetIndexById(S.centre); if(i >= 0) return i; }
   /* Les cases décident tant que rien n'est bâti, le bâti décide ensuite : un
      bâtiment payé est payé, et en déplacer un coûterait tout ce qu'il a déjà
@@ -5851,8 +5876,8 @@ planets(){
       </div>
       <div class="res" id="pres-${i}"></div>
       <div class="row" style="gap:8px"><span class="voc" id="pvoc-${i}">${vocPill(voc[p.id])}</span>${ci<0
-        ? `<span class="note">${S.day.focus==='fleet'
-            ? 'Stratégie flotte : pas de centre, tes planètes doivent rester dispersées.'
+        ? `<span class="note">${FOCUS_VAISSEAU[S.day.focus]
+            ? `${esc(FOCUS[S.day.focus])} : pas de centre, tes planètes doivent rester dispersées.`
             : 'Un centre se choisit entre plusieurs planètes.'}</span>`
         : `<label class="f coche"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>`}</div>
       <p class="note" id="pfleet-${i}" style="margin:0"></p>

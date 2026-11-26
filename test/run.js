@@ -11018,7 +11018,7 @@ t('un labo qui monte ailleurs ne retient aucune recherche', () => {
 t('tant que le joueur n\'a pas dit comment il joue, la question est en tête', () => {
   const h = lu(app(s => { s.day.focusSet = false; }).VIEWS.today());
   assert.ok(/Tu joues comment/.test(h), 'la carte est là');
-  for (const k of ['equi', 'ecocol', 'eco', 'fleet'])
+  for (const k of ['equi', 'ecocol', 'eco', 'fleet', 'raid'])
     assert.ok(h.includes(`data-focus="${k}"`), `le choix ${k} est proposé`);
   assert.ok(h.indexOf('Tu joues comment') < h.indexOf('Maintenant'),
     'avant la carte du moment, pas après');
@@ -11036,6 +11036,42 @@ t('une fois répondu, la question ne revient pas', () => {
 t('un focusSet truqué ne vaut que vrai ou faux', () => {
   const g = app(s => { s.day.focusSet = '<b>oui'; });
   assert.strictEqual(g.S.day.focusSet, true, 'sainEtat le ramène à un booléen');
+});
+
+/* ---------- le plan du pilleur ---------- */
+
+/** Un labo assez haut pour que la feuille de route ait quelque chose à dire. */
+const LABO7 = s => { s.planets.forEach(p => { p.b.lab = 7; }); };
+
+t('en pillage, la recherche voit les cibles et y va vite', () => {
+  const r = app(s => { LABO7(s); s.day.focus = 'raid'; }).nextResearch();
+  const vise = r.list.map(x => x.k);
+  assert.ok(vise.includes('espionage'), 'Espionnage, pour voir les inactifs');
+  assert.ok(vise.indexOf('espionage') < vise.indexOf('plasma') || !vise.includes('plasma'),
+    'avant la production, pas après');
+  assert.ok(!vise.includes('weapons') && !vise.includes('shielding'),
+    'aucune technologie de combat : l\'onglet Cibles ne pille que ce qui ne tire pas');
+});
+
+t('en pillage, Espionnage se justifie par les rapports, pas par Astrophysique', () => {
+  const r = app(s => { LABO7(s); s.day.focus = 'raid'; }).nextResearch();
+  const esp = r.list.find(x => x.k === 'espionage');
+  assert.ok(esp && !/Astrophysique/.test(esp.why), 'sa raison est la sienne : ' + (esp && esp.why));
+});
+
+t('en pillage, Astrophysique revient dès que les cases sont prises', () => {
+  const r = app(s => {
+    LABO7(s); s.day.focus = 'raid';
+    s.tech.astro = 1; s.tech.espionage = 4; s.tech.impulse = 3;
+  }).nextResearch();
+  assert.ok(r.list.some(x => x.k === 'astro'),
+    'le plafond la remet, même absente de la feuille de route');
+});
+
+t('le pilleur n\'a pas de centre, comme le joueur de flotte', () => {
+  assert.equal(app(s => { s.day.focus = 'raid'; }).centreIndex(), -1, 'aucun centre');
+  const h = lu(app(s => { s.day.focus = 'raid'; }).VIEWS.planets());
+  assert.ok(/Pillage d'inactifs : pas de centre/.test(h), 'et la carte dit pourquoi');
 });
 
 if (failures.length) {
