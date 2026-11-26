@@ -18,17 +18,21 @@ var PROFILS = {
      `classe` est la classe du jeu qui va avec — montrée à l'étape 2 comme
      conseil, jamais imposée. `plan` est ce que le plan du jour vise alors :
      c'est le réglage « Ce que le plan vise » qui existait déjà, et que
-     l'assistant pose pour que le style serve à deux choses d'un coup. */
+     l'assistant pose pour que le style serve à deux choses d'un coup.
+     `defense` est la clé du modèle de défense qu'il pose par défaut, dans
+     `DEF_MODELES` : seul le turtle vise la tortue de fin de partie, les
+     autres se contentent du framework du mineur. Les ratios, eux, restent
+     dans `app.js`, là où le wiki les a mis — ici on ne nomme que le modèle. */
   styles: {
-    mineur:      {n:'Mineur',      classe:'collector', plan:'ecocol',
+    mineur:      {n:'Mineur',      classe:'collector', plan:'ecocol', defense:'framework',
       aide:'Des mines, des colonies, et de la recherche qui les fait rapporter. Rien ne décolle.'},
-    turtle:      {n:'Turtle',      classe:'collector', plan:'ecocol',
+    turtle:      {n:'Turtle',      classe:'collector', plan:'ecocol', defense:'turtle',
       aide:'Des mines, et une défense qui coûte plus cher à percer qu\'elle ne rapporte.'},
-    raideur:     {n:'Raideur',     classe:'general',   plan:'raid',
+    raideur:     {n:'Raideur',     classe:'general',   plan:'raid',   defense:'framework',
       aide:'Voir les inactifs, y aller vite, en mener plusieurs à la fois. De la soute, pas de défense.'},
-    fleeter:     {n:'Fleeter',     classe:'general',   plan:'fleet',
+    fleeter:     {n:'Fleeter',     classe:'general',   plan:'fleet',  defense:'framework',
       aide:'Une flotte de combat et les technologies qui la font gagner. Le reste la finance.'},
-    explorateur: {n:'Explorateur', classe:'explorer',  plan:'fleet',
+    explorateur: {n:'Explorateur', classe:'explorer',  plan:'fleet',  defense:'framework',
       aide:'Des expéditions, beaucoup, et la soute pour en ramener quelque chose.'},
   },
 

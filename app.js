@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.6.0';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -5902,6 +5902,20 @@ function profilSain(){
   // Répondu sans style : le questionnaire n'a pas abouti, il se repose.
   S.profil.set = !!S.profil.set && !!S.profil.style;
 }
+/* Le modèle de défense par défaut suit le style : un turtle vise la tortue de
+   fin de partie, les autres le framework du mineur. Il ne suit que tant que le
+   joueur n'a rien choisi lui-même — repasser par l'assistant ne doit pas
+   effacer un modèle qu'il est allé poser à la main dans les Réglages, et c'est
+   tout ce que le copilote peut savoir de son intention : le réglage ne dit pas
+   qui l'a écrit. */
+/** @param {string} avant le style d'avant, vide s'il n'y en avait pas
+    @param {string} apres le style qu'on vient de choisir */
+function defModeleSuitLeStyle(avant, apres){
+  const neuf = PROFILS.styles[apres]; if(!neuf) return;
+  const vieux = PROFILS.styles[avant];
+  // Sans style d'avant, seul le modèle d'usine se laisse remplacer.
+  if(S.settings.defModele === (vieux ? vieux.defense : 'framework')) S.settings.defModele = neuf.defense;
+}
 /** La classe que le style conseille, vide tant qu'aucun style n'est choisi. */
 function classeSuggeree(){ const s = PROFILS.styles[S.profil.style]; return s ? s.classe : ''; }
 /** La classe que le profil vise : celle demandée, ou celle que le style conseille. */
@@ -6351,6 +6365,8 @@ settings(){
       </div>
       ${s.defModele === 'perso' ? `<div class="grid tight">${DEF_RATIO.map(k=>`<label class="f">${esc(DEF[k].n)}<input id="sDefR-${k}" type="number" min="0" step="1" data-def="${k}" value="${num(S.settings.defPerso[k])}"></label>`).join('')}</div>
       <p class="note">Combien de pièces par lanceur de plasma. Les deux boucliers restent hors ratio : un de chaque.</p>` : ''}
+      ${S.profil.set && s.defModele === (PROFILS.styles[S.profil.style] || {}).defense
+        ? `<p class="note">Posé par ton profil (<b>${esc(PROFILS.styles[S.profil.style].n)}</b>). En choisir un autre ici le détache du profil : refaire le questionnaire ne le remettra plus.</p>` : ''}
       <p class="note">Outils › Défense dit, planète par planète, ce qui manque pour tenir ce modèle et ce que ça coûte. Une planète peut y prendre un autre modèle que celui-ci.</p>
     </div>
     <div class="card"><h2>Allure du panneau</h2>
@@ -6737,6 +6753,8 @@ function bind(){
      réponse. Chaque clé est relue dans sa table avant d'être posée. */
   view.querySelectorAll('[data-pstyle]').forEach(el=>el.addEventListener('click',()=>{
     const k = profilConnu(PROFILS.styles, el.dataset.pstyle); if(!k) return;
+    // Avant d'écraser le style : la règle a besoin de celui d'avant.
+    defModeleSuitLeStyle(S.profil.style, k);
     S.profil.style = k;
     /* Le style pose aussi ce que le plan vise : c'est la même question, et le
        joueur n'a pas à aller la rechercher au troisième menu des Réglages.
