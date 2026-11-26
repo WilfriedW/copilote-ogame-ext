@@ -10588,6 +10588,35 @@ t('une planète décochée pour un rang reste cochée pour la mine', () => {
   assert.deepEqual(g.poseLignes().map(x => x.coche), [true, true]);
 });
 
+/* ---------- quand rien ne se pose, la carte dit pourquoi ---------- */
+/* Le joueur voit une planète au niveau 12 sous un objectif de 21 et un bouton
+   éteint : il en conclut que la carte est cassée, alors qu'elle a déjà fait le
+   travail — cette planète-là vise déjà 21, les autres sont plus haut. Le
+   compte des raisons est la seule chose qui répond à ça. */
+
+t('le bouton à zéro dit ce qui retient chaque planète', () => {
+  const g = app(s => { s.prio = [{kind:'b', pid:'colo', k:'metal', lvl:10}]; POSE('metal', 10)(s); });
+  const h = lu(g.poseBloc());
+  assert.ok(/Poser sur 0 planète/.test(h), h);
+  assert.ok(h.includes('Rien à poser : 1 planète déjà au-dessus de 10, 1 vise déjà 10.'), h);
+});
+
+t('les décochées et les cases absentes comptent dans ce que la carte dit', () => {
+  const g = app(s => { DEUX_ESPECES(s); POSE('lfbuilding:2', 1, {'lfbuilding:2': ['mere']})(s); });
+  const h = lu(g.poseBloc());
+  assert.ok(h.includes('Rien à poser : 1 décochée, 1 sans cette case.'), h);
+});
+
+t('tant qu\'aucun niveau n\'est tapé, la carte ne se justifie pas', () => {
+  const g = app(POSE('metal', ''));
+  assert.ok(!lu(g.poseBloc()).includes('Rien à poser'), 'rien à justifier avant un objectif');
+});
+
+t('dès qu\'une planète peut recevoir, la carte ne se justifie plus', () => {
+  const g = app(POSE('metal', 43));
+  assert.ok(!lu(g.poseBloc()).includes('Rien à poser'));
+});
+
 /* ---------- l'horloge du plan : une file occupée reste occupée ---------- */
 /* Les durées du moteur sont en secondes, les instants en millisecondes. Les
    additionner sans convertir faisait finir tout chantier dans la seconde : la

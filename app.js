@@ -1,5 +1,5 @@
 
-const APP_VERSION = '1.66.0';
+const APP_VERSION = '1.66.1';
 const KEY = 'ogame-copilot-v1';
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -499,6 +499,30 @@ function posePartout(){
   const k = poseK(), kind = poseKind(k), lvl = poseVise(), agissent = poseLignes().filter(x => x.agit);
   for(const x of agissent) prioPose(kind, x.pid, x.id, lvl);
   return agissent.length;
+}
+/** Pourquoi le bouton est à zéro, quand il l'est. Sans cette phrase, le joueur
+    voit une planète au niveau 12 sous un objectif de 21 et un bouton éteint :
+    il en conclut que la carte est cassée, alors qu'elle a déjà fait le travail
+    — cette planète-là vise déjà 21, et les sept autres sont plus haut. Rien
+    d'autre à l'écran ne porte ce compte : chaque ligne dit son propre cas, et
+    il faut les relire une à une pour s'en convaincre.
+    Une raison par planète, et la première qui s'applique : décochée l'emporte
+    sur tout le reste — c'est un choix du joueur, pas un état du jeu. */
+function poseRien(){
+  const l = poseLignes(), vise = poseVise();
+  /* Avant qu'un objectif soit tapé, il n'y a rien à justifier : la carte est
+     seulement au repos. */
+  if(!(vise > 0) || l.some(x => x.agit)) return '';
+  const n = f => l.filter(f).length;
+  const hors = n(x => !x.coche), absent = n(x => x.coche && !x.ici);
+  const haut = n(x => x.coche && x.ici && x.actuel >= vise);
+  const deja = n(x => x.coche && x.ici && x.actuel < vise && x.deja != null && x.deja >= vise);
+  const bouts = [];
+  if(haut) bouts.push(`${haut} planète${haut>1?'s':''} déjà au-dessus de ${vise}`);
+  if(deja) bouts.push(`${deja} vise${deja>1?'nt':''} déjà ${vise}`);
+  if(hors) bouts.push(`${hors} décochée${hors>1?'s':''}`);
+  if(absent) bouts.push(`${absent} sans cette case`);
+  return bouts.length ? `Rien à poser : ${bouts.join(', ')}.` : '';
 }
 /* Cocher et décocher, hors du gestionnaire : la carte est le seul écrivain de
    sa propre mémoire, et c'est ici qu'un test peut la prendre. */
@@ -5551,7 +5575,7 @@ function poseBloc(){
       <label class="f">Niveau visé<input type="number" min="1" data-pose="lvl" value="${vise > 0 ? vise : ''}" placeholder="43"></label>
     </div>
     <ul class="list" style="margin-top:8px">${lignes}</ul>
-    <div class="row" style="margin-top:6px"><button class="btn" data-posego="1" ${n?'':'disabled'}>Poser sur ${n} planète${n>1?'s':''}</button></div>
+    <div class="row" style="margin-top:6px"><button class="btn" data-posego="1" ${n?'':'disabled'}>Poser sur ${n} planète${n>1?'s':''}</button>${(()=>{ const r = poseRien(); return r ? `<span class="note">${esc(r)}</span>` : ''; })()}</div>
   </details>`;
 }
 /** Les formes de vie sous leur nom, et non mêlées aux bâtiments : posées à la
