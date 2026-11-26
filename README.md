@@ -46,8 +46,15 @@ stockage local de l'extension. Rien n'est envoyé nulle part. Le seul appel
 réseau va à l'API publique de ton univers, celle que tout le monde peut lire,
 pour le classement — sans aucun identifiant.
 
-**Réglages › Sauvegarde › Enregistrer dans un fichier** écrit `save.json` : la
-boîte de dialogue te laisse viser le dossier du dépôt, où un `git commit` le
-garde et le porte sur l'autre poste. **Charger un fichier…** le relit. C'est la
-seule copie de tes réglages : fais-la avant de désinstaller ou de changer de
-machine.
+**Réglages › Sauvegarde › Enregistrer dans un fichier** écrit `save.json`, et
+**Charger un fichier…** le relit. C'est comme ça qu'on porte ses réglages d'un
+poste à l'autre : en déplaçant le fichier soi-même.
+
+Range-le **hors du dossier de l'extension**. Ce dossier-là se remplace à chaque
+mise à jour, et ce qui s'y trouve part avec. Et si tu travailles depuis le
+dépôt, il ignore `save*.json` exprès : un `save.json` commité, c'est ton empire
+entier — planètes, coordonnées, flottes — dans un historique git qui ne
+s'oublie pas, et qu'un dépôt ouvert ou partagé emporte tel quel.
+
+C'est la seule copie de tes réglages : fais-la avant de désinstaller ou de
+changer de machine.
