@@ -3749,9 +3749,11 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
   /* Le manifeste ne dit pas tout : `app.js` n'est nommé que par boot.js, et
      `ids.js` par un `importScripts`. On relit donc chaque fichier emporté et on
      prend tout nom de fichier local qu'il cite — un nom qu'on lit dans du code
-     qui part est un fichier qui doit partir avec lui. */
+     qui part est un fichier qui doit partir avec lui. Sauf le nom donné à un
+     téléchargement (`filename:'save.json'`, `a.download='save.json'`) : c'est
+     le fichier que le joueur écrit chez lui, pas un fichier que Chrome charge. */
   const cites = liste.filter(f => /\.(js|html|css)$/.test(f))
-    .flatMap(f => [...lu(f).matchAll(/['"]([\w-]+\.(?:js|css|html|png|woff2|json))['"]/g)].map(x => x[1]));
+    .flatMap(f => [...lu(f).matchAll(/(?<!(?:filename\s*:|download\s*=)\s*)['"]([\w-]+\.(?:js|css|html|png|woff2|json))['"]/g)].map(x => x[1]));
   const voulus = new Set(['manifest.json', m.background.service_worker,
     ...m.content_scripts.flatMap(c => c.js),
     ...Object.values(m.icons),
@@ -8635,9 +8637,16 @@ t('un changement d\'une autre clé ne touche pas aux priorités', () => {
 t('boot.js transmet prioAsk à app.js, clé sans préfixe ls:', () => {
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'boot.js'), 'utf8');
   const win = {}, ask = [D()];
-  const chrome = {storage: {local: {get(k, cb) { cb({'ls:x': '1', prioAsk: ask, game: null}); }, set() { return Promise.resolve(); }}}};
+  /* boot.js lit aussi rules.json (fetch + runtime.getURL) et le mode des heures
+     (storage.sync) avant de charger app.js : le faux chrome les fournit comme le
+     navigateur, sinon le test meurt avant d'atteindre ce qu'il vérifie. */
+  const chrome = {
+    runtime: {getURL: p => 'chrome-extension://test/' + p},
+    storage: {local: {get(k, cb) { cb({'ls:x': '1', prioAsk: ask, game: null}); }, set() { return Promise.resolve(); }},
+              sync: {get(k, cb) { cb({}); }}}};
+  const fetch = () => Promise.resolve({ok: true, status: 200, json: () => Promise.resolve({})});
   const document = {createElement: () => ({}), body: {appendChild() {}}};
-  new Function('window', 'chrome', 'document', src)(win, chrome, document);
+  new Function('window', 'chrome', 'document', 'fetch', src)(win, chrome, document, fetch);
   assert.deepEqual(win.__prioAsk, ask);
   assert.equal(win.__mem.x, '1');
 });
