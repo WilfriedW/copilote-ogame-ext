@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk, rules) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'computeDefenseGap', 'resolveActiveModel', 'defPropositions', 'defPlancherDe', 'defEnFile', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'dayValue', 'modeNuit', 'finDeNuit', 'fmt', 'fmtLigne', 'luneMorts', 'gidDe', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES', 'missionKey', 'UI', 'uiOuvert', 'uiNote', 'uiVu', 'uiPurge', 'uiReset', 'uiEcrit', 'fold', 'garderVue', 'carteDetails', 'REGLES', 'REGLES_ERR', 'EVAL', 'regle', 'regleSaine', 'reglePose', 'regleActive', 'gabarit', 'constats', 'constatsDe', 'SEV_LABEL', 'ignore', 'ignKey', 'constatsVus', 'ignClean', 'conseilsHtml', 'reglesCard', 'planeteOuverte', 'cibleMines', 'mineEnRetard', 'naniteRetard', 'laboEnRetard', 'rechercheAilleurs', 'reglesRecherche', 'regOffHtml', 'raceDe', 'baseDe', 'lfNom', 'lfNomConnu', 'lfManques', 'rescanner', 'lfNomsRetiens', 'raceRows', 'alerteNeuve', 'ongletAffiche'], api, ext, prioAsk, rules);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'computeDefenseGap', 'resolveActiveModel', 'defSurplus', 'defPropositions', 'defPlancherDe', 'defEnFile', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'dayValue', 'modeNuit', 'finDeNuit', 'fmt', 'fmtLigne', 'luneMorts', 'gidDe', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES', 'missionKey', 'UI', 'uiOuvert', 'uiNote', 'uiVu', 'uiPurge', 'uiReset', 'uiEcrit', 'fold', 'garderVue', 'carteDetails', 'REGLES', 'REGLES_ERR', 'EVAL', 'regle', 'regleSaine', 'reglePose', 'regleActive', 'gabarit', 'constats', 'constatsDe', 'SEV_LABEL', 'ignore', 'ignKey', 'constatsVus', 'ignClean', 'conseilsHtml', 'reglesCard', 'planeteOuverte', 'cibleMines', 'mineEnRetard', 'naniteRetard', 'laboEnRetard', 'rechercheAilleurs', 'reglesRecherche', 'regOffHtml', 'raceDe', 'baseDe', 'lfNom', 'lfNomConnu', 'lfManques', 'rescanner', 'lfNomsRetiens', 'raceRows', 'alerteNeuve', 'ongletAffiche'], api, ext, prioAsk, rules);
 }
 /** L'application avec un rules.json donné — null pour un fichier illisible. */
 const appRegles = (rules, modifier, ext) => app(modifier, null, null, ext, null, rules);
@@ -6751,6 +6751,142 @@ t('la défense sort par paquets, jamais une pièce à la fois', () => {
   const lots = defActs(acts);
   assert.ok(lots.length, 'la défense manque toujours : ' + JSON.stringify(acts.map(a => a.what)));
   for (const a of lots) assert.ok(Object.values(a.ships)[0] > 1, 'une pièce à la fois : ' + a.what);
+});
+
+/* ---------- au-delà du palier : la défense ne sert qu'à ne pas perdre de production ---------- */
+
+/** Framework mineur, palier 20, tout au sol : 800 LM, 500 LL, 200 LLo, 80 Gauss, 20 PL. */
+const AU_PALIER = { rl: 800, ll: 500, hl: 200, gc: 80, pt: 20 };
+/** Tout débloqué, plasma compris. */
+const toutDebloque = s => { chercheur(s); s.tech.plasma = 7; s.planets[0].b.shipyard = 8; };
+/** La mère au palier, son stock posé en fraction du hangar : [métal, cristal, deut]. */
+function auPalier(frac, mod) {
+  const g = app(s => {
+    relie(s); s.colo.built = true; toutDebloque(s);
+    const p = s.planets[0];
+    p.defs = Object.assign({}, AU_PALIER); p.def = Object.values(AU_PALIER).reduce((a, n) => a + n, 0);
+    p.ships = { lc: 50, sc: 20, pr: 10 };
+    // Des hangars qui logent plusieurs packs : 307,5 k de métal par pack.
+    p.b.smetal = p.b.scrystal = p.b.sdeut = 10;
+    if (mod) mod(s);
+  });
+  const p = g.S.planets[0], cap = g.production(p).cap;
+  p.stock = { m: cap[0] * frac[0], c: cap[1] * frac[1], d: cap[2] * frac[2], at: SOIR };
+  return { g, p, cap };
+}
+const sessionsDef = g => g.simulateDay().sessions.map(x => x.acts);
+
+t('palier tenu, aucun hangar plein : aucune carte Défense', () => {
+  const { g } = auPalier([0.3, 0.3, 0.3]);
+  assert.ok(g.defPlan(g.S.planets[0]).lignes.every(l => l.manque === 0), 'le palier est tenu');
+  assert.equal(g.defSurplus(g.S.planets[0]), null);
+  const a = sessionsDef(g)[0].filter(x => x.kind === 'def');
+  assert.equal(a.length, 0, 'rien à construire : ' + a.map(x => x.what).join(' | '));
+});
+
+t('palier tenu, métal au plafond : des packs du modèle, au ratio du modèle', () => {
+  const { g, p, cap } = auPalier([0.99, 0.9, 0.9]);
+  const s = g.defSurplus(p);
+  assert.ok(s && s.pack, JSON.stringify(s));
+  assert.equal(s.k, 'pack');
+  assert.equal(s.j, 0, 'le métal');
+  const n = s.n;
+  assert.deepEqual(s.ships, { rl: 40 * n, ll: 25 * n, hl: 10 * n, gc: 4 * n, pt: n }, 'la recette du Framework, jamais d\'ions');
+  const packM = 307500;
+  assert.equal(n, Math.min(Math.ceil((0.99 - 0.9) * cap[0] / packM), Math.floor(0.9 * cap[1] / 142500), Math.floor(0.9 * cap[2] / 38000)), 'sous 90 % du hangar, ou ce que paient les autres');
+  assert.match(s.why, /^Métal au plafond sur [^:]+ : \d+ packs? du modèle pour ne pas perdre la production \(Framework mineur, palier 20 tenu/, s.why);
+});
+
+t('métal au plafond sans de quoi payer un pack : la pièce qui mange le plus de métal', () => {
+  const { g, p } = auPalier([0.99, 0, 0]);
+  const s = g.defSurplus(p);
+  assert.ok(s && !s.pack, JSON.stringify(s));
+  assert.deepEqual(Object.keys(s.ships), ['rl'], 'des lanceurs de missiles : ' + JSON.stringify(s.ships));
+  assert.match(s.why, /pas de quoi payer un pack du modèle/);
+});
+
+t('sous le palier, le surplus ne parle pas : c\'est le manque', () => {
+  const { g, p } = auPalier([0.99, 0.9, 0.9], s => { s.planets[0].defs.ll = 380; });
+  assert.equal(g.defSurplus(p), null);
+  const l = g.defPlan(p).lignes.find(x => x.k === 'll');
+  assert.equal(l.cible, 500);
+  assert.equal(l.manque, 120);
+});
+
+t('une ressource qu\'un chantier de la session dépense déjà ne déclenche rien', () => {
+  const { g, p } = auPalier([0.99, 0.9, 0.9]);
+  assert.equal(g.defSurplus(p, { servies: [true, false, false] }), null);
+});
+
+t('règles de stockage coupées sur la planète : pas de packs', () => {
+  const { g, p } = auPalier([0.99, 0.9, 0.9], s => { s.planets[0].regOff = { RES_STORAGE_FULL: true, RES_STORAGE_SOON: true }; });
+  assert.equal(g.defSurplus(p), null);
+});
+
+t('la carte packs passe après les constructions et recherches, jamais avec une dépense de métal', () => {
+  const { g } = auPalier([0.99, 0.9, 0.9]);
+  const sessions = sessionsDef(g);
+  let vue = false;
+  for (const acts of sessions) {
+    const pk = acts.findIndex(a => a.kind === 'def' && a.k === 'pack' && a.p === 0);
+    if (pk < 0) continue;
+    vue = true;
+    const a = acts[pk];
+    assert.ok(!Object.keys(a.ships).includes('ic'), 'jamais d\'ions');
+    for (const [i, x] of acts.entries()) {
+      if (x.p !== 0 || !['b', 't', 'lf'].includes(x.kind)) continue;
+      assert.ok(i < pk, 'après les constructions et recherches : ' + acts.map(y => y.what).join(' | '));
+      assert.ok(!(x.cost && x.cost[0] > 0), 'une dépense de métal sur la planète : pas de packs, ' + x.what);
+    }
+    assert.match(a.why, /du modèle pour ne pas perdre la production/);
+    assert.equal(g.actKey(a), g.cardKey('def', g.S.planets[0].id, 'pack'), 'refusable comme une carte');
+  }
+  assert.ok(vue || sessions.some(acts => acts.some(a => a.p === 0 && ['b', 't'].includes(a.kind) && a.cost && a.cost[0] > 0)),
+    'le métal au plafond part quelque part : ' + sessions.map(a => a.map(x => x.what).join(', ')).join(' || '));
+});
+
+t('« Non » sur les packs : la carte ne revient pas', () => {
+  const { g, p } = auPalier([0.99, 0.9, 0.9]);
+  g.S.daily.no[g.cardKey('def', p.id, 'pack')] = 1;
+  const s = g.defSurplus(p);
+  assert.ok(!s || !s.pack, JSON.stringify(s));
+  assert.match(g.noLabel(g.cardKey('def', p.id, 'pack')), /Packs du modèle/);
+});
+
+t('Framework mineur palier 20 : jamais d\'ions, la carte cite modèle et palier, la cible est celle d\'Outils', () => {
+  const { acts: tous } = defense(Object.assign({}, AU_PALIER, { ll: 380 }), toutDebloque);
+  const acts = tous.filter(a => a.kind === 'def' && a.p === 0);
+  assert.ok(acts.length, 'une carte pour les lasers légers');
+  assert.ok(acts.every(a => !a.ships.ic), 'jamais d\'ions');
+  const ll = acts.find(a => a.ships.ll);
+  assert.match(ll.why, /^380 lasers légers sur 500 visés pour le modèle Framework mineur \(palier 20\)/, ll.why);
+});
+
+t('Balanced Defense : les ions sortent, avec la cible d\'Outils › Défense', () => {
+  const { g, acts } = defense(Object.assign({}, AU_PALIER), s => { toutDebloque(s); s.planets[0].defModele = 'balanced'; });
+  const ic = g.defPlan(g.S.planets[0]).lignes.find(l => l.k === 'ic');
+  assert.equal(ic.cible, 80, 'le modèle en contient');
+  const a = acts.find(x => x.kind === 'def' && x.ships.ic);
+  assert.ok(a, 'une carte ions : ' + acts.map(x => x.what).join(' | '));
+  assert.match(a.why, /^0 artillerie à ions sur 80 vis\S+ pour le modèle Balanced Defense \(palier 20\)/, a.why);
+});
+
+t('« Compléter » sans unité d\'ancrage : le plus petit palier sert de cible', () => {
+  const g = app(s => { relie(s); chercheur(s); s.settings.defPalier = 'fill'; s.planets[0].defs = { rl: 10 }; s.planets[0].def = 10; });
+  const d = g.defPlan(g.S.planets[0]);
+  assert.equal(d.palier, g.DEF_PALIERS[0], 'palier ' + d.palier);
+  assert.equal(d.lignes.find(l => l.k === 'rl').cible, 400, '40 × 10');
+  assert.match(lu(g.defCarte(g.S.planets[0])), /rien à compléter/);
+  const avec = app(s => { relie(s); chercheur(s); s.settings.defPalier = 'fill'; s.planets[0].defs = { rl: 10, pt: 3 }; s.planets[0].def = 13; });
+  assert.equal(avec.defPlan(avec.S.planets[0]).palier, 3, 'avec des PL au sol, ce sont eux qui fixent la taille');
+});
+
+t('planète nue : prioritaire, et la cible est celle du palier du modèle', () => {
+  const { g, acts } = defense(0, chercheur);
+  const a = acts.find(x => x.kind === 'def');
+  assert.ok(a, 'une carte');
+  assert.match(a.why, /sur 800 visés pour le modèle Framework mineur \(palier 20\)/, a.why);
+  assert.match(a.why, /Aucune défense/);
 });
 
 t('chaque pièce de défense a son prix', () => {
