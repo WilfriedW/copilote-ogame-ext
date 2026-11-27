@@ -66,6 +66,20 @@ déplie sur place avec **Voir N de plus**, et le panneau s'en souvient d'un
 démarrage à l'autre. Le compteur en tête de liste compte toutes les cartes,
 masquées comprises : la limite ne coupe que l'affichage, jamais les calculs.
 
+## Aujourd'hui en onglets
+
+Le bouton 🗂️ de l'en-tête — ou **Réglages › Affichage › Organiser les sections
+en onglets** — range les cartes d'Aujourd'hui (Profil, Maintenant, Alertes,
+Expéditions, Ta journée, Minuteurs) dans une barre d'onglets, la même que celle
+d'Outils : une seule carte à l'écran, toujours dépliée. Chaque onglet porte le
+nombre de ses éléments, en rouge s'il y a une urgence, en orange un
+avertissement, en gris sinon. Alertes n'a d'onglet que lorsqu'il y en a.
+
+Une **urgence nouvelle** dans un autre onglet y emmène le panneau, une seule
+fois : revenu sur ton onglet, la même alerte ne t'en sort plus. L'onglet choisi
+est retenu d'une page et d'un démarrage à l'autre. Repasser en mode empilé
+défile jusqu'à la carte que tu regardais. Le mode empilé reste le défaut.
+
 ## Mettre à jour
 
 **Réglages › Version** dit en quelle version tourne le panneau, si le dépôt en

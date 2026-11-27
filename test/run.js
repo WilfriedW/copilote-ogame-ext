@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES', 'segHtml', 'CARTES_JOUR', 'ongletsOn', 'ongletChoisi', 'niveauMax'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -12488,6 +12488,65 @@ t('Maintenant : le compteur compte tout, la liste coupe à la limite', () => {
   assert.ok(!/data-voirplus/.test(tout.tdNow || ''), '« Toutes » : pas de lien');
   assert.equal(lu(un.tdNow).replace(/<ul[^>]*>|<\/ul>|<button[^>]*data-voirplus[\s\S]*?<\/button>/g, '').length,
     lu(tout.tdNow).replace(/<ul[^>]*>|<\/ul>/g, '').length, 'les mêmes cartes, masquées comprises');
+});
+
+/* ---------- Aujourd'hui en onglets ---------- */
+t('le mode empilé reste le défaut et ne change rien', () => {
+  const g = app();
+  assert.equal(g.ongletsOn(), false);
+  const h = g.VIEWS.today();
+  assert.ok(!/en-onglets|data-force/.test(h), 'aucune trace du mode onglets');
+  assert.ok(/id="ongletsJour"[^>]* hidden/.test(h), 'la barre est cachée');
+  assert.ok(/<details class="card" data-carte="journee">/.test(h), 'Ta journée garde son état replié enregistré');
+});
+t('en onglets, chaque carte porte son identifiant, dans l\'ordre, et la carte est forcée ouverte', () => {
+  const g = app(s => { s.settings.onglets = true; s.ui = Object.assign({}, s.ui, {fold: {journee: false}}); });
+  const h = g.VIEWS.today();
+  const ordre = [...h.matchAll(/data-carte="(\w+)"/g)].map(m => m[1]);
+  assert.deepEqual(ordre, g.CARTES_JOUR.map(c => c.id));
+  assert.ok(/data-carte="journee" open data-force/.test(h), 'déplié sans toucher au choix enregistré');
+  assert.equal(g.S.ui.fold.journee, false, 'le choix enregistré reste');
+});
+t('la barre d\'Aujourd\'hui est celle d\'Outils', () => {
+  const g = app();
+  const b = g.segHtml([['a', 'A'], ['b', 'B']], 'b', 'data-onglet');
+  assert.ok(b.startsWith('<div class="seg" role="tablist"'));
+  assert.ok(/data-onglet="b" aria-selected="true"/.test(b) && /data-onglet="a" aria-selected="false"/.test(b));
+  assert.ok(/class="seg" role="tablist"/.test(g.VIEWS.tools()), 'Outils passe par le même composant');
+});
+t('le compteur prend la couleur la plus grave', () => {
+  const g = app();
+  assert.equal(g.niveauMax(['info', 'warn', 'good']), 'warn');
+  assert.equal(g.niveauMax(['warn', 'bad']), 'bad');
+  assert.equal(g.niveauMax([]), 'info');
+});
+t('une urgence neuve fait basculer une fois, pas deux', () => {
+  const g = app();
+  const ids = ['maintenant', 'alertes', 'journee'], deja = new Set();
+  const r = {alertes: {crit: ['attaque:Erablis']}};
+  let vu = g.ongletChoisi(ids, r, 'journee', 'journee', deja);
+  assert.equal(vu, 'alertes', 'bascule vers l\'onglet de l\'urgence');
+  vu = 'journee'; // le joueur revient sur son onglet
+  assert.equal(g.ongletChoisi(ids, r, vu, 'journee', deja), 'journee', 'la même alerte ne le ramène pas');
+  r.alertes.crit.push('attaque:Gaspesion');
+  assert.equal(g.ongletChoisi(ids, r, vu, 'journee', deja), 'alertes', 'une nouvelle alerte rebascule');
+});
+t('pas de bascule si l\'urgence est déjà sous les yeux', () => {
+  const g = app();
+  const deja = new Set();
+  assert.equal(g.ongletChoisi(['maintenant', 'alertes'], {alertes: {crit: ['x']}}, null, 'alertes', deja), null, 'l\'onglet enregistré reste');
+  assert.ok(deja.has('alertes:x'), 'mais l\'alerte est comptée : elle ne ramènera pas plus tard');
+});
+t('le mode et l\'onglet se remettent d\'aplomb', () => {
+  const g = app(s => { s.settings.onglets = 'oui'; s.ui = Object.assign({}, s.ui, {ongletJour: '<script>'}); });
+  g.cartesSain();
+  assert.equal(g.S.settings.onglets, true);
+  assert.equal(g.S.ui.ongletJour, undefined, 'un onglet inconnu est oublié');
+});
+t('l\'interrupteur est dans Réglages › Affichage et voyage avec la synchro', () => {
+  const g = app(s => { s.settings.onglets = true; });
+  assert.ok(/id="sOnglets"[^>]*data-onglets="1"[^>]*checked/.test(g.affichageCard().replace(/\n/g, ' ')), g.affichageCard());
+  assert.equal(g.syncOut()['sy:settings'].onglets, true);
 });
 
 if (failures.length) {

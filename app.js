@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.9.0';
+const APP_VERSION = '2.10.0';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -183,6 +183,8 @@ function sample(){
       /* Combien de cartes chaque liste montre d'office : une valeur pour
          toutes, et celles que le joueur a posées liste par liste. */
       cartesMax:3, cartesListe:{},
+      /* Aujourd'hui en onglets plutôt qu'empilé : non par défaut. */
+      onglets:false,
       /* Le framework d'expédition. `expoFret` est le nombre de ressources
          ramenées par point de flotte, à calibrer sur les retours réels ;
          `expoRes` les grands transporteurs qu'une expédition ne touche pas,
@@ -2004,6 +2006,8 @@ function cartesLabel(v){ return v === 'all' ? 'Toutes' : String(v); }
 function cartesSain(){
   if(!S.settings || typeof S.settings !== 'object') return;
   S.settings.cartesMax = cartesVal(S.settings.cartesMax) || CARTES_DEF;
+  S.settings.onglets = !!S.settings.onglets;
+  if(S.ui && S.ui.ongletJour != null && !CARTES_JOUR.some(c => c.id === S.ui.ongletJour)) delete S.ui.ongletJour;
   const l = S.settings.cartesListe;
   S.settings.cartesListe = l && typeof l === 'object' && !Array.isArray(l)
     ? Object.fromEntries(Object.entries(l).filter(([k, v]) => /^[\w-]{1,40}$/.test(k) && cartesVal(v)).map(([k, v]) => [k, cartesVal(v)]))
@@ -2048,6 +2052,9 @@ function affichageCard(){
     .concat(CARTES_CHOIX.map(c => `<option value="${c}"${c === v ? ' selected' : ''}>${cartesLabel(c)}</option>`)).join('');
   const propres = LISTES.filter(([id]) => cartesPropre(id) != null).length;
   return `<div class="card"><h2>Affichage</h2>
+      <div class="bascules">
+        ${bascule('sOnglets', 'data-onglets="1"', 'Organiser les sections en onglets', ongletsOn(), 'Aujourd\'hui montre une carte à la fois, avec une barre d\'onglets en haut. Aussi dans l\'en-tête du panneau, bouton 🗂️.')}
+      </div>
       <div class="grid">
         <label class="f">Nombre de cartes par liste<select id="sCartes" data-cartesg="1">${opts(g, false)}</select><span class="note">Les cartes urgentes s'affichent toujours, en plus. Le reste se déplie avec « Voir plus ».</span></label>
       </div>
@@ -2057,6 +2064,136 @@ function affichageCard(){
       <div class="row" style="margin-top:8px"><button class="btn sm ghost" data-cartesreset="1"${propres ? '' : ' disabled'}>Réinitialiser</button><span class="note">${propres ? `${propres} liste${propres > 1 ? 's ont leur' : ' a sa'} propre valeur.` : 'Toutes les listes suivent la valeur globale.'} Le menu « Afficher » en tête de chaque liste règle la même valeur.</span></div>
     </div>`;
 }
+/* ---------- Aujourd'hui en onglets ---------- */
+/* La barre d'onglets d'Outils, sortie dans une fonction pour servir deux
+   fois : même balisage, même style, même défilement horizontal quand elle ne
+   tient pas. `items` : [[clé, libellé HTML]], `attr` : l'attribut que le clic
+   lit (data-tool, data-onglet). */
+function segHtml(items, actif, attr, extra){
+  return `<div class="seg" role="tablist"${extra || ''}>${items.map(([k, l]) => `<button role="tab" ${attr}="${esc(k)}" aria-selected="${actif === k}">${l}</button>`).join('')}</div>`;
+}
+/* Les cartes d'Aujourd'hui, dans l'ordre du mode empilé. `dyn` : une carte qui
+   n'existe que si elle a quelque chose à dire — vide, elle n'a pas d'onglet.
+   Les autres sont fixes et gardent toujours le leur. */
+const CARTES_JOUR = [
+  {id:'profil', n:'Profil', dyn:true},
+  {id:'maintenant', n:'Maintenant'},
+  {id:'alertes', n:'Alertes', dyn:true},
+  {id:'expeditions', n:'Expéditions'},
+  {id:'journee', n:'Ta journée'},
+  {id:'minuteurs', n:'Minuteurs'},
+];
+function ongletsOn(){ return !!(S.settings||{}).onglets; }
+/* Ce que chaque carte dit d'elle-même au dernier rafraîchissement :
+   {count, max, crit} — max vaut 'bad', 'warn' ou 'info', crit liste les
+   identifiants de ses éléments critiques. Les cartes ne savent pas dans quel
+   mode on les affiche : c'est le conteneur qui lit ce résumé. */
+let resumesJour = {};
+/* L'onglet montré. Il part de l'onglet enregistré, mais une alerte critique
+   peut le déplacer sans toucher à l'enregistrement : seul le clic du joueur
+   écrit. */
+let ongletVu = null;
+/* Les alertes critiques qui ont déjà fait basculer le panneau, pour cette
+   session. Une alerte ne ramène qu'une fois : le joueur qui revient sur son
+   onglet a lu, il n'a pas à se battre contre la barre. */
+const basculees = new Set();
+const ONGLET_NIV = {bad:3, warn:2, info:1};
+function niveauMax(l){ return l.reduce((m, x) => (ONGLET_NIV[x] || 0) > (ONGLET_NIV[m] || 0) ? x : m, 'info'); }
+/** Les onglets présents : les cartes fixes toujours, les dynamiques si elles ont un contenu. */
+function ongletsPresents(){
+  return CARTES_JOUR.filter(c => {
+    if(!c.dyn) return true;
+    const el = view.querySelector(`[data-carte="${c.id}"]`);
+    return !!(el && el.innerHTML.trim());
+  });
+}
+function ongletActif(presents){
+  const ids = presents.map(c => c.id);
+  const v = ongletVu || (S.ui || {}).ongletJour;
+  return ids.includes(v) ? v : ids[0];
+}
+/* Le badge d'un onglet : rouge s'il porte une urgence, orange un
+   avertissement, gris sinon. Rien s'il est vide. */
+function ongletLibelle(c){
+  const r = resumesJour[c.id];
+  return esc(c.n) + (r && r.count ? ` <span class="onglet-n ${r.max === 'bad' ? 'bad' : r.max === 'warn' ? 'warn' : 'info'}">${r.count}</span>` : '');
+}
+/**
+ * L'onglet à montrer, sans toucher au DOM. `ids` : les onglets présents,
+ * `vu` : celui montré jusqu'ici, `enregistre` : le choix du joueur, `deja` :
+ * les urgences qui ont déjà fait basculer (complété ici). Une urgence neuve
+ * dans un onglet caché y emmène, une fois ; sinon rien ne bouge.
+ * Rend le nouvel `ongletVu`.
+ */
+function ongletChoisi(ids, resumes, vu, enregistre, deja){
+  const courant = ids.includes(vu) ? vu : ids.includes(enregistre) ? enregistre : ids[0];
+  let cible = null;
+  for(const id of ids) for(const c of (resumes[id] || {}).crit || []){
+    const k = id + ':' + c;
+    if(deja.has(k)) continue;
+    deja.add(k);
+    if(!cible) cible = id;
+  }
+  return cible && cible !== courant ? cible : vu;
+}
+/**
+ * Pose la barre et cache ce qui n'est pas l'onglet actif. Appelé après chaque
+ * rafraîchissement d'Aujourd'hui : c'est lui qui sait quelles cartes ont un
+ * contenu, et quelles urgences viennent d'apparaître.
+ */
+function ongletsAppliquer(){
+  const barre = document.getElementById('ongletsJour');
+  const cartes = view.querySelectorAll('[data-carte]');
+  if(!barre) return;
+  if(!ongletsOn()){ barre.innerHTML = ''; barre.hidden = true; cartes.forEach(el => { el.hidden = false; }); return; }
+  const presents = ongletsPresents();
+  ongletVu = ongletChoisi(presents.map(c => c.id), resumesJour, ongletVu, (S.ui || {}).ongletJour, basculees);
+  const actif = ongletActif(presents);
+  barre.hidden = false;
+  barre.innerHTML = segHtml(presents.map(c => [c.id, ongletLibelle(c)]), actif, 'data-onglet', ' aria-label="Sections d\'Aujourd\'hui"');
+  cartes.forEach(el => { el.hidden = el.dataset.carte !== actif; });
+  /* L'onglet actif reste visible dans une barre qui défile, sans faire bouger
+     la page : scrollIntoView remonterait le panneau à chaque rafraîchissement. */
+  const seg = barre.firstElementChild, sel = barre.querySelector('[aria-selected="true"]');
+  if(seg && sel && seg.clientWidth && (sel.offsetLeft < seg.scrollLeft || sel.offsetLeft + sel.offsetWidth > seg.scrollLeft + seg.clientWidth))
+    seg.scrollLeft = sel.offsetLeft - (seg.clientWidth - sel.offsetWidth) / 2;
+}
+/* La carte en haut de l'écran, en mode empilé : c'est elle qui devient
+   l'onglet actif quand on passe en onglets. */
+function carteEnHaut(){
+  const nav = document.getElementById('tabs'), bas = nav ? nav.getBoundingClientRect().bottom : 0;
+  for(const el of view.querySelectorAll('[data-carte]')){
+    const box = el.firstElementChild && getComputedStyle(el).display === 'contents' ? el.firstElementChild : el;
+    if(!box || el.hidden || !el.innerHTML.trim()) continue;
+    if(box.getBoundingClientRect().bottom > bas + 8) return el.dataset.carte;
+  }
+  return null;
+}
+/* Remonte jusqu'à la barre si elle est sortie de l'écran par le haut. */
+function ongletsEnVue(){
+  const barre = document.getElementById('ongletsJour'), nav = document.getElementById('tabs');
+  if(!barre || barre.hidden || !barre.getBoundingClientRect) return;
+  const bas = nav ? nav.getBoundingClientRect().bottom : 0;
+  if(barre.getBoundingClientRect().top < bas) window.scrollBy(0, barre.getBoundingClientRect().top - bas);
+}
+/** Change de mode, sans rien perdre : l'onglet actif et la carte lue se répondent. */
+function basculeOnglets(on){
+  if(!!on === ongletsOn()) return;
+  const surJour = tab === 'today' && !enScan();
+  const haut = on && surJour ? carteEnHaut() : null;
+  const actif = !on && surJour ? ongletActif(ongletsPresents()) : null;
+  S.settings.onglets = !!on;
+  if(haut){ ongletVu = haut; S.ui.ongletJour = haut; }
+  save(); render();
+  /* En onglets, la barre doit se voir : c'est par elle qu'on circule. */
+  if(on && surJour) ongletsEnVue();
+  if(actif){
+    const el = view.querySelector(`[data-carte="${actif}"]`);
+    const box = el && (getComputedStyle(el).display === 'contents' ? el.firstElementChild : el);
+    if(box && box.scrollIntoView) box.scrollIntoView({block:'start'});
+  }
+}
+
 /* Au démarrage, ici et non avec les autres gardes plus haut : les tables
    ci-dessus sont des `const`, et les lire avant leur ligne lèverait. */
 cartesSain();
@@ -2362,6 +2499,15 @@ function header(){
   nb.title = nb.ariaLabel = nuit ? 'Mode jour' : 'Mode nuit';
   nb.classList.toggle('primary', nuit);
   nb.classList.toggle('ghost', !nuit);
+  /* Les onglets aussi : allumé, le bouton se remplit comme les autres. */
+  const ob = document.getElementById('ongletsBtn');
+  if(ob){
+    const on = ongletsOn();
+    ob.title = ob.ariaLabel = on ? 'Empiler les sections' : 'Organiser les sections en onglets';
+    ob.setAttribute('aria-pressed', String(on));
+    ob.classList.toggle('primary', on);
+    ob.classList.toggle('ghost', !on);
+  }
   /* Le mode lune vit à côté : même geste, même endroit. */
   const lb = document.getElementById('luneBtn'), lune = !!S.lune.on;
   lb.textContent = lune ? '🌕' : '🌑';
@@ -5312,7 +5458,7 @@ function expoHtml(){
      du jeu. */
   parts.push(`<p class="note">L'envoi reste à toi : Préparer ouvre le formulaire du jeu avec la planète, les vaisseaux, la destination et la mission, et <b>la durée d'exploration est à choisir dans le jeu</b>. Plafond de points calé sur le n°1 de l'univers (${esc(EXPO_LABELS[top1Tier()])}) : <b>${fmt(expoPts())}</b>. Facteur de fret ${fmt(num(S.settings.expoFret, EXPO_FRET))} ressources par point, réserve de ${fmt(expoRes(null))} grands transporteurs par planète, durée par défaut ${Math.max(1, Math.round(num(S.settings.expoHold,1)))} h — tout cela se change dans <b>Outils › Flotte</b>.</p>`);
   const sum = `${e.pris}/${e.max} · ${etat}`;
-  return {sum, html: parts.join('')};
+  return {sum, html: parts.join(''), n: props.length};
 }
 
 /** Context-aware to-do items that sit outside the build and research queues. */
@@ -7259,7 +7405,7 @@ function profilCard(etape){
 function profilBloc(){
   if(!S.profil.set) return '';
   const ec = classeEcart();
-  return `<details class="card volet"${fold('profil', false)}><summary data-fold="profil"><b>Ton profil</b> <span class="note">${esc(profilLigne())}</span></summary>
+  return `<details class="card volet"${ongletsOn() ? ' open data-force' : fold('profil', false)}><summary data-fold="profil"><b>Ton profil</b> <span class="note">${esc(profilLigne())}</span></summary>
     <div class="chips" style="margin-top:8px">${profilFocusHtml()}</div>
     <p class="note" style="margin-top:8px">Un focus remonte ses cartes sans remplacer ton style, et il y reste tant que tu ne le décoches pas. Les formes de vie n'en relèvent pas : leur place se règle dans Réglages.${ec ? ' ' + esc(ec) : ''}</p>
     <p class="note" id="pfMuets"></p>
@@ -7274,18 +7420,25 @@ const VIEWS = {
    vaut la peine d'être ouvert. */
 today(){
   const d=S.day;
-  return `<section class="panel">
-    ${profilCard()}${profilBloc()}
-    <div class="card"><div class="row spread liste-tete"><h2>Maintenant <span class="note" id="tdNowN"></span></h2>${cartesMenu('maintenant')}</div><div id="tdNow"></div></div>
-    <div id="tdAlerts"></div>
-    <details class="card"${fold('expeditions', true)}><summary data-fold="expeditions">Expéditions <span class="note" id="expoSum"></span></summary>
+  /* En onglets, la carte de l'onglet est toujours dépliée : son titre devient
+     un en-tête qui ne replie rien, et l'état enregistré du volet n'est pas
+     touché — il revient tel quel en mode empilé. Les sections internes, elles,
+     gardent le leur. */
+  const on = ongletsOn();
+  const plie = (nom, def) => on ? ' open data-force' : fold(nom, def);
+  return `<section class="panel${on ? ' en-onglets' : ''}">
+    <div id="ongletsJour" class="onglets-jour"${on ? '' : ' hidden'}></div>
+    <div class="carte-slot" data-carte="profil">${profilCard()}${profilBloc()}</div>
+    <div class="card" data-carte="maintenant"><div class="row spread liste-tete"><h2>Maintenant <span class="note" id="tdNowN"></span></h2>${cartesMenu('maintenant')}</div><div id="tdNow"></div></div>
+    <div id="tdAlerts" class="carte-slot" data-carte="alertes"></div>
+    <details class="card" data-carte="expeditions"${plie('expeditions', true)}><summary data-fold="expeditions">Expéditions <span class="note" id="expoSum"></span></summary>
       <div id="expoBloc"></div>
     </details>
-    <details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
+    <details class="card" data-carte="journee"${plie('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
       <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${d.nightStart}h–${d.nightEnd}h <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
       <div id="tdDay"></div>
     </details>
-    <details class="card"${fold('minuteurs', true)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
+    <details class="card" data-carte="minuteurs"${plie('minuteurs', true)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
       <ul class="timers" id="tmList"></ul>
       <details><summary class="note">Ajouter un minuteur à la main</summary>
         <div class="timer-form" style="margin-top:8px">
@@ -7390,7 +7543,7 @@ server(){
 },
 tools(){
   const sub = toolTab();
-  return `<section class="panel"><div class="seg" role="tablist">${TOOLS.map(([k,l])=>`<button role="tab" data-tool="${k}" aria-selected="${sub===k}">${l}</button>`).join('')}</div>${VIEWS[sub]()}</section>`;
+  return `<section class="panel">${segHtml(TOOLS, sub, 'data-tool')}${VIEWS[sub]()}</section>`;
 },
 planets(){
   return `<section class="panel">
@@ -7756,6 +7909,10 @@ today(){
   const cartesNow = avant.concat(a0.map(a=>({html: actHtml(a,true), crit: false})), apres);
   /* Le compteur dit tout ce que la liste porte, cartes masquées comprises. */
   const nN = document.getElementById('tdNowN'); if(nN) nN.textContent = cartesNow.length ? `(${cartesNow.length})` : '';
+  /* Le résumé que lit la barre d'onglets : tout ce que la carte porte,
+     masqué ou non, et sa sévérité la plus haute. */
+  resumesJour = {maintenant: {count: cartesNow.length, max: niveauMax(nowMs.map(m=>m.sev)),
+    crit: nowMs.filter(m=>m.sev === 'bad').map(m=>m.id)}};
   if(cartesNow.length) nowParts.push(listeCartes('maintenant', cartesNow, 'acts'));
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
@@ -7770,8 +7927,9 @@ today(){
      emplacement qui se libère — retour de flotte, échec, annulation — fait
      apparaître sa recommandation sans que le joueur recharge la page. */
   const eb = document.getElementById('expoBloc');
-  if(eb){ const r = expoHtml(); eb.innerHTML = r.html; document.getElementById('expoSum').textContent = r.sum; }
+  if(eb){ const r = expoHtml(); eb.innerHTML = r.html; document.getElementById('expoSum').textContent = r.sum; resumesJour.expeditions = {count: r.n || 0, max: 'info', crit: []}; }
   const alerts = plan.alerts;
+  resumesJour.alertes = {count: alerts.length, max: niveauMax(alerts.map(a=>a.sev)), crit: alerts.filter(a=>a.sev === 'bad').map(a=>a.what)};
   document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><div class="row spread liste-tete"><h2>Alertes <span class="note">(${alerts.length})</span></h2>${cartesMenu('alertes')}</div>${listeCartes('alertes', alerts.map(a=>({crit: a.sev === 'bad', html:`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`})), 'advice')}</div>` : '';
   const later = plan.sessions.slice(1).filter(x=>actsVus(x).length || slotMs.has(x));
   const slot = x=>`<div class="slot"><div class="time">${formatTime(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${actsVus(x).map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
@@ -7804,6 +7962,9 @@ today(){
   renderTimers();
   document.getElementById('tdDaySum').textContent = night ? 'mode nuit'
     : `${later.length} connexion${later.length>1?'s':''} à venir · production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${S.day.horizon} h`;
+  resumesJour.journee = {count: night ? 0 : later.length, max: 'info', crit: []};
+  resumesJour.minuteurs = {count: visibleTimers().length, max: 'info', crit: []};
+  ongletsAppliquer();
 },
 empire(){ REFRESH.planets(); REFRESH.research(); },
 /* Le seul retour de l'écran Réglages. Sans lui, changer la priorité, l'horizon
@@ -8257,6 +8418,8 @@ view.addEventListener('change', e=>{
     const l = S.settings.cartesListe = S.settings.cartesListe || {};
     if(v == null) delete l[id]; else l[id] = v;
     save(); tab === 'settings' ? render() : refresh();
+  } else if(el.dataset.onglets != null){
+    basculeOnglets(el.checked);
   } else if(el.dataset.cartesg != null){
     S.settings.cartesMax = cartesVal(el.value) || CARTES_DEF;
     save(); render();
@@ -8266,6 +8429,17 @@ view.addEventListener('change', e=>{
    ne fait que lever le `hidden`. L'état est noté comme celui d'un volet, donc
    le prochain rafraîchissement, et le prochain démarrage, le retrouvent. */
 view.addEventListener('click', e=>{
+  /* Le choix du joueur, et lui seul, s'enregistre : c'est l'onglet qu'on
+     retrouve au changement de page, de planète et au redémarrage. */
+  const og = e.target.closest('[data-onglet]');
+  if(og){
+    ongletVu = S.ui.ongletJour = og.dataset.onglet;
+    save(); ongletsAppliquer(); ongletsEnVue();
+    return;
+  }
+  /* En onglets, le titre d'une carte ne la replie pas : elle est l'onglet. */
+  const cs = e.target.closest('summary');
+  if(cs && cs.parentElement && cs.parentElement.hasAttribute('data-force')){ e.preventDefault(); return; }
   const vp = e.target.closest('[data-voirplus]');
   if(vp){
     const id = vp.dataset.voirplus, ouvert = !voirPlusOuvert(id);
@@ -8352,7 +8526,7 @@ view.addEventListener('click', e=>{
   const nc = e.target.closest('[data-noclear]'); if(nc){ S.daily.no = {}; save(); render(); toast('Cartes refusées remises'); return; }
   const sm = e.target.closest('summary[data-fold]');
   // Le repli bascule tout seul : on ne note que l'état où il va.
-  if(sm){ (S.ui.fold = S.ui.fold || {})[sm.dataset.fold] = !sm.parentElement.open; save(); return; }
+  if(sm){ if(sm.parentElement.hasAttribute('data-force')) return; (S.ui.fold = S.ui.fold || {})[sm.dataset.fold] = !sm.parentElement.open; save(); return; }
   const rpp = e.target.closest('[data-raidprep]'); if(rpp){ S.raid = {coords:rpp.dataset.raidprep, name:rpp.dataset.raidname, m:0, c:0, d:0, safe:false}; save(); render(); return; }
   const rpc = e.target.closest('[data-raidclose]'); if(rpc){ S.raid = null; save(); render(); return; }
   const ct = e.target.closest('[data-cotarget]'); if(ct){ S.colo.target = ct.dataset.cotarget; save(); render(); toast('Destination de colonie mise à jour'); return; }
@@ -8536,6 +8710,11 @@ document.getElementById('nightBtn').addEventListener('click',()=>{
 });
 document.getElementById('tzBtn').addEventListener('click',()=>setTimeMode(timeMode === 'local' ? 'server' : 'local'));
 document.getElementById('luneBtn').addEventListener('click',()=>{ S.lune.on = !S.lune.on; luneTouche(); save(); render(); });
+document.getElementById('ongletsBtn').addEventListener('click',()=>{
+  basculeOnglets(!ongletsOn());
+  /* Hors d'Aujourd'hui, rien ne change à l'écran : le dire. */
+  if(tab !== 'today') toast(ongletsOn() ? 'Aujourd\'hui s\'affiche en onglets' : 'Aujourd\'hui s\'affiche empilé');
+});
 view.addEventListener('click', e=>{
   if(e.target.id==='tmSound'){ unlockAudio(); chime(); }
   if(e.target.id==='tmAdd'){
