@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.9.0';
+const APP_VERSION = '2.9.1';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -210,7 +210,7 @@ function sample(){
       /* Et l'instant où la mise à l'abri cesse de valoir : c'est l'allumage qui
          dit sa propre fin, parce qu'au matin rien ne distingue un réveil d'une
          absence qui commence. Zéro quand le mode jour est en place. */
-      backHour:null, askedOn:'', until:0},
+      backHour:null, until:0},
     /* Comment le joueur joue : son style, la classe qu'il vise, sa présence,
        et les focus ponctuels posés par-dessus. Tout vide tant qu'il n'a pas
        répondu — et vide veut dire « ne pondère rien », pas « mineur ». */
@@ -8482,9 +8482,6 @@ function bind(){
     if(k === 'night') modeNuit(S.day.night);
     if(k === 'backHour' && S.day.night) modeNuit(true);
     save();
-    /* L'alarme du coucher vit dans le navigateur : elle se repose dès que
-       l'heure de nuit change, sinon elle sonnerait à l'ancienne. */
-    if(k === 'nightStart' || k === 'nightEnd') armeNuit();
     /* Le mode nuit filtre les cartes et change l'en-tête : il faut tout
        redessiner, pas seulement rafraîchir le volet. */
     k === 'night' ? render() : refresh();
@@ -8834,11 +8831,9 @@ function sainEtat(){
   if(!(S.day.focus in FOCUS)) S.day.focus = def.day.focus;
   S.day.night = !!S.day.night;
   S.day.focusSet = !!S.day.focusSet;
-  /* `backHour` est interpolé dans un `value=""` sans esc, et `askedOn` se
-     compare à une date : une sauvegarde ou une synchro peut y mettre n'importe
-     quoi. Null et chaîne vide sont les seules absences. */
+  /* `backHour` est interpolé dans un `value=""` sans esc : une sauvegarde ou
+     une synchro peut y mettre n'importe quoi. Null et chaîne vide sont les seules absences. */
   S.day.backHour = S.day.backHour == null || S.day.backHour === '' ? null : nb(S.day.backHour, null, 0, 23);
-  if(typeof S.day.askedOn !== 'string') S.day.askedOn = '';
   /* Un `until` truqué garderait le plan en veille pour toujours, ou le
      rallumerait à chaque battement. */
   S.day.until = Number.isFinite(Number(S.day.until)) ? Math.max(0, +S.day.until) : 0;
@@ -8902,7 +8897,7 @@ view.addEventListener('click', e=>{
 setInterval(tickTimers, 1000);
 /* publieLePlan est sans effet sur Aujourd'hui, qui se publie en se dessinant ;
    sur Empire, REFRESH.empire ne publie rien : sans cet appel la tuile resterait muette. */
-setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); publieLePlan(); finDeNuit(); nightBar(); }, 30000);
+setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); publieLePlan(); finDeNuit(); }, 30000);
 /** Recalcule le plan du jour pour la page du jeu, sans rien afficher.
     `today` le publie en se dessinant ; ailleurs, c'est à nous de le faire.
     Le dessin qui suit la publication écrit dans des éléments de l'onglet
@@ -9275,47 +9270,10 @@ document.getElementById('bigAlertOk').addEventListener('click', ()=>chrome.stora
 chrome.storage.local.get('pendingAlerts', d=>mirrorAlerts(d.pendingAlerts));
 chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.pendingAlerts) mirrorAlerts(ch.pendingAlerts.newValue); });
 
-/* ---------- la question du coucher ---------- */
-/* Le joueur ne doit pas avoir à se souvenir de basculer : une heure avant sa
-   nuit, le copilote demande s'il passe en sauvegarde des ressources. La
-   question sonne deux fois, par deux chemins qui n'ont pas le même angle mort :
-   une notification du navigateur, qui marche panneau fermé, et un bandeau dans
-   le panneau, qui marche quand la notification a été manquée ou refusée. Les
-   deux aboutissent à `repondNuit`.
-
-   Le service worker ne peut pas poser l'heure lui-même : les réglages vivent
-   dans le stockage local du panneau, qu'il ne lit pas. C'est donc le panneau
-   qui arme l'alarme, et l'alarme survit à sa fermeture. */
-
-/** Le jour civil d'un instant : la clé qui dit « déjà demandé cette nuit ». */
-function jourCivil(ms){ const d = new Date(ms); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
-
-/**
- * Pose l'alarme du coucher, une heure avant la nuit, et la répète chaque jour.
- * Même nom, donc même alarme : l'appeler deux fois ne l'empile pas.
- */
-function armeNuit(){
-  if(!IS_EXT || typeof chrome === 'undefined' || !chrome.alarms) return;
-  if(+S.day.nightStart === +S.day.nightEnd){ chrome.alarms.clear('nuit'); return; }
-  const d = new Date(); d.setHours(+S.day.nightStart, 0, 0, 0);
-  let t = d.getTime() - 3600e3;
-  while(t <= Date.now()) t += 864e5;
-  chrome.alarms.create('nuit', {when:t, periodInMinutes:1440});
-}
-
-/**
- * Faut-il poser la question ? Dans l'heure qui précède la nuit et les deux
- * heures qui la suivent — assez large pour qu'un panneau ouvert en retard la
- * pose encore, assez étroit pour qu'elle ne traîne pas jusqu'au matin.
- * @param {number} now horodatage courant
- */
-function nightDue(now){
-  if(S.day.night) return false;                                  // déjà à l'abri
-  if(+S.day.nightStart === +S.day.nightEnd) return false;        // aucune nuit réglée
-  if(S.day.askedOn === jourCivil(now)) return false;             // répondu cette nuit
-  const d = new Date(now); d.setHours(+S.day.nightStart, 0, 0, 0);
-  return now >= d.getTime() - 3600e3 && now < d.getTime() + 2*3600e3;
-}
+/* ---------- le mode nuit ---------- */
+/* La question du coucher — alarme « nuit », notification et bandeau — a laissé
+   la place au rappel de mise à l'abri (Réglages › Sécurité), qui ne fait
+   qu'allumer l'icône. Le mode nuit, lui, reste : il s'allume à la main. */
 
 /**
  * Allume ou éteint la mise à l'abri, et retient jusqu'à quand elle vaut.
@@ -9353,66 +9311,7 @@ function finDeNuit(){
   return true;
 }
 
-/** Montre ou cache le bandeau de la question. */
-function nightBar(){
-  const box = document.getElementById('nightAsk');
-  if(box) box.hidden = !nightDue(Date.now());
-}
-
-/**
- * « On fait les mouvements » : le jeu remplit lui-même son formulaire de flotte
- * depuis l'URL — vaisseaux, destination, mission. Le chargement des ressources
- * et la vitesse n'y passent pas, et le copilote ne clique jamais à la place du
- * joueur. Il ouvre donc la page prête du plus gros lot ; les lots suivants
- * restent en cartes dans Sécurité.
- */
-function ouvreAbri(){
-  const fs = fleetsavePlan(Date.now());
-  if(!fs){ toast('Rien à mettre à l\'abri : aucune planète ne porte assez de stock'); return; }
-  const url = fleetUrl({dest:fs.dest, mission:FS_MISSION[fs.mission], ships:fs.ships, p:S.planets.indexOf(fs.from)});
-  if(!url){ toast('Serveur inconnu : ouvre une page du jeu, puis la carte Sécurité'); return; }
-  if(IS_EXT) chrome.runtime.sendMessage({type:'go', url});
-  else window.open(url, '_blank', 'noopener');
-  toast(`Vitesse ${fs.pct} % et chargement : à régler à la main`);
-}
-
-/**
- * La réponse du joueur, d'où qu'elle vienne. Oui bascule en mode nuit et ouvre
- * la page de flotte ; non classe la question pour la nuit. Dans les deux cas
- * elle ne revient pas : `askedOn` la retient.
- * @param {boolean} oui
- */
-function repondNuit(oui){
-  S.day.askedOn = jourCivil(Date.now());
-  /* Une nuit n'est pas une absence de jour : l'heure de retour donnée pour une
-     absence ne doit pas décider du vol de cette nuit. */
-  /* `backHour` laissé par une absence passée dirait au vol de cette nuit de
-     rentrer à son heure à elle : un coucher se cale sur la fin de nuit. */
-  if(oui){ S.day.backHour = null; modeNuit(true); }
-  save();
-  const box = document.getElementById('nightAsk'); if(box) box.hidden = true;
-  render();
-  if(oui) ouvreAbri();
-}
-
-/* La réponse donnée sur la notification arrive par le stockage. Périmée, elle
-   ne décide rien : un « oui » d'hier soir retrouvé au matin mettrait le joueur
-   à l'abri alors qu'il vient de se lever. */
-function consommeReponseNuit(r){
-  if(!r || typeof r !== 'object' || !Number.isFinite(+r.at) || Date.now() - +r.at > 4*3600e3) return;
-  try{ chrome.storage.local.remove('nightAnswer'); }catch(e){}
-  repondNuit(!!r.oui);
-}
-const nightAskEl = document.getElementById('nightAsk');
-if(nightAskEl) nightAskEl.addEventListener('click', e=>{
-  const b = e.target.closest('[data-nuit]'); if(!b) return;
-  repondNuit(b.dataset.nuit === 'oui');
-});
-chrome.storage.local.get('nightAnswer', d=>consommeReponseNuit(d.nightAnswer));
-chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.nightAnswer) consommeReponseNuit(ch.nightAnswer.newValue); });
-armeNuit();
 finDeNuit();
-nightBar();
 armeRappel();
 /* Le badge du rappel : allumé par le service worker, éteint quand le joueur
    ouvre le plan. Le panneau ouvert le suit pour mettre le plan en avant. */

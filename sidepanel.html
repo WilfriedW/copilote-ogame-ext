@@ -20,11 +20,7 @@
   <main id="view"></main>
 </div>
 <div class="toast" id="toast" hidden></div>
-<!-- Les deux bandeaux sont empilés : à 22 h, une file qui se termine tombe en
-     même temps que la question du coucher, et posés tous deux en `fixed` au même
-     point ils se recouvraient exactement. -->
 <div class="alertes">
-  <div class="big-alert" id="nightAsk" hidden role="alert"><div class="box"><div class="txt"><h2>Mise à l'abri</h2><div class="msg">On passe en mode sauvegarde des ressources ?</div></div><button class="btn" data-nuit="oui">Oui</button><button class="btn ghost" data-nuit="non">Non</button></div></div>
   <div class="big-alert" id="bigAlert" hidden role="alert"><div class="box"><div class="txt"><h2>Terminé</h2><div class="msg" id="bigAlertMsg"></div></div><button class="btn" id="bigAlertOk">OK, vu</button></div></div>
 </div>
 <script src="ids.js"></script>
