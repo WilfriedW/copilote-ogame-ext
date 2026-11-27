@@ -3984,7 +3984,8 @@ function reglesCard(){
     return l.length ? `<h3 class="note mt-2 mb-1">${esc(n)}</h3><ul class="list">${l.map(ligne).join('')}</ul>` : '';
   }).join('');
   return `<details class="card"${fold('regles', false)}><summary data-fold="regles">Règles du moteur <span class="note">${ids.filter(id => regle(id).on).length} sur ${ids.length} actives</span></summary>
-    <p class="note mt-2">Ce que le copilote surveille sur chaque planète, et ce que le plan en fait. Décocher une règle l'éteint : sa carte ne sort plus, et elle ne compte plus sur l'icône. Les seuils se changent ici ; le reste vit dans <code>rules.json</code>.</p>
+    <p class="note mt-2">Ce que le copilote surveille sur chaque planète, et ce que le plan en fait.</p>
+    ${aide('regles', '<p class="note">Décocher une règle l\'éteint : sa carte ne sort plus, et elle ne compte plus sur l\'icône. Les seuils se changent ici ; le reste vit dans <code>rules.json</code>.</p>')}
     ${groupes}</details>`;
 }
 
@@ -6319,7 +6320,7 @@ function secuCard(){
       <label class="f">Réveil = fin de nuit (heure)<input type="time" data-day="nightEnd" value="${hhmmDe(S.day.nightEnd)}"><span class="note">La même que « Nuit : à » du plan du jour.</span></label>
     </div>
     <div class="chips mt-2">${[1,2,3,4,5,6,0].map(j=>`<label class="chip"><input type="checkbox" data-secu-jour="${j}" ${c.jours.includes(j)?'checked':''}> ${J[j]}</label>`).join('')}</div>
-    <p class="note">À l'heure du rappel, les jours cochés, l'icône du Copilote affiche « FS » jusqu'à ce que tu ouvres le plan de la nuit. Aucune notification. Heures en heure locale du navigateur.</p>
+    ${aide('secu', '<p class="note">À l\'heure du rappel, les jours cochés, l\'icône du Copilote affiche « FS » jusqu\'à ce que tu ouvres le plan de la nuit. Aucune notification. Heures en heure locale du navigateur.</p>')}
   </div>`;
 }
 
@@ -9262,6 +9263,12 @@ function lfBloc(p){
    ligne de plus et un clic pour voir ce qu'on savait déjà. */
 const bascule = (id, attr, label, on, note='') =>
   `<label class="f bascule"><span>${label}</span><input type="checkbox" id="${id}" ${attr} ${on?'checked':''}>${note?`<span class="note">${note}</span>`:''}</label>`;
+/* ENH-54 : une carte de réglages ne montre qu'une phrase d'aide ; le reste
+   attend derrière « En savoir plus », replié, ouvert ou fermé comme le joueur
+   l'a laissé (même store que les volets). Rien n'est retiré : une partie de
+   ces textes protège d'une erreur, elle reste à un clic. */
+const aide = (id, html) =>
+  `<details class="aide"${fold('aide:' + id, false)}><summary data-fold="aide:${id}">En savoir plus</summary>${html}</details>`;
 
 /* ---------- profil de jeu ---------- */
 /* Un mineur, un raideur et un explorateur regardent la même liste de cartes
@@ -9767,7 +9774,7 @@ settings(){
     <div class="card"><h2>Profil et plan du jour</h2>
       <p class="note">${S.profil.set ? `Ton profil : <b>${esc(profilLigne())}</b>.` : 'Pas encore renseigné : l\'assistant t\'attend en tête d\'Aujourd\'hui.'}</p>
       ${S.profil.set ? `<div class="chips mt-2">${profilFocusHtml()}</div>
-      <p class="note mt-2">Les focus ponctuels remontent leurs cartes sans remplacer ton style. Les poids de chaque catégorie sont dans <code>profils.js</code>.</p>` : ''}
+      ${aide('focus', '<p class="note">Les focus ponctuels remontent leurs cartes sans remplacer ton style. Les poids de chaque catégorie sont dans <code>profils.js</code>.</p>')}` : ''}
       ${ecart ? `<p class="note">${esc(ecart)}</p>` : ''}
       <div class="row mb-3"><button class="btn sm ghost" data-refaire="1">Refaire le questionnaire</button></div>
       <div class="grid">
@@ -9778,11 +9785,15 @@ settings(){
         <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
         <label class="f">Nuit : de (heure) — coucher<input id="dNs" type="time" data-day="nightStart" value="${hhmmDe(d.nightStart)}"></label>
         <label class="f">à (heure) — réveil<input id="dNe" type="time" data-day="nightEnd" value="${hhmmDe(d.nightEnd)}"></label>
-        <label class="f">Mise à l'abri (nuit, absence)<select id="dNight" data-day="night"><option value="0" ${d.night?'':'selected'}>non</option><option value="1" ${d.night?'selected':''}>oui</option></select></label>
-        <label class="f">Retour vers (heure)<input id="dBack" type="number" min="0" max="23" data-day="backHour" value="${d.backHour==null?'':d.backHour}" placeholder="dans ${nightLen()} h"></label>
       </div>
-      <p class="note" id="aideJour"></p>
+      <div class="bascules">
+        ${bascule('dNight', 'data-day="night"', 'Mise à l\'abri (nuit, absence)', d.night)}
+      </div>
+      <div class="grid">
+        <label class="f">Retour vers (heure)<input id="dBack" type="time" step="3600" data-day="backHour" value="${d.backHour==null?'':hhmmDe(d.backHour)}"><span class="note">Vide : retour dans ${nightLen()} h, la durée de la nuit.</span></label>
+      </div>
       <p class="note" id="daySum"></p>
+      ${aide('jour', '<p class="note" id="aideJour"></p>')}
     </div>
     <div class="card"><h2>Formes de vie découvertes</h2>
       <div class="chips">${lfSettingsHtml()}</div>
@@ -9804,7 +9815,7 @@ settings(){
       <div class="bascules">
         ${bascule('sSats','data-set="sats"','Autoriser les satellites solaires dans les recommandations', s.sats, 'Moins chers que la centrale sur une planète chaude, mais un satellite part en débris au premier raid, grossit le butin de l\'attaquant, et l\'énergie retombe avec lui. Ceux que tu as déjà posés comptent dans ta production, réglage ou non.')}
       </div>
-      <p class="note">Sans cette case, le copilote ne propose que la centrale solaire et la centrale de fusion. Planète par planète, le réglage se surcharge dans l'onglet Planètes.</p>
+      ${aide('energie', '<p class="note">Sans cette case, le copilote ne propose que la centrale solaire et la centrale de fusion. Planète par planète, le réglage se surcharge dans l\'onglet Planètes.</p>')}
     </div>`,
     defense: `
     <div class="card"><h2>Modèle de défense</h2>
@@ -9821,7 +9832,7 @@ settings(){
       <p class="note">Combien de pièces par lanceur de plasma. Les deux boucliers restent hors modèle.</p>` : ''}
       ${S.profil.set && s.defModele === (PROFILS.styles[S.profil.style] || {}).defense
         ? `<p class="note">Posé par ton profil (<b>${esc(PROFILS.styles[S.profil.style].n)}</b>). En choisir un autre ici le détache du profil : refaire le questionnaire ne le remettra plus.</p>` : ''}
-      <p class="note">Les cartes Défense du plan ne proposent que les pièces de ce modèle, dans ses proportions. Outils › Défense dit, planète par planète, ce qui manque et ce que ça coûte ; une planète peut y prendre un autre modèle que celui-ci.</p>
+      ${aide('defense', '<p class="note">Les cartes Défense du plan ne proposent que les pièces de ce modèle, dans ses proportions. Outils › Défense dit, planète par planète, ce qui manque et ce que ça coûte ; une planète peut y prendre un autre modèle que celui-ci.</p>')}
     </div>
     ${secuCard()}`,
     affichage: `
@@ -9829,12 +9840,11 @@ settings(){
       <div class="grid">
         <label class="f">Thème<select id="sSkin" data-set="skin">${Object.entries(HABILLAGES).map(([k,l])=>`<option value="${k}" ${habillage()===k?'selected':''}>${l}</option>`).join('')}</select></label>
       </div>
-      <p class="note">Relief suit le clair ou le sombre de ton système ; les trois autres sont sombres. Le changement se voit tout de suite, sur toutes les pages.</p>
       <div class="bascules">
         ${bascule('sMuet','data-set="muet"','Couper le son', s.muet, 'Plus de carillon à la fin d\'un minuteur, et les notifications du navigateur arrivent sans bruit.')}
       </div>
       <div class="row"><button class="btn ghost" id="uiReset">Réinitialiser l'affichage des cartes</button></div>
-      <p class="note">Les cartes et les sections que tu as ouvertes ou fermées le restent, sur ce poste, d'une page et d'une session à l'autre. Ce bouton les remet comme au premier jour : alertes ouvertes, le reste fermé.</p>
+      ${aide('allure', '<p class="note">Relief suit le clair ou le sombre de ton système ; les trois autres sont sombres. Le changement se voit tout de suite, sur toutes les pages.</p><p class="note mt-2">Les cartes et les sections que tu as ouvertes ou fermées le restent, sur ce poste, d\'une page et d\'une session à l\'autre. « Réinitialiser l\'affichage des cartes » les remet comme au premier jour : alertes ouvertes, le reste fermé.</p>')}
     </div>
     ${affichageCard()}
     <div class="card"><h2>Page du jeu</h2>
@@ -9844,19 +9854,22 @@ settings(){
         ${bascule('sNoShop','data-set="noshop"','Masquer les menus payants', s.noshop, 'Marchand, Mess des officiers, boutiques.')}
       </div>
       <div class="row"><button class="btn" type="button" data-masque-tout>${toutMasque() ? 'Tout afficher' : 'Tout masquer'}</button></div>
-      <p class="note">Allure seulement : la page du jeu, pas ce panneau, ni les calculs. Masqué, pas supprimé : les éléments restent dans la page et le jeu marche comme avant. La barre de ressources, les planètes, le menu et les alertes du jeu ne se masquent jamais. Chaque choix s'applique tout de suite, dans tous les onglets ouverts, et se retrouve au prochain lancement.</p>
+      <p class="note">Allure seulement : la page du jeu, pas ce panneau, ni les calculs.</p>
+      ${aide('page', '<p class="note">Masqué, pas supprimé : les éléments restent dans la page et le jeu marche comme avant. La barre de ressources, les planètes, le menu et les alertes du jeu ne se masquent jamais. Chaque choix s\'applique tout de suite, dans tous les onglets ouverts, et se retrouve au prochain lancement.</p>')}
     </div>`,
     moteur: `
     ${reglesCard()}
     <div class="card"><h2>Fiabilité des calculs</h2>
-      <p class="note">Formules communautaires (wiki OGame, forum officiel). Production, coûts et temps de vol sont stables depuis des années. Moins sûrs : la production de deutérium (formule des univers récents, dépend de la température max), la durée des bâtiments de niveau 1 à 5, et les plafonds d'expédition. Compare une fois avec ton jeu et ajuste les réglages si besoin.</p>
+      <p class="note">Formules communautaires (wiki OGame, forum officiel) : compare une fois avec ton jeu et ajuste les réglages si besoin.</p>
+      ${aide('fiabilite', '<p class="note">Production, coûts et temps de vol sont stables depuis des années. Moins sûrs : la production de deutérium (formule des univers récents, dépend de la température max), la durée des bâtiments de niveau 1 à 5, et les plafonds d\'expédition.</p>')}
     </div>`,
     donnees: `
     <div class="card"><h2>Sauvegarde</h2>
-      <p class="note">Tes données restent dans ce navigateur. « Enregistrer » écrit un fichier <code>save.json</code> : mets-le dans le dossier du dépôt et pousse-le, puis « Charger » le relit sur l'autre poste.</p>
+      <p class="note">Tes données restent dans ce navigateur.</p>
       <div class="row"><button class="btn" id="ioSave">Enregistrer dans un fichier</button><button class="btn" id="ioLoad">Charger un fichier…</button><input type="file" id="ioFile" accept="application/json,.json" hidden><button class="btn ghost" id="ioReset">Réinitialiser…</button><span class="note" id="ioMsg"></span></div>
       <textarea id="ioText" aria-label="Données JSON" placeholder="Ou colle ici une sauvegarde pour l'importer"></textarea>
       <div class="row"><button class="btn" id="ioImport">Importer le texte collé</button></div>
+      ${aide('sauvegarde', '<p class="note">« Enregistrer » écrit un fichier <code>save.json</code> : mets-le dans le dossier du dépôt et pousse-le, puis « Charger » le relit sur l\'autre poste.</p>')}
       ${noListe()}
     </div>
     ${versionCard()}`,
@@ -10319,8 +10332,9 @@ function bind(){
   view.querySelectorAll('[data-refaire]').forEach(el=>el.addEventListener('click',()=>{
     S.profil.set = false; profilEtape = 0; save(); allerOnglet('today');
   }));
-  view.querySelectorAll('[data-day]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
-    const k = el.dataset.day; S.day[k] = dayValue(k, el.value, S.day[k]);
+  view.querySelectorAll('[data-day]').forEach(el=>el.addEventListener(el.tagName==='SELECT' || el.type==='checkbox' ? 'change' : 'input',()=>{
+    // la mise à l'abri est une bascule (ENH-54) : sa valeur est cochée ou non
+    const k = el.dataset.day; S.day[k] = dayValue(k, el.type==='checkbox' ? (el.checked ? '1' : '0') : el.value, S.day[k]);
     /* Allumer la mise à l'abri, ou déplacer l'heure de retour, déplace l'instant
        où elle s'éteindra : `modeNuit` le recalcule, le champ ne fait que poser
        la valeur. */

@@ -14693,6 +14693,42 @@ t('ENH-54 : Aujourd\'hui s\'ouvre sur Maintenant une fois le profil posé, sur l
   assert.match(src, /CARTE_DEFAUT = \{today: \(\)=> S\.profil\.set \? 'maintenant' : 'profil'\}/);
 });
 
+/* ENH-54, étape 4 : un contrôle par type de donnée, une phrase d'aide visible par carte. */
+const PROFIL_POSE = s => { s.profil = { set: true, style: 'mineur', classe: 'collector', activite: 'souvent', focus: [] }; };
+
+t('ENH-54 : la mise à l\'abri est une bascule, le retour un champ heure', () => {
+  const g = app();
+  const h = g.VIEWS.settings();
+  assert.match(h, /<label class="f bascule"><span>Mise à l'abri \(nuit, absence\)<\/span><input type="checkbox" id="dNight" data-day="night"/);
+  assert.match(h, /<input id="dBack" type="time" step="3600" data-day="backHour" value="">/);
+  assert.doesNotMatch(h, />non<\/option><option value="1"[^>]*>oui</, 'plus de menu non/oui');
+  assert.equal(g.dayValue('backHour', '07:00', null), 7, 'la valeur d\'un champ heure');
+  assert.match(app(s => { s.day.backHour = 7; }).VIEWS.settings(), /data-day="backHour" value="07:00"/);
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  assert.match(src, /el\.type==='checkbox' \? \(el\.checked \? '1' : '0'\) : el\.value/, 'la bascule se lit cochée ou non');
+});
+
+t('ENH-54 : les explications longues de Réglages attendent derrière « En savoir plus »', () => {
+  const h = app(PROFIL_POSE).VIEWS.settings();
+  for (const id of ['focus', 'jour', 'energie', 'defense', 'allure', 'page', 'fiabilite', 'sauvegarde', 'secu', 'regles'])
+    assert.ok(h.includes(`<details class="aide"><summary data-fold="aide:${id}">En savoir plus</summary>`), id);
+  assert.match(h, /data-fold="aide:jour">En savoir plus<\/summary><p class="note" id="aideJour">/, 'l\'aide du plan du jour, que REFRESH remplit');
+  // Rien n'est perdu : les textes sont toujours là, repliés.
+  for (const bout of ['Masqué, pas supprimé', 'Moins sûrs : la production de deutérium', 'Décocher une règle l\'éteint', 'l\'icône du Copilote affiche « FS »'])
+    assert.ok(h.includes(bout), bout);
+});
+
+t('ENH-54 : aucune carte de Réglages n\'affiche plus d\'un long paragraphe d\'aide', () => {
+  for (const mod of [null, PROFIL_POSE]) {
+    const h = app(mod).VIEWS.settings().replace(/<details class="aide"[\s\S]*?<\/details>/g, '');
+    for (const c of h.split(/(?=<div class="card">|<details class="card")/).slice(1)) {
+      const titre = (c.match(/<h2>([^<]+)|data-fold="[^"]+">([^<]+)/) || []).slice(1).find(Boolean);
+      const longs = [...c.matchAll(/<p class="note[^"]*"[^>]*>([\s\S]*?)<\/p>/g)].map(m => m[1].replace(/<[^>]+>/g, '')).filter(x => x.length > 120);
+      assert.ok(longs.length <= 1, `${titre} : ${longs.length} longs paragraphes visibles`);
+    }
+  }
+});
+
 /* ENH-54, étape 1 : une seule échelle de styles. Ces deux vérifications
    empêchent les écarts de revenir un par un, ce qui les avait fait naître. */
 const sansCommentaires = css => css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -14728,7 +14764,7 @@ t('ENH-54 : un seul style de volet, déclaré une seule fois', () => {
   assert.doesNotMatch(css, /Ouvrir \+/, 'plus de second indicateur');
   // Chaque repli du panneau est une carte ou un volet (le sélecteur de défense et le « comment faire » d'une carte d'action exceptés).
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
-  const nus = (src.match(/<details(?![^>]*class="[^"]*\b(?:card|volet|defpick|how)\b)[^>]*\$\{fold/g) || []);
+  const nus = (src.match(/<details(?![^>]*class="[^"]*\b(?:card|volet|defpick|how|aide)\b)[^>]*\$\{fold/g) || []);
   assert.deepEqual(nus, [], 'volets sans style : ' + nus.join(' '));
 });
 
