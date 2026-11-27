@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.11.1';
+const APP_VERSION = '2.12.1';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -189,7 +189,11 @@ function sample(){
          à zéro tant que le joueur n'en réserve pas — en réserver d'office
          ferait taire le bloc chez qui n'en a que vingt ; `expoHold` la durée
          d'exploration par défaut, celle qui rapporte le plus à l'heure. */
-      expoFret:EXPO_FRET, expoRes:0, expoHold:1},
+      expoFret:EXPO_FRET, expoRes:0, expoHold:1,
+      /* La sécurité : planètes coffres-forts (ids du copilote), rappel de mise
+         à l'abri (heure locale, jours actifs 0 = dimanche), heure de réveil,
+         et la mission des transports suggérés. Lu par `secu()`. */
+      secu:{vaults:[], rappel:'22:00', jours:[0,1,2,3,4,5,6], stationner:false}},
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
@@ -209,7 +213,7 @@ function sample(){
       /* Et l'instant où la mise à l'abri cesse de valoir : c'est l'allumage qui
          dit sa propre fin, parce qu'au matin rien ne distingue un réveil d'une
          absence qui commence. Zéro quand le mode jour est en place. */
-      backHour:null, askedOn:'', until:0},
+      backHour:null, until:0},
     /* Comment le joueur joue : son style, la classe qu'il vise, sa présence,
        et les focus ponctuels posés par-dessus. Tout vide tant qu'il n'a pas
        répondu — et vide veut dire « ne pondère rien », pas « mineur ». */
@@ -2104,8 +2108,11 @@ const CARTES = {
   today: [
     {cardId:'profil', titre:'Profil', fixe:true,
       getSummary:()=> S.profil.set ? null : {count:1, maxLevel:'info', critiques:[]}},
+    /* Une attaque ou un espionnage entrants : la carte n'existe que tant qu'il y en a. */
+    {cardId:'attaque', titre:'Attaque', fixe:false, getSummary:()=>RESUMES.attaque},
     {cardId:'maintenant', titre:'Maintenant', fixe:true, getSummary:()=>RESUMES.maintenant},
     {cardId:'alertes', titre:'Alertes', fixe:false, getSummary:()=>RESUMES.alertes},
+    {cardId:'securite', titre:'Sécurité', fixe:true, getSummary:()=>RESUMES.securite},
     {cardId:'expeditions', titre:'Expéditions', fixe:true, getSummary:()=>RESUMES.expeditions},
     {cardId:'journee', titre:'Ta journée', fixe:true},
     {cardId:'minuteurs', titre:'Minuteurs', fixe:true, getSummary:()=>{
@@ -4162,7 +4169,7 @@ function simulateDay(){
      automatique pour tout le reste de la journée simulée. */
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
-  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, satsOk:p.satsOk, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
+  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:projectResources(p, now), liv:livraisons(p).filter(l=>l.at>now), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, satsOk:p.satsOk, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
   const expoBusy = [], expoDeja = {};
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
@@ -4223,6 +4230,11 @@ function simulateDay(){
      n'ouvrait pas la page Mouvements de flotte. */
   const expoRead = expoInFlight();
   if(expoRead) while(expoBusy.length < expoRead.n) expoBusy.push(expoRead.at + EXPO_READ_TTL);
+  /* Les cargaisons en vol se posent dans la journée simulée à leur heure
+     d'arrivée, sans plafond : une livraison peut dépasser le hangar, seule la
+     production s'y arrête (`accrue`). Une construction qu'un convoi finance
+     tombe donc à la première connexion après son arrivée. */
+  for(const q of P) for(const l of q.liv) sim.ev.push({at:l.at, fn:()=>{ l.cargo.forEach((x,j)=>{ q.st[j] += x; }); q.liv = q.liv.filter(e=>e!==l); }});
   const iv = Math.max(15,+S.day.interval||90)/60;
   // Les alertes se lisent sur l'état réel, avant que la simulation ne prenne
   // la place de S.planets : ce sont les ennuis d'aujourd'hui, pas ceux prévus.
@@ -4239,7 +4251,11 @@ function simulateDay(){
     const can = (p,c,res)=>c.every((x,j)=>p.st[j]-x >= (res?res[j]:0)-1e-6);
     const pay = (p,c)=>c.forEach((x,j)=>p.st[j]-=x);
     const missOf = (p,c)=>c.map((x,j)=>Math.max(0,Math.ceil(x-p.st[j])));
-    const wait = (p,c)=>{ const pr=production(p), r=[pr.m,pr.c,pr.d]; let w=0; for(let j=0;j<3;j++){ const miss=c[j]-p.st[j]; if(miss>0){ if(c[j]>pr.cap[j]) return Infinity; w=Math.max(w, r[j]>0?miss/r[j]*3600:Infinity); } } return w; };
+    /* Le délai compte les convois encore en vol vers la planète : ceux que la
+       simulation n'a pas encore posés. Sans horizon ici — la borne des 24 h
+       est celle de l'affichage, pas celle des objectifs. */
+    const wait = (p,c)=>whenAffordable(p, c, {st:p.st, at:cur, evs:p.liv||[], horizon:1e7}).secs;
+    const finance = (p,c)=>whenAffordable(p, c, {st:p.st, at:cur, evs:p.liv||[]});
     const sessions = [];
     let goals = [];
     /* Le rang de pose, par clé d'objectif : c'est lui qui arbitre où vont les
@@ -4325,7 +4341,7 @@ function simulateDay(){
         // `R.why` porte le « tu l'as mise en priorité » quand c'est le joueur
         // qui a posé cette recherche : sans lui, la seule ligne de sa journée
         // ne dit que l'heure à laquelle les ressources seront réunies.
-        waits.push({q:'Recherche · '+planetRef(labP), what:`${T[R.k].n} ${R.lvl}`, why:R.why, eta:wait(labP,c), held:!!held, heldBy:held, miss:missOf(labP,c), kind:'t', k:R.k, p:labP.i});
+        waits.push({q:'Recherche · '+planetRef(labP), what:`${T[R.k].n} ${R.lvl}`, why:R.why, eta:wait(labP,c), cost:c, held:!!held, heldBy:held, miss:missOf(labP,c), kind:'t', k:R.k, p:labP.i});
         for(const F of nr.list.slice(1)){
           const fd = researchTime(F.k,F.lvl);
           if(g && Tm+fd*1000 > g.deadline) continue;
@@ -4472,7 +4488,7 @@ function simulateDay(){
              journée en silence. */
           const g = prioDevant(dep) ? null : setGoal(key, 'le vaisseau de colonisation', c, dep, Tm);
           const held = heldByOf(dep, Tm, g || mine);
-          waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), held:!!held, heldBy:held, miss:missOf(dep,c), kind:'ship', p:dep.i});
+          waits.push({q:'Chantier spatial', what:'Vaisseau de colonisation', eta:wait(dep,c), cost:c, held:!!held, heldBy:held, miss:missOf(dep,c), kind:'ship', p:dep.i});
         }
       }
       if(wantColony && sim.colShip && sim.colReady<=Tm && !refused(cardKey('fleet', (real.planets[dep.i]||{}).id, target))){ sim.colSent=true; acts.push({q:'Flotte · '+planetRef(dep), what:`Envoyer le vaisseau de colonisation vers ${target}`, why:`Kit ${KITS[S.colo.kit]?KITS[S.colo.kit].n.toLowerCase():''} : détail dans Outils › Colonie`, dur:colFlight, end:Tm+colFlight*1000, kind:'fleet', p:dep.i, dest:target, mission:7, ships:{col:1}}); }
@@ -4618,7 +4634,7 @@ function simulateDay(){
         expoDeja[expoSys(p)] = (expoDeja[expoSys(p)]||0) + 1;
         const total = 2*fl.secs + expoDuree(fl.secs, Tm)*3600, fuel = fl.fuel*2, c=[0,0,fuel];
         const dRate = Math.max(1, production(p).d), smallFuel = p.st[2] >= fuel && fuel/dRate*3600 <= 15*60;
-        if(!smallFuel && !can(p,c,reserveOf(p,Tm))){ waits.push({q:'Flotte · '+planetRef(p), what:'Expédition', eta:wait(p,c), miss:missOf(p,c), kind:'expo', p:p.i}); break; }
+        if(!smallFuel && !can(p,c,reserveOf(p,Tm))){ waits.push({q:'Flotte · '+planetRef(p), what:'Expédition', eta:wait(p,c), cost:c, miss:missOf(p,c), kind:'expo', p:p.i}); break; }
         pay(p,c);
         for(const [k,n] of Object.entries(f.ships)){ p.ships[k]-=n; sim.away[k]=(sim.away[k]||0)+n; }
         const ret = Tm + total*1000, out = Object.assign({}, f.ships);
@@ -4650,7 +4666,7 @@ function simulateDay(){
           pay(p,c); const d = n*2000/(2500*(1+p.b.shipyard)*Math.pow(2,p.b.nanite)*ecoSpeed())*3600, pp=p, fin=Tm+d*1000;
           pp.sq=fin; pp.satPending=fin; sim.ev.push({at:fin, fn:()=>{ pp.sats+=n; pp.satPending=0; }});
           acts.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, why:`+${Math.round(n*satE)} énergie, ${Math.round(mse(...solarAlt)/Math.max(1,mse(...c)))}x moins cher que la centrale${p.def ? '' : ' · aucune défense vue ici : un raid les emporte tous'}`, cost:c, dur:d, end:fin, kind:'sats', n, p:p.i});
-        } else { const e=wait(p,c); soft.push({p, cost:c, eta:e}); waits.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, eta:e, miss:missOf(p,c), kind:'sats', p:p.i}); }
+        } else { const e=wait(p,c); soft.push({p, cost:c, eta:e}); waits.push({q:'Chantier spatial · '+planetRef(p), what:`${n} Satellites solaires`, eta:e, cost:c, miss:missOf(p,c), kind:'sats', p:p.i}); }
       }
       // Les deux files de forme de vie sont indépendantes de la file des
       // bâtiments : elles tournent en parallèle, mais puisent au même stock.
@@ -4684,7 +4700,7 @@ function simulateDay(){
             acts.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}`, why:ch.why, src:ch.src, at:ch.at, cost:ch.cost, dur:ch.secs, end:Tm+ch.secs*1000, kind:'lf', id:ch.id, lvl:ch.next, p:p.i});
           } else {
             const eta = wait(p, ch.cost);
-            waits.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}${ch.src==='estimé' ? ' (prix et durée estimés)' : ''}`, src:ch.src, eta, held:res.some(x=>x>0), heldBy:heldByOf(p,Tm), miss:missOf(p, ch.cost), kind:'lf', id:ch.id, p:p.i});
+            waits.push({q:'Forme de vie · '+planetRef(p), what:`${ch.nom} ${ch.next}${ch.src==='estimé' ? ' (prix et durée estimés)' : ''}`, src:ch.src, eta, cost:ch.cost, held:res.some(x=>x>0), heldBy:heldByOf(p,Tm), miss:missOf(p, ch.cost), kind:'lf', id:ch.id, p:p.i});
             soft.push({p, cost:ch.cost, eta});
           }
         }
@@ -4710,7 +4726,7 @@ function simulateDay(){
         else { const w=cands.map(x=>({x, eta:wait(p,levelCost(B[x.k],x.lvl))})).sort((a,b)=>a.eta-b.eta)[0];
           // `held` dira un jour « retenu : tu épargnes pour Labo 10 », et un
           // candidat que la réserve ne regarde pas ne doit pas le dire à tort.
-          waits.push({q:'Bâtiment · '+planetRef(p), what:`${B[w.x.k].n} ${w.x.lvl}`, eta:w.eta, held:(w.x.libre ? reserveOf(p,Tm,gPrio) : res).some(x=>x>0), heldBy:heldByOf(p,Tm,w.x.libre ? gPrio : null), miss:missOf(p,levelCost(B[w.x.k],w.x.lvl)), kind:'b', k:w.x.k, p:p.i}); soft.push({p, cost:levelCost(B[w.x.k],w.x.lvl), eta:w.eta}); }
+          waits.push({q:'Bâtiment · '+planetRef(p), what:`${B[w.x.k].n} ${w.x.lvl}`, eta:w.eta, cost:levelCost(B[w.x.k],w.x.lvl), held:(w.x.libre ? reserveOf(p,Tm,gPrio) : res).some(x=>x>0), heldBy:heldByOf(p,Tm,w.x.libre ? gPrio : null), miss:missOf(p,levelCost(B[w.x.k],w.x.lvl)), kind:'b', k:w.x.k, p:p.i}); soft.push({p, cost:levelCost(B[w.x.k],w.x.lvl), eta:w.eta}); }
         /* Une priorité qui n'a pas été servie cette session le dit elle-même.
            Elle n'est que le troisième candidat : un secours payable à chaque
            session la mangeait l'une après l'autre sans qu'une seule ligne le
@@ -4720,7 +4736,7 @@ function simulateDay(){
         const lePas = cands.find(x=>x.prio);
         if(lePas && lePas !== ch && !waits.some(x=>x.p===p.i && x.k===lePas.k)){
           const c = levelCost(B[lePas.k], lePas.lvl);
-          waits.push({q:'Bâtiment · '+planetRef(p), what:`${B[lePas.k].n} ${lePas.lvl}`, why:lePas.why, eta:wait(p,c), held:reserveOf(p,Tm,gPrio).some(x=>x>0), heldBy:heldByOf(p,Tm,gPrio), miss:missOf(p,c), kind:'b', k:lePas.k, p:p.i});
+          waits.push({q:'Bâtiment · '+planetRef(p), what:`${B[lePas.k].n} ${lePas.lvl}`, why:lePas.why, eta:wait(p,c), cost:c, held:reserveOf(p,Tm,gPrio).some(x=>x>0), heldBy:heldByOf(p,Tm,gPrio), miss:missOf(p,c), kind:'b', k:lePas.k, p:p.i});
         }
       }
       if(lfMode()==='after') lfPass(false);
@@ -4830,6 +4846,9 @@ function simulateDay(){
          la seconde moitié de la promesse de `destOf`, dite là où le joueur
          relit ses priorités. */
       const recoit = prioEtat.find(e => e.key && goals.some(g => g.key === e.key));
+      /* Le statut de chaque conseil en attente : finançable à quelle heure, et
+         grâce à quoi — un convoi, ou la production. */
+      for(const w of waits) if(w.cost && P[w.p]) w.fin = finance(P[w.p], w.cost);
       sessions.push({T:Tm, acts, waits,
         prio:prioEtat.map(e=>({id:e.id, etat:e.etat, recoit:e === recoit})),
         goals:goals.map(g=>({key:g.key, label:g.label, deadline:g.deadline, res:g.res, rang:g.rang, p:g.p.i}))});
@@ -5170,6 +5189,465 @@ function cargoGaps(){
     if(libres[0]) libres[0].dispo = Math.max(0, libres[0].dispo - manque);
   }
   return out;
+}
+
+/* ---------- flottes en mouvement : projection et plan de sécurité ---------- */
+/* Les flottes qui volent, miennes et hostiles, telles que le jeu les a déjà
+   affichées au joueur (encart des événements, page Mouvements de flotte). Le
+   copilote n'en demande aucune au serveur : ce qu'il n'a pas vu, il ne le sait
+   pas — et le plan le dit plutôt que de l'inventer.
+
+   Deux usages :
+   - la projection des ressources : une construction que le convoi de 7 h 12
+     rendra finançable s'annonce « Finançable à 07:12 (convoi …) » au lieu d'un
+     « dans 9 h » qui ne regardait que la production ;
+   - le plan de sécurité : sur une attaque entrante, et chaque soir à l'heure
+     de mise à l'abri choisie. Le plan liste, il ne lance rien : « Préparer »
+     ouvre le formulaire de flotte du jeu, l'envoi reste le clic du joueur. */
+
+/* Le nom court qu'emploient les joueurs francophones. « 30 GT » se lit d'un
+   coup d'œil dans un tableau ; « 30 grands transporteurs » non. */
+const SHIP_COURT = {sc:'PT', lc:'GT', lf:'CLE', hf:'CLO', cr:'CR', bs:'VB', bc:'TRA', bb:'BMD', ds:'DST', rip:'EDLM', rp:'FAU', pf:'ECL', rec:'REC', col:'VC', pr:'SE', sat:'SAT', crawl:'FOR'};
+/** « 30 GT, 2 SE » : la flotte, en abrégé. */
+function shipCourt(ships){ return Object.entries(ships||{}).filter(([,n])=>n>0).map(([k,n])=>`${fmtLigne(n)} ${SHIP_COURT[k] || k}`).join(', ') || '—'; }
+/** « 1 237 500 / 0 / 0 » : le format du tableau, en entier, sans arrondi. */
+const mcd = c => (c || [0,0,0]).map(x=>fmtLigne(Math.max(0, x||0))).join(' / ');
+/** Missions qui frappent la planète visée. */
+const MISSIONS_ATTAQUE = [1, 2, 9];
+
+/** Réglages › Sécurité : coffres-forts, rappel de mise à l'abri, mission. */
+function secuCard(){
+  const c = secu(), J = ['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'];
+  return `<div class="card"><h2>Sécurité et mise à l'abri</h2>
+    <p class="note">Coffres-forts : les planètes où mettre ta flotte à l'abri. Le plan choisit le plus proche, même galaxie d'abord, jamais un coffre-fort attaqué.</p>
+    <div class="chips">${S.planets.map(p=>`<label class="chip"><input type="checkbox" data-secu-vault="${esc(p.id)}" ${c.vaults.includes(p.id)?'checked':''}> ${esc(p.name)} <span class="note">${esc(p.coords||'')}</span></label>`).join('')}</div>
+    <div class="grid" style="margin-top:8px">
+      <label class="f">Heure du rappel<input type="time" data-secu="rappel" value="${esc(c.rappel)}"></label>
+      <label class="f">Réveil = fin de nuit (heure)<input type="number" min="0" max="23" data-day="nightEnd" value="${+S.day.nightEnd}"><span class="note">La même que « Nuit : à » du plan du jour.</span></label>
+    </div>
+    <div class="chips" style="margin-top:8px">${[1,2,3,4,5,6,0].map(j=>`<label class="chip"><input type="checkbox" data-secu-jour="${j}" ${c.jours.includes(j)?'checked':''}> ${J[j]}</label>`).join('')}</div>
+    <div class="bascules">${bascule('sStat','data-secu="stationner"','Préférer Stationner', c.stationner, 'Les transports suggérés partent en Stationner au lieu de Transport : la flotte reste au coffre-fort au lieu de revenir.')}</div>
+    <p class="note">À l'heure du rappel, les jours cochés, l'icône du Copilote affiche « FS » jusqu'à ce que tu ouvres le plan de la nuit. Aucune notification. Heures en heure locale du navigateur.</p>
+  </div>`;
+}
+
+/** Mes réglages de sécurité, toujours complets : une sauvegarde d'avant ne les porte pas. */
+function secu(){
+  const d = {vaults:[], rappel:'22:00', jours:[0,1,2,3,4,5,6], stationner:false};
+  const s = S.settings.secu && typeof S.settings.secu === 'object' ? S.settings.secu : {};
+  const hhmm = v => /^\d{1,2}:\d{2}$/.test(String(v)) ? String(v).padStart(5, '0') : null;
+  return {
+    vaults: Array.isArray(s.vaults) ? s.vaults.filter(id => planetById(id)) : d.vaults,
+    rappel: hhmm(s.rappel) || d.rappel,
+    jours: Array.isArray(s.jours) ? s.jours.filter(j => Number.isInteger(j) && j >= 0 && j <= 6) : d.jours,
+    /* Le réveil n'a qu'une source : la fin de nuit du plan du jour. Deux
+       champs pour la même heure finissent par se contredire — le plan de la
+       nuit visait 7 h pendant que le mode nuit visait 6 h. Heure pleine, comme
+       elle : `nightEnd` ne porte pas de minutes. */
+    reveil: `${p2(Math.max(0, Math.min(23, Math.round(+S.day.nightEnd) || 0)))}:00`,
+    stationner: !!s.stationner
+  };
+}
+/** Le prochain instant, en heure locale, où l'horloge marque `hhmm`, après `apres`. */
+function prochaineHeure(hhmm, apres){
+  const [h, m] = String(hhmm).split(':').map(Number), d = new Date(apres);
+  d.setHours(h, m, 0, 0);
+  if(d.getTime() <= apres) d.setDate(d.getDate() + 1);
+  return d.getTime();
+}
+
+/** Ma planète à ces coordonnées, ou null. Les coordonnées ne désignent pas
+    une planète de façon sûre (ADR 0001) : elles ne servent ici qu'à relier un
+    mouvement que le jeu décrit par ses coordonnées, et rien n'est enregistré. */
+function planeteEn(coords){ return coords ? S.planets.find(p => p.coords === coords) || null : null; }
+
+/**
+ * Les mouvements, normalisés : un objet par trajet, aller ou retour, avec où
+ * il se pose. Le retour d'un aller est rattaché quand le jeu l'affiche.
+ * @returns {Array<{id, mission, sens, hostile, camp, origine, cible, arrivee, retour, vaisseaux, cargaison, pose, m}>}
+ */
+function mouvements(){
+  const out = (S.moves || []).filter(m => m && Number.isFinite(+m.arrival)).map(m => ({
+    id: m.id || null, mission: +m.mission, sens: m.ret ? 'retour' : 'aller',
+    hostile: !!m.hostile, camp: m.camp || (m.hostile ? 'hostile' : 'own'),
+    origine: {coords: m.origin || '', nom: m.originName || (planeteEn(m.origin)||{}).name || ''},
+    cible: {coords: m.dest || '', nom: m.destName || (planeteEn(m.dest)||{}).name || ''},
+    arrivee: m.arrival * 1000, retour: null,
+    vaisseaux: m.ships || {}, cargaison: Array.isArray(m.cargo) ? m.cargo.map(x => +x || 0) : null,
+    /* Où la flotte se pose : la cible à l'aller, l'origine au retour. */
+    pose: m.ret ? m.origin : m.dest, m}));
+  for(const a of out) if(a.sens === 'aller'){
+    const r = out.find(x => x.sens === 'retour' && x.mission === a.mission && x.origine.coords === a.origine.coords && x.cible.coords === a.cible.coords && x.arrivee > a.arrivee);
+    if(r) a.retour = r.arrivee;
+  }
+  return out.sort((a, b) => a.arrivee - b.arrivee);
+}
+
+/**
+ * Les cargaisons qui se posent sur cette planète, arrivées depuis la dernière
+ * lecture de son stock ou encore en vol. Une flotte hostile ne livre rien ; une
+ * attaque ou une expédition, à l'aller, ne se pose pas chez moi. Un retour, lui,
+ * rapporte ce qu'il porte — butin, trouvaille, débris.
+ *
+ * Les flottes arrivées viennent de `S.arrived` : le jeu ne les montre plus, mais
+ * tant qu'aucune page n'a relu le stock, il ne les porte pas.
+ * @returns {Array<{at:number, cargo:number[], mv:object}>} triées par heure
+ */
+function livraisons(p){
+  if(!p || !p.coords) return [];
+  const depuis = (p.stock && p.stock.at) || 0, vus = new Set(), out = [];
+  const lus = mouvements().concat((S.arrived || []).filter(m => m && Number.isFinite(+m.arrival)).map(m => ({
+    mission: +m.mission, sens: m.ret ? 'retour' : 'aller', hostile: !!m.hostile, camp: m.camp || 'own',
+    origine: {coords: m.origin || '', nom: m.originName || ''}, cible: {coords: m.dest || '', nom: m.destName || ''},
+    arrivee: m.arrival * 1000, vaisseaux: m.ships || {}, cargaison: Array.isArray(m.cargo) ? m.cargo.map(x => +x || 0) : null,
+    pose: m.ret ? m.origin : m.dest, m})));
+  for(const v of lus){
+    if(v.hostile || v.pose !== p.coords || !v.cargaison || !v.cargaison.some(x => x > 0)) continue;
+    if(v.sens === 'aller' && ![3, 4, 5].includes(v.mission)) continue;
+    if(v.arrivee <= depuis) continue;           // déjà dans le stock lu
+    const k = `${v.mission}|${v.arrivee}|${v.sens}|${v.origine.coords}`;
+    if(vus.has(k)) continue; vus.add(k);
+    out.push({at: v.arrivee, cargo: v.cargaison, mv: v});
+  }
+  return out.sort((a, b) => a.at - b.at);
+}
+
+/**
+ * Le stock qui avance de t0 à t1 : la production s'arrête au hangar, une
+ * livraison non — elle peut le dépasser, et la production reste alors arrêtée
+ * tant que le stock est au-dessus.
+ * @param {number[]} st0 stock à t0
+ * @param {object} pr production(p) : débits horaires et capacités
+ * @param {Array<{at, cargo}>} evs livraisons entre t0 et t1, triées
+ */
+function stockAvance(st0, t0, t1, pr, evs){
+  const st = st0.slice(), r = [pr.m, pr.c, pr.d];
+  const accrue = (a, b) => { if(b <= a) return; const h = (b - a) / 36e5; for(let j = 0; j < 3; j++){
+    if(r[j] > 0){ if(st[j] < pr.cap[j]) st[j] = Math.min(pr.cap[j], st[j] + r[j]*h); }
+    else st[j] = Math.max(0, st[j] + r[j]*h); } };
+  let cur = t0;
+  for(const e of evs || []){ if(e.at > t1) break; if(e.at < t0) continue; accrue(cur, e.at); cur = e.at; e.cargo.forEach((x, j) => st[j] += x); }
+  accrue(cur, t1);
+  return st;
+}
+
+/**
+ * Les ressources d'une planète à l'instant t : stock lu, production jusqu'à t
+ * (arrêtée au hangar), cargaisons posées avant t (jamais plafonnées).
+ * @returns {number[]} [m, c, d]
+ */
+function projectResources(p, t){
+  const at = (p.stock && p.stock.at) || Date.now(), st0 = [+p.stock.m || 0, +p.stock.c || 0, +p.stock.d || 0];
+  const depart = Math.min(at, t);
+  return stockAvance(st0, depart, Math.max(t, depart), production(p), livraisons(p));
+}
+
+/** Secondes pour que la seule production couvre `cost`, Infinity si le hangar l'en empêche. */
+function tempsProd(st, cost, pr){
+  const r = [pr.m, pr.c, pr.d]; let w = 0;
+  for(let j = 0; j < 3; j++){
+    const miss = cost[j] - st[j];
+    if(miss <= 1e-6) continue;
+    if(r[j] <= 0 || cost[j] > pr.cap[j]) return Infinity;   // la production s'arrête au hangar
+    w = Math.max(w, miss / r[j] * 3600);
+  }
+  return w;
+}
+
+/**
+ * Quand `cost` devient finançable, et grâce à quoi.
+ *
+ * Deux calculs : avec les convois, et sans. Le convoi n'est nommé que s'il
+ * avance vraiment l'heure — une livraison de cristal ne « finance » pas une
+ * mine qui n'attendait que du métal. Il est alors celui, parmi les convois
+ * posés avant l'heure trouvée, qui apporte la ressource qui manquait encore.
+ * @param {object} p planète (réelle ou simulée : `st`, `at` remplacent le stock lu)
+ * @param {number[]} cost
+ * @param {object} [o] {st, at, evs, horizon} pour la simulation
+ * @returns {{statut:'maintenant'|'convoi'|'production'|'jamais', at:number, secs:number, convoi:object|null}}
+ */
+function whenAffordable(p, cost, o){
+  o = o || {};
+  const now = o.at != null ? o.at : Date.now(), horizon = now + (o.horizon || 24) * 3600e3, pr = production(p);
+  const st0 = o.st ? o.st.slice() : projectResources(p, now);
+  const evs = (o.evs || livraisons(p)).filter(e => e.at > now);
+  const ok = st => cost.every((x, j) => st[j] + 1e-6 >= x);
+  if(ok(st0)) return {statut:'maintenant', at:now, secs:0, convoi:null};
+  const finProd = now + tempsProd(st0, cost, pr) * 1000;
+  let st = st0, cur = now, at = Infinity;
+  for(const e of evs.concat([{at: Infinity, cargo: [0,0,0], fin: true}])){
+    const t = cur + tempsProd(st, cost, pr) * 1000;
+    if(t <= e.at){ at = t; break; }
+    if(e.fin) break;
+    st = stockAvance(st, cur, e.at, pr, [e]); cur = e.at;
+    if(ok(st)){ at = e.at; break; }
+  }
+  if(!(at <= horizon)) return {statut:'jamais', at:Infinity, secs:Infinity, convoi:null};
+  const secs = Math.max(0, (at - now) / 1000);
+  if(at < finProd - 60e3){
+    const manque = cost.map((x, j) => x > st0[j]);
+    const avant = evs.filter(e => e.at <= at);
+    const convoi = avant.slice().reverse().find(e => e.cargo.some((x, j) => x > 0 && manque[j])) || avant[avant.length - 1] || null;
+    return {statut:'convoi', at, secs, convoi};
+  }
+  return {statut:'production', at, secs, convoi:null};
+}
+
+/** « Finançable à 07:12 (convoi Tourtierion, 30 GT) » : le statut d'un conseil. */
+function statutFinancement(f){
+  if(!f) return '';
+  if(f.statut === 'maintenant') return 'Finançable maintenant';
+  if(f.statut === 'jamais') return 'Non finançable sous 24 h';
+  if(f.statut === 'convoi' && f.convoi){
+    const v = f.convoi.mv || {}, de = (v.sens === 'retour' ? v.cible : v.origine) || {};
+    const nom = de.nom || de.coords || 'en vol';
+    return `Finançable à ${formatTime(f.at)} (convoi ${nom}, ${shipCourt(v.vaisseaux)})`;
+  }
+  return `Finançable à ${formatTime(f.at)} (production)`;
+}
+
+/* ---------- menaces ---------- */
+/** Les attaques hostiles qui visent l'une de mes planètes, la plus proche d'abord. */
+function attaquesEntrantes(now){
+  return mouvements().filter(v => v.hostile && v.sens === 'aller' && MISSIONS_ATTAQUE.includes(v.mission) && v.arrivee > now)
+    .map(v => ({v, p: planeteEn(v.cible.coords), impact: v.arrivee})).filter(x => x.p);
+}
+/** Les espionnages hostiles en route vers moi. */
+function espionnagesEntrants(now){
+  return mouvements().filter(v => v.hostile && v.sens === 'aller' && v.mission === 6 && v.arrivee > now)
+    .map(v => ({v, p: planeteEn(v.cible.coords)})).filter(x => x.p);
+}
+
+/* ---------- coffres-forts ---------- */
+/**
+ * Où mettre à l'abri ce qui part de `p`.
+ * Le coffre-fort le plus proche, même galaxie d'abord — `distance()` seule
+ * mettrait une galaxie voisine (20 000) devant un système lointain de la même
+ * (jusqu'à 50 000). Jamais un coffre-fort qu'une attaque vise. Aucun d'utilisable :
+ * le plus lointain, pour que la flotte reste en vol le plus longtemps.
+ * Sans coffre-fort déclaré, mes autres planètes en tiennent lieu, et le plan le dit.
+ * @param {Set<string>} visees ids des planètes attaquées
+ * @returns {{q:object, pourquoi:string}|null}
+ */
+function coffreFortPour(p, visees){
+  const c = parseC(p.coords); if(!c) return null;
+  const declares = secu().vaults.map(planetById).filter(Boolean);
+  const pool = (declares.length ? declares : S.planets).filter(q => q !== p && q.id !== p.id && parseC(q.coords));
+  if(!pool.length) return null;
+  const cle = q => { const d = parseC(q.coords); return [d[0] === c[0] ? 0 : 1, distance(c, d)]; };
+  const tri = (a, b) => { const x = cle(a), y = cle(b); return x[0] - y[0] || x[1] - y[1]; };
+  const sauf = pool.filter(q => !visees.has(q.id)).sort(tri);
+  const sans = declares.length ? '' : ' Aucun coffre-fort déclaré (Réglages › Sécurité) : ta planète la plus proche en tient lieu.';
+  if(sauf.length) return {q: sauf[0], pourquoi: (declares.length ? 'coffre-fort le plus proche' : 'planète la plus proche') + (pool.length > sauf.length ? ', les autres sont attaqués' : '') + '.' + sans};
+  const loin = pool.slice().sort((a, b) => distance(c, parseC(b.coords)) - distance(c, parseC(a.coords)))[0];
+  return {q: loin, pourquoi: 'Aucun coffre-fort à l\'abri : le plus lointain, pour garder la flotte en vol le plus longtemps.' + sans};
+}
+
+/** Les crans de vitesse que le jeu propose : par 5 % au Général, par 10 % sinon. */
+function crans(){ const pas = S.settings.cls === 'general' ? 5 : 10, out = []; for(let v = 100; v >= pas; v -= pas) out.push(v); return out; }
+
+/** Les vaisseaux à quai qui peuvent voler (satellites et foreuses restent au sol). */
+function aQuai(p){ return Object.fromEntries(Object.entries(p.ships || {}).filter(([k, n]) => SHIPS[k] && n > 0)); }
+
+/**
+ * Le transport qui met à l'abri ce qui est sur `p`.
+ *
+ * Routine : la vitesse la plus lente qui arrive au coffre-fort au plus tard à
+ * l'heure de réveil, et un départ retardé d'autant s'il reste de la marge — les
+ * crans de 10 % ne tombent pas tout seuls à dix minutes près, l'heure de départ
+ * si. Attaque : en Transport, la flotte revient à sa planète ; elle doit donc
+ * rentrer APRÈS l'impact, dix minutes de marge. En Stationner elle ne revient
+ * pas, et le plus rapide est le mieux.
+ * @param {object} o {mode:'attaque'|'routine', now, impact, wake, visees}
+ */
+function transportSuggere(p, o){
+  const ships = aQuai(p); if(!Object.keys(ships).length) return null;
+  const dest = coffreFortPour(p, o.visees || new Set()); if(!dest) return null;
+  const stationner = secu().stationner, mission = stationner ? 4 : 3, trajets = stationner ? 1 : 2;
+  const now = o.now, vols = crans().map(pct => ({pct, fl: flight(p.coords, dest.q.coords, ships, pct)})).filter(x => x.fl);
+  if(!vols.length) return null;
+  let choix = null, depart = now, note = '';
+  if(o.mode === 'attaque'){
+    const apres = o.impact + 10*60e3;
+    if(trajets === 1) choix = vols[0];
+    else {
+      choix = vols.find(x => now + 2*x.fl.secs*1000 >= apres);
+      if(!choix){ choix = vols[vols.length - 1]; depart = apres - 2*choix.fl.secs*1000;
+        note = `Pars à ${formatTime(depart)} au plus tôt : plus tôt, la flotte rentrerait avant l'impact.`; }
+    }
+  } else {
+    const W = o.wake;
+    const tient = vols.filter(x => now + x.fl.secs*1000 <= W);
+    if(tient.length){ choix = tient[tient.length - 1]; const d = W - choix.fl.secs*1000; if(d - now > 10*60e3){ depart = d; note = `Pars à ${formatTime(depart)} : à ${choix.pct} % la flotte se pose à ton réveil.`; } }
+    else { choix = vols[0]; note = 'Même à 100 % la flotte arrive après ton réveil.'; }
+  }
+  const fuel = choix.fl.fuel * trajets;
+  const soute = Object.entries(ships).reduce((a, [k, n]) => a + n*shipStats(k).cargoEff, 0);
+  const st = projectResources(p, now);
+  const charge = partAbri(st, souteUtile(soute, fuel), fuel);
+  /* Les grands transporteurs qu'il faudrait pour tout lever, arrondis au-dessus :
+     la flotte part entière, mais ce chiffre dit si la soute suffit. */
+  const lc = shipStats('lc').cargoEff, total = st[0] + st[1] + Math.max(0, st[2] - fuel);
+  const gt = lc > 0 ? Math.ceil(total / lc) : 0;
+  const arrivee = depart + choix.fl.secs*1000;
+  return {p, pi: S.planets.indexOf(p), ships, dest: dest.q, pourquoi: dest.pourquoi, mission, missionNom: mission === 4 ? 'Stationner' : 'Transport',
+    pct: choix.pct, depart, arrivee, retour: trajets === 2 ? arrivee + choix.fl.secs*1000 : null, fuel, charge, soute, gt, note,
+    resteSol: st.map((x, j) => Math.max(0, x - charge[j] - (j === 2 ? fuel : 0)))};
+}
+
+/**
+ * Ce qui se dépense tout de suite sur `p` : les conseils finançables
+ * maintenant du plan, puis ce que le stock paie encore, triés par montant.
+ * Le stock ne paie pas tout à la fois : on garde ceux qui tiennent ensemble.
+ */
+function depensesAttaque(p, acts){
+  const st = projectResources(p, Date.now()), out = [], vus = new Set();
+  const pi = S.planets.indexOf(p);
+  const cands = (acts || []).filter(a => a.p === pi && a.cost && !['fleet', 'expo'].includes(a.kind)).map(a => ({what: a.what, cost: a.cost, kind: a.kind}))
+    .concat([0, 1, 2].flatMap(j => depensesPayables(p, j, st)).map(d => ({what: d.what, cost: d.cost, kind: d.kind})));
+  cands.sort((a, b) => (b.cost[0] + b.cost[1] + b.cost[2]) - (a.cost[0] + a.cost[1] + a.cost[2]));
+  const reste = st.slice();
+  for(const c of cands){
+    if(vus.has(c.what) || !c.cost.every((x, j) => x <= reste[j] + 1e-6)) continue;
+    vus.add(c.what); c.cost.forEach((x, j) => reste[j] -= x); out.push(c);
+    if(out.length >= 6) break;
+  }
+  return out;
+}
+
+/** Mes flottes qui se posent sur `p` entre `de` et `a` (ms). */
+function convoisVers(p, de, a){
+  return mouvements().filter(v => !v.hostile && v.pose === p.coords && v.arrivee >= de && v.arrivee <= a);
+}
+
+/**
+ * Le plan de sécurité.
+ * - `attaque` : une entrée par planète visée — compte à rebours, ressources
+ *   exposées à l'impact, de quoi dépenser, la flotte à sortir, les convois qui
+ *   arriveraient dans la bataille.
+ * - `routine` : une entrée par planète — exposé, à quai, files qui se vident
+ *   avant le réveil, convois de nuit, transport vers un coffre-fort.
+ * @param {'attaque'|'routine'} kind
+ * @param {number} now
+ * @param {Array} [acts] les conseils finançables maintenant du plan
+ */
+function planSecurite(kind, now, acts){
+  const att = attaquesEntrantes(now), visees = new Set(att.map(x => x.p.id));
+  if(kind === 'attaque'){
+    const par = new Map();
+    for(const a of att){ const e = par.get(a.p.id); if(!e || a.impact < e.impact) par.set(a.p.id, a); }
+    return [...par.values()].sort((a, b) => a.impact - b.impact).map(a => ({
+      p: a.p, impact: a.impact, groupee: a.v.mission === 2, nb: att.filter(x => x.p.id === a.p.id).length,
+      expose: projectResources(a.p, a.impact),
+      depenses: depensesAttaque(a.p, acts),
+      transport: transportSuggere(a.p, {mode: 'attaque', now, impact: a.impact, visees}),
+      aRisque: convoisVers(a.p, now, a.impact + 10*60e3)
+    }));
+  }
+  /* Le réveil qui vient, et le rappel qui le précède : à 3 h, la nuit a
+     commencé hier soir ; à 8 h, elle commence ce soir. */
+  const cfg = secu(), wake = prochaineHeure(cfg.reveil, now), rappel = prochaineHeure(cfg.rappel, wake - 864e5);
+  const coffres = new Set(cfg.vaults);
+  return S.planets.map(p => {
+    const pi = S.planets.indexOf(p);
+    const files = [];
+    const bat = fileDe(p, t => enCours(t) && fileBat(t)).sort((a, b) => b.end - a.end)[0];
+    if(!bat || bat.end < wake){
+      const lance = (acts || []).find(a => a.p === pi && a.kind === 'b') || depensesPayables(p, 0, projectResources(p, now)).find(d => d.kind === 'b');
+      files.push({file: 'Bâtiments', libre: bat ? bat.end : now, lance: lance ? lance.what : null});
+    }
+    const lab = labPlanet();
+    if(lab && lab.id === p.id){
+      const r = (S.timers || []).filter(t => enCours(t) && (t.kind === 't' || t.queue === 'research')).sort((a, b) => b.end - a.end)[0];
+      if(!r || r.end < wake){ const lance = (acts || []).find(a => a.kind === 't') || depensesPayables(p, 0, projectResources(p, now)).concat(depensesPayables(p, 1, projectResources(p, now))).find(d => d.kind === 't'); files.push({file: 'Recherche', libre: r ? r.end : now, lance: lance ? lance.what : null}); }
+    }
+    return {p, coffre: coffres.has(p.id), expose: projectResources(p, now), aQuai: aQuai(p), files,
+      nuit: convoisVers(p, rappel, wake), wake, rappel,
+      transport: coffres.has(p.id) ? null : transportSuggere(p, {mode: 'routine', now, wake, visees})};
+  });
+}
+
+/** Le tableau Source / Vaisseaux / Cible / Mission / M-C-D, sa ligne d'arrivée et « Préparer ». */
+function transportHtml(t){
+  if(!t) return '';
+  const url = fleetUrl({dest: t.dest.coords, mission: t.mission, ships: t.ships, p: t.pi});
+  const chips = copyChips({res: t.charge});
+  return `<table class="fs-tab"><thead><tr><th>Source</th><th>Vaisseaux</th><th>Cible</th><th>Mission</th><th>M / C / D</th></tr></thead>
+    <tbody><tr><td>${esc(t.p.name)}</td><td>${esc(shipCourt(t.ships))}</td><td>${esc(t.dest.name)}</td><td>${t.missionNom}</td><td class="mono">${mcd(t.charge)}</td></tr></tbody></table>
+    <p class="note">Arrivée ${formatTime(t.arrivee)} à ${t.pct} %${t.retour ? ` · retour ${formatTime(t.retour)}` : ''} · ${fmt(t.fuel)} deutérium · ${esc(t.pourquoi)}${t.note ? ' ' + esc(t.note) : ''}${t.gt ? ` Il faut ${fmtLigne(t.gt)} GT pour tout lever.` : ''}</p>
+    ${url ? `<div class="row"><button class="btn sm primary" data-prep="${esc(url)}">Préparer</button><span class="note">Ouvre le formulaire du jeu avec vaisseaux, cible et mission. Ressources et vitesse à régler, l'envoi reste ton clic.</span></div>` : ''}${chips}`;
+}
+
+/** Une flotte en vol, en une ligne. */
+function mouvementLigne(v){
+  const camp = v.hostile ? '<span class="pill bad">Hostile</span>' : v.camp === 'neutral' ? '<span class="pill info">Autre joueur</span>' : '';
+  const nom = OG_MISSIONS[v.mission] || `mission ${v.mission}`;
+  const carg = v.cargaison && v.cargaison.some(x => x > 0) ? ` · ${mcd(v.cargaison)}` : '';
+  return `<li>${camp}<span class="what">${esc(majus(nom))} ${v.sens === 'retour' ? '(retour)' : ''} · ${esc(v.origine.nom || v.origine.coords)} → ${esc(v.cible.nom || v.cible.coords)}</span><span class="why">Arrivée ${formatTime(v.arrivee)}${v.retour ? `, retour ${formatTime(v.retour)}` : ''} · ${esc(shipCourt(v.vaisseaux))}${carg}</span></li>`;
+}
+
+/** Le compte à rebours, « 1 h 02 min 05 s », relu chaque seconde. */
+function rebours(ms){ const s = Math.max(0, Math.round((ms - Date.now()) / 1000)); return clock(s); }
+function majRebours(){
+  try{ document.querySelectorAll('[data-impact]').forEach(el => { el.textContent = rebours(+el.dataset.impact); }); }catch(e){}
+}
+
+/**
+ * Le bloc Sécurité d'Aujourd'hui : l'alerte d'attaque en tête, l'espionnage,
+ * le plan de la nuit, et les flottes en vol.
+ * @returns {{alerte:string, bloc:string, sum:string}}
+ */
+function securiteHtml(acts){
+  const now = Date.now();
+  const att = planSecurite('attaque', now, acts), esp = espionnagesEntrants(now);
+  const alerte = att.map(a => `<div class="card secu-crit"><h2><span class="pill bad">Critique</span> Attaque sur ${esc(a.p.name)} <span class="mono" data-impact="${a.impact}">${rebours(a.impact)}</span></h2>
+    <p class="note">Impact ${formatTime(a.impact)}${a.groupee ? ' · attaque groupée' : ''}${a.nb > 1 ? ` · ${a.nb} flottes` : ''}.</p>
+    <h3>Ressources exposées</h3><p class="mono">${mcd(a.expose)}</p>
+    <h3>Constructions à lancer pour dépenser</h3>${a.depenses.length ? `<ul class="advice">${a.depenses.map(d => `<li><span class="pill good">Finançable maintenant</span><span class="what">${esc(d.what)}</span><span class="why">${costHtml(d.cost)}</span></li>`).join('')}</ul>` : '<p class="note">Rien de finançable avec le stock présent.</p>'}
+    <h3>Vaisseaux à mettre à l'abri</h3>${a.transport ? transportHtml(a.transport) : `<p class="note">${Object.keys(aQuai(a.p)).length ? 'Aucune destination : il faut une autre planète.' : 'Aucun vaisseau à quai.'}</p>`}
+    ${a.aRisque.length ? `<h3>Convois entrants à risque</h3><ul class="advice">${a.aRisque.map(v => `<li><span class="pill warn">À rappeler ou à laisser</span>${mouvementLigne(v).replace(/^<li>|<\/li>$/g, '')}</li>`).join('')}</ul><p class="note">Ils arrivent entre maintenant et dix minutes après l'impact. La décision te revient.</p>` : ''}
+  </div>`).join('') + esp.map(e => `<div class="card"><p><span class="pill warn">Important</span> Espionnage en cours sur ${esc(e.p.name)}, attaque possible <span class="note">(arrivée ${formatTime(e.v.arrivee)})</span>.</p></div>`).join('');
+
+  const r = planSecurite('routine', now, acts), on = fsRappelActif();
+  const ligne = x => {
+    const parts = [];
+    parts.push(`<li><span class="what">${esc(x.p.name)}${x.coffre ? ' <span class="pill info">coffre-fort</span>' : ''}</span><span class="why">Exposé ${mcd(x.expose)} · à quai ${esc(shipCourt(x.aQuai))}</span></li>`);
+    for(const f of x.files) parts.push(`<li><span class="pill warn">File libre</span><span class="what">${f.file} · ${f.libre <= now ? 'vide maintenant' : `se vide à ${formatTime(f.libre)}`}</span><span class="why">${f.lance ? `À lancer : ${esc(f.lance)}` : 'Rien de finançable à y mettre.'}</span></li>`);
+    for(const v of x.nuit) parts.push(`<li><span class="pill info">Convoi de nuit</span>${mouvementLigne(v).replace(/^<li>|<\/li>$/g, '')}</li>`);
+    return `<ul class="advice">${parts.join('')}</ul>${x.transport ? transportHtml(x.transport) : ''}`;
+  };
+  const w = r[0] ? r[0].wake : null;
+  const routine = `<details class="card${on ? ' secu-on' : ''}"${on ? ' open' : fold('secu', false)}><summary data-fold="secu" data-fsvu="1">Plan de la nuit ${on ? '<span class="pill warn">Rappel</span>' : ''}<span class="note">${w ? `réveil ${formatTime(w)}` : ''}</span></summary>
+    <p class="note">Rappel ${esc(secu().rappel)} · réveil ${esc(secu().reveil)} · ${secu().vaults.length ? 'coffres-forts : ' + secu().vaults.map(id => esc((planetById(id)||{}).name || '')).join(', ') : 'aucun coffre-fort déclaré'} <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
+    ${r.map(ligne).join('')}</details>`;
+  const mv = mouvements().filter(v => v.arrivee > now);
+  const vol = `<details class="card"${fold('vols', false)}><summary data-fold="vols">Flottes en vol <span class="note">${mv.length}</span></summary>${mv.length ? `<ul class="advice">${mv.map(mouvementLigne).join('')}</ul>` : '<p class="note">Aucune flotte en vol vue. Ouvre l\'encart des événements ou la page Mouvements de flotte : le copilote ne lit que ce que le jeu affiche.</p>'}</details>`;
+  /* Pour l'onglet : chaque attaque est critique, chaque espionnage important. */
+  const items = att.map(a => ({sev:'bad', key:`Attaque sur ${a.p.name} ${a.impact}`})).concat(esp.map(e => ({sev:'warn', key:`Espionnage ${e.p.name}`})));
+  return {alerte, bloc: routine + vol, items, rappel: on};
+}
+
+/* ---------- le rappel de mise à l'abri ---------- */
+/** Le badge du rappel est-il allumé ? Lu dans le stockage par `boot`, tenu à jour par l'écoute plus bas. */
+let FS_RAPPEL_ON = null;
+function fsRappelActif(){ return !!(FS_RAPPEL_ON && Date.now() - (+FS_RAPPEL_ON.at || 0) < 24*3600e3); }
+/** Le joueur a ouvert le plan : le badge s'éteint. */
+function fsRappelVu(){
+  if(!FS_RAPPEL_ON) return;
+  FS_RAPPEL_ON = null;
+  if(IS_EXT) try{ chrome.storage.local.remove('fsRappelOn'); }catch(e){}
+}
+/**
+ * Pose l'alarme du rappel, à l'heure choisie, chaque jour. Le service worker la
+ * fait sonner panneau fermé et ne retient que les jours actifs, qu'on lui
+ * recopie : il ne lit pas les réglages du panneau. Aucun jour actif : pas d'alarme.
+ */
+function armeRappel(){
+  if(!IS_EXT || typeof chrome === 'undefined' || !chrome.alarms) return;
+  const c = secu();
+  try{ chrome.storage.local.set({fsRappelCfg: {jours: c.jours, rappel: c.rappel}}); }catch(e){}
+  if(!c.jours.length){ chrome.alarms.clear('fsRappel'); return; }
+  chrome.alarms.create('fsRappel', {when: prochaineHeure(c.rappel, Date.now()), periodInMinutes: 1440});
 }
 
 /* ---------- daily missions ---------- */
@@ -7656,8 +8134,10 @@ today(){
      les range en onglets, elles n'en savent rien. */
   return cardLayout('today', {
     profil: profilCard() + profilBloc(),
+    attaque: `<div id="tdSecuAlerte"></div>`,
     maintenant: `<div class="card"><div class="row spread liste-tete"><h2>Maintenant <span class="note" id="tdNowN"></span></h2>${cartesMenu('maintenant')}</div><div id="tdNow"></div></div>`,
     alertes: `<div id="tdAlerts"></div>`,
+    securite: `<div id="tdSecu"></div>`,
     expeditions: `<details class="card"${fold('expeditions', false)}><summary data-fold="expeditions">Expéditions <span class="note" id="expoSum"></span></summary>
       <div id="expoBloc"></div>
     </details>`,
@@ -7974,13 +8454,14 @@ settings(){
         <label class="f">Je me connecte toutes les<select id="dInt" data-day="interval">${[30,60,90,120,180].map(v=>`<option value="${v}" ${+d.interval===v?'selected':''}>${v} min</option>`).join('')}</select></label>
         <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
         <label class="f">Nuit : de (heure)<input id="dNs" type="number" min="0" max="23" data-day="nightStart" value="${d.nightStart}"></label>
-        <label class="f">à (heure)<input id="dNe" type="number" min="0" max="23" data-day="nightEnd" value="${d.nightEnd}"></label>
+        <label class="f">à (heure) — réveil<input id="dNe" type="number" min="0" max="23" data-day="nightEnd" value="${d.nightEnd}"></label>
         <label class="f">Mise à l'abri (nuit, absence)<select id="dNight" data-day="night"><option value="0" ${d.night?'':'selected'}>non</option><option value="1" ${d.night?'selected':''}>oui</option></select></label>
         <label class="f">Retour vers (heure)<input id="dBack" type="number" min="0" max="23" data-day="backHour" value="${d.backHour==null?'':d.backHour}" placeholder="dans ${nightLen()} h"></label>
       </div>
       <p class="note" id="aideJour"></p>
       <p class="note" id="daySum"></p>
     </div>
+    ${secuCard()}
     <div class="card"><h2>Formes de vie découvertes</h2>
       <div class="chips">${lfSettingsHtml()}</div>
       <p class="note">Copilote s'en sert pour te conseiller la forme de vie de tes colonies.</p>
@@ -8144,8 +8625,12 @@ today(){
   if(cartesNow.length) nowParts.push(listeCartes('maintenant', cartesNow, 'acts'));
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
+  /* Les conseils finançables plus tôt passent devant : ceux de maintenant sont
+     déjà en tête, comme actions ; puis les attentes, de la plus courte à la
+     plus longue. Un tri stable garde l'ordre du moteur à heure égale. */
+  s0.waits.sort((x,y)=>(isFinite(x.eta)?x.eta:Infinity) - (isFinite(y.eta)?y.eta:Infinity) || 0);
   const waits0 = s0.waits.filter(meteoVoit), busy0 = plan.busy.filter(meteoVoit);
-  if(waits0.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${waits0.length})</summary>${cartesMenu('attente')}${listeCartes('attente', waits0.map(w=>({crit:false, html:`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+formatTime(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`})), 'acts')}</details>`);
+  if(waits0.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${waits0.length})</summary>${cartesMenu('attente')}${listeCartes('attente', waits0.map(w=>({crit:false, html:`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill ${w.fin && w.fin.statut==='jamais' ? 'bad' : 'warn'}">${w.fin ? esc(statutFinancement(w.fin)) : isFinite(w.eta)?'ressources réunies vers '+formatTime(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`})), 'acts')}</details>`);
   if(busy0.length || infoMs.length) nowParts.push(`<details${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${busy0.length + infoMs.length})</summary>${cartesMenu('encours')}${listeCartes('encours', busy0.map(b=>({crit:false, html:`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${formatTime(b.end)}</span></li>`})).concat(infoMs.map(m=>({crit:false, html:`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`}))), 'acts')}</details>`);
   const nextS = plan.sessions.slice(1).find(x=>actsVus(x).length);
   if(!a0.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${formatTime(nextS.T)}</b>.`:''}</p>`);
@@ -8169,6 +8654,14 @@ today(){
     .map(c=>({sev:NIVEAU_SEV[c.niveau], what:c.what, why:c.why, regle:c.regle, pid:c.pid, c}));
   const alerts = plan.alerts.filter(a=>!(a.c && estIgnore(a.c))).concat(marques)
     .sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1)).filter(meteoVoit);
+  /* La sécurité se calcule même en mode nuit : une attaque ne dort pas. Les
+     conseils finançables maintenant, ceux de la première connexion, nourrissent
+     les dépenses d'urgence ; vidés en mode nuit, le plan retombe sur le stock. */
+  try{ const sc = securiteHtml(s0.acts); document.getElementById('tdSecuAlerte').innerHTML = sc.alerte; document.getElementById('tdSecu').innerHTML = sc.bloc;
+    /* Une attaque est critique : son onglet prend la main, une fois. */
+    RESUMES.attaque = resumeDe(sc.items, 'attaque');
+    RESUMES.securite = sc.rappel ? {count:1, maxLevel:'imp', critiques:[]} : null; }
+  catch(e){ console.error('Copilote : plan de sécurité', e); }
   RESUMES.alertes = resumeDe(alerts.map(a=>({sev:a.sev, key:a.what})), 'alertes');
   const ignBtn = a => a.c ? `<button class="btn sm ghost" data-ign="${esc(ignKey(a.c))}" title="Ne plus l'afficher tant que rien ne change (24 h au plus)">Ignorer</button>` : '';
   /* Ouverte par défaut, et ouverte de force tant qu'une alerte critique y
@@ -8515,9 +9008,6 @@ function bind(){
     if(k === 'night') modeNuit(S.day.night);
     if(k === 'backHour' && S.day.night) modeNuit(true);
     save();
-    /* L'alarme du coucher vit dans le navigateur : elle se repose dès que
-       l'heure de nuit change, sinon elle sonnerait à l'ancienne. */
-    if(k === 'nightStart' || k === 'nightEnd') armeNuit();
     /* Le mode nuit filtre les cartes et change l'en-tête : il faut tout
        redessiner, pas seulement rafraîchir le volet. */
     k === 'night' ? render() : refresh();
@@ -8567,6 +9057,19 @@ function bind(){
     poseCoche(el.dataset.posep, el.checked); save(); render();
   }));
   view.querySelectorAll('input[data-t]').forEach(el=>el.addEventListener('input',()=>{ S.tech[el.dataset.t]=Math.max(0,parseInt(el.value)||0); changed(); }));
+  /* La sécurité vit dans `S.settings.secu`, toujours réécrite entière depuis
+     `secu()` : une sauvegarde abîmée en sort complète. Tout changement réarme
+     le rappel, dont l'heure et les jours vivent aussi côté service worker. */
+  const secuPose = f => { const c = secu(); f(c); S.settings.secu = c; changed(); armeRappel(); };
+  view.querySelectorAll('[data-secu-vault]').forEach(el=>el.addEventListener('change',()=>secuPose(c=>{
+    const id = el.dataset.secuVault; c.vaults = c.vaults.filter(x=>x!==id); if(el.checked) c.vaults.push(id); })));
+  view.querySelectorAll('[data-secu-jour]').forEach(el=>el.addEventListener('change',()=>secuPose(c=>{
+    const j = +el.dataset.secuJour; c.jours = c.jours.filter(x=>x!==j); if(el.checked) c.jours.push(j); c.jours.sort(); })));
+  view.querySelectorAll('[data-secu]').forEach(el=>el.addEventListener('change',()=>secuPose(c=>{
+    const k = el.dataset.secu;
+    if(k==='stationner') c.stationner = el.checked;
+    else if(/^\d{1,2}:\d{2}$/.test(el.value)) c[k] = el.value;
+  })));
   view.querySelectorAll('[data-set]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k=el.dataset.set, s=S.settings;
     if(k==='ratio'){ const r=el.value.split(':').map(Number); if(r.length===3 && r.every(x=>x>0)) s.ratio=r; }
@@ -8700,6 +9203,7 @@ view.addEventListener('click', e=>{
   /* « Préparer » ouvre le formulaire de flotte du jeu, déjà rempli. Un bouton
      et non la carte entière : le clic de carte ignore les boutons exprès, pour
      que « Lancé » et « Fait » ne fassent jamais changer de page par surprise. */
+  if(e.target.closest('[data-fsvu]')) fsRappelVu();
   const pr = e.target.closest('[data-prep]');
   if(pr){
     const url = pr.dataset.prep;
@@ -8898,11 +9402,9 @@ function sainEtat(){
   if(!(S.day.focus in FOCUS)) S.day.focus = def.day.focus;
   S.day.night = !!S.day.night;
   S.day.focusSet = !!S.day.focusSet;
-  /* `backHour` est interpolé dans un `value=""` sans esc, et `askedOn` se
-     compare à une date : une sauvegarde ou une synchro peut y mettre n'importe
-     quoi. Null et chaîne vide sont les seules absences. */
+  /* `backHour` est interpolé dans un `value=""` sans esc : une sauvegarde ou
+     une synchro peut y mettre n'importe quoi. Null et chaîne vide sont les seules absences. */
   S.day.backHour = S.day.backHour == null || S.day.backHour === '' ? null : nb(S.day.backHour, null, 0, 23);
-  if(typeof S.day.askedOn !== 'string') S.day.askedOn = '';
   /* Un `until` truqué garderait le plan en veille pour toujours, ou le
      rallumerait à chaque battement. */
   S.day.until = Number.isFinite(Number(S.day.until)) ? Math.max(0, +S.day.until) : 0;
@@ -8967,7 +9469,7 @@ view.addEventListener('click', e=>{
 setInterval(tickTimers, 1000);
 /* publieLePlan est sans effet sur Aujourd'hui, qui se publie en se dessinant ;
    sur Empire, REFRESH.empire ne publie rien : sans cet appel la tuile resterait muette. */
-setInterval(()=>{ if(tab==='today'||tab==='empire') garderVue(()=>{ REFRESH[tab](); cartesSync(); }); publieLePlan(); finDeNuit(); nightBar(); }, 30000);
+setInterval(()=>{ if(tab==='today'||tab==='empire') garderVue(()=>{ REFRESH[tab](); cartesSync(); }); publieLePlan(); finDeNuit(); }, 30000);
 /** Recalcule le plan du jour pour la page du jeu, sans rien afficher.
     `today` le publie en se dessinant ; ailleurs, c'est à nous de le faire.
     Le dessin qui suit la publication écrit dans des éléments de l'onglet
@@ -9095,6 +9597,7 @@ function applyGame(g){
   }
   S.timers = S.timers.filter(t=>t.game || !t.manual || !S.timers.some(g=>g.game && !g.done && g.kind===t.kind && g.k===t.k && (g.kind!=='b' || g.pid===t.pid)));
   S.moves = g.moves || [];
+  S.arrived = g.arrived || [];
   /* Une sonde en vol vaut un « Fait » : la cible sort de la liste sans clic.
      Mission 6 = espionnage ; le jeu la montre tant qu'elle n'est pas rentrée. */
   for(const m of S.moves) if(m.mission===6 && !m.ret && m.dest) S.raids[m.dest] = {at:Date.now(), probe:true};
@@ -9342,47 +9845,10 @@ document.getElementById('bigAlertOk').addEventListener('click', ()=>chrome.stora
 chrome.storage.local.get('pendingAlerts', d=>mirrorAlerts(d.pendingAlerts));
 chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.pendingAlerts) mirrorAlerts(ch.pendingAlerts.newValue); });
 
-/* ---------- la question du coucher ---------- */
-/* Le joueur ne doit pas avoir à se souvenir de basculer : une heure avant sa
-   nuit, le copilote demande s'il passe en sauvegarde des ressources. La
-   question sonne deux fois, par deux chemins qui n'ont pas le même angle mort :
-   une notification du navigateur, qui marche panneau fermé, et un bandeau dans
-   le panneau, qui marche quand la notification a été manquée ou refusée. Les
-   deux aboutissent à `repondNuit`.
-
-   Le service worker ne peut pas poser l'heure lui-même : les réglages vivent
-   dans le stockage local du panneau, qu'il ne lit pas. C'est donc le panneau
-   qui arme l'alarme, et l'alarme survit à sa fermeture. */
-
-/** Le jour civil d'un instant : la clé qui dit « déjà demandé cette nuit ». */
-function jourCivil(ms){ const d = new Date(ms); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
-
-/**
- * Pose l'alarme du coucher, une heure avant la nuit, et la répète chaque jour.
- * Même nom, donc même alarme : l'appeler deux fois ne l'empile pas.
- */
-function armeNuit(){
-  if(!IS_EXT || typeof chrome === 'undefined' || !chrome.alarms) return;
-  if(+S.day.nightStart === +S.day.nightEnd){ chrome.alarms.clear('nuit'); return; }
-  const d = new Date(); d.setHours(+S.day.nightStart, 0, 0, 0);
-  let t = d.getTime() - 3600e3;
-  while(t <= Date.now()) t += 864e5;
-  chrome.alarms.create('nuit', {when:t, periodInMinutes:1440});
-}
-
-/**
- * Faut-il poser la question ? Dans l'heure qui précède la nuit et les deux
- * heures qui la suivent — assez large pour qu'un panneau ouvert en retard la
- * pose encore, assez étroit pour qu'elle ne traîne pas jusqu'au matin.
- * @param {number} now horodatage courant
- */
-function nightDue(now){
-  if(S.day.night) return false;                                  // déjà à l'abri
-  if(+S.day.nightStart === +S.day.nightEnd) return false;        // aucune nuit réglée
-  if(S.day.askedOn === jourCivil(now)) return false;             // répondu cette nuit
-  const d = new Date(now); d.setHours(+S.day.nightStart, 0, 0, 0);
-  return now >= d.getTime() - 3600e3 && now < d.getTime() + 2*3600e3;
-}
+/* ---------- le mode nuit ---------- */
+/* La question du coucher — alarme « nuit », notification et bandeau — a laissé
+   la place au rappel de mise à l'abri (Réglages › Sécurité), qui ne fait
+   qu'allumer l'icône. Le mode nuit, lui, reste : il s'allume à la main. */
 
 /**
  * Allume ou éteint la mise à l'abri, et retient jusqu'à quand elle vaut.
@@ -9420,66 +9886,15 @@ function finDeNuit(){
   return true;
 }
 
-/** Montre ou cache le bandeau de la question. */
-function nightBar(){
-  const box = document.getElementById('nightAsk');
-  if(box) box.hidden = !nightDue(Date.now());
-}
-
-/**
- * « On fait les mouvements » : le jeu remplit lui-même son formulaire de flotte
- * depuis l'URL — vaisseaux, destination, mission. Le chargement des ressources
- * et la vitesse n'y passent pas, et le copilote ne clique jamais à la place du
- * joueur. Il ouvre donc la page prête du plus gros lot ; les lots suivants
- * restent en cartes dans Sécurité.
- */
-function ouvreAbri(){
-  const fs = fleetsavePlan(Date.now());
-  if(!fs){ toast('Rien à mettre à l\'abri : aucune planète ne porte assez de stock'); return; }
-  const url = fleetUrl({dest:fs.dest, mission:FS_MISSION[fs.mission], ships:fs.ships, p:S.planets.indexOf(fs.from)});
-  if(!url){ toast('Serveur inconnu : ouvre une page du jeu, puis la carte Sécurité'); return; }
-  if(IS_EXT) chrome.runtime.sendMessage({type:'go', url});
-  else window.open(url, '_blank', 'noopener');
-  toast(`Vitesse ${fs.pct} % et chargement : à régler à la main`);
-}
-
-/**
- * La réponse du joueur, d'où qu'elle vienne. Oui bascule en mode nuit et ouvre
- * la page de flotte ; non classe la question pour la nuit. Dans les deux cas
- * elle ne revient pas : `askedOn` la retient.
- * @param {boolean} oui
- */
-function repondNuit(oui){
-  S.day.askedOn = jourCivil(Date.now());
-  /* Une nuit n'est pas une absence de jour : l'heure de retour donnée pour une
-     absence ne doit pas décider du vol de cette nuit. */
-  /* `backHour` laissé par une absence passée dirait au vol de cette nuit de
-     rentrer à son heure à elle : un coucher se cale sur la fin de nuit. */
-  if(oui){ S.day.backHour = null; modeNuit(true); }
-  save();
-  const box = document.getElementById('nightAsk'); if(box) box.hidden = true;
-  render();
-  if(oui) ouvreAbri();
-}
-
-/* La réponse donnée sur la notification arrive par le stockage. Périmée, elle
-   ne décide rien : un « oui » d'hier soir retrouvé au matin mettrait le joueur
-   à l'abri alors qu'il vient de se lever. */
-function consommeReponseNuit(r){
-  if(!r || typeof r !== 'object' || !Number.isFinite(+r.at) || Date.now() - +r.at > 4*3600e3) return;
-  try{ chrome.storage.local.remove('nightAnswer'); }catch(e){}
-  repondNuit(!!r.oui);
-}
-const nightAskEl = document.getElementById('nightAsk');
-if(nightAskEl) nightAskEl.addEventListener('click', e=>{
-  const b = e.target.closest('[data-nuit]'); if(!b) return;
-  repondNuit(b.dataset.nuit === 'oui');
-});
-chrome.storage.local.get('nightAnswer', d=>consommeReponseNuit(d.nightAnswer));
-chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.nightAnswer) consommeReponseNuit(ch.nightAnswer.newValue); });
-armeNuit();
 finDeNuit();
-nightBar();
+armeRappel();
+/* Le badge du rappel : allumé par le service worker, éteint quand le joueur
+   ouvre le plan. Le panneau ouvert le suit pour mettre le plan en avant. */
+if(IS_EXT) try{
+  chrome.storage.local.get('fsRappelOn', d=>{ FS_RAPPEL_ON = d && d.fsRappelOn || null; if(FS_RAPPEL_ON && tab==='today') refresh(); });
+  chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.fsRappelOn){ FS_RAPPEL_ON = ch.fsRappelOn.newValue || null; if(tab==='today') refresh(); } });
+}catch(e){}
+setInterval(majRebours, 1000);
 
 /* ---------- version, historique, mise à jour ---------- */
 

@@ -411,15 +411,12 @@ Le **mode nuit** (bouton 🌙 de l'en-tête, ou Réglages › Plan du jour › �
 l'abri ») vide le plan et ne laisse que la sécurité. C'est l'inverse du besoin
 ici.
 
-**Depuis la v1.55, il se propose tout seul.** Une heure avant `nightStart`, une
-alarme du navigateur sonne — notification avec deux boutons *Oui* / *Non*, qui
-marche panneau fermé — et le panneau affiche le même bandeau. *Oui* bascule en
-mode nuit et ouvre aussitôt la page de flotte déjà remplie (vaisseaux,
-destination, mission) du plus gros lot ; les autres lots restent en cartes dans
-Sécurité. Le **chargement des ressources et la vitesse** ne passent pas par
-l'URL : le jeu ne les accepte pas en paramètre, et le copilote ne clique jamais
-à ta place. *Non* classe la question pour la nuit ; elle ne revient pas avant
-le lendemain.
+**Il ne se propose plus tout seul (v2.9).** La question du coucher —
+alarme `nuit`, notification *Oui* / *Non* et bandeau du panneau, une heure avant
+`nightStart` — a été retirée. Ce qui la remplace est le **rappel de mise à
+l'abri** (Réglages › Sécurité) : à l'heure choisie, les jours cochés, l'icône
+affiche « FS » sans aucune notification, jusqu'à ce que le joueur ouvre *Plan
+de la nuit* dans Aujourd'hui. Le mode nuit s'allume désormais à la main.
 
 **Et il s'éteint tout seul.** L'allumage retient l'instant où la mise à l'abri
 cesse de valoir — le même `wakeTime` qui choisit la vitesse de la flotte, donc
@@ -598,7 +595,6 @@ et le Dock spatial dans le modèle. Le code est bon, le commentaire trompe.
 | Horizon | `day.horizon` | 12 · 24 · 48 h | **24 h** | Durée simulée, et période du « Production +X % » |
 | Mise à l'abri (nuit, absence) | `day.night` | oui / non | **non** | Mode nuit : vide le plan, ne garde que la sécurité. Aussi sur le bouton 🌙 de l'en-tête, et proposé tout seul une heure avant `nightStart` |
 | Retour vers (heure) | `day.backHour` | 0–23 ou vide | **vide** | Heure de retour d'une absence de jour ; vide = absence de la longueur d'une nuit. Ignoré quand le coucher est plus proche qu'une nuit |
-| *(interne)* | `day.askedOn` | jour civil | **vide** | Le jour où la question du coucher a reçu sa réponse, pour ne pas la reposer |
 | *(interne)* | `day.until` | horodatage | **0** | Instant où la mise à l'abri cesse de valoir ; passé, le mode jour revient seul |
 
 ### 6.2 Réglages › Formes de vie découvertes
