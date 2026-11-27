@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk, rules) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'computeDefenseGap', 'resolveActiveModel', 'defPropositions', 'defPlancherDe', 'defEnFile', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'dayValue', 'modeNuit', 'finDeNuit', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES', 'missionKey', 'UI', 'uiOuvert', 'uiNote', 'uiVu', 'uiPurge', 'uiReset', 'uiEcrit', 'fold', 'garderVue', 'carteDetails', 'REGLES', 'REGLES_ERR', 'EVAL', 'regle', 'regleSaine', 'reglePose', 'regleActive', 'gabarit', 'constats', 'constatsDe', 'SEV_LABEL', 'ignore', 'ignKey', 'constatsVus', 'ignClean', 'conseilsHtml', 'reglesCard', 'planeteOuverte', 'cibleMines', 'mineEnRetard', 'naniteRetard', 'laboEnRetard', 'rechercheAilleurs', 'reglesRecherche', 'regOffHtml', 'raceDe', 'baseDe', 'lfNom', 'lfNomConnu', 'lfManques', 'rescanner', 'lfNomsRetiens', 'raceRows', 'alerteNeuve', 'ongletAffiche'], api, ext, prioAsk, rules);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'computeDefenseGap', 'resolveActiveModel', 'defPropositions', 'defPlancherDe', 'defEnFile', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'dayValue', 'modeNuit', 'finDeNuit', 'fmt', 'fmtLigne', 'luneMorts', 'gidDe', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES', 'missionKey', 'UI', 'uiOuvert', 'uiNote', 'uiVu', 'uiPurge', 'uiReset', 'uiEcrit', 'fold', 'garderVue', 'carteDetails', 'REGLES', 'REGLES_ERR', 'EVAL', 'regle', 'regleSaine', 'reglePose', 'regleActive', 'gabarit', 'constats', 'constatsDe', 'SEV_LABEL', 'ignore', 'ignKey', 'constatsVus', 'ignClean', 'conseilsHtml', 'reglesCard', 'planeteOuverte', 'cibleMines', 'mineEnRetard', 'naniteRetard', 'laboEnRetard', 'rechercheAilleurs', 'reglesRecherche', 'regOffHtml', 'raceDe', 'baseDe', 'lfNom', 'lfNomConnu', 'lfManques', 'rescanner', 'lfNomsRetiens', 'raceRows', 'alerteNeuve', 'ongletAffiche'], api, ext, prioAsk, rules);
 }
 /** L'application avec un rules.json donné — null pour un fichier illisible. */
 const appRegles = (rules, modifier, ext) => app(modifier, null, null, ext, null, rules);
@@ -10513,38 +10513,30 @@ t('une planète sans aucune forme de vie garde son volet de stock', () => {
 });
 
 
-/* ---------- le mode lune : l'état et l'interrupteur ---------- */
+/* ---------- le mode lune retiré ---------- */
 
-t('le mode lune part éteint et se range dans l\'état', () => {
-  const g = app();
-  assert.equal(g.S.lune.on, false);
-  assert.equal(g.S.lune.impact, null);
-  assert.deepEqual(g.S.lune.tirs, {});
-  assert.equal(g.S.lune.rendu.faits, 0);
+t('une sauvegarde qui porte encore le mode lune le perd, sans lever', () => {
+  // la fixture du harnais porte `lune` comme une sauvegarde d'avant le retrait
+  const g = app(s => { s.lune = { on: true, impact: SOIR + 3600e3, tirs: { mere: 4 }, rendu: { coords: '1:1:1', n: 9, dus: 2, faits: 0 } }; });
+  assert.equal(g.S.lune, undefined);
+  assert.ok(!g.dailyMissions().some(m => m.q === 'Lune' || /^lune-/.test(m.id)), 'plus aucune carte du mode');
 });
 
-t('une sauvegarde d\'avant le mode lune ne lève pas', () => {
-  const g = app(s => { delete s.lune; });
-  assert.equal(g.S.lune.on, false);
-});
-
-/* ---------- le mode lune : la saisie ---------- */
-
-t('une date-heure saisie devient un instant, et le vide l\'efface', () => {
-  const g = app();
-  assert.equal(g.luneQuand('2026-11-25T01:40'), new Date(2026, 10, 25, 1, 40).getTime());
-  assert.equal(g.luneQuand(''), null);
-  assert.equal(g.luneQuand('n\'importe quoi'), null);
-});
-
-t('l\'onglet Lune porte les champs du mode', () => {
-  const g = app(s => { s.ui.tool = 'moon'; s.lune.rendu.coords = '1:140:8'; });
+t('l\'onglet Lune garde le calculateur, sans les champs du mode', () => {
+  const g = app(s => { s.ui.tool = 'moon'; });
   const html = lu(g.VIEWS.moon());
-  assert.ok(/datetime-local/.test(html), 'l\'heure d\'impact');
-  assert.ok(/1:140:8/.test(html), 'la planète du camarade');
+  assert.ok(/Tir de lune/.test(html), 'le calculateur reste');
+  assert.ok(!/Mode lune|datetime-local|data-lune=/.test(html), 'plus de champs du mode');
 });
 
-/* ---------- le mode lune : ce qui meurt, partagé ---------- */
+t('la campagne de lune ne voyage plus, et son reste est effacé du stockage partagé', () => {
+  const g = app();
+  assert.ok(!('sy:lune' in g.syncOut()));
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  assert.match(src, /chrome\.storage\.sync\.remove\('sy:lune'\)/, 'syncNettoie efface la clé orpheline');
+});
+
+/* ---------- la carte Lune : ce qui meurt ---------- */
 
 t('ce qui meurt est borné par ce que la défense tue', () => {
   const g = app(HQ);
@@ -10559,248 +10551,6 @@ t('sans défense relevée, tout meurt et on le dit', () => {
   const r = g.luneMorts(g.S.planets[0], 'lf', 1667, 0);
   assert.equal(r.tues, null);
   assert.equal(r.morts, 1667);
-});
-
-/* ---------- le mode lune : les cartes du côté reçu ---------- */
-
-/** Le mode allumé sur le HQ du relevé, un impact dans `dans` millisecondes.
-    L'instant se compte depuis SOIR, l'horloge que le harnais donne à l'appli,
-    et non depuis la vraie : les deux sont à quinze jours l'une de l'autre.
-    La flotte au sol est celle du vrai HQ : c'est elle que la carte chiffre. */
-const MODE = dans => s => {
-  HQ(s);
-  s.planets[0].ships = { lf: 240, hf: 538, pr: 372, rec: 31 };
-  s.ui.tool = 'today';
-  s.moonCalc = { pid: s.planets[0].id, ship: 'lf', n: 900, bou: 12, viser: 12 };
-  s.lune = { on: true, impact: SOIR + dans, tirs: {},
-             rendu: { coords: '', n: 0, dus: 0, faits: 0 } };
-};
-const cartes = g => g.dailyMissions().filter(m => m.q === 'Lune');
-const txtDe = c => lu(c.what + ' ' + c.why + ' ' + (c.how || []).join(' '));
-
-t('avant l\'impact, la carte dit de sortir la flotte et ce qu\'elle vaut', () => {
-  const g = app(MODE(3600e3)), c = cartes(g);
-  assert.equal(c.length, 1);
-  assert.ok(/sors ta flotte/i.test(txtDe(c[0])), txtDe(c[0]));
-  assert.ok(/4,26 M/.test(txtDe(c[0])), 'ce qu\'elle vaut : ' + txtDe(c[0]));
-});
-
-t('après l\'impact, la carte envoie ramasser et rappelle le pushing', () => {
-  const g = app(MODE(-600e3)), c = cartes(g);
-  assert.ok(/recycleur/i.test(txtDe(c[0])), txtDe(c[0]));
-  assert.ok(/pushing/i.test(txtDe(c[0])), 'la règle du jeu : ' + txtDe(c[0]));
-});
-
-t('un impact passé de plus de 24 h demande ce qui s\'est passé', () => {
-  const g = app(MODE(-25 * 3600e3)), c = cartes(g);
-  assert.ok(/passé|confirme/i.test(lu(c[0].what)), lu(c[0].what));
-  assert.ok(!/recycleur/i.test(lu(c[0].what)), 'plus de débris à ramasser');
-});
-
-t('sans heure d\'impact, la carte demande le nombre et l\'heure', () => {
-  const g = app(s => { MODE(0)(s); s.lune.impact = null; }), c = cartes(g);
-  assert.equal(c.length, 1);
-  assert.ok(/quand|heure/i.test(txtDe(c[0])), txtDe(c[0]));
-});
-
-t('le mode éteint ne sort aucune carte Lune', () => {
-  const g = app(s => { MODE(3600e3)(s); s.lune.on = false; });
-  assert.equal(cartes(g).length, 0);
-});
-
-t('le mode nuit ne fait pas disparaître la carte Lune', () => {
-  const g = app(s => { MODE(3600e3)(s); s.day.night = true; });
-  assert.equal(cartes(g).length, 1, 'un impact à 2 h du matin reste dit');
-});
-
-t('un Non ne tue pas la carte Lune pour la campagne', () => {
-  const g = app(s => { MODE(3600e3)(s); s.daily = { done: {}, no: { 'm:lune-sors': true } }; });
-  g.REFRESH.today();
-  assert.ok(/sors ta flotte/i.test(lu(g.html().tdNow || '')), lu(g.html().tdNow || ''));
-});
-
-t('répondre non compte le tir et rouvre l\'attente', () => {
-  const g = app(MODE(-600e3));
-  g.luneRepond(false);
-  assert.equal(g.S.lune.tirs[g.S.planets[0].id], 1);
-  assert.equal(g.S.lune.impact, null);
-  assert.equal(g.S.lune.on, true);
-});
-
-t('répondre oui solde la campagne et éteint le mode', () => {
-  const g = app(s => { MODE(-600e3)(s); s.lune.tirs = { [s.planets[0].id]: 8 }; });
-  g.luneRepond(true);
-  assert.equal(g.S.lune.tirs[g.S.planets[0].id], 0);
-  assert.equal(g.S.lune.on, false);
-});
-
-/* ---------- le mode lune : l'ordre dans Aujourd'hui ---------- */
-
-/* Un chantier se reconnaît à son bouton « Lancé », qui porte `data-launch` :
-   actHtml ne pose aucune classe sur son `<li>`. */
-t('dans l\'heure avant l\'impact, la carte Lune passe avant les constructions', () => {
-  const g = app(MODE(30 * 60e3));
-  assert.ok(g.luneUrgent(), 'la fenêtre est ouverte');
-  g.REFRESH.today();
-  const h = lu(g.html().tdNow || '');
-  const chantier = h.indexOf('data-launch');
-  assert.ok(chantier >= 0, 'le plan propose bien un chantier : ' + h.slice(0, 200));
-  assert.ok(h.indexOf('ors ta flotte') < chantier, 'la lune d\'abord : ' + h.slice(0, 300));
-});
-
-t('hors fenêtre, le plan garde sa forme', () => {
-  const g = app(MODE(6 * 3600e3));
-  assert.ok(!g.luneUrgent(), 'la fenêtre est fermée');
-  g.REFRESH.today();
-  const h = lu(g.html().tdNow || '');
-  assert.ok(/ors ta flotte/.test(h), 'la carte est là : ' + h.slice(0, 200));
-  assert.ok(h.indexOf('data-launch') < h.indexOf('ors ta flotte'), 'mais après les chantiers');
-});
-
-t('mode éteint, aucune fenêtre d\'urgence', () => {
-  const g = app(s => { MODE(30 * 60e3)(s); s.lune.on = false; });
-  assert.ok(!g.luneUrgent());
-});
-
-/* ---------- le mode lune : le compteur honnête ---------- */
-
-t('après cinq tirs, la carte dit la probabilité cumulée et jamais le reste', () => {
-  const g = app(s => { MODE(3600e3)(s); s.lune.tirs = { [s.planets[0].id]: 5 }; });
-  const d = g.luneDeja(g.S.planets[0], 5);
-  assert.ok(Math.abs(d - 43.5) < 1.5, 'cumulée : ' + d);
-  const txt = cartes(g).map(txtDe).join(' ');
-  assert.ok(/4[0-9] %/.test(txt), 'elle est dite : ' + txt);
-  assert.ok(!/il (te )?reste \d+ tirs?/i.test(txt), 'jamais un reste : ' + txt);
-});
-
-t('une configuration à zéro pour cent ne donne aucun pourcentage de joueurs', () => {
-  const g = app(s => { MODE(3600e3)(s); s.moonCalc.n = 50; s.lune.tirs = { [s.planets[0].id]: 5 }; });
-  assert.equal(g.luneDeja(g.S.planets[0], 5), null);
-  assert.ok(!/des joueurs/.test(cartes(g).map(txtDe).join(' ')));
-});
-
-t('au premier tir, rien de cumulé à annoncer', () => {
-  const g = app(MODE(3600e3));
-  assert.ok(!/des joueurs/.test(cartes(g).map(txtDe).join(' ')));
-});
-
-t('le compteur d\'une planète ne touche pas celui d\'une autre', () => {
-  const g = app(s => { MODE(-600e3)(s); s.lune.tirs = { autre: 7 }; });
-  g.luneRepond(false);
-  assert.equal(g.S.lune.tirs.autre, 7);
-  assert.equal(g.S.lune.tirs[g.S.planets[0].id], 1);
-});
-
-/* ---------- le mode lune : le côté où il rend ---------- */
-
-const DETTE = s => { MODE(3600e3)(s);
-  s.lune.rendu = { coords: '1:140:8', n: 900, dus: 9, faits: 3 }; };
-
-t('tant qu\'il doit des tirs, la carte dit ce qu\'il manque de chasseurs', () => {
-  const g = app(s => { DETTE(s); s.planets[0].ships = { lf: 560 }; });
-  assert.equal(g.luneDette().manque, 340);
-  const txt = cartes(g).map(txtDe).join(' ');
-  assert.ok(/340/.test(txt), txt);
-  assert.ok(/4 sur 9/.test(txt), 'où il en est : ' + txt);
-});
-
-t('quand les chasseurs sont là, la carte dit de les envoyer', () => {
-  const g = app(s => { DETTE(s); s.planets[0].ships = { lf: 900 }; });
-  assert.equal(g.luneDette().manque, 0);
-  assert.ok(/1:140:8/.test(cartes(g).map(txtDe).join(' ')), 'et où');
-});
-
-t('dette soldée, plus rien à rendre et aucun chasseur dans les cartes', () => {
-  const g = app(s => { DETTE(s); s.lune.rendu.faits = 9; });
-  assert.equal(g.luneDette(), null);
-  assert.ok(!/chasseurs légers/i.test(cartes(g).map(c => lu(c.what)).join(' ')));
-});
-
-t('sans dette, rien à rendre', () => {
-  assert.equal(app(MODE(3600e3)).luneDette(), null);
-});
-
-t('envoyer un tir avance la dette et pas le compteur des tirs reçus', () => {
-  const g = app(s => { DETTE(s); s.planets[0].ships = { lf: 900 }; });
-  g.luneEnvoye();
-  assert.equal(g.S.lune.rendu.faits, 4);
-  assert.equal(g.S.lune.tirs[g.S.planets[0].id] || 0, 0);
-});
-
-/* ---------- le mode lune : ce que la revue de branche a trouvé ---------- */
-
-t('les boutons du mode passent par la délégation, pas par un id', () => {
-  /* bind() tourne avant refresh(), et la vue Aujourd'hui ne porte qu'un
-     #tdNow vide : un bouton branché par son id n'existe pas encore au moment
-     du bind, et ne serait jamais écouté dans un vrai navigateur. */
-  const g = app(MODE(-600e3));
-  g.REFRESH.today();
-  const h = g.html().tdNow || '';
-  assert.ok(/data-lune-do="oui"/.test(h), 'délégué : ' + h.slice(0, 300));
-  assert.ok(!/id="luneOui"/.test(h), 'et pas branché par un id');
-});
-
-t('un nom de planète à apostrophe se lit tel quel sur la carte', () => {
-  const g = app(s => { MODE(3600e3)(s); s.planets[0].name = 'L\'Oasis'; });
-  const c = cartes(g).find(x => x.id === 'lune-sors');
-  assert.ok(/L'Oasis/.test(c.what), 'taskHtml échappe déjà what : ' + c.what);
-  assert.ok(!/&#39;/.test(c.what), c.what);
-});
-
-t('la carte du tir mène la liste des missions, pour la page du jeu aussi', () => {
-  const g = app(MODE(30 * 60e3));
-  const ms = g.dailyMissions();
-  assert.equal(ms[0].id, 'lune-sors', 'en tête : ' + ms.slice(0, 3).map(m => m.id).join(', '));
-});
-
-t('le mode lune ne voyage pas entre les postes', () => {
-  const g = app();
-  assert.ok(!('sy:lune' in g.syncOut()), 'tirs est indexé par un id tiré au sort par poste');
-});
-
-t('une chance nulle dit pourquoi au lieu d\'annoncer 0 % tout court', () => {
-  const g = app(s => { MODE(3600e3)(s); s.moonCalc.n = 0; });
-  const c = cartes(g).find(x => x.id === 'lune-sors');
-  assert.ok(!/0 % de chance/.test(c.why), 'pas de 0 % nu : ' + c.why);
-  assert.ok(/Outils . Lune|combien/i.test(c.why), 'et la raison : ' + c.why);
-});
-
-t('des survivants au combat : la carte chiffre ce qu\'il pillera', () => {
-  /* Trois mille chasseurs contre une défense qui en tue un millier : il gagne,
-     et ce qui dort au sol part avec lui. */
-  const g = app(s => { MODE(3600e3)(s); s.moonCalc.n = 3000;
-                       s.planets[0].stock = { m: 4e6, c: 2e6, d: 1e6, at: Date.now() }; });
-  const c = cartes(g).find(x => x.id === 'lune-sors');
-  const tues = g.luneMorts(g.S.planets[0], 'lf', 3000, 12).tues;
-  assert.ok(tues < 3000, 'le cas testé est bien celui de survivants : ' + tues);
-  assert.ok(/ressources/i.test(c.why), 'le stock est nommé : ' + c.why);
-  /* 7 M seraient pillables, mais la soute des survivants plafonne à 102 k :
-     c'est elle qui décide, pas la moitié du stock. */
-  assert.ok(/102 k/.test(lu(c.why)), 'et chiffré : ' + lu(c.why));
-  assert.ok((c.how || []).some(h => /Charge/.test(h)), 'le geste : ' + (c.how || []).join(' | '));
-});
-
-t('une défense qui tue tout ne fait pas déménager le stock pour rien', () => {
-  const g = app(s => { MODE(3600e3)(s); s.moonCalc.n = 50;
-                       s.planets[0].stock = { m: 4e6, c: 2e6, d: 1e6, at: Date.now() }; });
-  const c = cartes(g).find(x => x.id === 'lune-sors');
-  assert.ok(/ne risque rien/.test(c.why), 'le stock est hors de danger : ' + c.why);
-  assert.ok(!(c.how || []).some(h => /Charge/.test(h)), 'et pas de geste inutile');
-});
-
-t('la nuit ne garde que la carte qui met à l\'abri', () => {
-  const g = app(s => { DETTE(s); s.day.night = true; });
-  const ids = cartes(g).map(m => m.id);
-  assert.deepEqual(ids, ['lune-sors'], 'la dette n\'est pas de la mise à l\'abri : ' + ids.join(', '));
-});
-
-t('dans la fenêtre, seule la carte du tir passe devant les chantiers', () => {
-  const g = app(s => { DETTE(s); s.planets[0].ships = { lf: 560 }; });
-  g.REFRESH.today();
-  const h = lu(g.html().tdNow || ''), ch = h.indexOf('data-launch');
-  assert.ok(ch >= 0, 'un chantier est proposé');
-  assert.ok(h.indexOf('ors ta flotte') < ch, 'le tir devant');
-  assert.ok(h.indexOf('Il te manque') > ch, 'la dette derrière');
 });
 
 /* `fmt` bascule en « k » à cent mille. Sur une colonne de sept planètes qui
@@ -10825,131 +10575,8 @@ t("le résumé du stock s'écrit comme le champ qu'il sert à recaler", () => {
   assert.ok(!/\bk\b|\bM\b|\bG\b/.test(resume), 'un « 1,20 M » au-dessus d\'un champ qui dit 1200000 : ' + resume);
 });
 
-/* ---------- la campagne de lune d'un poste à l'autre ---------- */
-
-/** Deux planètes que le jeu nomme, et une campagne en cours sur la première. */
-const CAMPAGNE = s => {
-  s.planets[0].gid = '101'; s.planets[1].gid = '102';
-  s.moonCalc = { pid: s.planets[0].id, ship: 'lf', n: 900, bou: 12, viser: 12 };
-  s.lune = { on: true, impact: 1795600000000, tirs: { [s.planets[0].id]: 5 },
-             rendu: { coords: '1:140:8', n: 900, dus: 9, faits: 3 } };
-};
-
-t('la campagne part avec des identifiants de jeu, pas des identifiants locaux', () => {
-  const g = app(CAMPAGNE), p = g.luneOut();
-  assert.equal(p.cible, '101');
-  assert.deepEqual(p.tirs, { '101': 5 });
-  assert.equal(p.impact, 1795600000000);
-  assert.equal(p.on, true);
-  assert.equal(p.n, 900);
-  assert.equal(p.rendu.faits, 3);
-});
-
-t('une planète que le jeu ne nomme pas retient tout le paquet', () => {
-  const g = app(s => { CAMPAGNE(s); delete s.planets[0].gid; });
-  assert.equal(g.luneOut(), undefined, 'mieux vaut ne rien envoyer qu\'un paquet à moitié traduit');
-});
-
-t('un poste neuf, sans aucun identifiant de jeu, n\'envoie rien et ne lève pas', () => {
-  const g = app(s => { CAMPAGNE(s); delete s.planets[0].gid; delete s.planets[1].gid; });
-  assert.equal(g.luneOut(), undefined);
-});
-
-t('deux planètes au même identifiant de jeu ne perdent pas le compteur', () => {
-  const g = app(s => { CAMPAGNE(s); s.planets[1].gid = '101';
-    s.lune.tirs[s.planets[1].id] = 2; });
-  const p = g.luneOut();
-  assert.equal(Object.keys(p.tirs).length, 1, 'les deux se rangent sous le même gid');
-  assert.equal(p.tirs['101'], 7, 'les deux compteurs s\'additionnent plutôt que l\'un efface l\'autre');
-});
-
-t('syncOut emporte la campagne', () => {
-  const g = app(CAMPAGNE);
-  assert.equal(g.syncOut()['sy:lune'].cible, '101');
-});
-
-/* ---------- la campagne de lune qui arrive ---------- */
-
-t('la campagne revient sur les identifiants de ce poste', () => {
-  const g = app(CAMPAGNE), r = g.luneIn(g.luneOut());
-  assert.equal(r.moonCalc.pid, g.S.planets[0].id);
-  assert.deepEqual(r.lune.tirs, { [g.S.planets[0].id]: 5 });
-  assert.equal(r.lune.impact, 1795600000000);
-});
-
-t('une cible que ce poste ne connaît pas n\'écrit rien', () => {
-  const g = app(CAMPAGNE);
-  assert.equal(g.luneIn({ cible: '999', tirs: {}, on: true, impact: 1, rendu: {} }), null,
-    'c\'est ce qui faisait évacuer la mauvaise planète');
-});
-
-t('un paquet sans cible n\'écrit rien et ne lève pas', () => {
-  assert.equal(app(CAMPAGNE).luneIn({ tirs: {}, on: true }), null);
-  assert.equal(app(CAMPAGNE).luneIn(null), null);
-});
-
-t('un compteur venu d\'une planète inconnue ici est laissé de côté', () => {
-  const g = app(CAMPAGNE);
-  const p = g.luneOut(); p.tirs['999'] = 7;
-  const r = g.luneIn(p);
-  assert.deepEqual(r.lune.tirs, { [g.S.planets[0].id]: 5 }, 'le connu passe, l\'inconnu attend');
-});
-
-t('le paquet qu\'on vient d\'écrire ne change rien', () => {
-  const g = app(CAMPAGNE);
-  const avant = JSON.stringify(g.S.lune) + JSON.stringify(g.S.moonCalc);
-  g.syncApply(g.syncOut());
-  assert.equal(JSON.stringify(g.S.lune) + JSON.stringify(g.S.moonCalc), avant);
-});
-
-t('une campagne reçue remplace celle d\'ici', () => {
-  const g = app(s => { CAMPAGNE(s); s.lune.tirs = {}; s.lune.impact = null; });
-  g.syncApply({ 'sy:lune': { on: true, impact: 1795600000000, cible: '101',
-    tirs: { '101': 5 }, rendu: { coords: '1:140:8', n: 900, dus: 9, faits: 3 },
-    n: 900, ship: 'lf', bou: 12, viser: 12 } });
-  assert.equal(g.S.lune.impact, 1795600000000);
-  assert.equal(g.S.lune.tirs[g.S.planets[0].id], 5);
-  assert.equal(g.S.moonCalc.pid, g.S.planets[0].id);
-});
-
-/* ---------- la synchro de campagne : ce que la revue a trouvé ---------- */
-
-t('la campagne part même si la planète visée n\'a jamais été choisie à la main', () => {
-  /* `moonCalc.pid` vaut '' par défaut, mais la liste déroulante montre déjà
-     `moonPlanete()` comme sélectionnée : un joueur qui tire sur celle-là ne
-     touche jamais le champ, et rien ne partait. */
-  const g = app(s => { CAMPAGNE(s); s.moonCalc.pid = ''; });
-  const p = g.luneOut();
-  assert.notEqual(p, undefined, 'elle part');
-  assert.equal(p.cible, '101', 'celle que la carte montre déjà');
-});
-
-t('un poste qui n\'a pas pu lire la campagne n\'écrase pas la plus récente', () => {
-  const g = app(CAMPAGNE);
-  const paquet = g.luneOut();
-  g.S.lune.maj = 2000;
-  assert.equal(g.luneIn(Object.assign({}, paquet, { maj: 1000 })), null,
-    'plus vieille que la nôtre : refusée');
-  assert.notEqual(g.luneIn(Object.assign({}, paquet, { maj: 3000 })), null,
-    'plus récente : acceptée');
-});
-
-t('oublier une planète n\'empêche plus la campagne de partir', () => {
-  const g = app(s => { CAMPAGNE(s); s.lune.tirs[s.planets[1].id] = 2; });
-  g.forgetPlanet(g.S.planets[1].id);
-  assert.notEqual(g.luneOut(), undefined, 'son compteur part avec elle');
-});
-
-t('un compteur mis de côté revient au prochain échange', () => {
-  const g = app(CAMPAGNE);
-  const p = g.luneOut(); p.tirs['999'] = 3;
-  const r = g.luneIn(p);
-  g.S.lune = r.lune; g.S.moonCalc = r.moonCalc;
-  assert.equal(g.luneOut().tirs['999'], 3, 'il repart tel quel, il ne s\'efface pas');
-});
-
 t('un moonCalc abîmé ne fait pas taire toute la synchro', () => {
-  const g = app(s => { CAMPAGNE(s); s.moonCalc = null; });
+  const g = app(s => { s.moonCalc = null; });
   assert.doesNotThrow(() => g.syncOut(), 'priorités, centre et réglages continuent de partir');
 });
 
@@ -11896,7 +11523,7 @@ t('le profil écarte les cartes de poids nul et classe le reste', () => {
   const l = g.dailyMissions();
   assert.ok(l.length, 'il reste des cartes');
   assert.ok(l.every(m => g.poidsCat(g.catMission(m)) > 0), 'aucune carte de poids nul');
-  const w = l.filter(m => m.id !== 'lune-sors').map(m => g.poidsCat(g.catMission(m)));
+  const w = l.map(m => g.poidsCat(g.catMission(m)));
   for (let i = 1; i < w.length; i++)
     assert.ok(w[i] <= w[i - 1], `la liste descend en poids : ${w.join(' ')}`);
 });
@@ -12480,7 +12107,7 @@ function appMasque(modifier) {
   const st = fixtureState();
   st.planets.forEach(p => { p.stock.at = SOIR; });
   if (modifier) modifier(st);
-  return loadApp(st, SOIR, ['masque', 'setMasque', 'masqueBascule', 'toutMasque', 'masqueMigre', 'VIEWS', 'render', 'header'], null, true);
+  return loadApp(st, SOIR, ['masque', 'setMasque', 'masqueBascule', 'toutMasque', 'VIEWS', 'render', 'header'], null, true);
 }
 
 t('« Tout masquer » cache les trois, et « Tout afficher » les rend', () => {
@@ -12494,13 +12121,12 @@ t('un interrupteur du panneau s\'écrit dans le stockage partagé, que la page �
   const g = appMasque();
   g.setMasque({ pub: true, bandeau: false, chat: true });
   assert.deepEqual(g.shared().masque, { pub: true, bandeau: false, chat: true });
-  assert.ok(/🙈/.test(g.el('masqueBtn').textContent), 'l\'en-tête dit que quelque chose est masqué');
-  assert.ok(/Tout masquer/.test(g.el('masqueMenu').innerHTML));
+  assert.ok(/data-masque-tout>Tout masquer/.test(g.VIEWS.settings()));
   g.setMasque({ pub: true, bandeau: true, chat: true });
-  assert.ok(/Tout afficher/.test(g.el('masqueMenu').innerHTML), 'tout masqué : le raccourci rend tout');
+  assert.ok(/data-masque-tout>Tout afficher/.test(g.VIEWS.settings()), 'tout masqué : le raccourci rend tout');
 });
 
-t('les Réglages portent les trois mêmes cases que l\'en-tête', () => {
+t('les Réglages portent les trois cases, dans la carte « Page du jeu »', () => {
   const g = appMasque();
   g.setMasque({ pub: false, bandeau: true, chat: false });
   const h = g.VIEWS.settings();
@@ -12508,19 +12134,36 @@ t('les Réglages portent les trois mêmes cases que l\'en-tête', () => {
   assert.ok(/id="sMqbandeau" data-masque="bandeau" checked/.test(h), 'la case suit le choix');
   assert.ok(!/id="sMqpub" data-masque="pub" checked/.test(h));
   assert.ok(/data-masque-tout>Tout masquer/.test(h));
-  for (const k of ['pub', 'bandeau', 'chat']) assert.ok(g.el('masqueMenu').innerHTML.includes(`data-masque="${k}"`), k + ' dans l\'en-tête');
+  const i = h.indexOf('<h2>Page du jeu</h2>');
+  assert.ok(i >= 0 && h.indexOf('data-masque="pub"') > i, 'dans la carte Page du jeu');
+  for (const n of ['Masquer la pub', 'Masquer la bannière', 'Masquer le chat']) assert.ok(h.includes(n), n);
 });
 
-t('jamais réglé, « Épurer » coché devient pub et bandeau masqués', () => {
-  // le harnais répond {} à la première lecture du stockage partagé : la reprise se fait au chargement
-  const g = appMasque(s => { s.settings.lean = true; });
-  assert.deepEqual(g.shared().masque, { pub: true, bandeau: true, chat: false });
-  const h = appMasque();
-  assert.equal(h.shared().masque, undefined, 'sans « Épurer », rien à reprendre');
-  const k = appMasque(s => { s.settings.lean = true; });
-  k.setMasque({ pub: false, bandeau: false, chat: true });
-  k.masqueMigre({ masque: { pub: false, bandeau: false, chat: true } });
-  assert.deepEqual(k.shared().masque, { pub: false, bandeau: false, chat: true }, 'un choix déjà fait ne se réécrit pas');
+t('jamais réglé : les trois sont masqués, et rien n\'est écrit', () => {
+  // le harnais répond {} à la première lecture du stockage partagé : installation neuve
+  const g = appMasque();
+  assert.deepEqual(g.masque, { pub: true, bandeau: true, chat: true });
+  assert.equal(g.shared().masque, undefined, 'le défaut ne s\'écrit pas : il ne pourra rien écraser');
+  const h = g.VIEWS.settings();
+  for (const k of ['pub', 'bandeau', 'chat']) assert.ok(new RegExp(`id="sMq${k}" data-masque="${k}" checked`).test(h), k + ' cochée par défaut');
+});
+
+t('un choix déjà enregistré n\'est pas écrasé par le défaut', () => {
+  const st = fixtureState(); st.planets.forEach(p => { p.stock.at = SOIR; });
+  st.__win = { __masque: { pub: false, bandeau: false, chat: false } };
+  const g = loadApp(st, SOIR, ['masque'], null, true);
+  assert.deepEqual(g.masque, { pub: false, bandeau: false, chat: false });
+  const st2 = fixtureState(); st2.planets.forEach(p => { p.stock.at = SOIR; });
+  st2.__win = { __masque: { pub: false } };
+  assert.deepEqual(loadApp(st2, SOIR, ['masque'], null, true).masque, { pub: false, bandeau: true, chat: true }, 'une clé absente prend le défaut, la présente reste');
+});
+
+t('l\'en-tête ne porte plus le mode lune, ni la disposition, ni le masquage', () => {
+  const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'sidepanel.html'), 'utf8');
+  for (const id of ['luneBtn', 'cartesBtn', 'masqueBtn', 'masqueMenu']) assert.ok(!html.includes(`id="${id}"`), id);
+  for (const id of ['appVer', 'uniBadge', 'tzBtn', 'tzLbl', 'nightBtn', 'gearBtn']) assert.ok(html.includes(`id="${id}"`), id + ' reste');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  for (const id of ['luneBtn', 'cartesBtn', 'masqueBtn', 'masqueMenu']) assert.ok(!src.includes(id), id + ' n\'a plus de référence dans app.js');
 });
 
 /** Un document de page du jeu, juste assez pour masque.js. */
@@ -12573,7 +12216,7 @@ t('rien ne clignote : tout attend masqué que les choix soient lus', () => {
 });
 
 t('un interrupteur changé ailleurs s\'applique sans recharger', () => {
-  const p = pageMasque({ sync: {} });
+  const p = pageMasque({ sync: { pub: false, bandeau: false, chat: false } });
   p.repondSync();
   assert.ok(![...p.classes].some(c => c.startsWith('cp-hide-')));
   p.change({ pub: true, bandeau: true, chat: true });
@@ -12582,16 +12225,15 @@ t('un interrupteur changé ailleurs s\'applique sans recharger', () => {
   assert.ok(![...p.classes].some(c => c.startsWith('cp-hide-')));
 });
 
-t('jamais réglé : « Épurer » coché garde la page sans pub ni bandeau', () => {
-  const p = pageMasque({ sync: undefined, local: { skin: { lean: true } } });
+t('jamais réglé : la page masque les trois, sans clignoter', () => {
+  const p = pageMasque({ sync: undefined });
+  assert.ok(p.classes.has('cp-masque-attente'), 'tout attend masqué');
   p.repondSync();
-  assert.ok(p.classes.has('cp-masque-attente'), 'on attend encore la lecture de l\'ancien réglage');
-  p.repondLocal();
-  assert.ok(p.classes.has('cp-hide-pub') && p.classes.has('cp-hide-bandeau') && !p.classes.has('cp-hide-chat'));
+  assert.ok(['pub', 'bandeau', 'chat'].every(k => p.classes.has('cp-hide-' + k)), 'le défaut masque les trois');
   assert.ok(!p.classes.has('cp-masque-attente'));
-  const q = pageMasque({ sync: undefined, local: {} });
-  q.repondSync(); q.repondLocal();
-  assert.ok(![...q.classes].some(c => c.startsWith('cp-hide-')), 'sans « Épurer », rien n\'est masqué');
+  const q = pageMasque({ sync: { chat: false } });
+  q.repondSync();
+  assert.ok(q.classes.has('cp-hide-pub') && q.classes.has('cp-hide-bandeau') && !q.classes.has('cp-hide-chat'), 'un choix enregistré à false reste visible');
 });
 
 t('chat masqué : un message fait sortir la pastille, un clic rouvre le chat', () => {
@@ -13448,12 +13090,18 @@ t('cartes : l\'interrupteur se retient dans le stockage partagé et redessine', 
   g.setCardMode('tabs');
   assert.equal(g.shared().cardLayout, 'tabs');
   assert.ok(/class="panel en-onglets"/.test(g.el('view').innerHTML), 'appliqué sans recharger');
-  assert.ok(g.el('cartesBtn').classList.contains('primary'), 'l\'en-tête le montre');
-  assert.ok(/id="sOnglets" data-onglets-mode="1" checked/.test(g.VIEWS.settings()), 'Réglages aussi');
+  assert.ok(!/id="sEmpile" data-empile="1" checked/.test(g.VIEWS.settings()), 'Réglages le montrent : plus empilé');
   g.setCardMode('stacked');
   assert.equal(g.shared().cardLayout, 'stacked');
-  assert.ok(!/id="sOnglets" data-onglets-mode="1" checked/.test(g.VIEWS.settings()));
-  assert.ok(!g.el('cartesBtn').classList.contains('primary'));
+  assert.ok(/id="sEmpile" data-empile="1" checked/.test(g.VIEWS.settings()));
+});
+t('cartes : sur une installation neuve, les sections sont empilées, et la bascule le dit', () => {
+  const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; });
+  const g = loadApp(s, SOIR, ['VIEWS', 'cardMode']);
+  assert.equal(g.cardMode, 'stacked');
+  const h = g.VIEWS.settings(), i = h.indexOf('<h2>Affichage</h2>');
+  assert.ok(i >= 0 && h.indexOf('id="sEmpile" data-empile="1" checked') > i, '« Empiler les sections », cochée, dans Affichage');
+  assert.ok(/Empiler les sections/.test(h));
 });
 t('cartes : un autre panneau change le mode, celui-ci suit sans le réécrire', () => {
   const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; });

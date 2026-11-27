@@ -55,12 +55,12 @@ et l'infobulle dit « décalage non vérifié ». Le choix est retenu d'une sess
 ## Masquer la pub, le bandeau ou le chat
 
 Trois interrupteurs indépendants masquent des morceaux de la page du jeu :
-**Publicité** (bannières et encarts promo), **Bandeau supérieur** (la barre
-Gameforge : compte, lobby, liens) et **Barre de chat**. Ils sont dans
-l'en-tête du panneau, sous 👁 (🙈 quand quelque chose est masqué), et dans
-**Réglages › Masquer dans la page du jeu** ; les deux restent synchronisés.
-**Tout masquer** coche les trois ; s'ils le sont déjà, le bouton dit **Tout
-afficher** et les décoche.
+**Masquer la pub** (bannières et encarts promo), **Masquer la bannière** (la
+barre Gameforge : compte, lobby, liens) et **Masquer le chat**. Ils sont dans
+**Réglages ⚙️ › Page du jeu**, et sont **tous les trois activés par défaut**.
+Un choix déjà fait n'est jamais réécrit par ce défaut. **Tout masquer** coche
+les trois ; s'ils le sont déjà, le bouton dit **Tout afficher** et les
+décoche.
 
 Le changement s'applique tout de suite, dans tous les onglets du jeu ouverts,
 et se retrouve au prochain lancement. Rien n'est supprimé de la page : les
@@ -110,11 +110,11 @@ défense. Une alerte que tu **ignores** cesse de la noircir.
 
 ## Les cartes en onglets
 
-Le bouton 🗂️ de l'en-tête — ou **Réglages › Allure du panneau › Organiser les
-sections en onglets** — range les cartes d'**Aujourd'hui** (Profil,
-Maintenant, Alertes, Expéditions, Ta journée, Minuteurs) en onglets, avec la
-même barre que dans **Outils**. Une seule carte s'affiche, toujours dépliée ;
-ses sections internes gardent leur état. Empilé reste le mode par défaut.
+**Réglages ⚙️ › Affichage › Empiler les sections** est cochée par défaut :
+les cartes d'**Aujourd'hui** (Profil, Maintenant, Alertes, Expéditions, Ta
+journée, Minuteurs) s'affichent les unes sous les autres. Décochée, elle les
+range en onglets, avec la même barre que dans **Outils**. Une seule carte
+s'affiche, toujours dépliée ; ses sections internes gardent leur état.
 
 - Chaque onglet porte un compteur : **rouge** s'il contient au moins un
   élément urgent, **orange** un élément à surveiller, **gris** des conseils

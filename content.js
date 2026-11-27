@@ -382,7 +382,7 @@
      qu'elle est. C'est ce qui se répare tout seul quand Gameforge bouge
      quelque chose — on ne lit ici que quatre identifiants. */
   /* La barre Gameforge et la bannière ne sont plus d'ici : elles ont chacune
-     leur interrupteur, « Bandeau supérieur » et « Publicité », que masque.js
+     leur interrupteur, « Masquer la bannière » et « Masquer la pub », que masque.js
      pose à document_start pour qu'elles ne clignotent pas. */
   const LEAN = `html.copilote-lean #siteHeader,
 html.copilote-lean #siteFooter{display:none}
