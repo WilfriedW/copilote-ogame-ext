@@ -1,15 +1,139 @@
 {
   "version": 1,
-  "regles": [],
+  "regles": [
+    {
+      "id": "RES_STORAGE_FULL",
+      "domaine": "ressources",
+      "cat": "",
+      "niveau": "critique",
+      "condition": "storageRatio",
+      "parametres": {
+        "seuil": 0.98
+      },
+      "effet": "pousser",
+      "message": "{hangar} plein{sur}",
+      "raison": "La production de {ressource} est arrêtée. {depense} Monter {hangar} {niveau+1} prend {montee}, et la production reste à l'arrêt jusque-là.",
+      "source": "https://ogame.fandom.com/wiki/Buildings",
+      "statut": "valide",
+      "actif_par_defaut": true,
+      "verrou": false
+    },
+    {
+      "id": "RES_STORAGE_SOON",
+      "domaine": "ressources",
+      "cat": "",
+      "niveau": "important",
+      "condition": "storageEta",
+      "parametres": {
+        "heures": 8
+      },
+      "effet": "pousser",
+      "message": "{hangar} plein dans {dans}{sur}",
+      "raison": "Lance {hangar} {niveau+1} maintenant : il met {montee} à sortir, et au plafond la production s'arrête.",
+      "source": "https://ogame.fandom.com/wiki/Buildings",
+      "statut": "valide",
+      "actif_par_defaut": true,
+      "verrou": false
+    },
+    {
+      "id": "RES_ENERGY_NEGATIVE",
+      "domaine": "ressources",
+      "cat": "",
+      "niveau": "critique",
+      "condition": "energyBalance",
+      "parametres": {},
+      "effet": "pousser",
+      "message": "Rétablir l'énergie{sur}",
+      "raison": "Tes mines tournent à {pct} %. {options}",
+      "source": "https://ogame.fandom.com/wiki/Buildings",
+      "statut": "valide",
+      "actif_par_defaut": true,
+      "verrou": false
+    },
+    {
+      "id": "RES_ENERGY_NEXT_MINE",
+      "domaine": "ressources",
+      "cat": "",
+      "niveau": "conseil",
+      "condition": "nextMineEnergy",
+      "parametres": {},
+      "effet": "pousser",
+      "message": "Énergie pour {mine}{sur}",
+      "raison": "{mine} ferait passer l'énergie en négatif : la centrale solaire {niveau+1} d'abord, son prix est compté dans celui de la mine.",
+      "source": "https://ogame.fandom.com/wiki/Buildings",
+      "statut": "valide",
+      "actif_par_defaut": true,
+      "verrou": true
+    },
+    {
+      "id": "RES_MINE_BLOCKED_BY_STORAGE",
+      "domaine": "ressources",
+      "cat": "",
+      "niveau": "conseil",
+      "condition": "nextLevelCost",
+      "parametres": {},
+      "effet": "pousser",
+      "message": "{hangar} trop petit pour {mine}{sur}",
+      "raison": "Le prochain pas ne tient pas dans {hangar} {niveau} : le hangar d'abord, sans quoi la mine n'est jamais payable.",
+      "source": "https://ogame.fandom.com/wiki/Buildings",
+      "statut": "valide",
+      "actif_par_defaut": true,
+      "verrou": true
+    },
+    {
+      "id": "INST_QUEUE_EMPTY",
+      "domaine": "installations",
+      "cat": "",
+      "niveau": "critique",
+      "condition": "queueEmpty",
+      "parametres": {},
+      "effet": "marquer",
+      "message": "File de construction vide{sur}",
+      "raison": "Aucun bâtiment ne se construit ici : chaque heure sans chantier est une heure perdue.",
+      "source": "https://ogame.fandom.com/wiki/Buildings",
+      "statut": "valide",
+      "actif_par_defaut": true,
+      "verrou": false
+    },
+    {
+      "id": "RECH_LAB_IDLE",
+      "domaine": "recherche",
+      "cat": "",
+      "niveau": "important",
+      "condition": "researchIdle",
+      "parametres": {},
+      "effet": "marquer",
+      "message": "Recherche à l'arrêt{sur}",
+      "raison": "Aucune recherche ne tourne : le laboratoire attend une commande.",
+      "source": "https://ogame.fandom.com/wiki/Research",
+      "statut": "valide",
+      "actif_par_defaut": true,
+      "verrou": false
+    }
+  ],
   "mineBalance": {
-    "byStyle": { "mineur": 2, "turtle": 2, "raideur": 1, "fleeter": 1, "explorateur": 1 },
-    "byPosition": { "1-3": -1, "4-5": 0, "6-10": 1, "11-15": 0 }
+    "byStyle": {
+      "mineur": 2,
+      "turtle": 2,
+      "raideur": 1,
+      "fleeter": 1,
+      "explorateur": 1
+    },
+    "byPosition": {
+      "1-3": -1,
+      "4-5": 0,
+      "6-10": 1,
+      "11-15": 0
+    }
   },
   "lifeforms": {
     "humans": {
       "idPrefix": "111",
       "statut": "a_valider",
-      "base": { "habitat": 11101, "nourriture": 11102 },
+      "base": {
+        "habitat": 11101,
+        "nourriture": 11102
+      },
       "buildings": {
         "11101": "Secteur résidentiel",
         "11102": "Ferme biosphérique",
@@ -31,8 +155,26 @@
         "11204": "Générateur de champ de camouflage"
       }
     },
-    "rocktal": { "idPrefix": "121", "statut": "a_valider", "base": {}, "buildings": {}, "research": {} },
-    "mechas":  { "idPrefix": "131", "statut": "a_valider", "base": {}, "buildings": {}, "research": {} },
-    "kaelesh": { "idPrefix": "141", "statut": "a_valider", "base": {}, "buildings": {}, "research": {} }
+    "rocktal": {
+      "idPrefix": "121",
+      "statut": "a_valider",
+      "base": {},
+      "buildings": {},
+      "research": {}
+    },
+    "mechas": {
+      "idPrefix": "131",
+      "statut": "a_valider",
+      "base": {},
+      "buildings": {},
+      "research": {}
+    },
+    "kaelesh": {
+      "idPrefix": "141",
+      "statut": "a_valider",
+      "base": {},
+      "buildings": {},
+      "research": {}
+    }
   }
 }

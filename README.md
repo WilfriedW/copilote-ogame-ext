@@ -52,6 +52,27 @@ et l'infobulle dit « décalage non vérifié ». Le choix est retenu d'une sess
 à l'autre, et `save.json` porte toujours les deux heures (`serverTime`,
 `localTime`, `localTimeZone`, `serverOffsetMinutes`).
 
+## La météo
+
+Tout en haut du panneau, au-dessus des onglets, un bandeau dit l'état de
+l'empire d'un mot et d'une icône : **Soleil**, **Nuageux**, **Orage** ou
+**Tempête**. Un clic le déplie : une ligne par planète, son icône, et quatre
+pastilles — **Sécurité**, **Activité**, **Économie**, **Défense**. Le panneau
+se souvient s'il est replié ou déplié.
+
+- **Rouge** : au moins une alerte Critique dans ce domaine ; **orange** : au
+  moins une Importante ; **vert** : rien, ou de simples conseils.
+- Une planète prend la pire de ses pastilles ; une attaque qui arrive sur elle
+  la met en **Tempête**. L'empire prend la pire de ses planètes.
+- Survole une ligne : l'infobulle dit les causes par domaine, ou « Tout va
+  bien ». Clique-la : les cartes ne montrent plus que cette planète, jusqu'à ce
+  que tu retires la puce « Filtré » (ou que le panneau se recharge). Le jeu,
+  lui, ne change pas de page.
+
+La météo n'invente rien : elle relit les alertes du moteur, les flottes
+hostiles que montrent tes mouvements de flotte, et le palier de ton modèle de
+défense. Une alerte que tu **ignores** cesse de la noircir.
+
 ## Mettre à jour
 
 **Réglages › Version** dit en quelle version tourne le panneau, si le dépôt en

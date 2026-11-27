@@ -12410,6 +12410,204 @@ t('le sélecteur écrit sous chaque nom sa recette et son pack', () => {
   assert.ok(!/data-launch|data-sent/.test(d), 'toujours en lecture seule');
 });
 
+/* ---------- la météo de l'empire ---------- */
+
+const METEO_WANT = ['S', 'domainColor', 'planetWeather', 'empireWeather', 'meteoElements', 'meteoCauses', 'meteoHtml',
+  'renderMeteo', 'meteoVoit', 'REFRESH', 'VIEWS', 'render', 'constats', 'ignore', 'ignKey', 'planetById', 'esc'];
+/** Un empire où tout tourne : deux files occupées, une recherche en cours,
+    des stocks bas, assez d'énergie. Rien ne doit y dégrader la météo. */
+const CALME = s => {
+  const fin = SOIR + 3 * 3600e3;
+  s.timers = [
+    { id: 'b1', kind: 'b', pid: 'mere', k: 'metal', lvl: 15, end: fin },
+    { id: 'b2', kind: 'b', pid: 'colo', k: 'metal', lvl: 5, end: fin },
+    { id: 't1', kind: 't', pid: 'mere', k: 'computer', lvl: 3, end: fin }
+  ];
+  s.planets.forEach(p => { p.stock = { m: 100, c: 100, d: 0, at: SOIR }; p.b.solar = 20; });
+};
+function meteo(modifier, ext) {
+  const s = fixtureState();
+  s.planets.forEach(p => { p.stock.at = SOIR; });
+  CALME(s);
+  if (modifier) modifier(s);
+  return loadApp(s, SOIR, METEO_WANT, null, ext);
+}
+const rangDe = (g, pid) => g.planetWeather(g.meteoElements(), pid);
+const empireDe = g => g.empireWeather(g.meteoElements(), g.S.planets.map(p => p.id));
+
+t('météo : les fonctions de calcul suivent le tableau des couleurs', () => {
+  const g = meteo();
+  const el = [{ pid: 'a', dom: 'eco', niveau: 'conseil', txt: 'x' }];
+  assert.equal(g.domainColor(el, 'a', 'eco'), 'good', 'un simple Conseil ne dégrade pas');
+  el.push({ pid: 'a', dom: 'eco', niveau: 'important', txt: 'y' });
+  assert.equal(g.domainColor(el, 'a', 'eco'), 'warn');
+  assert.equal(g.planetWeather(el, 'a'), 1, 'une orange : Nuageux');
+  el.push({ pid: 'a', dom: 'eco', niveau: 'critique', txt: 'z' });
+  assert.equal(g.domainColor(el, 'a', 'eco'), 'bad');
+  assert.equal(g.planetWeather(el, 'a'), 2, 'une rouge : Orage');
+  assert.equal(g.domainColor(el, 'b', 'eco'), 'good', 'une autre planète n\'en hérite pas');
+  assert.equal(g.domainColor(el, 'a', 'act'), 'good', 'ni un autre domaine');
+  el.push({ pid: 'b', dom: 'sec', niveau: 'critique', tempete: true, txt: 'attaque' });
+  assert.equal(g.planetWeather(el, 'b'), 3, 'une attaque : Tempête');
+  assert.equal(g.empireWeather(el, ['a', 'b']), 3, 'l\'empire prend la pire');
+  assert.equal(g.empireWeather([], ['a', 'b']), 0);
+});
+
+t('météo : un empire sans alerte est au soleil, quatre pastilles vertes', () => {
+  const g = meteo();
+  assert.deepEqual(g.meteoElements().filter(e => e.niveau !== 'conseil'), [], 'rien ne colore');
+  assert.equal(empireDe(g), 0);
+  const h = g.meteoHtml(g.meteoElements());
+  assert.ok(/<b>Soleil<\/b>/.test(h), 'le bandeau dit Soleil');
+  assert.equal((h.match(/mt-dot mt-good/g) || []).length, 8, 'deux planètes, quatre pastilles vertes chacune');
+  assert.ok(/title="Tout va bien"/.test(h), 'le survol dit « Tout va bien »');
+});
+
+t('météo : une file vide met Activité au rouge, la planète et l\'empire en Orage', () => {
+  const g = meteo(s => { s.timers = s.timers.filter(t => t.id !== 'b2'); });
+  const el = g.meteoElements();
+  assert.equal(g.domainColor(el, 'colo', 'act'), 'bad');
+  assert.equal(g.planetWeather(el, 'colo'), 2);
+  assert.equal(g.planetWeather(el, 'mere'), 0, 'la voisine reste au soleil');
+  assert.equal(empireDe(g), 2);
+  assert.ok(/Activité : file de construction vide/.test(g.meteoCauses(el, 'colo')), g.meteoCauses(el, 'colo'));
+});
+
+t('météo : un hangar bientôt plein met Économie à l\'orange, planète Nuageux', () => {
+  const g = meteo(s => { s.planets[0].b.metal = 20; s.planets[0].stock = { m: 66000, c: 0, d: 0, at: SOIR }; });
+  const el = g.meteoElements();
+  assert.equal(g.domainColor(el, 'mere', 'eco'), 'warn', JSON.stringify(el));
+  assert.equal(g.planetWeather(el, 'mere'), 1);
+  assert.ok(/Économie : hangar de métal plein dans/.test(g.meteoCauses(el, 'mere')), g.meteoCauses(el, 'mere'));
+});
+
+t('météo : une alerte ignorée ne dégrade plus la météo', () => {
+  const g = meteo(s => { s.timers = s.timers.filter(t => t.id !== 'b2'); });
+  assert.equal(rangDe(g, 'colo'), 2);
+  const c = g.constats().find(x => x.regle === 'INST_QUEUE_EMPTY' && x.pid === 'colo');
+  g.ignore(c);
+  assert.equal(rangDe(g, 'colo'), 0, 'la planète redevient Soleil');
+  g.REFRESH.today();
+  const html = lu(g.el('tdAlerts').innerHTML);
+  assert.ok(!/File de construction vide/.test(html), 'et l\'alerte quitte la carte');
+});
+
+t('météo : la carte Alertes porte un bouton Ignorer sur un constat', () => {
+  const g = meteo(s => { s.timers = s.timers.filter(t => t.id !== 'b2'); });
+  g.REFRESH.today();
+  const html = lu(g.el('tdAlerts').innerHTML);
+  assert.ok(/File de construction vide/.test(html), html.slice(0, 300));
+  assert.ok(/data-ign="INST_QUEUE_EMPTY\|colo\|/.test(html), 'Ignorer porte la clé du constat');
+});
+
+t('météo : une attaque entrante fait Tempête sur la planète et sur l\'empire', () => {
+  const g = meteo(s => { s.moves = [{ mission: 1, ret: false, arrival: SOIR / 1000 + 3600, origin: '2:10:5', dest: '1:142:6' }]; });
+  const el = g.meteoElements();
+  assert.equal(g.domainColor(el, 'colo', 'sec'), 'bad');
+  assert.equal(g.planetWeather(el, 'colo'), 3);
+  assert.equal(empireDe(g), 3);
+  assert.ok(/<b>Tempête<\/b>/.test(g.meteoHtml(el)));
+  assert.ok(/Sécurité : attaque entrant/.test(g.meteoCauses(el, 'colo')));
+});
+
+t('météo : un espionnage entrant met Sécurité à l\'orange, sans tempête', () => {
+  const g = meteo(s => { s.moves = [{ mission: 6, ret: false, arrival: SOIR / 1000 + 600, origin: '2:10:5', dest: '1:142:8' }]; });
+  const el = g.meteoElements();
+  assert.equal(g.domainColor(el, 'mere', 'sec'), 'warn');
+  assert.equal(g.planetWeather(el, 'mere'), 1);
+});
+
+t('météo : ses propres flottes, un retour ou une arrivée passée ne sont pas une menace', () => {
+  const g = meteo(s => { s.moves = [
+    { mission: 1, ret: false, arrival: SOIR / 1000 + 600, origin: '1:142:8', dest: '1:142:6' },
+    { mission: 1, ret: true, arrival: SOIR / 1000 + 600, origin: '2:10:5', dest: '1:142:6' },
+    { mission: 1, ret: false, arrival: SOIR / 1000 - 600, origin: '2:10:5', dest: '1:142:6' },
+    { mission: 3, ret: false, arrival: SOIR / 1000 + 600, origin: '2:10:5', dest: '1:142:6' }]; });
+  assert.equal(empireDe(g), 0);
+});
+
+t('météo : la défense suit le palier du modèle choisi', () => {
+  const tenu = meteo(s => { s.planets[0].b.shipyard = 8; Object.assign(s.tech, {laser: 12, ion: 5, energy: 8, plasma: 7, weapons: 3, shielding: 6});
+    s.planets[0].defs = {rl: 800, ll: 500, hl: 200, ic: 0, gc: 80, pt: 20, sd: 1, ld: 1}; });
+  assert.equal(tenu.domainColor(tenu.meteoElements(), 'mere', 'def'), 'good', 'palier atteint : vert');
+  const court = meteo(s => { s.planets[0].b.shipyard = 8; Object.assign(s.tech, {laser: 12, ion: 5, energy: 8, plasma: 7, weapons: 3, shielding: 6});
+    s.planets[0].defs = {rl: 700, ll: 450, hl: 180, ic: 0, gc: 70, pt: 18, sd: 1, ld: 1}; });
+  assert.equal(court.domainColor(court.meteoElements(), 'mere', 'def'), 'warn', 'incomplet : orange');
+  const vide = meteo(s => { s.planets[0].b.shipyard = 8; Object.assign(s.tech, {laser: 12, ion: 5, energy: 8, plasma: 7, weapons: 3, shielding: 6});
+    s.planets[0].defs = {rl: 100, ll: 450, hl: 180, ic: 0, gc: 70, pt: 18, sd: 1, ld: 1}; });
+  assert.equal(vide.domainColor(vide.meteoElements(), 'mere', 'def'), 'bad', 'une pièce sous 50 % : rouge');
+  assert.equal(vide.domainColor(vide.meteoElements(), 'colo', 'def'), 'good', 'une défense jamais relevée ne dit rien');
+});
+
+t('météo : un style qui met la défense à 0 ne la compte pas', () => {
+  const g = meteo(s => { s.profil = {style: 'raideur', activite: 'souvent', focus: []};
+    s.planets[0].defs = {rl: 0, ll: 0, hl: 0, ic: 0, gc: 0, pt: 0, sd: 0, ld: 0}; });
+  assert.equal(g.domainColor(g.meteoElements(), 'mere', 'def'), 'good');
+});
+
+t('météo : la recherche à l\'arrêt va sur la planète d\'où la dernière est partie', () => {
+  const g = meteo(s => { s.timers = s.timers.filter(t => t.kind !== 't'); s.rechPid = 'colo'; s.planets[1].b.lab = 1; });
+  const el = g.meteoElements();
+  assert.equal(g.domainColor(el, 'colo', 'act'), 'warn', JSON.stringify(el));
+  assert.equal(g.domainColor(el, 'mere', 'act'), 'good');
+});
+
+t('météo : un clic sur le bandeau replie ou déplie la grille, et l\'état se garde', () => {
+  const g = meteo();
+  g.renderMeteo();
+  assert.ok(/class="mt-grid" hidden/.test(g.el('meteo').innerHTML), 'repliée par défaut');
+  const tog = { closest: sel => sel === '[data-meteo-tog]' ? {} : null };
+  g.click('meteo', tog);
+  assert.equal(g.saved().ui.fold.meteo, true, 'l\'état part dans le stockage, comme celui des cartes');
+  assert.ok(!/class="mt-grid" hidden/.test(g.el('meteo').innerHTML), 'dépliée');
+  g.click('meteo', tog);
+  assert.equal(g.saved().ui.fold.meteo, false);
+});
+
+t('météo : la grille se rouvre comme on l\'a laissée', () => {
+  const g = meteo(s => { s.ui.fold = { meteo: true }; });
+  g.renderMeteo();
+  assert.ok(/aria-expanded="true"/.test(g.el('meteo').innerHTML));
+  assert.ok(!/class="mt-grid" hidden/.test(g.el('meteo').innerHTML));
+});
+
+t('météo : une ligne par planète, dans l\'ordre du jeu, en-têtes abrégés', () => {
+  const g = meteo();
+  const h = g.meteoHtml(g.meteoElements());
+  assert.ok(h.indexOf('data-meteo-p="mere"') < h.indexOf('data-meteo-p="colo"'));
+  for (const [c, n] of [['Séc', 'Sécurité'], ['Act', 'Activité'], ['Éco', 'Économie'], ['Déf', 'Défense']])
+    assert.ok(h.includes(`<abbr title="${n}">${c}</abbr>`), c);
+  assert.ok(/Soleil.*Nuageux.*Orage.*Tempête/s.test(h.slice(h.indexOf('mt-leg'))), 'la légende porte les quatre');
+  assert.ok(!/#[0-9a-f]{3,6}\b/i.test(h), 'aucune couleur en dur');
+  assert.ok(!/data-launch|data-go|href=/.test(h), 'lecture seule : rien ne mène au jeu');
+});
+
+t('météo : un clic sur une planète filtre les cartes, la croix retire le filtre', () => {
+  const g = meteo(s => { s.timers = []; });
+  g.REFRESH.today();
+  assert.ok(/Planète mère/.test(lu(g.el('tdAlerts').innerHTML)) && /Colonie/.test(lu(g.el('tdAlerts').innerHTML)), 'sans filtre, les deux');
+  g.click('meteo', { closest: sel => sel === '[data-meteo-p]' ? { dataset: { meteoP: 'colo' } } : null });
+  assert.ok(/Filtré : Colonie/.test(lu(g.el('meteoFiltre').innerHTML)), 'la puce apparaît');
+  assert.equal(g.el('meteoFiltre').hidden, false);
+  g.REFRESH.today();
+  const al = lu(g.el('tdAlerts').innerHTML);
+  assert.ok(/Colonie/.test(al) && !/Planète mère/.test(al), 'seules ses alertes : ' + al.slice(0, 300));
+  assert.ok(!/Planète mère/.test(lu(g.el('tdNow').innerHTML)), 'et seules ses cartes');
+  assert.ok(g.meteoVoit({ p: 1 }) && !g.meteoVoit({ p: 0 }));
+  assert.ok(!/filterPlanet|meteoP/.test(JSON.stringify(g.saved())), 'le filtre ne s\'écrit nulle part');
+  g.click('meteoFiltre', { closest: sel => sel === '[data-meteo-off]' ? {} : null });
+  assert.equal(g.el('meteoFiltre').hidden, true, 'la puce s\'en va');
+  assert.ok(g.meteoVoit({ p: 0 }), 'toutes les cartes reviennent');
+});
+
+t('météo : l\'Empire n\'affiche que la planète filtrée', () => {
+  const g = meteo();
+  g.click('meteo', { closest: sel => sel === '[data-meteo-p]' ? { dataset: { meteoP: 'colo' } } : null });
+  const h = g.VIEWS.planets();
+  assert.ok(/data-pi="0"[^>]* hidden/.test(h), 'la planète mère se cache');
+  assert.ok(!/data-pi="1"[^>]* hidden/.test(h), 'la colonie reste');
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

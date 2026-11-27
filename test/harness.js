@@ -103,7 +103,7 @@ function loadApp(state, nowMs, want, api, ext, prioAsk, rules) {
   const window = { addEventListener() {}, chrome: ext ? chrome : undefined, __api: api || null, __game: null, __prioAsk: prioAsk || null, __rules: rules };
 
   // même ordre que boot.js
-  const src = ['ids.js', 'profils.js', 'app.js']
+  const src = ['ids.js', 'profils.js', 'meteo.js', 'app.js']
     .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
 
   // l'envoi aux autres postes est différé : sans ces bouchons, le test

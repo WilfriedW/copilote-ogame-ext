@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '2.9.0';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -283,6 +283,8 @@ function save(){ try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){ saveFailed(
    jamais sur une voisine, ce qui était la vieille faute du rang. */
 function planetById(id){ return S.planets.find(p => p.id === id) || null; }
 function planetIndexById(id){ return S.planets.findIndex(p => p.id === id); }
+/** L'identifiant du jeu d'une planète locale, ou null : ce qui voyage entre postes voyage en gid. */
+const gidDe = pid => { const p = planetById(pid); return p && p.gid != null ? String(p.gid) : null; };
 
 /* Ce que le joueur retire, il le retire vraiment : ici l'absence est une
    certitude et non un défaut d'appariement, donc ce qui visait cette planète
@@ -1496,6 +1498,9 @@ function gameSkin(acts, missions, waits){
    labo à elle qui en fixe la durée et les prérequis. Sans centre — joueur de
    flotte, planète unique — on retombe sur le plus haut labo de l'empire,
    c'est-à-dire sur le comportement d'avant. */
+/** La planète de recherche habituelle : celle d'où la dernière recherche est
+    partie, sinon le centre. C'est à elle que « recherche à l'arrêt » se rattache. */
+function planeteRecherche(){ return planetById(S.rechPid) || labPlanet(); }
 function labPlanet(){ return centrePlanet() || S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
 /* Le labo du centre, et non plus le maximum de l'empire : les deux
    coïncidaient tant que le centre était par construction la planète du plus
@@ -2289,10 +2294,10 @@ function header(){
 }
 /** Vrai tant que l'écran du relevé tient la place du contenu. */
 function enScan(){ return !!(scanEcran && releveEnCours); }
-function render(){ prioClean(); header(); view.innerHTML = enScan() ? VIEWS.scan() : VIEWS[tab](); bind(); refresh(); }
+function render(){ prioClean(); ignClean(); header(); view.innerHTML = enScan() ? VIEWS.scan() : VIEWS[tab](); bind(); refresh(); }
 /* Pendant le relevé, les REFRESH écriraient dans des éléments que l'écran du
    relevé n'a pas : ils ne rafraîchissent que ce qui est à l'écran. */
-function refresh(){ if(!enScan()) (REFRESH[tab]||(()=>{}))(); header(); }
+function refresh(){ if(!enScan()) (REFRESH[tab]||(()=>{}))(); header(); renderMeteo(); }
 
 /* ---------- advice ---------- */
 const MILESTONES = [
@@ -2598,7 +2603,7 @@ EVAL.queueEmpty = p => {
   return [{valeur:l.reduce((m, t) => Math.max(m, +t.end || 0), 0), repond:{kinds:['b']}, vars:{}}];
 };
 EVAL.researchIdle = p => {
-  const lab = labPlanet();
+  const lab = planeteRecherche();
   if(!lab || lab.id !== p.id || !(p.b.lab >= 1)) return [];
   const l = (S.timers || []).filter(t => t && (t.kind === 't' || (t.kind === 'x' && t.queue === 'research')));
   if(l.some(enCours)) return [];
@@ -2640,7 +2645,7 @@ function publieCritiques(cs){
 function planetAlerts(p){
   const out = [], pr = production(p), st = stockNow(p);
   const where = S.planets.length>1 ? ` sur ${p.name}` : '';
-  const deRegle = id => constatsDe(p, id).map(c => ({sev:NIVEAU_SEV[c.niveau], what:c.what, why:c.why, regle:c.regle, valeur:c.valeur}));
+  const deRegle = id => constatsDe(p, id).map(c => ({sev:NIVEAU_SEV[c.niveau], what:c.what, why:c.why, regle:c.regle, valeur:c.valeur, domaine:c.domaine, c}));
   out.push(...deRegle('RES_ENERGY_NEGATIVE'));
   if(pr.factor<1 && regleActive('RES_ENERGY_NEGATIVE')){
     const opts = energyOptions(p), ok = opts.filter(o=>o.prete), best = ok[0];
@@ -2648,7 +2653,7 @@ function planetAlerts(p){
        sinon l'avertissement ferait regretter un réglage qui ne changeait rien. */
     for(const o of opts)
       if(!o.prete && (!best || o.perPoint < best.perPoint))
-        out.push({sev:'warn', what:`${o.kind==='sats' ? 'Satellites écartés' : 'Fusion écartée'}${where}`,
+        out.push({sev:'warn', domaine:'ressources', what:`${o.kind==='sats' ? 'Satellites écartés' : 'Fusion écartée'}${where}`,
           why:`${energyLine(o)} : moins cher par point d'énergie que ${best ? best.label.toLowerCase() : 'la centrale'}, mais ${o.pourquoiPas}.${o.kind==='sats' ? ' Un satellite part en débris au premier raid, et l\'énergie retombe avec lui.' : ''}`});
   }
   /* Le jeu dit son énergie libre mines bridées ; le moteur les compte à 100 %.
@@ -2656,8 +2661,8 @@ function planetAlerts(p){
   const br = bridage(p);
   if(br){
     const marge = Math.round(pr.eBal - br.extra);
-    if(marge >= 0) out.push({sev:'good', what:`Remonter les mines à 100 %${where}`, why:`Tu les as bridées à ${br.min} %. L'énergie suffit de nouveau : il en resterait ${marge} de libre une fois les mines remontées.`});
-    else if(pr.factor>=1) out.push({sev:'warn', what:`Mines bridées à ${br.min} %${where}`, why:`Il manque ${-marge} d'énergie pour les remonter à 100 %. Monte la centrale solaire, je te dirai quand les remonter.`});
+    if(marge >= 0) out.push({sev:'good', domaine:'ressources', what:`Remonter les mines à 100 %${where}`, why:`Tu les as bridées à ${br.min} %. L'énergie suffit de nouveau : il en resterait ${marge} de libre une fois les mines remontées.`});
+    else if(pr.factor>=1) out.push({sev:'warn', domaine:'ressources', what:`Mines bridées à ${br.min} %${where}`, why:`Il manque ${-marge} d'énergie pour les remonter à 100 %. Monte la centrale solaire, je te dirai quand les remonter.`});
   }
   /* Chaque niveau de bâtiment occupe un emplacement, et le Terraformeur est un
      bâtiment comme un autre : il lui en faut un de libre pour être posé. Le
@@ -2665,8 +2670,8 @@ function planetAlerts(p){
      donc le dernier sans un mot, et le joueur ne l'apprenait que dans la fenêtre
      du jeu, au moment de lancer. */
   const libres = casesLibres(p);
-  if(libres === 0) out.push({sev:'bad', what:`Plus un emplacement libre${where}`, why:`${p.cases.max} emplacements, tous pris. Le jeu refuse toute construction ici, Terraformeur compris. Démolis un bâtiment que tu ne sers pas — un hangar surdimensionné, le Dépôt de ravitaillement — pour en rendre un.`});
-  else if(libres === 1) out.push({sev:'warn', what:`Un seul emplacement libre${where}`, why:`${p.cases.pris} sur ${p.cases.max}. La prochaine construction prend le dernier, et plus rien ne se posera ensuite. Le Terraformeur en agrandit la planète, mais il lui faut cet emplacement-là pour être construit : garde-le-lui si tu le vises.`});
+  if(libres === 0) out.push({sev:'bad', domaine:'installations', what:`Plus un emplacement libre${where}`, why:`${p.cases.max} emplacements, tous pris. Le jeu refuse toute construction ici, Terraformeur compris. Démolis un bâtiment que tu ne sers pas — un hangar surdimensionné, le Dépôt de ravitaillement — pour en rendre un.`});
+  else if(libres === 1) out.push({sev:'warn', domaine:'installations', what:`Un seul emplacement libre${where}`, why:`${p.cases.pris} sur ${p.cases.max}. La prochaine construction prend le dernier, et plus rien ne se posera ensuite. Le Terraformeur en agrandit la planète, mais il lui faut cet emplacement-là pour être construit : garde-le-lui si tu le vises.`});
   /* Le hangar, plein ou bientôt : deux règles du moteur (RES_STORAGE_FULL,
      RES_STORAGE_SOON). Au plafond, le hangar arrive trop tard — il met des
      heures à sortir — et ce qui relance la production est le plus gros
@@ -3722,14 +3727,14 @@ function simulateDay(){
   for(const t of S.timers||[]){
     if(t.done || t.end<=now) continue;
     const pi = planetIndexById(t.pid);
-    if(t.kind==='t' && T[t.k]){ sim.rq=Math.max(sim.rq,t.end); busy.push({q:'Recherche · '+planetRef(labPlanet()), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ sim.tech[t.k]=Math.max(sim.tech[t.k],t.lvl); }}); }
-    else if(t.kind==='b' && P[pi]){ const p=P[pi]; p.bq=Math.max(p.bq,t.end); p.bqKey=t.k; busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.b[t.k]=Math.max(p.b[t.k],t.lvl); }}); }
-    else if(t.kind==='x' && t.k==='expo'){ expoBusy.push(t.end); busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[pi]){ const p=P[pi]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
-    else if(t.kind==='x' && t.k==='fleet'){ busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[pi]){ const p=P[pi]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
-    else if(t.kind==='x' && t.k!=='sats' && (t.k==='shipyard' || t.queue==='shipyard') && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); if(t.manual && t.ships) sim.ev.push({at:t.end, fn:()=>addBuilt(p, t.ships)}); }
-    else if(t.kind==='x' && (t.queue==='lfbuilding' || t.queue==='lfresearch') && P[pi]){ const p=P[pi]; p.lfq[t.queue]=Math.max(p.lfq[t.queue],t.end); busy.push({q:'Forme de vie · '+planetRef(p), what:timerLabel(t), end:t.end}); }
-    else if(t.kind==='x' && t.k==='sats' && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
-    else if(t.kind==='x' && t.k==='colship'){ const p=P[planetIndexById(S.colo.fromId)]||P[0]; p.sq=t.end; sim.colShip=true; sim.colReady=t.end; busy.push({q:'Chantier spatial', what:'Vaisseau de colonisation', end:t.end}); }
+    if(t.kind==='t' && T[t.k]){ sim.rq=Math.max(sim.rq,t.end); busy.push({q:'Recherche · '+planetRef(labPlanet()), what:timerLabel(t), end:t.end, p:pi}); sim.ev.push({at:t.end, fn:()=>{ sim.tech[t.k]=Math.max(sim.tech[t.k],t.lvl); }}); }
+    else if(t.kind==='b' && P[pi]){ const p=P[pi]; p.bq=Math.max(p.bq,t.end); p.bqKey=t.k; busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end, p:pi}); sim.ev.push({at:t.end, fn:()=>{ p.b[t.k]=Math.max(p.b[t.k],t.lvl); }}); }
+    else if(t.kind==='x' && t.k==='expo'){ expoBusy.push(t.end); busy.push({q:'Flotte', what:timerLabel(t), end:t.end, p:pi}); if(t.manual && t.ships && P[pi]){ const p=P[pi]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
+    else if(t.kind==='x' && t.k==='fleet'){ busy.push({q:'Flotte', what:timerLabel(t), end:t.end, p:pi}); if(t.manual && t.ships && P[pi]){ const p=P[pi]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
+    else if(t.kind==='x' && t.k!=='sats' && (t.k==='shipyard' || t.queue==='shipyard') && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end, p:pi}); if(t.manual && t.ships) sim.ev.push({at:t.end, fn:()=>addBuilt(p, t.ships)}); }
+    else if(t.kind==='x' && (t.queue==='lfbuilding' || t.queue==='lfresearch') && P[pi]){ const p=P[pi]; p.lfq[t.queue]=Math.max(p.lfq[t.queue],t.end); busy.push({q:'Forme de vie · '+planetRef(p), what:timerLabel(t), end:t.end, p:pi}); }
+    else if(t.kind==='x' && t.k==='sats' && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end, p:pi}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
+    else if(t.kind==='x' && t.k==='colship'){ const p=P[planetIndexById(S.colo.fromId)]||P[0]; p.sq=t.end; sim.colShip=true; sim.colReady=t.end; busy.push({q:'Chantier spatial', what:'Vaisseau de colonisation', end:t.end, p:pi}); }
     /* Un chantier que le relevé n'a pas su nommer : le jeu n'écrit pas toujours
        l'identifiant de ce qu'il construit, et le minuteur arrive alors sans
        technologie. Il ne vaut plus que par sa file — et sa file suffit. Sans
@@ -3737,8 +3742,8 @@ function simulateDay(){
        `queue`, pendant que le plan, qui se fiait à `kind`, relançait sur une
        planète déjà prise. On ne sait pas ce qui monte : la file est occupée,
        aucun niveau ne s'ajoute à la fin. */
-    else if(t.kind==='x' && t.queue==='building' && P[pi]){ const p=P[pi]; p.bq=Math.max(p.bq,t.end); busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end}); }
-    else if(t.kind==='x' && t.queue==='research'){ sim.rq=Math.max(sim.rq,t.end); busy.push({q:'Recherche · '+planetRef(labPlanet()), what:timerLabel(t), end:t.end}); }
+    else if(t.kind==='x' && t.queue==='building' && P[pi]){ const p=P[pi]; p.bq=Math.max(p.bq,t.end); busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end, p:pi}); }
+    else if(t.kind==='x' && t.queue==='research'){ sim.rq=Math.max(sim.rq,t.end); busy.push({q:'Recherche · '+planetRef(labPlanet()), what:timerLabel(t), end:t.end, p:pi}); }
   }
   /* Les expéditions en vol, prises sur les mouvements de flotte du jeu
      (mission 15, trajet de retour). Les compter sur les seuls minuteurs les
@@ -3781,7 +3786,7 @@ function simulateDay(){
   // Trié par sévérité, l'ordre des planètes conservé à sévérité égale : sans
   // cela un Urgent de la deuxième planète se lit sous un Attention de la
   // première, et le joueur à quatre planètes balaie la carte de travers.
-  const alerts = S.planets.flatMap(p=>planetAlerts(p)).sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1));
+  const alerts = S.planets.flatMap(p=>planetAlerts(p).map(a=>Object.assign(a, {pid:p.id}))).sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1));
   S.tech = sim.tech; S.planets = P;
   try{
     const startV = P.reduce((a,p)=>{ const r=production(p); return a+mse(r.m,r.c,r.d); },0);
@@ -6434,7 +6439,9 @@ function defMixList(p){ const m = defMix(p); return m ? shipList(m.cible) : ''; 
 
 /** Le modèle que cette planète suit : le sien d'abord, celui des réglages
     ensuite. @returns {string} une clé de DEF_MODELES */
-function defModeleK(p){ const k = p && p.defModele; return k && DEF_MODELES[k] ? k : S.settings.defModele; }
+/* Un réglage venu d'ailleurs (sauvegarde, autre poste) peut nommer un modèle
+   que la table n'a plus : le framework répond, plutôt qu'un rendu qui casse. */
+function defModeleK(p){ const k = p && p.defModele; return k && DEF_MODELES[k] ? k : (DEF_MODELES[S.settings.defModele] ? S.settings.defModele : 'framework'); }
 /** Le ratio d'un modèle. Celui du joueur sort de ses réglages. */
 function defRatio(k){ return k === 'perso' ? S.settings.defPerso : (DEF_MODELES[k] || {}).r; }
 /** La pièce qui compte le palier : le lanceur de plasma, ou, si le modèle n'en
@@ -7296,7 +7303,7 @@ planets(){
     <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><details class="volet"${fold('mix', false)}><summary data-fold="mix">Pourquoi ce classement</summary><p class="note" id="empireMix" style="margin-top:8px"></p></details></div>
     ${poseBloc()}
     ${(()=>{ const voc = vocations(), ci = centreIndex(), auto = centreIndex(true); return S.planets.map((p,i)=>`
-    <details class="card volet" data-pi="${i}"${fold('pl:' + p.id, false)}>
+    <details class="card volet" data-pi="${i}"${fold('pl:' + p.id, false)}${meteoVoit(p.id) ? '' : ' hidden'}>
       <summary data-fold="pl:${p.id}" class="plsum"><b>${esc(p.name)}</b> <span class="note">${esc(p.coords)}</span><span class="mono" id="psum-${i}"></span></summary>
       <div class="planet-head">
         <input id="pn-${p.id}" data-p="name" value="${esc(p.name)}" aria-label="Nom de la planète">
@@ -7590,7 +7597,8 @@ function crawlerPill(p){
  * posée sur les pages du jeu la porte toujours — c'est là, sur l'écran de
  * flotte, qu'elle sert encore.
  */
-function actsVus(x){ return x.acts.filter(a=>a.kind !== 'expo'); }
+/* Sous le filtre de la météo, seules les cartes de la planète choisie restent. */
+function actsVus(x){ return x.acts.filter(a=>a.kind !== 'expo' && meteoVoit(a)); }
 
 const REFRESH = {
 today(){
@@ -7623,10 +7631,10 @@ today(){
     pfMuets.textContent = muets.length
       ? `Rien à déplacer pour l'instant, aucune carte n'en relève : ${muets.join(', ')}.` : '';
   }
-  const timed = missions.filter(m=>m.at && m.at > plan.now), slotMs = new Map();
+  const timed = missions.filter(meteoVoit).filter(m=>m.at && m.at > plan.now), slotMs = new Map();
   for(const m of timed){ let host = null; for(const x of plan.sessions) if(x.T <= m.at) host = x; if(host && host!==s0){ if(!slotMs.has(host)) slotMs.set(host, []); slotMs.get(host).push(m); } else m.at = 0; }
-  const nowMs = missions.filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
-  const infoMs = missions.filter(m=>m.info);
+  const nowMs = missions.filter(meteoVoit).filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
+  const infoMs = missions.filter(meteoVoit).filter(m=>m.info);
   const taskHtml = m=>{
     const [wi, wb] = whyParts([m.why]);
     const meta = (m.tags||[]).map(planetTag).join('') + (m.sol ? `<span>${esc(m.sol)}</span>` : '') + copyChips(m);
@@ -7650,8 +7658,9 @@ today(){
   if(a0.length || nowMs.length) nowParts.push(`<ul class="acts">${avant}${a0.map(a=>actHtml(a,true)).join('')}${apres}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
-  if(s0.waits.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${s0.waits.length})</summary><ul class="acts" style="margin-top:6px">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+formatTime(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`).join('')}</ul></details>`);
-  if(plan.busy.length || infoMs.length) nowParts.push(`<details${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${plan.busy.length + infoMs.length})</summary><ul class="acts" style="margin-top:6px">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${formatTime(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`).join('')}</ul></details>`);
+  const waits0 = s0.waits.filter(meteoVoit), busy0 = plan.busy.filter(meteoVoit);
+  if(waits0.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${waits0.length})</summary><ul class="acts" style="margin-top:6px">${waits0.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+formatTime(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`).join('')}</ul></details>`);
+  if(busy0.length || infoMs.length) nowParts.push(`<details${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${busy0.length + infoMs.length})</summary><ul class="acts" style="margin-top:6px">${busy0.map(b=>`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${formatTime(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`).join('')}</ul></details>`);
   const nextS = plan.sessions.slice(1).find(x=>actsVus(x).length);
   if(!a0.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${formatTime(nextS.T)}</b>.`:''}</p>`);
   const aide = `<details${fold('aide', false)}><summary class="note" data-fold="aide">Comment lire ces cartes</summary><p class="note" style="margin-top:6px"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. <b>Non</b> met la carte de côté jusqu'à ce que tu la remettes. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p></details>`;
@@ -7662,8 +7671,16 @@ today(){
      apparaître sa recommandation sans que le joueur recharge la page. */
   const eb = document.getElementById('expoBloc');
   if(eb){ const r = expoHtml(); eb.innerHTML = r.html; document.getElementById('expoSum').textContent = r.sum; }
-  const alerts = plan.alerts;
-  document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><h2>Alertes</h2><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('')}</ul></div>` : '';
+  /* Les constats qui « marquent » une carte (file vide, labo à l'arrêt) n'ont
+     pas encore leur marque sur la carte : ils se disent ici, pour qu'on puisse
+     les lire — et les ignorer. Un constat ignoré ne s'affiche plus, et ne
+     colore plus la météo. */
+  const marques = constatsVus().filter(c=>c.effet === 'marquer')
+    .map(c=>({sev:NIVEAU_SEV[c.niveau], what:c.what, why:c.why, regle:c.regle, pid:c.pid, c}));
+  const alerts = plan.alerts.filter(a=>!(a.c && estIgnore(a.c))).concat(marques)
+    .sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1)).filter(meteoVoit);
+  const ignBtn = a => a.c ? `<button class="btn sm ghost" data-ign="${esc(ignKey(a.c))}" title="Ne plus l'afficher tant que rien ne change (24 h au plus)">Ignorer</button>` : '';
+  document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><h2>Alertes</h2><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span>${ignBtn(a)}</li>`).join('')}</ul></div>` : '';
   const later = plan.sessions.slice(1).filter(x=>actsVus(x).length || slotMs.has(x));
   const slot = x=>`<div class="slot"><div class="time">${formatTime(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${actsVus(x).map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
@@ -8203,6 +8220,8 @@ view.addEventListener('click', e=>{
     return; }
   const n1 = e.target.closest('[data-noone]'); if(n1){ delete S.daily.no[n1.dataset.noone]; save(); render(); toast('Carte remise'); return; }
   const nc = e.target.closest('[data-noclear]'); if(nc){ S.daily.no = {}; save(); render(); toast('Cartes refusées remises'); return; }
+  const ig = e.target.closest('[data-ign]');
+  if(ig){ const c = constats().find(x=>ignKey(x) === ig.dataset.ign); if(c){ ignore(c); save(); render(); toast('Ignoré tant que rien ne change'); } return; }
   const sm = e.target.closest('summary[data-fold]');
   // Le repli bascule tout seul : on ne note que l'état où il va.
   if(sm){ (S.ui.fold = S.ui.fold || {})[sm.dataset.fold] = !sm.parentElement.open; save(); return; }
@@ -8216,7 +8235,7 @@ view.addEventListener('click', e=>{
   const la = e.target.closest('[data-launch]');
   if(la){
     const a = JSON.parse(la.dataset.launch), tm = {id:Math.random().toString(36).slice(2,8), manual:true, at:Date.now(), end:Date.now()+a.dur*1000, done:false};
-    if(a.kind==='t'){ tm.kind='t'; tm.k=a.k; tm.lvl=a.lvl; }
+    if(a.kind==='t'){ tm.kind='t'; tm.k=a.k; tm.lvl=a.lvl; if(a.pid){ tm.pid=a.pid; S.rechPid=a.pid; } }
     else if(a.kind==='b'){ tm.kind='b'; tm.pid=a.pid; tm.k=a.k; tm.lvl=a.lvl; }
     else if(a.kind==='shipbuild' || a.kind==='def'){ tm.kind='x'; tm.k='shipyard'; tm.ships=a.ships; tm.pid=a.pid; tm.label=a.what; }
     else if(a.kind==='transfer' || a.kind==='raid'){ tm.kind='x'; tm.k='fleet'; tm.ships=a.ships; tm.pid=a.pid; tm.label=a.kind==='raid' ? `Retour du pillage ${a.coords}` : 'Arrivée du rapatriement'; }
@@ -8510,7 +8529,7 @@ function applyGame(g){
   for(const t of (g.timers || [])){
     const tm = {id:'g'+t.end+(t.techId||t.type)+(t.planetId||''), game:true, queue:t.type, end:t.end*1000, done:t.end*1000 <= Date.now()};
     const pi = S.planets.findIndex(p=>p.gid===t.planetId);
-    if(OG_TECH[t.techId]){ tm.kind='t'; tm.k=OG_TECH[t.techId]; tm.lvl=S.tech[tm.k]+1; }
+    if(OG_TECH[t.techId]){ tm.kind='t'; tm.k=OG_TECH[t.techId]; tm.lvl=S.tech[tm.k]+1; if(pi>=0){ tm.pid=S.planets[pi].id; if(!tm.done) S.rechPid = tm.pid; } }
     else if(OG_BUILD[t.techId] && pi>=0){ tm.kind='b'; tm.pid=S.planets[pi].id; tm.k=OG_BUILD[t.techId]; tm.lvl=S.planets[pi].b[tm.k]+1; }
     else if(t.type==='fleet'){ tm.kind='x'; tm.k = /exp/i.test(t.label) ? 'expo' : 'fleet'; tm.label = t.label; }
     else {
@@ -8579,6 +8598,7 @@ function applyGame(g){
   // render() ne publie le plan que sur Aujourd'hui : une demande placée ici resterait muette sur la tuile
   publieLePlan();
 }
+meteoBind();
 render();
 /* Et à l'ouverture du panneau : le réglage peut avoir été posé avant que la
    page sache l'écouter, auquel cas aucun changement de sélecteur ne viendra
@@ -8622,7 +8642,7 @@ chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioA
    compteur est indexé par identifiant de planète, tiré au sort sur chaque
    poste ; envoyé tel quel il désignait la mauvaise planète à l'arrivée. */
 const SYNC_KEYS = ['settings','day','expo','lf','raids','daily','profil'];
-const gidDe = pid => { const p = planetById(pid); return p && p.gid != null ? String(p.gid) : null; };
+/* gidDe est déclarée plus haut, près de planetIndexById : le premier rendu la lit déjà (clé d'« Ignorer »). */
 const pidDe = gid => { const p = (S.planets || []).find(x => x.gid != null && String(x.gid) === String(gid)); return p ? p.id : null; };
 /* Une recherche ne porte pas de pid : elle voyage telle quelle.
    L'ordre des clés compte, et c'est tout sauf cosmétique : syncApply compare au
