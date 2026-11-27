@@ -76,6 +76,10 @@ export function sample(){
     lf:{found:['humans','rocktal']},
     centre:null, raid:null, raids:{}, prio:[], prioAsk:[],
     daily:{done:{}, no:{}},
+    /* Les minuteurs : vides au départ. Sans la clé, « Réinitialiser » rendait
+       un état que renderTimers ne savait pas filtrer, et le panneau levait
+       au redessin ; le chargement, lui, la comblait dans app.js. */
+    timers:[],
     colo:{fromId:null, objective:'balanced', bonus:0, target:'', kit:'std', tr:'sc', built:false, fields:'', fpos:''},
   };
 }

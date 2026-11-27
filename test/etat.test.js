@@ -38,10 +38,7 @@ module.exports = ({ t, app, assert, SOIR }) => {
     const g = app();
     g.click('ioReset');
     assert.equal(g.saved().planets.length, 2, 'le premier clic ne fait qu\'armer le bouton');
-    /* Le rendu qui suit la réinitialisation lève déjà sur main : sample() ne
-       porte pas `timers`, que renderTimers filtre. Bug signalé à part (#49
-       ne change aucun comportement) : on ne vérifie ici que l'état. */
-    try { g.click('ioReset'); } catch (e) { assert.match(e.message, /filter/); }
+    g.click('ioReset');
     const apres = g.saved();
     assert.equal(apres.planets.length, 1, 'l\'exemple n\'a qu\'une planète');
     assert.equal(apres.planets[0].name, 'Planète mère');
