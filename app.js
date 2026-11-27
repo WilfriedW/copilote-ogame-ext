@@ -202,6 +202,10 @@ function sample(){
          en clair plutôt que par référence : sample() tourne au chargement,
          bien avant la table DEF_MODELES. */
       defModele:'framework', defPalier:20, defPerso:{rl:40, ll:25, hl:10, ic:0, gc:4, pt:1},
+      /* Le plancher (en packs du modèle) que le profil impose tant que le
+         palier n'est pas atteint : null = celui du profil. Et la durée de
+         chantier, en heures, au-delà de laquelle une carte Défense se coupe. */
+      defPlancher:null, defDuree:4,
       /* Combien de cartes chaque liste montre d'office : une valeur pour
          toutes, et celles que le joueur a posées liste par liste. */
       cartesMax:3, cartesListe:{},
@@ -4727,7 +4731,7 @@ function simulateDay(){
      automatique pour tout le reste de la journée simulée. */
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
-  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:projectResources(p, now), liv:livraisons(p).filter(l=>l.at>now), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, satsOk:p.satsOk, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs, regOff:p.regOff, race:p.race}));
+  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:projectResources(p, now), liv:livraisons(p).filter(l=>l.at>now), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, satsOk:p.satsOk, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs, defModele:p.defModele, defPalier:p.defPalier, regOff:p.regOff, race:p.race}));
   const expoBusy = [], expoDeja = {};
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
@@ -5354,44 +5358,49 @@ function simulateDay(){
               wants.unshift({k:big, n:miss, why:`Transporteurs à demeure : cette colonie rapatrie sans attendre une flotte venue d'ailleurs`});
             }
           }
-          /* La défense n'entrait jamais dans le plan : mines, transporteurs,
-             satellites, et une planète pleine restait une ferme gratuite. Elle
-             passe par le même chantier et la même file que les vaisseaux, donc
-             par les mêmes wants : ce qui la rendait absente, c'est qu'aucun ne
-             la demandait.
-             Aucune défense du tout passe devant tout le reste — c'est le cas où
-             le raid est gratuit pour l'attaquant. Au-dessus de zéro elle se
-             complète en dernier, avec ce que le chantier a de libre.
+          /* La défense passe par le même chantier et la même file que les
+             vaisseaux, donc par les mêmes wants. Elle ne sort que du modèle
+             actif de la planète (le sien, sinon celui des réglages) : une
+             pièce que le modèle ne nomme pas ne reçoit jamais de carte, même
+             si elle est déjà au sol. Les quantités sont l'écart au modèle,
+             `computeDefenseGap`, le même calcul qu'Outils › Défense.
+             Le plancher du profil passe devant tout le chantier ; une planète
+             nue aussi, c'est le cas où le raid est gratuit. Au-dessus, la
+             croissance vers le palier se fait avec ce que le chantier a de
+             libre. Le chantier occupé bloque déjà la planète (`p.sq`), et son
+             lot rejoint `p.defs` à la fin : la file est comptée.
              def valant null, la page Défense n'a jamais été lue : proposer
              reviendrait à doubler ce qui existe déjà. dailyMissions le réclame. */
-          /* Une planète nue se complète d'un coup : le raid y est gratuit.
-             Au-dessus de zéro, par paquets d'au moins une tournée de
-             production : un laser à l'unité vaudrait une connexion pour
-             cinquante secondes de chantier. La cible monte avec les mines, donc
-             un écart trop petit n'est pas perdu — il attend d'en valoir la
-             peine pendant que le plan passe à la pièce suivante. */
-          const lotDe = k => Math.max(1, Math.ceil(tournee(p)/mse(...DEF[k].c)));
-          const besoin = defNeed(p, p.def ? lotDe : null);
-          if(besoin){
-            const d = DEF[besoin.k], pourquoi = DEF_POURQUOI[besoin.k];
-            const n = p.def ? (d.un ? 1 : Math.min(besoin.n, Math.max(lotDe(besoin.k), Math.ceil(besoin.n/4)))) : besoin.n;
-            const w = {k:besoin.k, n,
-              why:p.def
-                ? `${d.un ? `Aucun ${d.o} sur une planète qui en mérite un` : `${besoin.have} ${besoin.have>1?d.p:d.o} sur ${besoin.cible} vis${besoin.cible>1?'és':'é'}`} : ${pourquoi}`
-                : `Aucune défense : le premier pilleur repart avec la moitié de ton stock sans rien perdre. Visé ici : ${shipList(besoin.mix.cible)}, de quoi valoir la moitié d'une nuit de production. Elle te rend non rentable, pas invulnérable : le stock, lui, se protège en vol.`};
-            p.def ? wants.push(w) : wants.unshift(w);
+          const props = defPropositions(p);
+          if(props && props.ordre.length){
+            const dureeMax = Math.max(1, num(S.settings.defDuree, 4)) * 3600;
+            const attente = props.bloques.length ? ` En attente : ${props.bloques.map(defBloqueTexte).join(' · ')}.` : '';
+            const nue = !p.def;
+            const dw = props.ordre.map(l=>({k:l.k, n:l.manque,
+              /* Une carte ne dépasse pas la durée de chantier réglée : le reste
+                 sort sur la carte suivante. */
+              nMax: Math.max(1, Math.floor(dureeMax / Math.max(1e-9, shipTime(l.k, 1, p)))),
+              why:`${defPhrase(l, props.gap, props.phase, props.vise)}.`
+                + (nue ? ' Aucune défense : le premier pilleur repart avec la moitié de ton stock sans rien perdre.' : '')
+                + attente}));
+            if(props.phase === 'plancher' || nue) wants.unshift(...dw); else wants.push(...dw);
           }
           const res = reserveOf(p,Tm).map((x,j)=>x+softRes(p)[j]);
           for(const w of wants){
             if(refused(cardKey(DEF[w.k] ? 'def' : 'shipbuild', p.id, w.k))) continue;
             const c = SHIP_COST[w.k], afford = Math.min(...c.map((x,j)=>x>0 ? Math.floor((p.st[j]-res[j])/x) : Infinity));
-            const n = Math.min(w.n, afford); if(n<1) continue;
+            const n = Math.min(w.n, afford, w.nMax || Infinity); if(n<1) continue;
             const cost = c.map(x=>x*n), d = shipTime(w.k,n,p), k=w.k;
             /* Un lot plus petit qu'une tournée de production ne vaut pas la
                connexion : personne ne revient toutes les vingt secondes pour un
                laser. Le reliquat reste au stock et sort en paquet la fois
                d'après. Un lot qui termine ce qui était visé passe quand même. */
-            if(n < w.n && mse(...cost) < tournee(p)) continue;
+            /* La défense se mesure au hangar, pas à la tournée : un hangar
+               plein peut payer moins qu'une tournée de production, et la carte
+               ne sortirait jamais. Un lot vaut alors au moins la moitié de ce
+               qu'un hangar plein paierait. */
+            const plein = DEF[k] ? Math.min(...c.map((x,j)=>x>0 ? Math.floor(production(p).cap[j]/x) : Infinity)) : 0;
+            if(DEF[k] ? n < Math.min(w.n, Math.ceil(plein/2)) : (n < w.n && mse(...cost) < tournee(p))) continue;
             // La foreuse se compte à part, comme le fait la lecture du jeu :
             // production() et rankUpgrades() lisent p.crawlers, jamais la flotte.
             pay(p,cost); const fin = Tm+d*1000; p.sq = fin; sim.ev.push({at:fin, fn:()=>addBuilt(p, {[k]:n})});
@@ -7077,7 +7086,7 @@ function dailyMissions(){
     const aides = trous.filter(x=>x.ailleurs[0]), seules = trous.filter(x=>!x.ailleurs[0]);
     if(aides.length) m.how.push(`Sans soute pour les lever : ${aides.map(ligne).join(', ')}. Les cartes « Ramène… » disent d'où la faire venir.`);
     if(seules.length) m.how.push(`Sans soute pour les lever, et plus rien à emprunter : ${seules.map(ligne).join(', ')}. Toute la soute libre de l'empire est déjà promise ailleurs — il faut en construire sur place.`);
-    if(exposees.length) m.how.push(`Resteront exposés au matin : ${exposees.map(x=>`${esc(planetRef(x.p))} (~${fmt(x.eq)} éq.)`).join(', ')}. ${exposees[0].p.def == null ? 'Ouvre la page Défense pour que le plan monte ce qu\'il faut.' : `Le plan monte ${esc(planetRef(exposees[0].p))} à ${esc(defMixList(exposees[0].p))} : à ce prix-là, percer coûte plus cher qu'emporter.`}`);
+    if(exposees.length) m.how.push(`Resteront exposés au matin : ${exposees.map(x=>`${esc(planetRef(x.p))} (~${fmt(x.eq)} éq.)`).join(', ')}. ${exposees[0].p.def == null ? 'Ouvre la page Défense pour que le plan monte ce qu\'il faut.' : `Le plan monte ${esc(planetRef(exposees[0].p))} vers son modèle de défense : ${esc(defMixList(exposees[0].p))}.`}`);
     out.push(m);
     for(const r of (fs && fs.rest) || []) out.push(carteLot(r, false));
   }
@@ -7349,19 +7358,6 @@ const DEF = {
    c'est elle que la masse rend dissuasive ; les canons ensuite, du moins cher
    au plus cher. Le même ordre que le wiki fait suivre au joueur. */
 const DEF_ORDER = ['rl','ll','sd','hl','ic','gc','ld','pt'];
-/* Ce que chaque pièce apporte, en une proposition qui se compose. Sans ça le
-   joueur lit « 4 canons de Gauss » sans savoir ce qu'ils arrêtent. */
-const DEF_POURQUOI = {
-  rl: 'du métal pur, aucune recherche : la masse qui encaisse les tirs',
-  ll: 'le croiseur dévore les lanceurs de missiles et ne peut rien contre les lasers légers, le destructeur l\'inverse : les deux ensemble, et aucune des deux flottes ne fait l\'affaire',
-  hl: 'balaie les chasseurs légers que les pilleurs mettent devant, pour que les gros canons tirent sur les gros vaisseaux',
-  ic: 'cinq cents points de bouclier chacune, le double de tout le reste : ce qui absorbe',
-  gc: 'le premier canon qui abîme un vaisseau de bataille ; seule une étoile de la mort a un tir rapide contre lui',
-  pt: 'le seul canon que personne ne survole : aucun vaisseau n\'a de tir rapide contre lui',
-  sd: 'soixante-quinze points de bouclier par millier dépensé, sept fois tout le reste, et personne n\'a de tir rapide contre lui',
-  ld: 'dix mille points de bouclier d\'un bloc, sans tir rapide de personne',
-};
-
 /* ---------- les modèles de défense ---------- */
 
 /* Chaque joueur suit un ratio différent selon son style, et le wiki OGame en
@@ -7372,10 +7368,8 @@ const DEF_POURQUOI = {
    même proportion sous une autre ancre.
    Les deux boucliers n'y sont pas : le wiki en veut un de chaque, pas une
    proportion, et `defPlan` les pose hors ratio.
-   Ces modèles ne nourrissent pas le plan du jour. `defMix` garde son propre
-   budget — la moitié d'une nuit de production — parce qu'il dimensionne la
-   défense sur ce qu'un pilleur viendrait prendre, pas sur une cible que le
-   joueur a choisie. Les deux cohabitent, et la carte le dit.
+   Ces modèles sont la seule source des cartes Défense du plan : une pièce
+   que le modèle actif ne nomme pas n'en reçoit jamais (`computeDefenseGap`).
    ponytail: une table dans le code, pas un fichier de config à charger. Un
    modèle de plus, c'est une ligne de plus, et rien à empaqueter ni à lire au
    démarrage. */
@@ -7913,81 +7907,15 @@ function shipTime(k, n, p){ const c = SHIP_COST[k]; return n*(c[0]+c[1])/(2500*(
    laisse ce sens plutôt que de le jeter, sinon une défense déjà construite
    disparaît le jour de la mise à jour et le plan la redemande. */
 const defsOf = p => p.defs || (p.def == null ? null : {rl:p.def});
-/** Chair à canon au sol, les deux types confondus comme le fait le wiki. */
-const defFodder = have => (have.rl||0) + (have.ll||0);
-/**
- * Le mélange que cette planète mérite, et ce qu'il coûte.
- * Ce que le pilleur d'inactifs vient chercher, c'est la production accumulée
- * pendant la plus longue absence de la journée — la nuit — et il en emporte la
- * moitié. Une défense qui vaut cette moitié-là lui coûte plus cher à percer
- * qu'elle ne rapporte : il passe à la planète suivante. Contre une vraie flotte
- * elle ne tient pas, rien ne tient, et c'est la mise à l'abri qui sert.
- * La cible suit donc la production, pas le stock : un stock se vide, une mine
- * continue de remplir.
- * Le budget s'achète par paquets, pas par pièces : une unité de chair à canon
- * traîne sa part de gros canons, et c'est ce paquet qu'on paie. Ce que le
- * joueur n'a pas encore les moyens de chercher sort du paquet, et son budget
- * repart dans ce qui reste.
- * @param {object} p planète
- * @returns {{n:number, cible:object, types:string[]}|null} null si même le
- *   lanceur de missiles est hors de portée
- */
-function defMix(p){
-  const types = DEF_ORDER.filter(k=>shipReqOk(k,p));
-  const chair = types.filter(k=>DEF[k].per==='fodder');
-  if(!chair.length) return null;
-  const poids = k => DEF[k].per==='fodder' ? 1/chair.length : DEF[k].per;
-  const paquet = types.filter(k=>DEF[k].per).reduce((a,k)=>a + poids(k)*mse(...DEF[k].c), 0);
-  const nuit = nightLen();
-  const pr = production(p);
-  const butin = mse(pr.m, pr.c, pr.d) * nuit / 2;
-  const n = Math.max(1, Math.ceil(butin / paquet));
-  const cible = {};
-  /* Le bouclier ne rejoint le mélange qu'à partir de la taille où le wiki le
-     place : annoncé plus tôt, il promet une pièce qui coûte dix fois toute la
-     défense visée et que le plan ne proposera jamais. */
-  for(const k of types) cible[k] = DEF[k].un ? (n >= DEF[k].un ? 1 : 0) : Math.ceil(n * poids(k));
-  return {n, cible, types};
-}
-/**
- * Combien de chair à canon cette planète mérite, les deux types confondus.
- * @param {object} p planète
- * @returns {number} 0 si rien n'est constructible
- */
-function defTarget(p){ const m = defMix(p); return m ? m.n : 0; }
-/**
- * La pièce qui manque le plus tôt dans l'ordre de construction, ou null quand
- * le mélange est au complet. Une pièce à la fois : le chantier n'en sort
- * qu'une, et un plan qui réclame tout d'un coup ne se lit pas.
- * @param {object} p planète
- * @returns {{k:string, n:number, cible:number, have:number, mix:object}|null}
- */
-function defNeed(p, lot){
-  const mix = defMix(p), have = defsOf(p);
-  if(!mix || !have) return null;
-  const chair = defFodder(have);
-  for(const k of DEF_ORDER){
-    if(!mix.cible[k]) continue;
-    /* Un bouclier ne se construit qu'une fois, et pas sur une planète nue :
-       il protège ce qui tire, il ne remplace rien. */
-    if(DEF[k].un){ if(chair >= DEF[k].un && !(have[k] > 0)) return {k, n:1, cible:1, have:0, mix}; continue; }
-    const manque = mix.cible[k] - (have[k]||0);
-    /* Un écart plus petit qu'un lot ne vaut pas la connexion : on passe à la
-       pièce suivante. Le plancher ne dépasse jamais la cible, sinon une petite
-       planète dont toute la défense coûte moins d'une tournée n'en aurait
-       jamais. */
-    if(manque > 0 && (!lot || manque >= Math.min(lot(k), mix.cible[k]))) return {k, n:manque, cible:mix.cible[k], have:have[k]||0, mix};
-  }
-  return null;
-}
-/** Le mélange visé en clair : « 120 lanceurs de missiles, 120 lasers légers… ». */
-function defMixList(p){ const m = defMix(p); return m ? shipList(m.cible) : ''; }
-
 /** Le modèle que cette planète suit : le sien d'abord, celui des réglages
     ensuite. @returns {string} une clé de DEF_MODELES */
 /* Un réglage venu d'ailleurs (sauvegarde, autre poste) peut nommer un modèle
    que la table n'a plus : le framework répond, plutôt qu'un rendu qui casse. */
 function defModeleK(p){ const k = p && p.defModele; return k && DEF_MODELES[k] ? k : (DEF_MODELES[S.settings.defModele] ? S.settings.defModele : 'framework'); }
+/** Le modèle actif d'une planète : le sien s'il est posé, sinon celui des
+    réglages, que le profil a posé au questionnaire. Un seul endroit tranche,
+    pour qu'Outils › Défense et le plan ne suivent jamais deux modèles. */
+const resolveActiveModel = p => defModeleK(p);
 /** Le ratio d'un modèle. Celui du joueur sort de ses réglages. */
 function defRatio(k){ return k === 'perso' ? S.settings.defPerso : (DEF_MODELES[k] || {}).r; }
 /** La pièce qui compte le palier : le lanceur de plasma, ou, si le modèle n'en
@@ -7997,43 +7925,119 @@ function defAncre(r){ return r && r.pt > 0 ? 'pt' : (DEF_RATIO.find(k=>r && r[k]
 /** Le palier visé sur cette planète : le sien d'abord. `'fill'` veut dire
     « compléter autour de ce qui est déjà au sol ». */
 function defPalierDe(p){ const v = p && p.defPalier != null ? p.defPalier : S.settings.defPalier; return v === 'fill' ? 'fill' : num(v, 20); }
+/* Les plafonds proposés pour la taille d'une carte, en heures de chantier. */
+const DEF_DUREES = [1, 2, 4, 8, 12];
+/* Les planchers proposés, en packs du modèle. */
+const DEF_PLANCHERS = [0, 1, 2, 3, 5];
+/** Le plancher de défense du profil, en packs du modèle : 0 quand le style
+    n'en a pas. Le réglage du joueur passe devant la valeur du profil. */
+function defPlancherDe(){
+  const st = S.profil && S.profil.set ? PROFILS.styles[S.profil.style] : null;
+  if(!st || st.plancher == null) return 0;
+  const v = S.settings.defPlancher;
+  return v == null || v === '' ? st.plancher : Math.max(0, num(v, st.plancher));
+}
+/** La défense déjà en file sur cette planète : ce que le joueur a lancé depuis
+    une carte et dont le chantier n'a pas encore rendu la main. Sans elle, la
+    carte suivante redemanderait le lot en cours. */
+function defEnFile(p, now = Date.now()){
+  const out = {};
+  for(const t of S.timers || []){
+    if(t.done || t.end <= now || t.pid !== p.id || !t.ships) continue;
+    for(const [k, n] of Object.entries(t.ships)) if(DEF[k]) out[k] = (out[k] || 0) + num(n, 0);
+  }
+  return out;
+}
+/**
+ * La seule source de vérité de la défense : ce que le modèle actif demande à
+ * cette planète, type par type, et ce qui lui manque. Outils › Défense et les
+ * cartes du plan passent tous deux par ici.
+ *
+ *   cible(type) = ratio(type) × palier / ratio(ancre)
+ *   manque(type) = max(0, cible − au sol − en file)
+ *
+ * Un type que le modèle ne nomme pas — l'artillerie à ions du Framework
+ * mineur, les deux boucliers dans tous les modèles — n'a jamais de manque :
+ * s'il est au sol, il compte « hors modèle », sans rien réclamer.
+ *
+ * @param {object} p planète (réelle ou simulée)
+ * @param {{modele?:string, palier?:number|'fill', have?:object, enFile?:object}} [o]
+ * @returns {{modele:string, nom:string, ancre:string, palier:number,
+ *   lignes:Array<{k:string, n:number, file:number, cible:number, manque:number,
+ *   exces:number, hors:boolean, ok:boolean, req:string}>}|null}
+ *   null quand la défense n'a jamais été relevée : zéro et inconnu diffèrent.
+ */
+function computeDefenseGap(p, o = {}){
+  const have = o.have || (p && defsOf(p));
+  if(!have) return null;
+  const enFile = o.enFile || {};
+  const k = o.modele || resolveActiveModel(p), r = defRatio(k) || {}, ancre = defAncre(r);
+  const vise = o.palier != null ? o.palier : defPalierDe(p);
+  /* « Compléter » : c'est ce qui est au sol, ou en route, qui fixe la taille. */
+  const palier = vise === 'fill' ? Math.max(0, num(have[ancre], 0) + num(enFile[ancre], 0)) : Math.max(0, num(vise, 0));
+  const f = r[ancre] > 0 ? palier / r[ancre] : 0;
+  const lignes = DEF_ORDER.map(j=>{
+    const dedans = !DEF[j].un && num(r[j], 0) > 0;
+    const cible = dedans ? Math.ceil(r[j] * f) : 0;
+    const n = Math.max(0, num(have[j], 0)), file = Math.max(0, num(enFile[j], 0));
+    const manque = dedans ? Math.max(0, cible - n - file) : 0, ok = shipReqOk(j, p);
+    return {k:j, n, file, cible, manque, exces: dedans ? Math.max(0, n + file - cible) : 0,
+      hors: !dedans && n + file > 0, ok,
+      /* Le prérequis ne se dit que s'il bloque une pièce que le modèle demande. */
+      req: manque > 0 && !ok ? defPrereq(j, p) : ''};
+  }).filter(l=>l.cible > 0 || l.n > 0 || l.file > 0);
+  return {modele:k, nom:(DEF_MODELES[k] || {}).n || k, ancre, palier, lignes};
+}
+/**
+ * Ce que le plan propose sur cette planète, dans l'ordre : d'abord le
+ * plancher du profil s'il n'est pas tenu, ensuite le palier visé. Seuls les
+ * types débloqués sortent ; à l'intérieur, le moins complet d'abord
+ * (au sol / cible), et à égalité le moins cher à l'unité.
+ * @param {object} p planète
+ * @param {object} [o] passé à computeDefenseGap
+ * @returns {{phase:'plancher'|'palier', gap:object, vise:object, plancher:number,
+ *   ordre:object[], bloques:object[]}|null}
+ */
+function defPropositions(p, o = {}){
+  const vise = computeDefenseGap(p, o);
+  if(!vise) return null;
+  const r = defRatio(vise.modele) || {}, plancher = defPlancherDe() * num(r[vise.ancre], 0);
+  const utile = g => g.lignes.filter(l=>l.manque > 0 && l.ok);
+  let gap = vise, phase = 'palier';
+  if(plancher > 0 && plancher < vise.palier){
+    const g = computeDefenseGap(p, Object.assign({}, o, {modele:vise.modele, palier:plancher}));
+    if(utile(g).length){ gap = g; phase = 'plancher'; }
+  }
+  const taux = l => (l.n + l.file) / l.cible;
+  const ordre = utile(gap).sort((a, b)=>taux(a) - taux(b) || mse(...DEF[a.k].c) - mse(...DEF[b.k].c));
+  return {phase, gap, vise, plancher, ordre, bloques: vise.lignes.filter(l=>l.req)};
+}
+/** « 12 lanceurs de missiles sur 800 visés pour le modèle Framework mineur (palier 20) ». */
+function defPhrase(l, gap, phase, vise){
+  const d = DEF[l.k], x = l.n + l.file;
+  const quoi = phase === 'plancher' ? `plancher ${fmt(gap.palier)}, avant le palier ${fmt(vise.palier)}` : `palier ${fmt(gap.palier)}`;
+  return `${fmt(x)} ${x > 1 ? d.p : d.o} sur ${fmt(l.cible)} vis${l.cible > 1 ? 'és' : 'é'} pour le modèle ${gap.nom} (${quoi})`;
+}
+/** « Gauss : nécessite Chantier spatial 6, Technologie Armes 3 ». */
+const defBloqueTexte = l => `${DEF_ABR[l.k] ? DEF_ABR[l.k][0] : DEF[l.k].n} : nécessite ${l.req}`;
+/** Le mélange visé en clair : « 800 lanceurs de missiles, 500 lasers légers… ». */
+function defMixList(p){ const g = computeDefenseGap(p); if(!g) return ''; const c = {}; for(const l of g.lignes) if(l.cible > 0) c[l.k] = l.cible; return shipList(c); }
+
 /**
  * Ce qu'il manque à une planète pour tenir son modèle, pièce par pièce, et ce
  * que ça coûte. Lecture seule : rien n'est construit, aucune file n'est ouverte.
- *
- * Le manque ne descend jamais sous zéro — une planète qui a plus que la cible
- * porte un excédent, qui compte quand même et ne vient pas rogner le reste du
- * calcul. Les deux boucliers sortent du ratio : un de chaque, comme le wiki.
+ * Le calcul est celui de `computeDefenseGap`, avec la file du chantier.
  *
  * @param {object} p planète
- * @returns {{modele:string, nom:string, ancre:string, palier:number,
- *   lignes:Array<{k:string, n:number, cible:number, manque:number, exces:number,
- *   cout:number[], req:string}>, cout:number[], stock:number[], payable:boolean}|null}
- *   null quand la défense de cette planète n'a jamais été relevée : zéro et
- *   « inconnu » ne sont pas la même chose, et annoncer un manque complet
- *   enverrait le joueur reconstruire ce qui est déjà au sol.
+ * @returns {object|null} le gap, plus `cout`, `stock`, `payable` et le plancher
  */
 function defPlan(p){
-  const have = p && defsOf(p);
-  if(!have) return null;
-  const k = defModeleK(p), r = defRatio(k) || {}, ancre = defAncre(r), vise = defPalierDe(p);
-  /* « Compléter » : c'est ce qui est au sol qui fixe la taille, et le reste du
-     modèle se remet à niveau autour. */
-  const palier = vise === 'fill' ? Math.max(0, have[ancre] || 0) : Math.max(0, vise);
-  const f = r[ancre] > 0 ? palier / r[ancre] : 0;
-  const lignes = DEF_ORDER.map(j=>{
-    const cible = DEF[j].un ? 1 : Math.ceil(num(r[j], 0) * f);
-    const n = Math.max(0, have[j] || 0), manque = Math.max(0, cible - n);
-    return {k:j, n, cible, manque, exces: Math.max(0, n - cible),
-      cout: DEF[j].c.map(x=>x * manque),
-      /* Le prérequis ne se dit que s'il bloque quelque chose : un lanceur de
-         plasma hors de portée sur une planète qui n'en veut pas n'est pas un
-         problème à signaler. */
-      req: manque > 0 && !shipReqOk(j, p) ? defPrereq(j, p) : ''};
-  }).filter(l=>l.cible > 0 || l.n > 0);
-  const cout = [0,1,2].map(i=>lignes.reduce((a,l)=>a + l.cout[i], 0)), stock = stockNow(p);
-  return {modele:k, nom:DEF_MODELES[k].n, ancre, palier, lignes, cout, stock,
-    payable: cout.every((x,i)=>x <= stock[i])};
+  if(!p || !defsOf(p)) return null;
+  const pr = defPropositions(p, {enFile: defEnFile(p)}), d = pr.vise;
+  for(const l of d.lignes) l.cout = DEF[l.k].c.map(x=>x * l.manque);
+  const cout = [0,1,2].map(i=>d.lignes.reduce((a,l)=>a + l.cout[i], 0)), stock = stockNow(p);
+  return Object.assign(d, {cout, stock, payable: cout.every((x,i)=>x <= stock[i]),
+    phase: pr.phase, plancher: pr.plancher, plancherGap: pr.phase === 'plancher' ? pr.gap : null});
 }
 /** Ce qui bloque une pièce, en clair : « Chantier spatial 8, Technologie Plasma 7 ». */
 function defPrereq(j, p){
@@ -8053,18 +8057,21 @@ function defCarte(p){
     </div>`;
   const d = defPlan(p);
   if(!d) return `<div class="card">${tete}${menus}<p class="note">Défense jamais relevée ici : ouvre la page Défense de cette planète dans le jeu, ou clique Actualiser. Tant qu'elle est inconnue, annoncer un manque reviendrait à faire reconstruire ce qui est déjà au sol.</p></div>`;
-  const exces = d.lignes.filter(l=>l.exces > 0), bloques = d.lignes.filter(l=>l.req);
+  const exces = d.lignes.filter(l=>l.exces > 0), hors = d.lignes.filter(l=>l.hors), bloques = d.lignes.filter(l=>l.req);
+  const enFile = d.lignes.some(l=>l.file > 0);
   return `<div class="card">${tete}${menus}
     <p class="note">${esc(d.nom)} · ${d.palier} ${esc(DEF[d.ancre].p)}${defPalierDe(p)==='fill' ? ' déjà au sol' : ''}</p>
     ${p.defModele ? `<p class="note mono">${defRecetteHtml(defModele(d.modele))}</p>` : ''}
-    <div class="tbl-wrap"><table><thead><tr><th>Pièce</th><th class="n">Au sol</th><th class="n">Cible</th><th class="n">Manque</th><th>Coût du manque</th></tr></thead><tbody>
-      ${d.lignes.map(l=>`<tr><td>${esc(DEF[l.k].n)}</td><td class="n">${fmt(l.n)}</td><td class="n">${fmt(l.cible)}</td><td class="n">${l.manque ? fmt(l.manque) : l.exces ? `<span class="note">+${fmt(l.exces)}</span>` : '—'}</td><td>${l.manque ? costHtml(l.cout) : ''}</td></tr>`).join('')}
+    ${d.plancherGap ? `<p class="pill warn">Sous le plancher de ton profil (${fmt(d.plancher)} ${esc(DEF[d.ancre].p)}) : ses cartes passent avant celles du palier.</p>` : ''}
+    <div class="tbl-wrap"><table><thead><tr><th>Pièce</th><th class="n">Au sol</th>${enFile ? '<th class="n">En file</th>' : ''}<th class="n">Cible</th><th class="n">Manque</th><th>Coût du manque</th></tr></thead><tbody>
+      ${d.lignes.map(l=>`<tr><td>${esc(DEF[l.k].n)}</td><td class="n">${fmt(l.n)}</td>${enFile ? `<td class="n">${l.file ? fmt(l.file) : '—'}</td>` : ''}<td class="n">${l.hors ? '<span class="note">hors modèle</span>' : fmt(l.cible)}</td><td class="n">${l.manque ? fmt(l.manque) : l.exces ? `<span class="note">+${fmt(l.exces)}</span>` : '—'}</td><td>${l.manque ? costHtml(l.cout) : ''}</td></tr>`).join('')}
     </tbody></table></div>
     <div class="row" style="gap:8px;margin-top:8px">${d.cout.some(x=>x > 0)
       ? `<span class="pill ${d.payable ? 'good' : 'warn'}">${d.payable ? 'Payable avec son stock' : 'Plus que son stock'}</span>${costHtml(d.cout)}`
       : `<span class="pill good">Le modèle est tenu</span>`}</div>
     ${exces.length ? `<p class="note">Au-dessus du modèle, et ça compte quand même : ${exces.map(l=>`${fmt(l.exces)} ${esc(DEF[l.k].p)}`).join(', ')}.</p>` : ''}
-    ${bloques.length ? `<p class="pill warn" style="margin-top:8px">Hors de portée pour l'instant : ${bloques.map(l=>`${esc(DEF[l.k].o)} (${esc(l.req)})`).join(' · ')}</p>` : ''}
+    ${hors.length ? `<p class="note">Hors modèle, au sol et compté, mais jamais redemandé : ${hors.map(l=>`${fmt(l.n + l.file)} ${esc(l.n + l.file > 1 ? DEF[l.k].p : DEF[l.k].o)}`).join(', ')}.</p>` : ''}
+    ${bloques.length ? `<p class="pill warn" style="margin-top:8px">Pas encore débloqué, aucune carte en attendant : ${bloques.map(l=>esc(defBloqueTexte(l))).join(' · ')}</p>` : ''}
   </div>`;
 }
 /** Les paliers d'un menu, le choisi marqué. */
@@ -9085,13 +9092,17 @@ settings(){
       <div class="grid">
         <div class="f"><span>Modèle</span>${defPicker(s.defModele)}</div>
         <label class="f">Palier visé<select id="sDefP" data-def="palier">${defPalierOpts(s.defPalier)}</select><span class="note">En ${esc(DEF[defAncre(defRatio(s.defModele) || {})].p)}. « Compléter » part de ce que la planète a déjà.</span></label>
+        ${(()=>{ const st = S.profil.set ? PROFILS.styles[S.profil.style] : null; if(!st || st.plancher == null) return '';
+          const v = s.defPlancher == null ? '' : String(s.defPlancher);
+          return `<label class="f">Plancher<select id="sDefF" data-def="plancher"><option value="" ${v===''?'selected':''}>Comme le profil (${st.plancher})</option>${DEF_PLANCHERS.map(x=>`<option value="${x}" ${v===String(x)?'selected':''}>${x === 0 ? 'Aucun' : x}</option>`).join('')}</select><span class="note">En packs du modèle. Profil ${esc(st.n)} : tant que le palier n'est pas atteint, ses cartes passent d'abord.</span></label>`; })()}
+        <label class="f">Durée max d'une carte<select id="sDefD" data-def="duree">${DEF_DUREES.map(x=>`<option value="${x}" ${num(s.defDuree,4)===x?'selected':''}>${x} h de chantier</option>`).join('')}</select><span class="note">Au-delà, le reste sort sur la carte suivante.</span></label>
       </div>
       ${defModeleCarte(s.defModele)}
       ${s.defModele === 'perso' ? `<div class="grid tight">${DEF_RATIO.map(k=>`<label class="f">${esc(DEF[k].n)}<input id="sDefR-${k}" type="number" min="0" step="1" data-def="${k}" value="${num(S.settings.defPerso[k])}"></label>`).join('')}</div>
-      <p class="note">Combien de pièces par lanceur de plasma. Les deux boucliers restent hors ratio : un de chaque.</p>` : ''}
+      <p class="note">Combien de pièces par lanceur de plasma. Les deux boucliers restent hors modèle.</p>` : ''}
       ${S.profil.set && s.defModele === (PROFILS.styles[S.profil.style] || {}).defense
         ? `<p class="note">Posé par ton profil (<b>${esc(PROFILS.styles[S.profil.style].n)}</b>). En choisir un autre ici le détache du profil : refaire le questionnaire ne le remettra plus.</p>` : ''}
-      <p class="note">Outils › Défense dit, planète par planète, ce qui manque pour tenir ce modèle et ce que ça coûte. Une planète peut y prendre un autre modèle que celui-ci.</p>
+      <p class="note">Les cartes Défense du plan ne proposent que les pièces de ce modèle, dans ses proportions. Outils › Défense dit, planète par planète, ce qui manque et ce que ça coûte ; une planète peut y prendre un autre modèle que celui-ci.</p>
     </div>
     <div class="card"><h2>Énergie</h2>
       <div class="bascules">
@@ -9726,7 +9737,9 @@ function bind(){
       else if(n == null) delete q.defPalier; else q.defPalier = n;
     /* Le ratio du joueur : des nombres entiers, jamais négatifs. C'est la seule
        valeur de ce bloc qu'il écrit lui-même, donc la seule à borner. */
-    }else if(DEF_RATIO.includes(k)) S.settings.defPerso[k] = Math.max(0, Math.round(num(v, 0)));
+    }else if(k === 'plancher') S.settings.defPlancher = DEF_PLANCHERS.includes(+v) && v !== '' ? +v : null;
+    else if(k === 'duree') S.settings.defDuree = DEF_DUREES.includes(+v) ? +v : 4;
+    else if(DEF_RATIO.includes(k)) S.settings.defPerso[k] = Math.max(0, Math.round(num(v, 0)));
     S.sample = false; save(); render();
   }));
   view.querySelectorAll('[data-fc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ S.fleetCalc[el.dataset.fc] = el.dataset.fc==='pct'?+el.value:el.value.trim(); changed(); }));
@@ -10014,6 +10027,8 @@ function sainEtat(){
   S.settings.defPerso = perso && typeof perso === 'object'
     ? Object.fromEntries(DEF_RATIO.map(k=>[k, nb(Math.round(num(perso[k], 0)), 0, 0, 1e7)]))
     : def.settings.defPerso;
+  if(S.settings.defPlancher != null && !DEF_PLANCHERS.includes(num(S.settings.defPlancher, -1))) S.settings.defPlancher = null;
+  if(!DEF_DUREES.includes(num(S.settings.defDuree, -1))) S.settings.defDuree = def.settings.defDuree;
   for(const q of S.planets || []){
     if(q.defModele != null && !(q.defModele in DEF_MODELES)) delete q.defModele;
     if(q.defPalier != null && q.defPalier !== 'fill' && !DEF_PALIERS.includes(num(q.defPalier, -1))) delete q.defPalier;

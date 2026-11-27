@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk, rules) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'dayValue', 'modeNuit', 'finDeNuit', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES', 'missionKey', 'UI', 'uiOuvert', 'uiNote', 'uiVu', 'uiPurge', 'uiReset', 'uiEcrit', 'fold', 'garderVue', 'carteDetails', 'REGLES', 'REGLES_ERR', 'EVAL', 'regle', 'regleSaine', 'reglePose', 'regleActive', 'gabarit', 'constats', 'constatsDe', 'SEV_LABEL', 'ignore', 'ignKey', 'constatsVus', 'ignClean', 'conseilsHtml', 'reglesCard', 'planeteOuverte', 'cibleMines', 'mineEnRetard', 'naniteRetard', 'laboEnRetard', 'rechercheAilleurs', 'reglesRecherche', 'regOffHtml', 'raceDe', 'baseDe', 'lfNom', 'lfNomConnu', 'lfManques', 'rescanner', 'lfNomsRetiens', 'raceRows', 'alerteNeuve', 'ongletAffiche'], api, ext, prioAsk, rules);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'computeDefenseGap', 'resolveActiveModel', 'defPropositions', 'defPlancherDe', 'defEnFile', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'dayValue', 'modeNuit', 'finDeNuit', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES', 'missionKey', 'UI', 'uiOuvert', 'uiNote', 'uiVu', 'uiPurge', 'uiReset', 'uiEcrit', 'fold', 'garderVue', 'carteDetails', 'REGLES', 'REGLES_ERR', 'EVAL', 'regle', 'regleSaine', 'reglePose', 'regleActive', 'gabarit', 'constats', 'constatsDe', 'SEV_LABEL', 'ignore', 'ignKey', 'constatsVus', 'ignClean', 'conseilsHtml', 'reglesCard', 'planeteOuverte', 'cibleMines', 'mineEnRetard', 'naniteRetard', 'laboEnRetard', 'rechercheAilleurs', 'reglesRecherche', 'regOffHtml', 'raceDe', 'baseDe', 'lfNom', 'lfNomConnu', 'lfManques', 'rescanner', 'lfNomsRetiens', 'raceRows', 'alerteNeuve', 'ongletAffiche'], api, ext, prioAsk, rules);
 }
 /** L'application avec un rules.json donné — null pour un fichier illisible. */
 const appRegles = (rules, modifier, ext) => app(modifier, null, null, ext, null, rules);
@@ -6622,96 +6622,149 @@ t('zéro défense passe devant le reste du chantier', () => {
   if (iSh >= 0) assert.ok(iDef < iSh, 'le raid est gratuit, la défense d\'abord : ' + q.join(' | '));
 });
 
-t('la cible suit la production, et un mélange au complet se tait', () => {
-  const g = app(s => { relie(s); chercheur(s); });
-  const mix = g.defMix(g.S.planets[0]);
-  assert.ok(mix.n > 0, 'une planète qui produit mérite une défense');
-  // Le mélange au complet, et largement : plus rien à réclamer.
-  const plein = {};
-  for (const [k, n] of Object.entries(mix.cible)) plein[k] = n * 5;
-  assert.equal(defense(plein, chercheur).act, undefined,
-    'la cible dépassée partout, on arrête');
-  const { act } = defense({ rl: 1 }, chercheur);
-  assert.ok(act, 'sous la cible, le plan complète');
-  assert.match(act.why, /sur \d+ vis[eé]/, 'la cible est chiffrée : ' + act.why);
+/* Le modèle de défense est la seule source des cartes : plus de budget « une
+   moitié de nuit » à côté. Le cas vécu : Framework mineur actif, et le plan
+   proposait des artilleries à ions que le modèle ne nomme pas. */
+const defActs = acts => acts.filter(a => a.kind === 'def');
+const defKeys = acts => defActs(acts).flatMap(a => Object.keys(a.ships));
+
+t('Framework mineur : jamais d\'artillerie à ions ni de bouclier, même tout débloqué', () => {
+  const { acts } = defense({ rl: 10 }, s => { chercheur(s); mineuse(s); });
+  const k = defKeys(acts);
+  assert.ok(k.length, 'de la défense est proposée : ' + JSON.stringify(acts.map(a => a.what)));
+  for (const x of ['ic', 'sd', 'ld']) assert.ok(!k.includes(x), x + ' hors modèle proposé : ' + k.join(','));
+  for (const a of defActs(acts)) assert.ok(!/ce qui absorbe/.test(a.why), 'l\'ancien texte tronqué : ' + a.why);
 });
 
-/* Le point que le wiki martèle : un tas d'un seul type est gratuit à percer.
-   Le croiseur a un tir rapide de 10 sur le lanceur de missiles et rien du tout
-   sur le laser léger ; le destructeur l'inverse. Le plan doit donc viser les
-   deux, et le dire. */
-t('un tas de lanceurs ne suffit pas : le plan vise aussi des lasers légers', () => {
-  const g = app(s => { relie(s); chercheur(s); });
-  const mix = g.defMix(g.S.planets[0]);
-  assert.ok(mix.cible.rl > 0 && mix.cible.ll > 0, 'les deux chairs à canon : ' + JSON.stringify(mix.cible));
-  assert.ok(mix.cible.hl > 0 && mix.cible.gc > 0, 'et des gros canons : ' + JSON.stringify(mix.cible));
-  // 500 lanceurs, pas un laser : c'est le laser que le plan réclame.
-  const { act } = defense({ rl: 500 }, chercheur);
-  assert.ok(act, 'un tas d\'un seul type laisse quelque chose à faire');
-  assert.ok(act.ships.ll > 0, 'des lasers légers : ' + act.what);
-  assert.match(act.why, /croiseur|destructeur/, 'et on dit pourquoi : ' + act.why);
+t('un autre modèle change ce qui sort : Plasma pur ne propose que LM et PL', () => {
+  const { acts } = defense({ rl: 10 }, s => { chercheur(s); mineuse(s); s.tech.plasma = 7; s.planets[0].b.shipyard = 8; s.settings.defModele = 'plasma'; });
+  const k = defKeys(acts);
+  assert.ok(k.length && k.every(x => x === 'rl' || x === 'pt'), k.join(','));
 });
 
-/* Ce qui agaçait : deux cartes d'affilée pour un laser, cinquante secondes de
-   chantier chacune. Un lot vaut au moins une tournée de production, sinon il
-   attend. */
+t('le modèle d\'une planète passe devant celui des réglages, jusque dans le plan', () => {
+  const { acts } = defense({ rl: 10 }, s => { chercheur(s); mineuse(s); s.planets[0].defModele = 'balanced'; });
+  const a = defActs(acts);
+  assert.ok(a.length && a.every(x => /pour le modèle Balanced Defense/.test(x.why)), a.map(x => x.why).join(' | '));
+});
+
+t('la quantité d\'une carte est l\'écart au modèle, quand le stock et la durée suivent', () => {
+  // Tout au sol sauf 3 lasers légers : la carte en demande exactement 3.
+  const plein = { rl: 800, ll: 497, hl: 200, gc: 80 };
+  const { acts } = defense(plein, chercheur);
+  const ll = defActs(acts).find(a => a.ships.ll);
+  assert.ok(ll, 'le manque de lasers légers : ' + defActs(acts).map(a => a.what).join(' | '));
+  assert.equal(ll.ships.ll, 3, '500 visés − 497 au sol');
+  assert.ok(!defKeys(acts).includes('rl') && !defKeys(acts).includes('hl'), 'le reste est tenu');
+});
+
+t('la défense en file compte : pas de carte en double', () => {
+  const g = app(s => { relie(s); chercheur(s);
+    s.planets[0].defs = { rl: 800, ll: 490, hl: 200, gc: 80 }; s.planets[0].def = 1570;
+    s.timers = [{ kind: 'x', k: 'shipyard', queue: 'shipyard', pid: 'mere', end: SOIR + 3600e3, manual: true, ships: { ll: 10 } }];
+  });
+  const d = g.defPlan(g.S.planets[0]);
+  const l = d.lignes.find(x => x.k === 'll');
+  assert.equal(l.file, 10, 'les 10 lancés sont lus');
+  assert.equal(l.manque, 0, '500 − 490 − 10');
+  assert.ok(/En file/.test(lu(g.defCarte(g.S.planets[0]))), 'et la colonne le montre');
+});
+
+t('une défense hors modèle au sol est comptée, jamais redemandée', () => {
+  const g = app(s => { relie(s); chercheur(s); s.planets[0].defs = { rl: 5, ic: 10 }; s.planets[0].def = 15; });
+  const d = g.defPlan(g.S.planets[0]);
+  const ic = d.lignes.find(x => x.k === 'ic');
+  assert.ok(ic && ic.hors && ic.manque === 0 && ic.cible === 0, JSON.stringify(ic));
+  assert.ok(/Hors modèle[^<]*10 artilleries à ions/.test(lu(g.defCarte(g.S.planets[0]))), 'Outils › Défense le dit');
+  assert.ok(/hors modèle/.test(lu(g.defCarte(g.S.planets[0]))));
+  const { acts } = defense({ rl: 5, ic: 10 }, chercheur);
+  assert.ok(!defKeys(acts).includes('ic'), 'et aucune carte');
+});
+
+t('un type pas encore débloqué n\'a pas de carte, son prérequis est dit', () => {
+  // Pas de Gauss sans Armes 3 : les autres types sortent en attendant.
+  const sansGauss = s => { chercheur(s); s.tech.weapons = 0; };
+  const { acts } = defense({ rl: 800, ll: 500, hl: 200 }, sansGauss);
+  assert.ok(!defKeys(acts).includes('gc'), 'aucun Gauss : ' + defKeys(acts).join(','));
+  const g = app(s => { relie(s); sansGauss(s); s.planets[0].defs = { rl: 10 }; s.planets[0].def = 10; });
+  assert.ok(/Gauss : nécessite[^<]*Armes 3/.test(lu(g.defCarte(g.S.planets[0]))), lu(g.defCarte(g.S.planets[0])));
+  const { acts: a2 } = defense({ rl: 10 }, sansGauss);
+  const c = defActs(a2)[0];
+  assert.ok(c && /En attente : Gauss : nécessite/.test(c.why), 'la carte le dit aussi : ' + (c && c.why));
+});
+
+t('le moins complet d\'abord, puis le moins cher à l\'unité', () => {
+  const g = app(s => { relie(s); chercheur(s); s.planets[0].defs = { rl: 400, ll: 0, hl: 0, gc: 0 }; s.planets[0].def = 400; });
+  const o = g.defPropositions(g.S.planets[0]).ordre.map(l => l.k);
+  assert.deepEqual(o, ['ll', 'hl', 'gc', 'rl'], 'trois à 0 % par prix, puis les lanceurs à 50 %');
+});
+
+t('profil Mineur sous le plancher : les cartes du plancher passent d\'abord', () => {
+  const mineur = s => { chercheur(s); mineuse(s); s.profil = { style: 'mineur', classe: '', activite: 'regulier', focus: [], set: true }; };
+  const g = app(s => { relie(s); mineur(s); s.planets[0].defs = { rl: 10 }; s.planets[0].def = 10; });
+  assert.equal(g.defPlancherDe(), 2, 'le profil Mineur porte un plancher de 2 packs');
+  const pr = g.defPropositions(g.S.planets[0]);
+  assert.equal(pr.phase, 'plancher');
+  assert.equal(pr.gap.lignes.find(l => l.k === 'rl').cible, 80, '40 LM × 2');
+  const { acts } = defense({ rl: 10 }, mineur);
+  const q = acts.map(a => a.q);
+  const iDef = q.findIndex(x => /^Défense/.test(x)), iSh = q.findIndex(x => /^Chantier/.test(x));
+  assert.ok(iDef >= 0, 'une carte Défense');
+  if (iSh >= 0) assert.ok(iDef < iSh, 'le plancher avant le reste du chantier : ' + q.join(' | '));
+  assert.match(defActs(acts)[0].why, /plancher 2, avant le palier 20/, defActs(acts)[0].why);
+  // Le plancher tenu, on monte vers le palier.
+  const tenu = app(s => { relie(s); mineur(s); s.planets[0].defs = { rl: 80, ll: 50, hl: 20, gc: 8 }; s.planets[0].def = 158; });
+  assert.equal(tenu.defPropositions(tenu.S.planets[0]).phase, 'palier');
+  // Un autre style n'a pas de plancher, et le réglage le surcharge.
+  assert.equal(app(s => { s.profil = { style: 'raideur', set: true }; }).defPlancherDe(), 0);
+  assert.equal(app(s => { mineur(s); s.settings.defPlancher = 0; }).defPlancherDe(), 0);
+});
+
+t('le texte d\'une carte Défense suit le format, entier', () => {
+  const { g, acts } = defense({ rl: 10 }, chercheur);
+  const a = defActs(acts)[0];
+  assert.match(a.why, /^\d[\d  ]* [a-zé ]+ sur [\d  ]+ visés? pour le modèle Framework mineur \(palier 20\)\./, a.why);
+  const lead = g.whyLead(a.why);
+  assert.ok(!/…$/.test(lead), 'jamais coupée : ' + lead);
+});
+
+t('changer de modèle ou de palier recalcule les cartes', () => {
+  const g = app(s => { relie(s); s.colo.built = true; chercheur(s); mineuse(s);
+    const p = s.planets[0]; p.defs = { rl: 10 }; p.def = 10; p.stock = { m: 5e6, c: 2e6, d: 1e6, at: SOIR }; p.ships = { lc: 50, sc: 20, pr: 10 }; });
+  const avant = defKeys(g.simulateDay().sessions.flatMap(x => x.acts));
+  assert.ok(avant.some(k => k !== 'rl'), 'le Framework demande plus que des lanceurs : ' + avant);
+  g.S.settings.defModele = 'plasma';
+  const apres = defKeys(g.simulateDay().sessions.flatMap(x => x.acts));
+  assert.ok(apres.length && apres.every(k => k === 'rl'), 'plasma pur sans plasma débloqué : des lanceurs seuls : ' + apres);
+  g.S.settings.defModele = 'framework'; g.S.settings.defPalier = 10;
+  assert.equal(g.defPlan(g.S.planets[0]).lignes.find(l => l.k === 'rl').cible, 400, 'palier 10 : 400 LM');
+});
+
+t('une carte ne dépasse pas la durée de chantier réglée', () => {
+  const { acts } = defense({ rl: 10 }, s => { chercheur(s); s.settings.defDuree = 1; });
+  for (const a of defActs(acts)) assert.ok(a.dur <= 3600 + 1, a.what + ' dure ' + a.dur);
+});
+
 t('la défense sort par paquets, jamais une pièce à la fois', () => {
   const petit = s => { chercheur(s); mineuse(s); s.planets[0].stock = { m: 2000, c: 700, d: 0, at: SOIR }; };
-  const { g, acts } = defense({ rl: 500 }, petit);
-  const lots = acts.filter(a => a.kind === 'def');
+  const { acts } = defense({ rl: 500 }, petit);
+  const lots = defActs(acts);
   assert.ok(lots.length, 'la défense manque toujours : ' + JSON.stringify(acts.map(a => a.what)));
-  // La cible monte avec les mines : sans plancher, chaque tournée sortait une
-  // carte pour une pièce, cinquante secondes de chantier. Les boucliers, eux,
-  // sont une pièce ou rien.
-  for (const a of lots)
-    assert.ok(a.ships.sd || a.ships.ld || Object.values(a.ships)[0] > 1,
-      'une pièce à la fois, personne ne se reconnecte pour ça : ' + a.what);
-  assert.ok(lots.some(a => Object.values(a.ships)[0] > 10), 'aucun vrai paquet : ' + lots.map(a => a.what).join(' | '));
+  for (const a of lots) assert.ok(Object.values(a.ships)[0] > 1, 'une pièce à la fois : ' + a.what);
 });
 
-t('chaque pièce de défense a son prix et ses prérequis', () => {
-  const g = app(s => { relie(s); chercheur(s); });
-  // Relevé sur le wiki OGame : un prix faux fait mentir tout le plan.
-  const { act } = defense({ rl: 500 }, chercheur);
-  assert.deepEqual(act.cost, [act.ships.ll * 1500, act.ships.ll * 500, 0], JSON.stringify(act.cost));
-  // Sans Laser 3, le laser léger n'existe pas et le lanceur reste seul.
-  const sans = app(relie);
-  assert.deepEqual(Object.keys(sans.defMix(sans.S.planets[0]).cible), ['rl'],
-    'rien d\'autre n\'est à portée au départ');
-});
-
-t('le bouclier vient après la chair à canon, et une seule fois', () => {
-  // Un bouclier coûte vingt-six fois un lanceur : il ne vaut la dépense qu'à
-  // partir d'une planète qui produit assez pour mériter une vraie défense.
-  const g = app(s => { relie(s); chercheur(s); mineuse(s); });
-  const p = g.S.planets[0];
-  const cible = g.defMix(p).cible;
-  assert.ok(cible.sd === 1 && cible.ld === 1, 'les deux boucliers visés : ' + JSON.stringify(cible));
-  p.defs = { rl: 2 };
-  assert.notEqual(g.defNeed(p).k, 'sd', 'pas de bouclier sur une planète nue');
-  p.defs = { rl: cible.rl, ll: cible.ll };
-  assert.equal(g.defNeed(p).k, 'sd', 'de la chair à canon : le bouclier vient');
-  p.defs = { rl: cible.rl, ll: cible.ll, sd: 1 };
-  assert.notEqual(g.defNeed(p).k, 'sd', 'un seul petit bouclier, jamais deux');
-});
-
-t('une petite planète ne se voit pas promettre de bouclier', () => {
-  // Le mélange annoncé est celui que le plan proposera : y mettre un bouclier
-  // hors de prix, c'est promettre une pièce qui ne viendra jamais.
-  const g = app(s => { relie(s); chercheur(s); });
-  const cible = g.defMix(g.S.planets[0]).cible;
-  assert.equal(cible.sd, 0, JSON.stringify(cible));
-  assert.ok(!/bouclier/.test(g.defMixList(g.S.planets[0])), g.defMixList(g.S.planets[0]));
+t('chaque pièce de défense a son prix', () => {
+  const g0DEF = app().DEF;
+  const { act } = defense({ rl: 800 }, chercheur);
+  const [k, n] = Object.entries(act.ships)[0];
+  assert.deepEqual(act.cost, [0, 1, 2].map(i => g0DEF[k].c[i] * n), JSON.stringify(act));
 });
 
 t('un ancien relevé ne compte qu\'un total, et ne se perd pas en route', () => {
   // Avant, le copilote ne lisait que le total : il le comptait en lanceurs.
-  // Poser le premier laser ne doit pas effacer ces lanceurs.
-  const { acts } = defense(300, chercheur);
-  const lanceurs = acts.filter(a => a.kind === 'def' && a.ships.rl);
-  const vus = acts.filter(a => a.kind === 'def').map(a => a.why).join(' | ');
-  assert.ok(!/0 lanceur de missiles sur/.test(vus), 'les 300 lanceurs restent comptés : ' + vus);
-  assert.equal(lanceurs.length, 0, 'et rien ne les redemande : ' + vus);
+  const { acts } = defense(800, chercheur);
+  const vus = defActs(acts).map(a => a.why).join(' | ');
+  assert.ok(!defKeys(acts).includes('rl'), 'les 800 lanceurs restent comptés : ' + vus);
 });
 
 /* ---------- inventaire des transporteurs ---------- */
@@ -12193,15 +12246,14 @@ t('un excédent s\'affiche sans jamais rogner le calcul', () => {
   assert.equal(dManque(d, 'pt'), 7, 'le reste du plan ne bouge pas');
 });
 
-t('les deux boucliers restent hors ratio : un de chaque', () => {
-  const g = app(s => { DEFENSE(s); delete s.planets[0].defs.sd; delete s.planets[0].defs.ld; });
+t('les deux boucliers sont hors modèle : comptés, jamais demandés', () => {
+  const g = app(DEFENSE);
   const d = g.defPlan(g.S.planets[0]);
-  assert.equal(dCible(d, 'sd'), 1);
-  assert.equal(dCible(d, 'ld'), 1);
-  assert.equal(dManque(d, 'sd'), 1, 'absents, donc demandés');
-  /* Et le modèle plasma pur, qui ne nomme ni l'un ni l'autre, les veut quand même. */
-  const p = g.defPlan(Object.assign({}, g.S.planets[0], {defModele: 'plasma'}));
-  assert.equal(dCible(p, 'ld'), 1);
+  assert.equal(dCible(d, 'sd'), 0);
+  assert.equal(dManque(d, 'ld'), 0);
+  assert.ok(d.lignes.find(l => l.k === 'sd').hors, 'au sol, donc « hors modèle »');
+  const nus = app(s => { DEFENSE(s); delete s.planets[0].defs.sd; delete s.planets[0].defs.ld; });
+  assert.equal(dCible(nus.defPlan(nus.S.planets[0]), 'sd'), null, 'absents : rien à dire');
 });
 
 t('un prérequis manquant est nommé, bâtiment et recherche', () => {
@@ -12210,7 +12262,7 @@ t('un prérequis manquant est nommé, bâtiment et recherche', () => {
   assert.ok(/Chantier spatial 8/.test(l.req), 'le chantier : ' + l.req);
   assert.ok(/Plasma 7/.test(l.req), 'et la recherche : ' + l.req);
   const h = lu(g.VIEWS.defense());
-  assert.ok(/Hors de portée pour l'instant/.test(h), 'et la carte le dit');
+  assert.ok(/Plasma : nécessite|PL : nécessite/.test(h), 'et la carte le dit');
 });
 
 t('un prérequis ne se signale que s\'il bloque quelque chose', () => {
@@ -12308,6 +12360,18 @@ t('les Réglages proposent le modèle, et le ratio perso quand il est choisi', (
   const avec = lu(app(s => { DEFENSE(s); s.settings.defModele = 'perso'; }).VIEWS.settings());
   assert.ok(/sDefR-rl/.test(avec), 'une case par pièce du ratio');
   assert.ok(!/sDefR-sd/.test(avec), 'sauf les boucliers, hors ratio');
+});
+
+t('les Réglages proposent le plancher au Mineur, et la durée max à tous', () => {
+  const mineur = lu(app(s => { DEFENSE(s); s.profil = {style: 'mineur', classe: '', activite: 'regulier', focus: [], set: true}; }).VIEWS.settings());
+  assert.ok(/id="sDefF"/.test(mineur) && /Comme le profil \(2\)/.test(mineur), 'le plancher du Mineur');
+  assert.ok(/id="sDefD"/.test(mineur), 'la durée max');
+  const raideur = lu(app(s => { DEFENSE(s); s.profil = {style: 'raideur', classe: '', activite: 'regulier', focus: [], set: true}; }).VIEWS.settings());
+  assert.ok(!/id="sDefF"/.test(raideur), 'pas de plancher sans profil qui en porte');
+  const g = app(s => { DEFENSE(s); s.settings.defPlancher = 7; s.settings.defDuree = 99; });
+  g.sainEtat();
+  assert.equal(g.S.settings.defPlancher, null, 'un plancher hors menu retombe sur le profil');
+  assert.equal(g.S.settings.defDuree, 4, 'une durée hors menu retombe à 4 h');
 });
 
 t('une sauvegarde d\'avant le modèle de défense en reçoit un', () => {

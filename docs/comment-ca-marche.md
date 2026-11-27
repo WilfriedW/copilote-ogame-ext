@@ -253,9 +253,22 @@ aucun des deux ne peut rien contre l'autre. Donc le copilote compte chaque type
 séparément, et construit d'abord la chair à canon (lanceurs + lasers légers),
 puis les canons du moins cher au plus cher.
 
-Une planète **sans aucune défense** passe devant tout : c'est le cas où le raid
-est gratuit pour l'attaquant. Au-dessus de zéro, elle se complète en dernier,
-par paquets qui valent au moins une tournée de production.
+Les cartes Défense ne sortent **que du modèle de défense actif** de la planète
+(le sien, sinon celui des Réglages, que le profil pose) : une pièce que le
+modèle ne nomme pas — l'artillerie à ions du Framework mineur, les deux
+boucliers — ne reçoit jamais de carte, même déjà au sol (elle compte « hors
+modèle »). La quantité est l'écart `cible − au sol − en file`, la même que dans
+Outils › Défense (§ 6.12). Un type pas encore débloqué est sauté, et la carte
+dit ce qu'il attend (« Gauss : nécessite … »).
+
+Ordre entre les types : le moins complet d'abord (au sol / cible), à égalité le
+moins cher à l'unité. Une planète **sans aucune défense** passe devant tout le
+chantier : c'est le cas où le raid est gratuit. Le profil **Mineur** porte un
+**plancher** (2 packs du modèle par défaut) : tant qu'il n'est pas tenu, ses
+cartes passent devant tout le chantier et avant la croissance vers le palier.
+Une carte se coupe à ce que la planète peut payer, et à la durée de chantier
+réglée (4 h par défaut) ; un lot partiel vaut au moins la moitié de ce qu'un
+hangar plein paierait, pour ne pas sortir une pièce à la fois.
 
 ### 2.9 Il faut jouer en français
 
@@ -915,6 +928,8 @@ prendre un autre que le réglage global.
 | Ratio personnalisé | `settings.defPerso` | un entier ≥ 0 par pièce | *(celui du Framework mineur)* | Visible seulement quand le modèle « Personnalisé » est choisi |
 | Modèle de cette planète | `defModele` sur la planète | les mêmes, ou vide | *(celui des réglages)* | **Passe devant le réglage global** |
 | Palier de cette planète | `defPalier` sur la planète | les mêmes, ou vide | *(celui des réglages)* | Idem |
+| Plancher | `settings.defPlancher` | *comme le profil* · Aucun · 1 · 2 · 3 · 5 | *(Mineur : 2)* | Visible pour un profil qui en porte un. En packs du modèle : tenu avant de monter vers le palier |
+| Durée max d'une carte | `settings.defDuree` | 1 · 2 · 4 · 8 · 12 h | **4 h** | Au-delà, le reste de l'écart sort sur la carte suivante |
 
 Les trois premiers **suivent sur ton autre poste** avec le reste des réglages.
 Les deux surcharges vivent sur la planète, donc sur ce poste-ci.
@@ -927,17 +942,19 @@ Trois choses qu'il faut savoir lire :
 
 - **L'excédent n'est pas un manque.** Une planète au-dessus du modèle l'affiche
   comme tel et ne vient jamais rogner le reste du calcul.
-- **Les deux boucliers sortent du ratio.** Le wiki en veut un de chaque, pas une
-  proportion : la cible est 1, toujours.
-- **Un prérequis manquant est nommé** — « lanceur de plasma (Chantier spatial 8,
-  Technologie Plasma 7) » — et seulement s'il bloque une pièce que le modèle
+- **Hors modèle n'est pas un manque.** Une pièce que le modèle ne nomme pas
+  (les ions du Framework mineur, les deux boucliers dans tous les modèles) est
+  listée « hors modèle » si elle est au sol, et jamais redemandée.
+- **La file compte.** Ce que tu as lancé depuis une carte et qui n'est pas
+  sorti du chantier apparaît dans la colonne « En file » et réduit le manque.
+- **Un prérequis manquant est nommé** — « PL : nécessite Chantier spatial 8,
+  Technologie Plasma 7 » — et seulement s'il bloque une pièce que le modèle
   demande vraiment.
 
-Cette carte ne construit rien et n'ouvre aucune file : c'est une calculatrice,
-comme Outils › Flotte. **Le plan du jour garde son propre budget**, la moitié
-d'une nuit de production (§ 2.8) : il dimensionne la défense sur ce qu'un
-pilleur viendrait prendre, pas sur une cible que tu as choisie. Les deux
-cohabitent, et la carte le dit.
+Cette carte ne construit rien et n'ouvre aucune file. **Le plan du jour
+utilise le même calcul** (`computeDefenseGap`) : ses cartes Défense sont ce
+manque, découpé en lots (§ 2.8). Changer de modèle, de palier ou de plancher
+recalcule les cartes au rendu suivant, sans recharger la page.
 
 ### 6.13 Empire — par planète
 
@@ -1093,7 +1110,7 @@ Armes, Bouclier, Protection des vaisseaux.
 |---|---|---|
 | Feuilles de route | 4 listes figées | § 4, tableau des priorités |
 | Jalons de début de partie | 11, de Labo 1 à Astro 1 | Bloc « Début de partie » |
-| Ordre de construction de la défense | lanceurs → lasers légers → petit bouclier → laser lourd → ions → Gauss → grand bouclier → plasma | Chair à canon d'abord |
+| Ordre des cartes Défense | types du modèle débloqués, le moins complet d'abord, puis le moins cher à l'unité ; plancher du profil avant le palier | Une seule source : le modèle actif |
 | Fraîcheur du relevé | 10 min | Au-delà, le bouton « Actualiser » apparaît |
 | Attente d'une demande orpheline | 24 h | Priorité posée sur une planète pas encore relevée |
 | Horizon d'amortissement d'une colonie | 7 jours | Verdict « ça valait le coup » |
