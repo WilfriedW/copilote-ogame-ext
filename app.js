@@ -2129,8 +2129,11 @@ function fold(name, def, force){ return uiOuvert(name, def, force) ? ' open' : '
    qu'elle contient) et c'est le conteneur qui les empile ou les range.
    Le mode suit le joueur d'un poste à l'autre (chrome.storage.sync) ; l'onglet
    choisi reste sur la machine (chrome.storage.local), comme l'état des volets. */
-/* `var` : header() peut s'exécuter avant que ces lignes soient atteintes. */
-var cardMode = (typeof window !== 'undefined' && window.__cardLayout === 'tabs') ? 'tabs' : 'stacked';
+/* `var` : header() peut s'exécuter avant que ces lignes soient atteintes.
+   ENH-54 : les onglets deviennent le défaut. Seul un joueur qui a choisi
+   « empilé » (la valeur est alors écrite dans chrome.storage.sync) le garde ;
+   qui n'avait jamais touché au réglage passe en onglets. */
+var cardMode = (typeof window !== 'undefined' && window.__cardLayout === 'stacked') ? 'stacked' : 'tabs';
 /** Vue → onglet choisi par le joueur. Seul un clic l'écrit (ou le passage
     d'empilé à onglets, qui retient la carte qu'il lisait). */
 var cardTabs = (()=>{
@@ -2195,6 +2198,11 @@ const CARTES = {
   ],
   /* Réglages (ENH-54) : cinq onglets, chacun un groupe de cartes. Toujours en
      onglets, quel que soit le choix d'Aujourd'hui (voir VUES_ONGLETS). */
+  /* Empire (ENH-54) : la recherche ne passe plus sous huit planètes. */
+  empire: [
+    {cardId:'planetes', titre:'Planètes', fixe:true},
+    {cardId:'recherche', titre:'Recherche', fixe:true},
+  ],
   settings: [
     {cardId:'jeu', titre:'Mon jeu', fixe:true},
     {cardId:'defense', titre:'Défense et sécurité', fixe:true},
@@ -2206,7 +2214,11 @@ const CARTES = {
 /* Les vues toujours rangées en onglets : « Empiler les sections » ne vaut que
    pour Aujourd'hui. Treize cartes de réglages empilées, c'est la page qu'on
    ne veut plus. */
-const VUES_ONGLETS = new Set(['settings']);
+const VUES_ONGLETS = new Set(['settings', 'empire']);
+/* L'onglet ouvert quand le joueur n'en a choisi aucun. Pour Aujourd'hui, ce
+   n'est pas le premier : une fois le profil posé, l'onglet Profil n'en montre
+   que le résumé, et le joueur vient chercher Maintenant. */
+const CARTE_DEFAUT = {today: ()=> S.profil.set ? 'maintenant' : 'profil'};
 /** La vue se range-t-elle en onglets ? */
 function enOnglets(vue){ return cardMode === 'tabs' || VUES_ONGLETS.has(vue); }
 const CPT_TITRE = {crit:'dont au moins un urgent', imp:'dont au moins un important', info:'des conseils'};
@@ -2252,9 +2264,9 @@ function alerteNeuve(presentes, vus){
   }
   return bascule;
 }
-/** L'onglet à montrer : la bascule d'alerte d'abord, puis le choix du joueur, puis le premier. */
-function ongletAffiche(ids, force, choisi){
-  const voulu = force && ids.includes(force) ? force : choisi;
+/** L'onglet à montrer : la bascule d'alerte d'abord, puis le choix du joueur, puis le défaut de la vue, puis le premier. */
+function ongletAffiche(ids, force, choisi, defaut){
+  const voulu = force && ids.includes(force) ? force : ids.includes(choisi) ? choisi : defaut;
   return ids.includes(voulu) ? voulu : ids[0];
 }
 /**
@@ -2269,7 +2281,7 @@ function cartesSync(){
   const bascule = alerteNeuve(presentes, cardCritVus);
   if(!enOnglets(vue)){ delete cardAffiche[vue]; return; }
   if(bascule) cardForce[vue] = bascule;
-  const affiche = ongletAffiche(ids, cardForce[vue], cardTabs[vue]);
+  const affiche = ongletAffiche(ids, cardForce[vue], cardTabs[vue], CARTE_DEFAUT[vue] && CARTE_DEFAUT[vue]());
   cardAffiche[vue] = affiche;
   sec.querySelectorAll('.carte[data-carte]').forEach(w=>{
     const on = w.dataset.carte === affiche;
@@ -2400,7 +2412,7 @@ function carteDefile(id){
  * @param {boolean} [distant] venu d'un autre panneau : rien à réécrire
  */
 function setCardMode(m, distant){
-  m = m === 'tabs' ? 'tabs' : 'stacked';
+  m = m === 'stacked' ? 'stacked' : 'tabs';
   if(m === cardMode) return;
   /* Une vue toujours en onglets (Réglages, d'où se règle ce choix) ne change
      pas : rien à retenir ni à faire défiler. */
@@ -9472,7 +9484,7 @@ today(){
     </details>`,
   });
 },
-empire(){ return `<div class="panel">${VIEWS.planets()}${VIEWS.research()}</div>`; },
+empire(){ return cardLayout('empire', {planetes: VIEWS.planets(), recherche: VIEWS.research()}); },
 /* L'écran du relevé. Il tient la place du contenu tant qu'il tourne : ce que
    le joueur regardait est en train d'être relu, et le voir se recomposer carte
    par carte ne lui apprend rien. Ici il voit ce qui reste à lire. */
