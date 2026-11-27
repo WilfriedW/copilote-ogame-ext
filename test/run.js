@@ -7786,6 +7786,9 @@ t('des satellites annoncés par le jeu évitent une centrale de plus', () => {
     'l\'énergie arrive par le chantier : pas de centrale en double');
 });
 
+/* ---------- les heures du panneau : test/temps.test.js ---------- */
+require('./temps.test')({ t, assert, loadApp, fixtureState, SOIR });
+
 /* ---------- les heures du jeu ---------- */
 
 /* 1794988642 = mercredi 18 novembre 2026, 07 h 57 min 22 s UTC.

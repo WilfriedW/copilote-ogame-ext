@@ -10,6 +10,10 @@ import {
   POS_BONUS_M, POS_BONUS_C
 } from './src/core/formules.js';
 import { KEY, LUNE_DF, EXPO_FRET, sample, newPlanet, S, remplaceEtat } from './src/core/etat.js';
+import {
+  LOCAL_TZ, timeMode, srvOffSec, timeZoneShown, clockParts, JOURS_COURTS, p2,
+  clockText, timeSeen, formatTime, timeTitle, dur, poseModeHeure
+} from './src/core/temps.js';
 
 const APP_VERSION = '2.19.1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
@@ -821,7 +825,6 @@ const fmtLigne = n => isFinite(n) ? nf.format(Math.round(n)) : '∞';
 const coutTexte = c => { const l = ['métal','cristal','deutérium'].map((n,i)=>c[i]>0?`${fmt(c[i])} de ${n}`:'').filter(Boolean);
   return l.length < 2 ? (l[0] || 'rien') : `${l.slice(0,-1).join(', ')} et ${l[l.length-1]}`; };
 function fmt(n){ if(!isFinite(n)) return '∞'; const a=Math.abs(n); if(a>=1e9) return (n/1e9).toFixed(2).replace('.',',')+' G'; if(a>=1e6) return (n/1e6).toFixed(2).replace('.',',')+' M'; if(a>=1e5) return (n/1e3).toFixed(0)+' k'; return nf.format(Math.round(n)); }
-function dur(sec){ if(!isFinite(sec)) return 'jamais'; sec=Math.max(0,Math.round(sec)); const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60), s=sec%60; if(d) return `${d}j ${h}h`; if(h) return `${h}h ${String(m).padStart(2,'0')}m`; if(m) return `${m}m ${String(s).padStart(2,'0')}s`; return `${s}s`; }
 /* L'apostrophe compte autant que le guillemet : data-launch est un attribut
    à apostrophes, et « Tour d'habitation » — un nom qui est dans notre propre
    table — y refermait l'attribut au milieu du JSON. Le bouton « Lancé » mourait
@@ -4302,75 +4305,11 @@ function dayValue(k, v, prev){
   const t = {focus:FOCUS, lf:LF_MODE, research:RESEARCH_MODE}[k];
   return t ? (t[v] ? v : prev) : Math.max(0, parseInt(v) || 0);
 }
-/* ---------- les heures du panneau : serveur ou locale ----------
-
-   Le jeu vit à l'heure de son serveur, le joueur à la sienne, et l'écart
-   bouge deux fois l'an — l'Europe et l'Amérique ne changent pas d'heure le
-   même dimanche. Les instants restent donc partout des millisecondes UTC ;
-   seul `formatTime` choisit un fuseau, au moment d'écrire. Tout le panneau
-   passe par lui : le mode s'applique partout ou nulle part.
-
-   L'heure locale est celle du navigateur, que `Date` connaît déjà avec ses
-   changements d'heure. L'heure serveur se déduit du décalage du serveur sur
-   UTC, relu par le script de page à chaque page du jeu (`S.srvTz`). Tant
-   qu'aucune page ne l'a donné, il n'y a pas d'heure serveur à montrer : on
-   montre la locale et l'infobulle le dit. */
-const LOCAL_TZ = (()=>{ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; }catch(e){ return ''; } })();
-/* `var` : header() peut s'exécuter avant que cette ligne soit atteinte. */
-var timeMode = (typeof window !== 'undefined' && window.__timeMode === 'local') ? 'local' : 'server';
-/** Le décalage du serveur sur UTC en secondes, ou null s'il n'a jamais été lu. */
-function srvOffSec(){ const z = S && S.srvTz; return z && Number.isFinite(z.off) ? z.off : null; }
-/** Le fuseau réellement affiché : le serveur demandé mais inconnu retombe sur la locale. */
-function timeZoneShown(){ return timeMode === 'server' && srvOffSec() != null ? 'server' : 'local'; }
-/** Jour, heure, minute d'un instant, dans le fuseau dit. */
-function clockParts(ms, zone){
-  const off = zone === 'server' ? srvOffSec() : null;
-  if(off != null){ const d = new Date(ms + off*1000); return {y:d.getUTCFullYear(), mo:d.getUTCMonth(), d:d.getUTCDate(), h:d.getUTCHours(), mi:d.getUTCMinutes(), s:d.getUTCSeconds(), wd:d.getUTCDay()}; }
-  const d = new Date(ms); return {y:d.getFullYear(), mo:d.getMonth(), d:d.getDate(), h:d.getHours(), mi:d.getMinutes(), s:d.getSeconds(), wd:d.getDay()};
-}
-const JOURS_COURTS = ['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'];
-const p2 = n => String(n).padStart(2, '0');
-/** L'heure d'un instant dans un fuseau : « 18:29 », « demain 04:12 », « jeu. 07:00 ». */
-function clockText(ms, zone, opts){
-  const c = clockParts(ms, zone), n = clockParts(Date.now(), zone);
-  const t = p2(c.h) + ':' + p2(c.mi);
-  // l'écart en jours civils du fuseau, pas en tranches de 24 h : un changement d'heure ne le fausse pas
-  const ecart = Math.round((Date.UTC(c.y, c.mo, c.d) - Date.UTC(n.y, n.mo, n.d)) / 864e5);
-  if(ecart === 0) return t;
-  if(opts && opts.date) return `${t} le ${p2(c.d)}/${p2(c.mo+1)}/${c.y}`;
-  if(ecart === 1) return 'demain ' + t;
-  if(Math.abs(ecart) < 7) return JOURS_COURTS[c.wd] + ' ' + t;
-  return `${p2(c.d)}/${p2(c.mo+1)} ${t}`;
-}
-/* Ce que formatTime a écrit, et pour quel instant : l'infobulle s'en sert
-   pour retrouver l'instant derrière un texte déjà posé dans la page — même
-   quand ce texte a traversé esc() au milieu d'une phrase. Deux instants qui
-   s'écrivent pareil tombent à la même minute : leur autre fuseau aussi. */
-var timeSeen = new Map();
-/**
- * La seule façon d'écrire une heure dans le panneau.
- * @param {number} timestampUtc instant en millisecondes UTC
- * @param {{date?:boolean}} [opts] `date` : la date en entier hors du jour même
- * @returns {string} l'heure dans le mode choisi (serveur ou locale)
- */
-function formatTime(timestampUtc, opts){
-  const txt = clockText(timestampUtc, timeZoneShown(), opts);
-  if(timeSeen.size > 600) timeSeen.clear();
-  timeSeen.set(txt, timestampUtc);
-  return txt;
-}
-/** Ce que dit l'infobulle d'une heure : la même dans l'autre fuseau. */
-function timeTitle(ms){
-  if(srvOffSec() == null) return 'heure locale · heure serveur pas encore lue : ouvre une page du jeu';
-  const autre = timeZoneShown() === 'server' ? 'local' : 'server';
-  const verif = S.srvTz && S.srvTz.ok === false ? ' · décalage non vérifié' : '';
-  return clockText(ms, autre) + (autre === 'server' ? ' heure serveur' : ' heure locale') + verif;
-}
 /** Change de mode, le retient, et redessine sans recharger. */
 function setTimeMode(m){
   m = m === 'local' ? 'local' : 'server';
   if(m === timeMode) return;
-  timeMode = m; timeSeen.clear();
+  poseModeHeure(m);
   try{ if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){ const r = chrome.storage.sync.set({timeMode: m}); if(r && r.catch) r.catch(syncFailed); } }catch(e){ syncFailed(e); }
   render();
 }
@@ -11052,9 +10991,9 @@ if(IS_EXT && chrome.runtime.getURL) (function(){
    plus : un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
   SEV_NIVEAU, planetById, fmt, esc, planetRef, uiOuvert, uiNote, render,
-  constatsVus, planetAlerts, formatTime, DEF, DEF_ABR, defPlan, poidsCat,
-  SHIPS, EXPO_GROS, expoRes, fmtLigne, dur, num, production, mse, stockNow,
-  souteUtile, shipStats, flight, expoFleet, shipList, SHIP_COURT, shipCourt,
-  mcd, secu, prochaineHeure, planeteEn, mouvements, projectResources,
-  attaquesEntrantes, aQuai, transportSuggere, expoCap, fmtCourt
+  constatsVus, planetAlerts, DEF, DEF_ABR, defPlan, poidsCat, SHIPS,
+  EXPO_GROS, expoRes, fmtLigne, num, production, mse, stockNow, souteUtile,
+  shipStats, flight, expoFleet, shipList, SHIP_COURT, shipCourt, mcd, secu,
+  prochaineHeure, planeteEn, mouvements, projectResources, attaquesEntrantes,
+  aQuai, transportSuggere, expoCap, fmtCourt
 };

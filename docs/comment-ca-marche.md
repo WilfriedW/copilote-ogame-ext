@@ -445,8 +445,9 @@ le stockage local sous la clé `ogame-copilot-v1`.
 Le panneau se charge en **modules ES**, sans outil de build : `boot.js` lit le
 stockage puis ajoute `src/main.js`, qui importe `app.js`, lui-même important
 `src/meteo.js`, `src/flotte/cible.js` et le noyau : `src/core/formules.js`
-(tables et calculs purs) et `src/core/etat.js` (l'état `S`, son chargement ;
-le remplacer passe par `remplaceEtat`). `app.js` se découpe ainsi, un domaine
+(tables et calculs purs), `src/core/etat.js` (l'état `S`, son chargement ;
+le remplacer passe par `remplaceEtat`) et `src/core/temps.js` (heures serveur
+ou locale, durées). `app.js` se découpe ainsi, un domaine
 par PR (issue #49), jusqu'à disparaître. `ids.js` et `profils.js` restent des
 scripts classiques. Les tests mettent les modules à plat dans une seule portée
 (`test/modules.js`) et vérifient à part les imports, les doublons, les cycles
