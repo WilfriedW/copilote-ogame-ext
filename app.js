@@ -1,3 +1,14 @@
+/* Module ES, chargé par src/main.js (issue #49). Il se vide domaine par
+   domaine : il importe ce que les modules sortis de lui fournissent, et
+   n'exporte que ce que la météo et la flotte cible lui empruntent (liste en
+   fin de fichier). */
+import { meteoFiltre, meteoVoit, renderMeteo, meteoBind } from './src/meteo.js';
+import { flotteCible, flotteCibleHtml, reequilibreCartes, flotteAjout } from './src/flotte/cible.js';
+import {
+  B, B_SHORT, T, levelCost, rangeCost, storageCap, storageLevelFor, crawlerMax,
+  crawlerBonus, CRAWLER_COST, CRAWLER_ENERGY, SAT_COST, MINES_PCT, satEnergy,
+  POS_BONUS_M, POS_BONUS_C
+} from './src/core/formules.js';
 
 const APP_VERSION = '2.20.0';
 const KEY = 'ogame-copilot-v1';
@@ -52,48 +63,7 @@ const DOMAINES = {ressources:'Ressources', installations:'Installations', recher
 
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
-const B = {
-  metal:   {n:'Mine de métal', c:[60,15,0], f:1.5},
-  crystal: {n:'Mine de cristal', c:[48,24,0], f:1.6},
-  deut:    {n:'Synthétiseur de deutérium', c:[225,75,0], f:1.5},
-  solar:   {n:'Centrale électrique solaire', c:[75,30,0], f:1.5},
-  fusion:  {n:'Centrale électrique de fusion', c:[900,360,180], f:1.8, req:{b:{deut:5}, t:{energy:3}}},
-  robot:   {n:'Usine de robots', c:[400,120,200], f:2},
-  shipyard:{n:'Chantier spatial', c:[400,200,100], f:2, req:{b:{robot:2}}},
-  lab:     {n:'Laboratoire de recherche', c:[200,400,200], f:2},
-  nanite:  {n:'Usine de nanites', c:[1e6,5e5,1e5], f:2, req:{b:{robot:10}, t:{computer:10}}},
-  smetal:  {n:'Hangar de métal', c:[1000,0,0], f:2},
-  scrystal:{n:'Hangar de cristal', c:[1000,500,0], f:2},
-  sdeut:   {n:'Réservoir de deutérium', c:[1000,1000,0], f:2},
-  /* Ni l'un ni l'autre ne produit ni ne stocke : le classement par amortissement
-     ne les propose jamais de lui-même. Ils sont ici pour que le joueur puisse
-     les viser au clic droit, et que le plan sache ce que coûte le pas. */
-  depot:   {n:'Dépôt de ravitaillement', c:[20000,40000,0], f:2},
-  silo:    {n:'Silo de missiles', c:[20000,20000,1000], f:2, req:{b:{shipyard:1}}},
-  terra:   {n:'Terraformeur', c:[0,50000,100000], f:2, req:{b:{nanite:1}, t:{energy:12}}},
-  /* Seul bâtiment à quintupler d'un niveau à l'autre. Ses conditions ne sont
-     pas relevées : mieux vaut ne rien annoncer qu'annoncer un chantier faux. */
-  dock:    {n:'Dock spatial', c:[200,0,50], f:5},
-};
-const B_SHORT = {crawl:'Foreuses', metal:'Métal',crystal:'Cristal',deut:'Deut.',solar:'Solaire',fusion:'Fusion',robot:'Robots',shipyard:'Chantier',lab:'Labo',nanite:'Nanites',smetal:'Hangar M',scrystal:'Hangar C',sdeut:'Réserv. D',depot:'Dépôt',silo:'Silo',terra:'Terraf.',dock:'Dock'};
 
-const T = {
-  energy:    {n:'Technologie Énergie', c:[0,800,400], f:2, req:{lab:1}},
-  laser:     {n:'Technologie Laser', c:[200,100,0], f:2, req:{lab:1,t:{energy:2}}},
-  ion:       {n:'Technologie Ions', c:[1000,300,100], f:2, req:{lab:4,t:{laser:5,energy:4}}},
-  hyper:     {n:'Technologie Hyperespace', c:[0,4000,2000], f:2, req:{lab:7,t:{energy:5,shielding:5}}},
-  plasma:    {n:'Technologie Plasma', c:[2000,4000,1000], f:2, req:{lab:4,t:{energy:8,laser:10,ion:5}}},
-  combustion:{n:'Réacteur à combustion', c:[400,0,600], f:2, req:{lab:1,t:{energy:1}}},
-  impulse:   {n:'Réacteur à impulsion', c:[2000,4000,600], f:2, req:{lab:2,t:{energy:1}}},
-  hyperdrive:{n:'Propulsion hyperespace', c:[10000,20000,6000], f:2, req:{lab:7,t:{hyper:3}}},
-  espionage: {n:'Technologie Espionnage', c:[200,1000,200], f:2, req:{lab:3}},
-  computer:  {n:'Technologie Ordinateur', c:[0,400,600], f:2, req:{lab:1}},
-  astro:     {n:'Astrophysique', c:[4000,8000,4000], f:1.75, req:{lab:3,t:{espionage:4,impulse:3}}},
-  irn:       {n:'Réseau de recherche intergalactique', c:[240000,400000,160000], f:2, req:{lab:10,t:{computer:8,hyper:8}}},
-  weapons:   {n:'Technologie Armes', c:[800,200,0], f:2, req:{lab:4}},
-  shielding: {n:'Technologie Bouclier', c:[200,600,0], f:2, req:{lab:6,t:{energy:3}}},
-  armour:    {n:'Protection des vaisseaux', c:[1000,0,0], f:2, req:{lab:2}},
-};
 
 /* Le taux de débris par défaut, en pourcent. Déclaré ici parce que sample()
    le lit au chargement, bien avant le bloc du tir de lune. */
@@ -279,6 +249,10 @@ function sample(){
     lf:{found:['humans','rocktal']},
     centre:null, raid:null, raids:{}, prio:[], prioAsk:[],
     daily:{done:{}, no:{}},
+    /* Les minuteurs : vides au départ. Sans la clé, « Réinitialiser » rendait
+       un état que renderTimers ne savait pas filtrer, et le panneau levait
+       au redessin ; le chargement, lui, la comblait plus bas. */
+    timers:[],
     colo:{fromId:null, objective:'balanced', bonus:0, target:'', kit:'std', tr:'sc', built:false, fields:'', fpos:''},
   };
 }
@@ -954,13 +928,6 @@ function costHtml(c){ return `<span class="cost"><span class="c-m">${fmt(c[0])}<
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true,1800); }
 
 /* ---------- game formulas ---------- */
-/** Cost of one level of a building or research. */
-function levelCost(def, L){
-  const k = Math.pow(def.f, L-1);
-  return def.c.map(x => def===T.astro ? Math.round(x*k/100)*100 : Math.floor(x*k));
-}
-/** Cumulative cost from level `from` (exclusive) to `to` (inclusive). */
-function rangeCost(def, from, to){ const t=[0,0,0]; for(let L=from+1; L<=to; L++){ const c=levelCost(def,L); t[0]+=c[0]; t[1]+=c[1]; t[2]+=c[2]; } return t; }
 /** Building time in seconds for a level on a given planet. */
 function buildTime(key, L, p){
   const c = levelCost(B[key], L);
@@ -1621,16 +1588,6 @@ function researchTime(key, L){
   if(S.settings.cls==='explorer') h *= .75;
   return Math.max(1, h*3600);
 }
-function storageCap(L){ return 5000*Math.floor(2.5*Math.exp(20*L/33)); }
-/**
- * Plus petit niveau de hangar dont la capacité couvre `amount`. Un hangar trop
- * petit n'interdit pas la dépense : les ressources livrées par transport
- * dépassent la capacité, seule la production locale s'arrête au plafond. Ce
- * niveau est donc une option — l'autre étant de caler la livraison juste avant.
- * @param {number} amount montant à loger
- * @returns {number} niveau de hangar
- */
-function storageLevelFor(amount){ let L = 0; while(L < 40 && storageCap(L) < amount) L++; return L; }
 /**
  * Lit le texte du panneau « Paramétrage de la production » publié par content.js.
  * Le texte vient de la page : tout nombre qui pourrait borner une boucle ou
@@ -1683,25 +1640,6 @@ function prodOf(p){
   return k && S.prod && Object.prototype.hasOwnProperty.call(S.prod, k) ? S.prod[k] : undefined;
 }
 
-/**
- * Foreuses utiles sur une planète : huit par niveau de mine cumulé. Au-delà,
- * une foreuse de plus ne rapporte rien.
- * @returns {number}
- */
-function crawlerMax(metal, crystal, deut){ return 8*(metal+crystal+deut); }
-/**
- * Bonus de production des foreuses, en fraction de la production de base :
- * +0,02 % par foreuse, ×1,5 pour un Collectionneur, ×1,5 encore en surcharge
- * à 150 % (énergie doublée), plafonné à 50 %.
- * @returns {number}
- */
-function crawlerBonus(n, cls, overload){
-  return Math.min(Math.max(0, n)*0.0002*(cls==='collector'?1.5:1)*(overload?1.5:1), 0.5);
-}
-const CRAWLER_COST = [2000, 2000, 1000];
-const CRAWLER_ENERGY = 50;
-/* Le prix d'un satellite solaire, qui ne dépend de rien. */
-const SAT_COST = [0, 2000, 500];
 
 /**
  * Bonus de forme de vie lu dans le panneau de production, tel que le jeu l'affiche :
@@ -1716,9 +1654,6 @@ function lfBonusOf(p){
   return [0,1,2,3].map(i => { const v = Number(r.lfBonus[i]); return Number.isFinite(v) ? Math.min(Math.max(v, 0), 1e9) : 0; });
 }
 
-/* Les trois mines, avec le coefficient d'énergie du jeu : dix par niveau pour
-   le métal et le cristal, vingt pour le deutérium. */
-const MINES_PCT = [[/^Mine de métal/i, 10], [/^Mine de cristal/i, 10], [/^Synthétiseur de deut/i, 20]];
 /**
  * Mines bridées à la main dans le jeu, d'après le dernier relevé du panneau de
  * production : le pourcentage le plus bas, et l'énergie qu'il faudrait en plus
@@ -4073,13 +4008,10 @@ const baseTitle = document.title;
 let flashT = null;
 function flashTitle(msg){ clearInterval(flashT); let on=false; flashT=setInterval(()=>{ document.title = (on=!on) ? `Terminé : ${msg}` : baseTitle; },1000); }
 const alertQueue = [];
-/** Shows a full-screen pulsing alert that stays until dismissed. */
-function showBigAlert(label){
-  alertQueue.push(label);
-  const box = document.getElementById('bigAlert');
-  document.getElementById('bigAlertMsg').innerHTML = alertQueue.map(esc).join('<br>');
-  box.hidden = false;
-}
+/* showBigAlert est déclarée plus bas (« one alert, one acknowledgment ») :
+   elle passe par le service worker. La version locale qui vivait ici n'a
+   jamais servi — en script classique, la dernière déclaration l'emportait —
+   et un module ES refuse de charger un nom déclaré deux fois. */
 /** Hides every finished timer up to now. */
 function ackFinished(){ S.ackBefore = Date.now(); save(); renderTimers(); }
 document.getElementById('bigAlertOk').addEventListener('click', ()=>{ alertQueue.length = 0; document.getElementById('bigAlert').hidden = true; stopFlash(); ackFinished(); });
@@ -4151,8 +4083,6 @@ const POS = [null,
   {min:100,avg:134, max:168, t:-70, bonus:'', astro:6},
   {min:90, avg:127, max:164, t:-110,bonus:'', astro:8},
 ];
-const POS_BONUS_M = {6:.17, 7:.23, 8:.35, 9:.23, 10:.17};
-const POS_BONUS_C = {1:.40, 2:.30, 3:.20};
 const COL_SHIP_COST = [10000, 20000, 10000];
 const KITS = {
   none: {n:'Aucun', lv:{}},
@@ -6809,15 +6739,6 @@ function lfSettingsHtml(){
     ? `<span class="pill good choix"><input type="checkbox" checked disabled class="w-auto mr-2">${l.n} · lue sur tes planètes</span>`
     : `<label class="pill ${S.lf.found.includes(k)?'good':'info'} choix"><input type="checkbox" data-lf="${k}" ${S.lf.found.includes(k)?'checked':''} class="w-auto mr-2">${l.n}</label>`).join('');
 }
-/**
- * Énergie que rend un satellite solaire, qui ne tient qu'à la température.
- * Formule du wiki : (température max + 140) / 6, arrondie vers le bas. Les
- * bonus de classe et d'officier n'y sont pas — `production` les applique à la
- * production d'énergie entière, satellites compris.
- * @param {number} tmax température maximale de la planète
- * @returns {number} énergie par satellite
- */
-function satEnergy(tmax){ return Math.max(1, Math.floor(((+tmax || 0) + 140) / 6)); }
 /**
  * Le joueur accepte-t-il des satellites solaires ici ?
  *
@@ -11336,3 +11257,14 @@ if(IS_EXT && chrome.runtime.getURL) (function(){
     }).catch(()=>{});
   });
 })();
+
+/* Ce que src/meteo.js et src/flotte/cible.js empruntent à app.js. Rien de
+   plus : un nom ajouté ici sans module qui l'importe est un oubli. */
+export {
+  SEV_NIVEAU, S, planetById, fmt, esc, planetRef, uiOuvert, uiNote, render,
+  constatsVus, planetAlerts, formatTime, DEF, DEF_ABR, defPlan, poidsCat,
+  SHIPS, EXPO_GROS, expoRes, fmtLigne, dur, num, production, mse, stockNow,
+  souteUtile, shipStats, flight, expoFleet, shipList, SHIP_COURT, shipCourt,
+  mcd, secu, prochaineHeure, planeteEn, mouvements, projectResources,
+  attaquesEntrantes, aQuai, transportSuggere, expoCap, fmtCourt, aide
+};

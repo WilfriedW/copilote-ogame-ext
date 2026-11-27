@@ -1,6 +1,6 @@
 /* node test/run.js — vérifie la mise à l'abri.
-   Pas de framework : app.js reste un script classique chargé par la page, et on
-   l'évalue ici comme le ferait le navigateur, avec un DOM factice. */
+   Pas de framework : le harnais évalue les scripts et les modules du panneau
+   dans l'ordre du navigateur, avec un DOM factice (voir test/harness.js). */
 /* Les heures se vérifient dans un fuseau choisi : Tahiti, onze heures
    derrière un serveur européen, l'écart du joueur de cette extension. */
 process.env.TZ = 'Pacific/Tahiti';
@@ -3977,6 +3977,12 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
   const root = path.join(__dirname, '..');
   const lu = f => fs.readFileSync(path.join(root, f), 'utf8');
   const liste = lu('pack.sh').match(/FICHIERS="([^"]+)"/)[1].split(/\s+/);
+  /* Les modules ES du panneau partent en dossier entier (`cp -R src`) : tout
+     ce qui est sous src/ est emporté, et chacun est relu comme les autres. */
+  assert.match(lu('pack.sh'), /^cp -R src dist\/src$/m, 'pack.sh doit emporter le dossier src/');
+  const sousSrc = d => fs.readdirSync(path.join(root, d), { withFileTypes: true })
+    .flatMap(e => e.isDirectory() ? sousSrc(d + '/' + e.name) : [d + '/' + e.name]);
+  const emporte = [...liste, ...sousSrc('src')];
   const m = JSON.parse(lu('manifest.json'));
   /* Le manifeste ne dit pas tout : `app.js` n'est nommé que par boot.js, et
      `ids.js` par un `importScripts`. On relit donc chaque fichier emporté et on
@@ -3985,8 +3991,12 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
   /* Un nom donné à un téléchargement (`filename:'save.json'`, `a.download=…`)
      est un fichier que l'extension ÉCRIT chez le joueur, pas un fichier qu'elle
      charge : il ne part pas dans le zip. */
-  const cites = liste.filter(f => /\.(js|html|css)$/.test(f))
-    .flatMap(f => [...lu(f).matchAll(/(?<!(?:filename\s*:|download\s*=)\s*)['"]([\w-]+\.(?:js|css|html|png|woff2|json))['"]/g)].map(x => x[1]))
+  /* Un chemin relatif (`'../app.js'` dans un import) se lit depuis le
+     dossier du fichier qui le cite ; un autre, depuis la racine, comme
+     `'src/main.js'` que boot.js ajoute à sidepanel.html. */
+  const cites = emporte.filter(f => /\.(js|html|css)$/.test(f))
+    .flatMap(f => [...lu(f).matchAll(/(?<!(?:filename\s*:|download\s*=)\s*)['"]((?:\.{1,2}\/)*[\w-]+(?:\/[\w-]+)*\.(?:js|css|html|png|woff2|json))['"]/g)]
+      .map(x => /^\.{1,2}\//.test(x[1]) ? path.posix.normalize(path.posix.join(path.posix.dirname(f), x[1])) : x[1]))
     /* Un .json cité peut être un nom de téléchargement (save.json) : seul
        compte celui qui existe dans le dépôt, comme rules.json. */
     .filter(f => !f.endsWith('.json') || fs.existsSync(path.join(root, f)));
@@ -3997,10 +4007,118 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
     ...[...lu('sidepanel.html').matchAll(/(?:src|href)="([^":]+)"/g)].map(x => x[1]),
     ...cites]);
   for (const f of voulus)
-    assert.ok(liste.includes(f), f + ' est chargé par l\'extension et pack.sh ne l\'emporte pas');
+    assert.ok(emporte.includes(f), f + ' est chargé par l\'extension et pack.sh ne l\'emporte pas');
   for (const f of liste)
     assert.ok(fs.existsSync(path.join(root, f)), 'pack.sh emporte ' + f + ', qui n\'existe pas');
 });
+
+/* ---------- les modules ES du panneau (issue #49) ---------- */
+/* Le harnais met les modules à plat : il ne voit ni un import oublié, ni un
+   import d'un nom que l'autre module n'exporte pas. Ces vérifications-ci le
+   voient, à la lecture du source, et test/esm.js au vrai chargement. */
+{
+  const M = require('./modules');
+  const fs = require('fs'), path = require('path');
+  const lu = f => fs.readFileSync(path.join(M.ROOT, f), 'utf8');
+  const mods = M.ordre('src/main.js');
+  const haut = Object.fromEntries(mods.map(f => [f, M.nomsHaut(lu(f))]));
+
+  t('modules : chaque import vise un fichier qui existe et un nom qu\'il exporte', () => {
+    for (const f of mods) for (const { de, noms } of M.imports(f)) {
+      assert.ok(fs.existsSync(path.join(M.ROOT, de)), f + ' importe ' + de + ', qui n\'existe pas');
+      const ex = M.exports_(de);
+      for (const n of noms) {
+        assert.ok(/^[A-Za-z_$][\w$]*$/.test(n), f + ' : « ' + n + ' » — pas de renommage à l\'import, le harnais met les modules à plat');
+        assert.ok(ex.has(n), f + ' importe ' + n + ' de ' + de + ', qui ne l\'exporte pas : le panneau ne se chargerait pas');
+      }
+    }
+  });
+
+  t('modules : chaque nom pris à un autre module est importé', () => {
+    const manque = [];
+    for (const f of mods) {
+      const { emplois, locaux } = M.usages(lu(f));
+      const importes = new Set(M.imports(f).flatMap(i => i.noms));
+      for (const g of mods) if (g !== f) for (const n of haut[g])
+        if (emplois.has(n) && !haut[f].has(n) && !locaux.has(n) && !importes.has(n)) manque.push(f + ' emploie ' + n + ' (' + g + ')');
+    }
+    assert.deepEqual(manque, [], 'sans import, le navigateur lève au premier appel');
+  });
+
+  t('modules : un nom n\'est déclaré qu\'une fois dans tout le panneau', () => {
+    /* Un script classique laissait la dernière déclaration l'emporter ; un
+       module refuse de se charger, et deux modules mis à plat par le
+       harnais se marcheraient dessus. */
+    const vu = {};
+    for (const f of [...require('./harness').CLASSIQUES, ...mods]) {
+      const j = M.jetons(lu(f));
+      for (let k = 0; k < j.length - 1; k++)
+        if (j[k].prof === 0 && j[k].v === 'function' && j[k + 1].t === 'id') {
+          const n = j[k + 1].v;
+          assert.ok(!vu[n], n + ' déclarée dans ' + vu[n] + ' et dans ' + f);
+          vu[n] = f;
+        }
+    }
+  });
+
+  t('modules : les scripts classiques n\'empruntent rien aux modules', () => {
+    /* ids.js et profils.js restent des scripts : les déclarations d'un module
+       ne sont plus des globales, un script qui les appellerait lèverait. */
+    const tous = new Set(mods.flatMap(f => [...haut[f]]));
+    for (const f of require('./harness').CLASSIQUES) {
+      const { emplois, locaux } = M.usages(lu(f));
+      const propres = M.nomsHaut(lu(f));
+      const pris = [...emplois].filter(n => tous.has(n) && !propres.has(n) && !locaux.has(n));
+      assert.deepEqual(pris, [], f + ' emprunte aux modules');
+    }
+  });
+
+  t('modules : les scripts classiques et ceux des content scripts n\'ont ni import ni export', () => {
+    // Chrome ne charge pas de module en content script déclaré, ni importScripts() dans le service worker
+    for (const f of ['ids.js', 'profils.js', 'boot.js', 'content.js', 'background.js', 'masque.js', 'masque-conf.js'])
+      assert.ok(!/^\s*(?:import|export)\b/m.test(lu(f)), f + ' doit rester un script classique');
+  });
+
+  t('modules : pas de dépendance circulaire, hors app.js en cours de découpage', () => {
+    /* app.js importe la météo et la flotte cible, qui lui empruntent en
+       retour : ce cycle-là est toléré tant qu'app.js existe. Entre deux
+       modules sortis de lui, aucun. */
+    const graphe = Object.fromEntries(mods.map(f => [f, M.imports(f).map(i => i.de).filter(d => d !== 'app.js')]));
+    const etat = {};
+    const visite = (f, pile) => {
+      if (etat[f] === 2) return;
+      assert.ok(etat[f] !== 1, 'cycle : ' + [...pile, f].join(' → '));
+      etat[f] = 1;
+      for (const d of graphe[f] || []) visite(d, [...pile, f]);
+      etat[f] = 2;
+    };
+    for (const f of mods) if (f !== 'app.js') visite(f, []);
+  });
+
+  t('modules : le noyau (src/core/) n\'importe rien', () => {
+    // la règle de #49 : core au fond, tout le reste peut s'appuyer dessus sans retour
+    for (const f of mods.filter(f => f.startsWith('src/core/')))
+      assert.deepEqual(M.imports(f).map(i => i.de), [], f + ' importe');
+  });
+
+  t('modules : node test/run.js lance chaque fichier de test/*.test.js', () => {
+    const ici = fs.readFileSync(__filename, 'utf8');
+    for (const f of fs.readdirSync(__dirname).filter(f => f.endsWith('.test.js')))
+      assert.ok(ici.includes("require('./" + f.replace(/\.js$/, '') + "')"), f + ' n\'est lancé par personne');
+  });
+
+  t('modules : le panneau se charge en vrais modules ES, onglet par onglet', () => {
+    /* Un processus par onglet : un module ne s'évalue qu'une fois par
+       processus. Chaque outil de l'onglet Outils a sa vue. */
+    const { spawnSync } = require('child_process');
+    const cas = [['today'], ['empire'], ['settings'],
+      ...['explore', 'server', 'research', 'moon', 'defense', 'fleet', 'colony'].map(o => ['tools', o])];
+    for (const c of cas) {
+      const r = spawnSync(process.execPath, [path.join(__dirname, 'esm.js'), ...c], { encoding: 'utf8', env: { ...process.env } });
+      assert.equal(r.status, 0, c.join(' › ') + ' : ' + (r.stderr || r.stdout).slice(0, 1500));
+    }
+  });
+}
 
 t('le manifeste donné au joueur reste du JSON, sans notre clé', () => {
   /* pack.sh retire la ligne `"key"` du manifeste qu'il met dans le zip, avec un
@@ -4129,53 +4247,8 @@ t('un dist/ déjà construit ne reste pas en retard sur le dépôt', () => {
 
 /* ---------- résultat ---------- */
 
-/* ---------- spécification v2 : formules isolées ---------- */
-
-t('la capacité de hangar suit la formule du jeu', () => {
-  const g = app();
-  assert.equal(g.storageCap(4), 140000);
-  assert.equal(g.storageCap(5), 255000);
-  assert.equal(g.storageCap(7), 865000);
-  assert.equal(g.storageCap(8), 1590000);
-});
-
-t('Astrophysique 5 coûte 37 500 / 75 000 / 37 500, soit 262 500 éq.', () => {
-  const g = app();
-  assert.deepEqual(g.levelCost(g.T.astro, 5), [37500, 75000, 37500]);
-  assert.equal(g.mse(37500, 75000, 37500), 262500);
-});
-
-t('la chaîne vers Plasma 4 depuis Énergie 7, Laser 7 et Ion 5 coûte 785 800 éq.', () => {
-  const g = app();
-  const eq = c => g.mse(c[0], c[1], c[2]);
-  const total = eq(g.rangeCost(g.T.energy, 7, 8))
-              + eq(g.rangeCost(g.T.laser, 7, 10))
-              + eq(g.rangeCost(g.T.plasma, 0, 4));
-  assert.equal(Math.round(total), 785800);
-});
-
-t('le nombre de planètes et d\'expéditions suit Astrophysique', () => {
-  assert.equal(app(s => { s.tech.astro = 4; }).maxPlanets(), 3);
-  assert.equal(app(s => { s.tech.astro = 5; }).maxPlanets(), 4);
-  assert.equal(app(s => { s.tech.astro = 9; }).maxPlanets(), 6);
-  const g = app();
-  assert.equal(g.expoCap(8), 2);
-  assert.equal(g.expoCap(9), 3);
-});
-
-t('le bonus de position du métal vaut 1,35 en 8 et rien en 11', () => {
-  const g = app();
-  assert.equal(1 + (g.POS_BONUS_M[8] || 0), 1.35);
-  assert.equal(1 + (g.POS_BONUS_M[11] || 0), 1);
-});
-
-t('les foreuses utiles valent huit fois les niveaux de mine', () => {
-  const g = app();
-  assert.equal(g.crawlerMax(19, 16, 15), 400);
-  // +0,02 % chacune, ×1,5 pour un Collectionneur, plafonné à 50 %
-  assert.ok(Math.abs(g.crawlerBonus(400, 'collector', false) - 0.12) < 1e-9);
-  assert.equal(g.crawlerBonus(100000, 'collector', true), 0.5);
-});
+/* ---------- spécification v2 : formules isolées : test/formules.test.js ---------- */
+require('./formules.test')({ t, app, assert });
 
 /* ---------- le hangar ne bloque pas une livraison ---------- */
 
@@ -9529,19 +9602,6 @@ t('une case de recherche de forme de vie, sans niveau, est refusée pour ce moti
   assert.match(p.refus, /niveau/i);
 });
 
-t('tout bâtiment modélisé a sa tuile et son nom court', () => {
-  const g = app();
-  const { OG_BUILD } = new Function(require('fs').readFileSync(require('path').join(__dirname, '..', 'ids.js'), 'utf8')
-    + '; return { OG_BUILD };')();
-  const tuiles = Object.values(OG_BUILD);
-  /* Trois tables à tenir ensemble : une clé qui manque à l'une passe inaperçue
-     jusqu'à ce que le volet Empire affiche « undefined » chez le joueur. */
-  for (const k of Object.keys(g.B)) {
-    assert.ok(tuiles.includes(k), k + ' n\'a pas de tuile dans OG_BUILD');
-    assert.ok(g.B_SHORT[k], k + ' n\'a pas de nom court');
-  }
-});
-
 t('le Dépôt et le Silo se posent au clic droit', () => {
   for (const id of [34, 44]) {
     const p = runPage({ search: '?page=ingame&component=facilities', planetId: '33701',
@@ -9551,20 +9611,6 @@ t('le Dépôt et le Silo se posent au clic droit', () => {
   }
 });
 
-t('le Terraformeur et le Dock spatial ont le prix du jeu', () => {
-  const g = app();
-  /* Relevés sur le wiki OGame. Le Dock spatial est le seul à quintupler d'un
-     niveau à l'autre : lui donner le doublement des autres le ferait paraître
-     douze fois trop bon marché au niveau 4. */
-  assert.deepEqual(g.levelCost(g.B.terra, 1), [0, 50000, 100000]);
-  assert.deepEqual(g.levelCost(g.B.terra, 10), [0, 25600000, 51200000]);
-  assert.deepEqual(g.levelCost(g.B.dock, 1), [200, 0, 50]);
-  assert.deepEqual(g.levelCost(g.B.dock, 4), [25000, 0, 6250]);
-  // le terraformeur demande des nanites et de l'énergie ; le dock, rien de relevé
-  assert.deepEqual(g.B.terra.req, { b: { nanite: 1 }, t: { energy: 12 } });
-  assert.equal(g.B.dock.req, undefined);
-});
-
 t('le Terraformeur et le Dock spatial se posent au clic droit', () => {
   for (const id of [33, 36]) {
     const p = runPage({ search: '?page=ingame&component=facilities', planetId: '33701',
@@ -9572,19 +9618,6 @@ t('le Terraformeur et le Dock spatial se posent au clic droit', () => {
     p.clicDroit(id, '5');
     assert.equal(p.ecrit().prioAsk[0].lvl, 5, 'tuile ' + id);
   }
-});
-
-t('le Dépôt de ravitaillement et le Silo de missiles ont le prix du jeu', () => {
-  const g = app();
-  /* Relevé sur le wiki OGame, niveau 1 puis doublement : un prix inventé ferait
-     épargner la mauvaise somme sans que rien ne le signale. */
-  assert.deepEqual(g.levelCost(g.B.depot, 1), [20000, 40000, 0]);
-  assert.deepEqual(g.levelCost(g.B.depot, 8), [2560000, 5120000, 0]);
-  assert.deepEqual(g.levelCost(g.B.silo, 1), [20000, 20000, 1000]);
-  assert.deepEqual(g.levelCost(g.B.silo, 10), [10240000, 10240000, 512000]);
-  // le silo demande un chantier, le dépôt ne demande rien
-  assert.deepEqual(g.B.silo.req, { b: { shipyard: 1 } });
-  assert.equal(g.B.depot.req, undefined);
 });
 
 t('une sauvegarde d\'avant ces bâtiments les compte à zéro, pas à « undefined »', () => {
@@ -10052,6 +10085,21 @@ t('« Enregistrer » écrit un save.json que le joueur place où il veut', () =>
   const fichier = { text() { lu++; return new Promise(() => {}); } };
   (g.el('ioFile').on.change || []).forEach(fn => fn({ target: { files: [fichier], value: '' } }));
   assert.equal(lu, 1, 'le fichier choisi doit être lu');
+});
+
+t('« Réinitialiser » repart de l\'exemple et le panneau se redessine, sur chaque onglet', () => {
+  /* sample() ne portait pas `timers` : le second clic enregistrait l'état
+     neuf, puis le redessin levait dans renderTimers et le panneau restait
+     figé jusqu'au rechargement. */
+  for (const tab of ['today', 'empire', 'tools', 'settings']) {
+    const s = fixtureState(); s.__tab = tab;
+    const g = loadApp(s, SOIR, ['S']);
+    g.click('ioReset');
+    assert.equal(g.saved().planets.length, 2, tab + ' : le premier clic ne fait qu\'armer le bouton');
+    assert.doesNotThrow(() => g.click('ioReset'), tab + ' : le redessin après réinitialisation');
+    assert.equal(g.saved().planets.length, 1, tab + ' : l\'exemple n\'a qu\'une planète');
+    assert.deepEqual(g.saved().timers, [], tab + ' : et aucun minuteur');
+  }
 });
 
 t('un fichier qui n\'est pas une sauvegarde ne remplace rien', () => {
@@ -14857,7 +14905,7 @@ t('ENH-54 : un oui/non est un interrupteur ; une case reste pour choisir dans un
      et la forme de vie lue sur les planètes, affichée cochée et grisée. */
   const LISTES = ['data-lf=', 'data-pfocus=', 'data-secu-vault=', 'data-secu-jour=', 'data-posep=', 'checked disabled', 'id="${id}" ${attr}'];
   const fs = require('fs'), path = require('path');
-  const src = ['app.js', 'flotte.js', 'meteo.js', 'profils.js'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
+  const src = ['app.js', 'src/flotte/cible.js', 'src/meteo.js', 'profils.js'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
   const cases = [...src.matchAll(/<input[^>]*type="checkbox"[^>]*>/g)].map(m => m[0]);
   const fautes = cases.filter(c => !/class="[^"]*\binterrupteur\b/.test(c) && !LISTES.some(x => c.includes(x)));
   assert.deepEqual(fautes, []);
@@ -14870,7 +14918,7 @@ t('ENH-54 : un oui/non est un interrupteur ; une case reste pour choisir dans un
 t('ENH-54 : les aides longues d\'Outils attendent derrière « En savoir plus »', () => {
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
   assert.match(src, /aide\('cotransport', '<p class="note">Les transporteurs partent après/);
-  const fl = require('fs').readFileSync(require('path').join(__dirname, '..', 'flotte.js'), 'utf8');
+  const fl = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'flotte', 'cible.js'), 'utf8');
   assert.match(fl, /<p class="note">Ce que chaque planète devrait avoir pour lancer une expédition et lever son stock seule le soir\.<\/p>\s*\$\{aide\('flottecible'/);
 });
 
