@@ -8687,7 +8687,7 @@ t('la case du centre tient sur une ligne, hors du gabarit des champs', () => {
      règle propre, l'espacement de la rangée ne les atteint plus et la raison
      vient se coller à la pastille. */
   assert.match(h, /<span class="voc" id="pvoc-/);
-  assert.match(css, /\.voc\{[^}]*gap:8px/, 'la raison garde ses distances');
+  assert.match(css, /\.voc\{[^}]*gap:var\(--sp-2\)/, 'la raison garde ses distances');
 });
 
 t('le volet des niveaux se donne pour ce qu\'il est : un réglage qu\'on ouvre', () => {
@@ -8700,9 +8700,13 @@ t('le volet des niveaux se donne pour ce qu\'il est : un réglage qu\'on ouvre',
   const ouvert = app(s2 => { s2.ui.fold = { 'niv:mere': true }; }).VIEWS.planets();
   assert.match(ouvert, /<details class="volet" open><summary data-fold="niv:mere">/);
   const css = CSS();
-  assert.match(css, /details\.volet>summary\{[^}]*cursor:pointer/);
-  assert.match(css, /details\.volet>summary::after\{content:"Ouvrir \+"/, 'il dit qu\'il s\'ouvre');
-  assert.match(css, /details\.volet\[open\]>summary::after\{content:"Fermer/, 'et qu\'il se ferme');
+  /* ENH-54 : un seul indicateur pour tous les volets, cartes comprises —
+     « + » fermé, « – » ouvert — plutôt que « Ouvrir + » ici et « + » ailleurs.
+     Le volet garde son cadre, qui dit qu'on règle quelque chose dedans. */
+  assert.match(css, /details:not\(\.defpick\)>summary\{[^}]*cursor:pointer/);
+  assert.match(css, /details:not\(\.defpick\)>summary::after\{content:"\+"/, 'il dit qu\'il s\'ouvre');
+  assert.match(css, /details:not\(\.defpick\)\[open\]>summary::after\{content:"–"/, 'et qu\'il se ferme');
+  assert.match(css, /details\.volet>summary\{[^}]*border:1px solid/, 'et il reste encadré');
 });
 
 t('le compteur du niveau visé part du niveau en place, pas de 1', () => {
@@ -14139,7 +14143,7 @@ t('une règle coupée pour une planète ne s\'y évalue plus, ni dans le plan', 
     s.planets[1].regOff = { INST_FIELDS_LOW: true }; });
   assert.ok(!g.constats().some(x => x.regle === 'INST_FIELDS_LOW'));
   assert.ok(!g.pickBuildings(simulee(g, 1), { T: SOIR, iv: 1.5, goals: [] }).some(x => x.k === 'terra'));
-  assert.match(lu(g.regOffHtml(g.S.planets[1])), /data-regoff="colo\|INST_FIELDS_LOW"  style/);
+  assert.match(lu(g.regOffHtml(g.S.planets[1])), /data-regoff="colo\|INST_FIELDS_LOW"  class/);
 });
 
 t('le réseau de labos ne parle que si on a le Réseau', () => {
@@ -14733,6 +14737,45 @@ t('surplus : rien n\'est envoyé tout seul — un transfert ne se prépare que p
   g.REFRESH.today();
   assert.ok(!g.sent().some(m => m && /fleet|send|dispatch/i.test(JSON.stringify(m))), JSON.stringify(g.sent()));
   assert.ok(s && s.mission === 3);
+});
+
+/* ENH-54, étape 1 : une seule échelle de styles. Ces deux vérifications
+   empêchent les écarts de revenir un par un, ce qui les avait fait naître. */
+const sansCommentaires = css => css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+t('ENH-54 : aucun style en ligne dans le panneau, hors couleur de planète', () => {
+  /* 97 attributs style="…" faisaient chacun leur espacement. Le seul qui
+     reste porte une valeur calculée : la couleur de la planète (--pc). */
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'sidepanel.html'), 'utf8');
+  const styles = (src + html).match(/style="[^"]*"/g) || [];
+  assert.deepEqual(styles.filter(x => !x.startsWith('style="--pc:')), [], 'styles en ligne : ' + styles.join(' '));
+});
+
+t('ENH-54 : panel.css ne prend ses tailles et ses espacements que dans l\'échelle', () => {
+  const css = sansCommentaires(CSS());
+  // Tailles de texte : uniquement --fs-*, hors titre du panneau qui suit la largeur (clamp).
+  const tailles = (css.match(/font(?:-size)?:[^;}]*\d+px[^;}]*/g) || []).filter(x => !/clamp\(/.test(x));
+  assert.deepEqual(tailles, [], 'tailles en dur : ' + tailles.join(' | '));
+  // Espacements : uniquement --sp-*, hors le vide de fin de page (48px) et le repli 0px de env().
+  const esp = (css.match(/(?:padding|margin|gap)[a-z-]*:[^;}]+/g) || [])
+    .map(x => x.replace(/env\([^)]*\)/g, '').replace(/48px/, ''))
+    .filter(x => /\d+px/.test(x));
+  assert.deepEqual(esp, [], 'espacements en dur : ' + esp.join(' | '));
+  // Rayons : --r, --r-sm, la pilule (999px), le rond (50%), l'angle droit (0) et le filet de 2px du thème Relief.
+  const rayons = (css.match(/border-radius:[^;}]+/g) || [])
+    .filter(x => !/^border-radius:(var\(--r(-sm)?\)|999px|50%|0|2px)$/.test(x));
+  assert.deepEqual(rayons, [], 'rayons hors échelle : ' + rayons.join(' | '));
+});
+
+t('ENH-54 : un seul style de volet, déclaré une seule fois', () => {
+  const css = sansCommentaires(CSS());
+  assert.doesNotMatch(css, /details\.card summary\{/, 'l\'ancienne règle en double a disparu');
+  assert.doesNotMatch(css, /Ouvrir \+/, 'plus de second indicateur');
+  // Chaque repli du panneau est une carte ou un volet (le sélecteur de défense et le « comment faire » d'une carte d'action exceptés).
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const nus = (src.match(/<details(?![^>]*class="[^"]*\b(?:card|volet|defpick|how)\b)[^>]*\$\{fold/g) || []);
+  assert.deepEqual(nus, [], 'volets sans style : ' + nus.join(' '));
 });
 
 if (failures.length) {

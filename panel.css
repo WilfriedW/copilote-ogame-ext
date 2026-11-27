@@ -31,6 +31,14 @@
   --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
   --r:12px; --r-sm:8px;
+  /* L'échelle commune (ENH-54). Toute taille de texte et tout espacement du
+     panneau passe par ces variables : 11 tailles et une trentaine de
+     paddings différents faisaient que deux cartes voisines ne se
+     ressemblaient pas. Texte : xs à lg ; chiffres mis en avant : xl à 3xl. */
+  --fs-xs:11px; --fs-sm:12px; --fs-md:13px; --fs-base:14px; --fs-lg:15px;
+  --fs-xl:18px; --fs-2xl:22px; --fs-3xl:26px;
+  /* Espacements : 4 / 8 / 12 / 16, et 2 pour les pastilles et les filets. */
+  --sp-05:2px; --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px;
   color-scheme:dark;
 }
 @media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
@@ -48,14 +56,14 @@
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:var(--fs-base);line-height:1.5}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
-.wrap{max-width:780px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 48px}
+.wrap{max-width:780px;margin:0 auto;padding-left:max(var(--sp-4),env(safe-area-inset-left,0));padding-right:max(var(--sp-4),env(safe-area-inset-right,0));padding-block:var(--sp-4) 48px}
 /* L'en-tête tient sur une ligne, panneau étroit compris : le titre rapetisse
    avec la largeur, le badge s'écourte avant tout le reste (il est en entier
    dans son infobulle), et la classe puis la version s'effacent. Le bouton et
    les icônes, eux, ne bougent jamais — ils se cliquent. */
-header.top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:nowrap}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);flex-wrap:nowrap}
 /* La rangée de droite s'efface (`display:contents`) : titre, badge et
    boutons se partagent directement la ligne, chacun selon sa priorité — le
    badge s'écourte le premier (flex-shrink 8), le titre ensuite, les boutons
@@ -85,25 +93,25 @@ header.top .btn{flex:0 0 auto}
 /* Panneau étroit : le titre prend sa propre ligne et les boutons passent
    dessous, alignés à droite (s'ils ne tiennent pas, ils continuent sur une
    ligne de plus — jamais par-dessus le titre ni hors de l'écran). */
-@media (max-width:460px){header.top{flex-wrap:wrap;justify-content:flex-end;row-gap:6px} header.top h1{flex:1 1 100%;margin-right:0}}
+@media (max-width:460px){header.top{flex-wrap:wrap;justify-content:flex-end;row-gap:var(--sp-2)} header.top h1{flex:1 1 100%;margin-right:0}}
 /* Sous 580px, le libellé des heures part à son tour : l'interrupteur reste,
    son infobulle dit ce qu'il fait (avertissements compris). */
 @media (max-width:580px){header.top .tzlbl{display:none}}
 /* Et tout en bas, les écarts se resserrent. */
-@media (max-width:360px){header.top{gap:5px}}
-@media (max-width:340px){header.top .gear{padding-inline:5px}}
+@media (max-width:360px){header.top{gap:var(--sp-1)}}
+@media (max-width:340px){header.top .gear{padding-inline:var(--sp-1)}}
 h1{font-family:var(--f-display);font-weight:700;font-size:clamp(14px,3.5vw,22px);letter-spacing:.04em;margin:0;text-transform:uppercase}
 h1 span{color:var(--accent)}
-h2{font-family:var(--f-display);font-weight:600;font-size:15px;letter-spacing:.08em;text-transform:uppercase;margin:0;color:var(--muted)}
-h3{font-family:var(--f-display);font-weight:600;font-size:16px;margin:0;text-wrap:balance}
-.ver{font-family:var(--f-mono);font-size:11px;font-weight:500;letter-spacing:0;color:var(--muted);text-transform:none;vertical-align:middle}
-.uni{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
-nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:6px;padding-block:12px;overflow-x:auto;scrollbar-width:none}
-nav.tabs button{flex:0 0 auto;font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.06em;text-transform:uppercase;padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
+h2{font-family:var(--f-display);font-weight:600;font-size:var(--fs-lg);letter-spacing:.08em;text-transform:uppercase;margin:0;color:var(--muted)}
+h3{font-family:var(--f-display);font-weight:600;font-size:var(--fs-lg);margin:0;text-wrap:balance}
+.ver{font-family:var(--f-mono);font-size:var(--fs-xs);font-weight:500;letter-spacing:0;color:var(--muted);text-transform:none;vertical-align:middle}
+.uni{font-family:var(--f-mono);font-size:var(--fs-sm);color:var(--muted)}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:var(--sp-2);padding-block:var(--sp-3);overflow-x:auto;scrollbar-width:none}
+nav.tabs button{flex:0 0 auto;font-family:var(--f-display);font-weight:600;font-size:var(--fs-md);letter-spacing:.06em;text-transform:uppercase;padding:var(--sp-2) var(--sp-3);border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
 nav.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 /* L'engrenage : l'onglet des réglages sorti de la barre, en haut à droite.
    Rond comme les onglets, et il s'allume quand les réglages sont ouverts. */
-.gear{border-radius:999px;padding:4px 8px;font-size:14px;line-height:1.2}
+.gear{border-radius:999px;padding:var(--sp-1) var(--sp-2);font-size:var(--fs-base);line-height:1.2}
 .gear[aria-selected="true"]{background:var(--accent);border-color:var(--accent)}
 /* L'interrupteur des heures : la même bascule que les Réglages, en plus petit,
    et son libellé discret juste à droite. Allumé = heure locale. */
@@ -112,29 +120,29 @@ nav.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(
 .tzsw[aria-checked="true"]{background:var(--accent);border-color:var(--accent)}
 .tzsw[aria-checked="true"] .knob{transform:translateX(12px);background:var(--accent-ink)}
 .tzsw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.tzlbl{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap}
+.tzlbl{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:var(--f-mono);font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
 :root[data-skin=hud] .tzsw,:root[data-skin=hud] .tzsw .knob{border-radius:0}
 /* Une heure du panneau : son infobulle donne l'autre fuseau. */
 time.hr{cursor:help;text-decoration:underline dotted color-mix(in srgb,currentColor 35%,transparent);text-underline-offset:3px}
-section.panel{display:flex;flex-direction:column;gap:14px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
-.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+section.panel{display:flex;flex-direction:column;gap:var(--sp-3)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-3);min-width:0}
+.row{display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap}
 .spread{justify-content:space-between}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--sp-2)}
 .grid.tight{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
-label.f,div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+label.f,div.f{display:flex;flex-direction:column;gap:var(--sp-1);font-size:var(--fs-sm);color:var(--muted);min-width:0}
 /* Le sélecteur de modèle de défense : un volet plutôt qu'un <select>, pour
    écrire sous chaque nom sa recette et son pack. Une ligne, coupée par « … »,
    la recette entière en infobulle. */
 details.defpick{position:relative;min-width:0}
-details.defpick>summary{list-style:none;cursor:pointer;font-family:var(--f-mono);font-size:13px;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:7px 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+details.defpick>summary{list-style:none;cursor:pointer;font-family:var(--f-mono);font-size:var(--fs-md);color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--sp-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 details.defpick>summary::-webkit-details-marker{display:none}
 details.defpick>summary::after{content:" ▾";color:var(--muted)}
-.defopts{position:absolute;z-index:20;left:0;top:calc(100% + 4px);width:min(480px,calc(100vw - 48px));display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:0 10px 30px rgba(0,0,0,.35);padding:4px}
-.defopt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-width:0;text-align:left;font:inherit;font-size:13px;color:var(--fg);background:transparent;border:none;border-radius:var(--r-sm);padding:6px 8px;cursor:pointer}
+.defopts{position:absolute;z-index:20;left:0;top:calc(100% + 4px);width:min(480px,calc(100vw - 48px));display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:0 10px 30px rgba(0,0,0,.35);padding:var(--sp-1)}
+.defopt{display:flex;flex-direction:column;align-items:flex-start;gap:var(--sp-05);width:100%;min-width:0;text-align:left;font:inherit;font-size:var(--fs-md);color:var(--fg);background:transparent;border:none;border-radius:var(--r-sm);padding:var(--sp-2);cursor:pointer}
 .defopt:hover,.defopt[aria-pressed="true"]{background:var(--surface-2)}
 .defopt .note{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.defmod{display:flex;flex-direction:column;gap:4px;margin-top:10px;padding:8px 10px;background:var(--surface-2);border-radius:var(--r-sm)}
+.defmod{display:flex;flex-direction:column;gap:var(--sp-1);margin-top:var(--sp-2);padding:var(--sp-2);background:var(--surface-2);border-radius:var(--r-sm)}
 .defmod p{margin:0}
 abbr[title]{text-decoration:underline dotted;cursor:help}
 .defmod a{color:var(--accent)}
@@ -144,8 +152,8 @@ abbr[title]{text-decoration:underline dotted;cursor:help}
 /* La pastille de vocation et sa raison ne sont plus enfants de .row : sans
    cette règle, l'espacement de la rangée ne les atteignait plus et la
    raison venait se coller à la pastille. */
-.voc{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
-label.f.coche{flex-direction:row;align-items:center;gap:6px;width:auto;color:var(--fg);font-size:13px}
+.voc{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;min-width:0}
+label.f.coche{flex-direction:row;align-items:center;gap:var(--sp-2);width:auto;color:var(--fg);font-size:var(--fs-md)}
 label.f.coche input{width:auto;flex:0 0 auto;margin:0}
 /* La bascule : une par ligne, pleine largeur, l'interrupteur à droite au bout
    de son libellé, la précision dessous. En colonnes, les interrupteurs
@@ -153,7 +161,7 @@ label.f.coche input{width:auto;flex:0 0 auto;margin:0}
    un libellé de deux mots prenait trois lignes. Un Oui/Non ne mérite ni titre,
    ni liste déroulante, ni colonne à lui. */
 .bascules{display:flex;flex-direction:column}
-label.f.bascule{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 12px;padding:9px 0;color:var(--fg);font-size:13px}
+label.f.bascule{display:grid;grid-template-columns:1fr auto;align-items:center;gap:var(--sp-05) var(--sp-3);padding:var(--sp-2) 0;color:var(--fg);font-size:var(--fs-md)}
 label.f.bascule+label.f.bascule{border-top:1px solid var(--line)}
 label.f.bascule input{appearance:none;-webkit-appearance:none;width:34px;height:20px;padding:0;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);position:relative;cursor:pointer}
 label.f.bascule input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:transform .15s,background .15s}
@@ -161,35 +169,35 @@ label.f.bascule input:checked{background:var(--accent);border-color:var(--accent
 label.f.bascule input:checked::after{transform:translateX(14px);background:var(--accent-ink)}
 label.f.bascule>span{min-width:0}
 label.f.bascule .note{grid-column:1}
-input,select{font:inherit;font-family:var(--f-mono);font-size:13px;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:7px 9px;width:100%;min-width:0}
+input,select{font:inherit;font-family:var(--f-mono);font-size:var(--fs-md);color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--sp-2);width:100%;min-width:0}
 input:focus-visible,select:focus-visible,button:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-textarea{font-family:var(--f-mono);font-size:12px;width:100%;min-height:90px;background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px}
-.btn{font-family:var(--f-body);font-weight:600;font-size:13px;padding:7px 12px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface-2);color:var(--fg);cursor:pointer}
+textarea{font-family:var(--f-mono);font-size:var(--fs-sm);width:100%;min-height:90px;background:var(--surface-2);color:var(--fg);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--sp-2)}
+.btn{font-family:var(--f-body);font-weight:600;font-size:var(--fs-md);padding:var(--sp-2) var(--sp-3);border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface-2);color:var(--fg);cursor:pointer}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn.bad{background:var(--bad);border-color:var(--bad);color:var(--accent-ink)}
 .btn.ghost{background:transparent}
-.btn.sm{padding:4px 9px;font-size:12px}
+.btn.sm{padding:var(--sp-1) var(--sp-2);font-size:var(--fs-sm)}
 .btn:hover{filter:brightness(1.08)}
-.res{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.res{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp-2)}
 .res .wide{grid-column:1/-1}
 @media (max-width:520px){.res{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.gauge{background:var(--surface-2);border-radius:var(--r-sm);padding:9px 10px;display:flex;flex-direction:column;gap:2px;min-width:0}
-.gauge .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px}
+.gauge{background:var(--surface-2);border-radius:var(--r-sm);padding:var(--sp-2);display:flex;flex-direction:column;gap:var(--sp-05);min-width:0}
+.gauge .k{font-size:var(--fs-xs);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:var(--sp-2)}
 .gauge .k i{width:8px;height:8px;border-radius:50%;display:inline-block}
-.gauge .v{font-family:var(--f-display);font-weight:600;font-size:18px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.gauge .s{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.gauge .v{font-family:var(--f-display);font-weight:600;font-size:var(--fs-xl);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.gauge .s{font-family:var(--f-mono);font-size:var(--fs-xs);color:var(--muted)}
 .c-m{color:var(--metal)} .c-c{color:var(--crystal)} .c-d{color:var(--deut)} .c-e{color:var(--energy)}
 .bg-m{background:var(--metal)} .bg-c{background:var(--crystal)} .bg-d{background:var(--deut)} .bg-e{background:var(--energy)}
-.pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;letter-spacing:.04em;padding:2px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
-p.pill{white-space:normal;align-items:flex-start;max-width:100%;border-radius:10px;padding:6px 10px}
+.pill{display:inline-flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-xs);font-weight:600;letter-spacing:.04em;padding:var(--sp-05) var(--sp-2);border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+p.pill{white-space:normal;align-items:flex-start;max-width:100%;border-radius:var(--r-sm);padding:var(--sp-2)}
 .pill.good{color:var(--good)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--bad)} .pill.info{color:var(--accent)}
 .tbl-wrap{overflow-x:auto;border-radius:var(--r-sm);border:1px solid var(--line)}
-table{border-collapse:collapse;width:100%;font-size:13px}
-th,td{padding:7px 9px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
-th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--surface-2)}
+table{border-collapse:collapse;width:100%;font-size:var(--fs-md)}
+th,td{padding:var(--sp-2);text-align:left;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+th{font-size:var(--fs-xs);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--surface-2)}
 tr:last-child td{border-bottom:none}
 td.n,th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
-td input{width:64px;padding:4px 6px}
+td input{width:64px;padding:var(--sp-1) var(--sp-2)}
 /* « Visé » est une commande, pas un affichage : c'est le seul endroit où se
    pose une priorité de recherche. Avec le nom de technologie sur une ligne,
    « Réseau de recherche intergalactique » prenait 231 px à lui seul et
@@ -197,108 +205,109 @@ td input{width:64px;padding:4px 6px}
    visible. Le nom se replie, les trois premières colonnes tiennent, et ce qui
    déborde derrière n'est plus que de l'information. */
 table.tech td:first-child,table.tech th:first-child{white-space:normal;max-width:112px}
-.rank{font-family:var(--f-display);font-weight:700;color:var(--accent);font-size:15px}
-.note{font-size:12px;color:var(--muted);margin:0}
+.rank{font-family:var(--f-display);font-weight:700;color:var(--accent);font-size:var(--fs-lg)}
+.note{font-size:var(--fs-sm);color:var(--muted);margin:0}
 .note b{color:var(--fg);font-weight:600}
-.example{border:1px dashed var(--warn);color:var(--warn);border-radius:var(--r-sm);padding:8px 10px;font-size:12px}
+.example{border:1px dashed var(--warn);color:var(--warn);border-radius:var(--r-sm);padding:var(--sp-2);font-size:var(--fs-sm)}
 .mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
-.cost{font-family:var(--f-mono);font-size:12px;display:flex;gap:8px;flex-wrap:wrap}
-details.card summary{cursor:pointer;font-family:var(--f-display);font-weight:600;font-size:15px}
-.planet-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cost{font-family:var(--f-mono);font-size:var(--fs-sm);display:flex;gap:var(--sp-2);flex-wrap:wrap}
+.planet-head{display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap}
 .planet-head input{width:auto;flex:1 1 140px}
 .planet-head input.coords{flex:0 0 96px}
 .planet-head input.temp{flex:0 0 76px}
-.list{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
-.list li{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--surface-2);border-radius:var(--r-sm);padding:8px 10px}
+.list{display:flex;flex-direction:column;gap:var(--sp-2);margin:0;padding:0;list-style:none}
+.list li{display:flex;gap:var(--sp-2);align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--surface-2);border-radius:var(--r-sm);padding:var(--sp-2)}
 .list li > div{min-width:0}
-.big{font-family:var(--f-display);font-weight:700;font-size:26px;font-variant-numeric:tabular-nums}
-.advice{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
-.advice li{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:start;background:var(--surface-2);border-radius:var(--r-sm);padding:10px 12px}
+.big{font-family:var(--f-display);font-weight:700;font-size:var(--fs-3xl);font-variant-numeric:tabular-nums}
+.advice{display:flex;flex-direction:column;gap:var(--sp-2);margin:0;padding:0;list-style:none}
+.advice li{display:grid;grid-template-columns:auto 1fr;gap:var(--sp-1) var(--sp-2);align-items:start;background:var(--surface-2);border-radius:var(--r-sm);padding:var(--sp-2) var(--sp-3)}
 .advice li .what{font-weight:600}
-.advice li .why{grid-column:2;font-size:12px;color:var(--muted)}
+.advice li .why{grid-column:2;font-size:var(--fs-sm);color:var(--muted)}
 .advice.prios li{grid-template-columns:auto 1fr auto;align-items:center}
 /* Les boutons d'une ligne vivent dans une boîte à eux. Posés chacun dans la
    troisième colonne, ils se superposaient : « Passer devant » s'imprimait
    par-dessus « Retirer », illisibles tous les deux — et aucune vérification ne
    voit ça. */
-.advice.prios li .actes{grid-column:3;grid-row:1;display:flex;gap:6px;align-items:center}
+.advice.prios li .actes{grid-column:3;grid-row:1;display:flex;gap:var(--sp-2);align-items:center}
 .advice.prios li > .btn{grid-column:3;grid-row:1}
-.lv{display:flex;gap:4px}
+.lv{display:flex;gap:var(--sp-1)}
 .lv input.prio{width:46px;flex:0 0 auto}
-.answer{white-space:pre-wrap;font-size:14px;line-height:1.6;background:var(--surface-2);border-radius:var(--r-sm);padding:12px;min-height:3em}
-.chips{display:flex;gap:6px;flex-wrap:wrap}
-.timers{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
-.timers li{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--surface-2);border-radius:var(--r-sm);padding:9px 12px}
+.answer{white-space:pre-wrap;font-size:var(--fs-base);line-height:1.6;background:var(--surface-2);border-radius:var(--r-sm);padding:var(--sp-3);min-height:3em}
+.chips{display:flex;gap:var(--sp-2);flex-wrap:wrap}
+.timers{display:flex;flex-direction:column;gap:var(--sp-2);margin:0;padding:0;list-style:none}
+.timers li{display:flex;gap:var(--sp-2);align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--surface-2);border-radius:var(--r-sm);padding:var(--sp-2) var(--sp-3)}
 .timers li.done{outline:2px solid var(--good)}
-.timers .cd{font-family:var(--f-display);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums;color:var(--accent)}
+.timers .cd{font-family:var(--f-display);font-weight:700;font-size:var(--fs-2xl);font-variant-numeric:tabular-nums;color:var(--accent)}
 .timers li.done .cd{color:var(--good)}
-.timer-form{display:grid;grid-template-columns:2fr 1fr auto;gap:8px;align-items:end}
+.timer-form{display:grid;grid-template-columns:2fr 1fr auto;gap:var(--sp-2);align-items:end}
 @media (max-width:520px){.timer-form{grid-template-columns:1fr 1fr}.timer-form .btn{grid-column:1/-1}}
 .big-alert{position:fixed;z-index:30;top:calc(env(safe-area-inset-top,0px) + 10px);left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));display:flex;justify-content:center;pointer-events:none}
 /* Deux bandeaux peuvent sortir ensemble — une file finie à 22 h et la question
    du coucher. Posés tous deux en `fixed` au même point, ils se recouvraient :
    la pile porte la position, les bandeaux ne portent plus que leur boîte. */
-.alertes{position:fixed;z-index:30;top:calc(env(safe-area-inset-top,0px) + 10px);left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.alertes{position:fixed;z-index:30;top:calc(env(safe-area-inset-top,0px) + 10px);left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:var(--sp-2);pointer-events:none}
 .alertes .big-alert{position:static;inset:auto}
-.big-alert .box{pointer-events:auto;background:var(--good);color:var(--accent-ink);border-radius:14px;padding:12px 14px;max-width:560px;width:100%;display:flex;align-items:center;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-.big-alert .box h2{color:inherit;font-size:11px;margin:0}
-.big-alert .box .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.big-alert .box .msg{font-family:var(--f-display);font-weight:700;font-size:17px;line-height:1.25;overflow-wrap:anywhere}
+.big-alert .box{pointer-events:auto;background:var(--good);color:var(--accent-ink);border-radius:var(--r);padding:var(--sp-3);max-width:560px;width:100%;display:flex;align-items:center;gap:var(--sp-3);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.big-alert .box h2{color:inherit;font-size:var(--fs-xs);margin:0}
+.big-alert .box .txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--sp-05)}
+.big-alert .box .msg{font-family:var(--f-display);font-weight:700;font-size:var(--fs-xl);line-height:1.25;overflow-wrap:anywhere}
 .big-alert .box .btn{background:var(--accent-ink);color:var(--good);border:none;flex:0 0 auto}
 /* Deux boutons dans un bandeau, identiques : le joueur clique au hasard. Le
    « non » recule d'un cran, le « oui » garde le contraste plein. */
 .big-alert .box .btn.ghost{background:transparent;color:var(--accent-ink);box-shadow:inset 0 0 0 1px var(--accent-ink)}
 @media (prefers-reduced-motion: no-preference){.big-alert .box{animation:pulse 1.2s ease-in-out infinite alternate}}
 @keyframes pulse{from{filter:brightness(1)}to{filter:brightness(1.15)}}
-.seg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px;overflow-x:auto;scrollbar-width:none}
-.seg button{flex:1 0 auto;font:600 13px var(--f-body);padding:7px 12px;border-radius:999px;border:none;background:transparent;color:var(--muted);cursor:pointer}
+.seg{display:flex;gap:var(--sp-1);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:var(--sp-1);overflow-x:auto;scrollbar-width:none}
+.seg button{flex:1 0 auto;font:600 var(--fs-md) var(--f-body);padding:var(--sp-2) var(--sp-3);border-radius:999px;border:none;background:transparent;color:var(--muted);cursor:pointer}
 .seg button[aria-selected="true"]{background:var(--surface-2);color:var(--fg)}
-details.card>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:var(--f-display);font-weight:600;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-details.card>summary::-webkit-details-marker{display:none}
-details.card>summary::after{content:"+";font-family:var(--f-mono);font-size:16px;color:var(--muted)}
-details.card[open]>summary::after{content:"–"}
+/* Un seul volet (ENH-54). Avant, trois sortes : la carte avec « + / – », le
+   volet avec « Ouvrir + / Fermer – », et des <details> nus qui héritaient au
+   hasard du titre de la carte qui les contenait. Désormais un même résumé
+   partout — sans le triangle du navigateur, l'indicateur « + / – » à droite —
+   et deux niveaux seulement : la carte repliable (titre de section, comme h2)
+   et le volet posé dans une carte (encadré, plus petit). Le sélecteur de
+   modèle de défense n'est pas un volet, c'est une liste : il garde le sien. */
+details:not(.defpick)>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3)}
+details:not(.defpick)>summary::-webkit-details-marker{display:none}
+details:not(.defpick)>summary::after{content:"+";flex:0 0 auto;font:500 var(--fs-lg)/1 var(--f-mono);color:var(--muted)}
+details:not(.defpick)[open]>summary::after{content:"–"}
+details.card>summary{font-family:var(--f-display);font-weight:600;font-size:var(--fs-lg);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 details.card>summary .note{text-transform:none;letter-spacing:0;font-family:var(--f-body);font-weight:400}
-/* Un volet posé dans une carte n'était rien : pas de style, pas de curseur,
-   le triangle par défaut du navigateur et douze pixels de gris. Rien ne disait
-   qu'il s'ouvre, et encore moins qu'on règle quelque chose dedans. */
-details.volet>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:600;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 10px}
-details.volet>summary::-webkit-details-marker{display:none}
-details.volet>summary::after{content:"Ouvrir +";font-family:var(--f-mono);font-size:12px;color:var(--muted);white-space:nowrap}
-details.volet[open]>summary::after{content:"Fermer –"}
+details.volet>summary{font-family:var(--f-display);font-size:var(--fs-md);font-weight:600;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--sp-2) var(--sp-3)}
 /* Un niveau relevé sur le jeu ne se tape pas : il ne doit pas avoir l'air
    d'un champ qu'on remplit. */
 /* Les raisons, dans leur volet : des paragraphes qui respirent, pas un bloc. */
-.col-notes{display:flex;flex-direction:column;gap:6px}
+.col-notes{display:flex;flex-direction:column;gap:var(--sp-2)}
 /* Le résumé d'une planète est la ligne qu'on lit sept fois : le nom porte, et
    les chiffres de production s'alignent à droite, avant le « Ouvrir + ». */
 /* Un nom de planète est un nom propre, pas un titre de section : il garde la
    casse que le joueur a tapée, contrairement aux titres de carte. */
-details.card.volet{padding:8px}
+details.card.volet{padding:var(--sp-2)}
 /* Fermée, la carte n'est que son résumé — qui porte déjà fond, bordure et
    marge. Le `gap` de .card s'applique même à un corps replié : sans ça,
    chaque ligne traînait vingt pixels de vide, sept fois de suite. */
 details.card.volet:not([open]){gap:0;padding:0;border:0;background:transparent}
-details.card.volet>summary.plsum{font-size:14px;gap:8px;text-transform:none;letter-spacing:0}
-summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
+details.card.volet>summary.plsum{font-size:var(--fs-base);gap:var(--sp-2);text-transform:none;letter-spacing:0}
+summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:var(--fs-sm)}
 /* Le niveau visé est le seul champ de la ligne où le joueur tape : il porte
    l'accent, le niveau relevé d'à côté reste muet. */
 .lv input.prio{border-color:var(--accent)}
 .lv input[readonly]{color:var(--muted);background:transparent;border-style:dashed}
-.acts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.acts>li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;align-items:center;background:var(--surface-2);border-radius:var(--r-sm);padding:9px 12px}
-.acts .q{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.acts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--sp-2)}
+.acts>li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--sp-1) var(--sp-2);align-items:center;background:var(--surface-2);border-radius:var(--r-sm);padding:var(--sp-2) var(--sp-3)}
+.acts .q{font-size:var(--fs-xs);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .acts .w{font-weight:600;overflow-wrap:anywhere}
 /* La raison, sous le quoi faire : une phrase, le reste reste derrière le ⓘ. */
-.acts .but{font-size:12px;line-height:1.35;color:var(--muted);overflow-wrap:anywhere;margin-top:1px}
-.acts .btns{display:flex;gap:6px;align-items:center}
-.acts .m{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)}
+.acts .but{font-size:var(--fs-sm);line-height:1.35;color:var(--muted);overflow-wrap:anywhere;margin-top:var(--sp-05)}
+.acts .btns{display:flex;gap:var(--sp-2);align-items:center}
+.acts .m{grid-column:1/-1;display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;font-size:var(--fs-sm);color:var(--muted)}
 .acts li.wait{background:transparent;border:1px dashed var(--line)}
 .acts li.busy{background:transparent;border:1px solid var(--line)}
-.tl{display:flex;flex-direction:column;gap:14px}
-.tl .slot{display:grid;grid-template-columns:70px minmax(0,1fr);gap:10px;align-items:start}
-.tl .time{font-family:var(--f-display);font-weight:700;font-size:17px;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.2}
-.tl .time small{display:block;font:500 11px var(--f-mono);color:var(--muted)}
-.sumline{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tl{display:flex;flex-direction:column;gap:var(--sp-3)}
+.tl .slot{display:grid;grid-template-columns:70px minmax(0,1fr);gap:var(--sp-2);align-items:start}
+.tl .time{font-family:var(--f-display);font-weight:700;font-size:var(--fs-xl);color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.2}
+.tl .time small{display:block;font:500 var(--fs-xs) var(--f-mono);color:var(--muted)}
+.sumline{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center}
 .acts li.task{border-left:3px solid var(--accent)}
 /* Carte cliquable : elle ouvre la page du jeu correspondante. */
 .acts li[data-go]{cursor:pointer}
@@ -308,30 +317,30 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 .acts li[data-go] button{cursor:pointer}
 /* Pastille de planète : couleur stable par rang, pour repérer d'un coup d'œil
    où agir. --pc est posé en ligne par planetTag(). */
-.ptag{display:inline-block;vertical-align:1px;padding:1px 7px;border-radius:999px;font:700 10px/1.6 var(--f-body);letter-spacing:.03em;text-transform:none;white-space:nowrap;color:var(--pc);background:color-mix(in srgb,var(--pc) 16%,transparent);border:1px solid color-mix(in srgb,var(--pc) 40%,transparent)}
+.ptag{display:inline-block;vertical-align:1px;padding:var(--sp-05) var(--sp-2);border-radius:999px;font:700 var(--fs-xs)/1.6 var(--f-body);letter-spacing:.03em;text-transform:none;white-space:nowrap;color:var(--pc);background:color-mix(in srgb,var(--pc) 16%,transparent);border:1px solid color-mix(in srgb,var(--pc) 40%,transparent)}
 /* Pastilles à copier : une valeur à retaper dans le jeu, un clic.
    Discrètes par défaut — elles accompagnent l’action, elles ne la remplacent pas. */
 /* Les valeurs à retaper ont leur propre ligne : mêlées au gris des
    métadonnées, elles passaient pour de simples libellés. */
-.acts .cp{grid-column:1/-1;flex-basis:100%;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:2px}
-.acts .cpl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);opacity:.8}
-.chip{display:inline-flex;align-items:center;gap:5px;font:inherit;font-size:11px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:2px 7px;cursor:pointer;white-space:nowrap}
+.acts .cp{grid-column:1/-1;flex-basis:100%;display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;margin-top:var(--sp-05)}
+.acts .cpl{font-size:var(--fs-xs);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);opacity:.8}
+.chip{display:inline-flex;align-items:center;gap:var(--sp-1);font:inherit;font-size:var(--fs-xs);color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--sp-05) var(--sp-2);cursor:pointer;white-space:nowrap}
 .chip b{font-weight:700;color:var(--fg);font-variant-numeric:tabular-nums}
-.chip .ci{font-size:10px;opacity:.65}
+.chip .ci{font-size:var(--fs-xs);opacity:.65}
 .chip:hover{border-color:var(--accent);color:var(--accent)}
 .chip:hover .ci{opacity:1}
 .chip:active{transform:translateY(1px)}
-.i{cursor:pointer;width:15px;height:15px;padding:0;margin-left:6px;vertical-align:1px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:inherit;font-size:10px;line-height:1;color:var(--muted);background:transparent;border:1px solid var(--line)}
+.i{cursor:pointer;width:15px;height:15px;padding:0;margin-left:var(--sp-2);vertical-align:1px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:inherit;font-size:var(--fs-xs);line-height:1;color:var(--muted);background:transparent;border:1px solid var(--line)}
 .i:hover,.i[aria-expanded="true"]{color:var(--accent);border-color:var(--accent)}
-.acts .why{grid-column:1/-1;font-size:12px;color:var(--muted)}
-.acts .why p{margin:4px 0 0}
-.acts .how{grid-column:1/-1;font-size:12px;color:var(--muted)}
-.acts .how ol{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
+.acts .why{grid-column:1/-1;font-size:var(--fs-sm);color:var(--muted)}
+.acts .why p{margin:var(--sp-1) 0 0}
+.acts .how{grid-column:1/-1;font-size:var(--fs-sm);color:var(--muted)}
+.acts .how ol{margin:var(--sp-2) 0 0;padding-left:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-1)}
 .ms>li{grid-template-columns:auto 1fr auto}
-.ms .how{grid-column:2/-1;font-size:12px;color:var(--muted)}
-.ms .how ol{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
+.ms .how{grid-column:2/-1;font-size:var(--fs-sm);color:var(--muted)}
+.ms .how ol{margin:var(--sp-2) 0 0;padding-left:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-1)}
 .ms .act{grid-row:1/3;grid-column:3;align-self:start}
-.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);padding:8px 14px;border-radius:999px;font-weight:600;font-size:13px;z-index:20}
+.toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);padding:var(--sp-2) var(--sp-3);border-radius:999px;font-weight:600;font-size:var(--fs-md);z-index:20}
 @media (prefers-reduced-motion: no-preference){nav.tabs button,.btn{transition:background .15s,filter .15s}}
 
 /* ======================================================================
@@ -363,7 +372,7 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 :root[data-theme=light][data-skin=relief]{--ombre:0 4px 12px rgba(20,26,44,.10);--lustre:rgba(255,255,255,.9)}
 :root[data-skin=relief] .card{background:linear-gradient(180deg,color-mix(in srgb,var(--fg) 4%,var(--surface)),var(--surface));box-shadow:inset 0 1px 0 var(--lustre),var(--ombre)}
 :root[data-skin=relief] h2,:root[data-skin=relief] details.card>summary{color:var(--accent)}
-:root[data-skin=relief] h2{display:flex;align-items:center;gap:8px}
+:root[data-skin=relief] h2{display:flex;align-items:center;gap:var(--sp-2)}
 :root[data-skin=relief] h2::before,:root[data-skin=relief] details.card>summary::before{content:"";flex:0 0 auto;width:3px;height:13px;border-radius:2px;background:currentColor}
 :root[data-skin=relief] .btn.primary{background:linear-gradient(180deg,color-mix(in srgb,#fff 18%,var(--accent)),var(--accent));box-shadow:0 2px 7px color-mix(in srgb,var(--accent) 40%,transparent)}
 :root[data-skin=relief] .gauge{border-top:2px solid var(--rc,var(--line));background:linear-gradient(180deg,color-mix(in srgb,var(--rc,var(--surface-2)) 12%,var(--surface-2)),var(--surface-2))}
@@ -385,7 +394,7 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 :root[data-skin=domaine][data-page=empire]{--dom:#5ec9ff}
 :root[data-skin=domaine][data-page=tools]{--dom:#c4a0ff}
 :root[data-skin=domaine][data-page=settings]{--dom:#4fdeb0}
-:root[data-skin=domaine] header.top{background:linear-gradient(120deg,color-mix(in srgb,var(--dom) 22%,transparent),transparent 72%);border-radius:var(--r);padding:8px 10px;margin:-8px -10px 0}
+:root[data-skin=domaine] header.top{background:linear-gradient(120deg,color-mix(in srgb,var(--dom) 22%,transparent),transparent 72%);border-radius:var(--r);padding:var(--sp-2);margin:calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) 0}
 :root[data-skin=domaine] .card{border-left:3px solid color-mix(in srgb,var(--dom) 55%,var(--line))}
 :root[data-skin=domaine] h2,:root[data-skin=domaine] details.card>summary{color:var(--dom)}
 :root[data-skin=domaine] .seg button[aria-selected=true]{background:var(--dom);color:var(--accent-ink)}
@@ -405,8 +414,8 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
   --r:0px;--r-sm:0px}
 :root[data-skin=hud] body{background-image:linear-gradient(rgba(57,230,195,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(57,230,195,.07) 1px,transparent 1px);background-size:26px 26px}
 :root[data-skin=hud] h1,:root[data-skin=hud] h2,:root[data-skin=hud] details.card>summary{font-family:var(--f-mono);letter-spacing:.16em}
-:root[data-skin=hud] h2,:root[data-skin=hud] details.card>summary{color:var(--accent);font-size:11px}
-:root[data-skin=hud] h2{display:flex;align-items:center;gap:8px}
+:root[data-skin=hud] h2,:root[data-skin=hud] details.card>summary{color:var(--accent);font-size:var(--fs-xs)}
+:root[data-skin=hud] h2{display:flex;align-items:center;gap:var(--sp-2)}
 :root[data-skin=hud] h2::before,:root[data-skin=hud] details.card>summary::before{content:"";flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
 :root[data-skin=hud] .card{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));box-shadow:0 0 22px rgba(57,230,195,.07)}
 :root[data-skin=hud] .btn,:root[data-skin=hud] nav.tabs button{clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.1em}
@@ -454,32 +463,32 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
    Les trois couleurs sont celles du thème (--good, --warn, --bad), redéfinies
    en clair et en sombre plus haut : aucune couleur en dur ici. Les icônes sont
    en currentColor, elles suivent. Une ligne de planète tient en 28 px. */
-.meteo{margin-top:10px}
-.mt-band{display:flex;align-items:center;gap:8px;width:100%;padding:6px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);color:var(--fg);font:inherit;font-family:var(--f-display);font-weight:600;letter-spacing:.04em;cursor:pointer;text-align:left}
+.meteo{margin-top:var(--sp-2)}
+.mt-band{display:flex;align-items:center;gap:var(--sp-2);width:100%;padding:var(--sp-2);border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);color:var(--fg);font:inherit;font-family:var(--f-display);font-weight:600;letter-spacing:.04em;cursor:pointer;text-align:left}
 .mt-band:focus-visible,.mt-grid tr:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .mt-band b{flex:1}
 .mt-car{color:var(--muted)}
 .mt-ico{display:block;flex:0 0 auto}
 .mt-ico.mt-big{width:22px;height:22px}
 .mt-good{color:var(--good)} .mt-warn{color:var(--warn)} .mt-bad{color:var(--bad)}
-.mt-grid{margin-top:4px;padding:4px 8px 6px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface)}
-.mt-grid table{width:100%;border-collapse:collapse;font-size:13px}
-.mt-grid th{font-size:11px;font-weight:600;color:var(--muted);text-align:center;padding:2px 4px}
+.mt-grid{margin-top:var(--sp-1);padding:var(--sp-1) var(--sp-2) var(--sp-2);border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface)}
+.mt-grid table{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
+.mt-grid th{font-size:var(--fs-xs);font-weight:600;color:var(--muted);text-align:center;padding:var(--sp-05) var(--sp-1)}
 .mt-grid th:nth-child(2){text-align:left}
 .mt-grid th abbr{text-decoration:none;cursor:help}
 .mt-grid tbody tr{height:28px;max-height:28px;cursor:pointer}
 .mt-grid tbody tr:hover,.mt-grid tbody tr.mt-on{background:var(--surface-2)}
-.mt-grid td{padding:0 4px;line-height:1;vertical-align:middle}
+.mt-grid td{padding:0 var(--sp-1);line-height:1;vertical-align:middle}
 .mt-grid td.mt-w{width:24px}
 .mt-grid td.mt-n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0;width:100%}
 .mt-grid td.mt-d{text-align:center;width:34px}
 .mt-dot{display:inline-block;width:11px;height:11px;border-radius:50%;background:currentColor;box-shadow:0 0 0 1px color-mix(in srgb,var(--fg) 25%,transparent)}
-.mt-leg{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:6px 0 0;font-size:11px;color:var(--muted)}
-.mt-leg span{display:inline-flex;margin-right:-6px}
+.mt-leg{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1) var(--sp-2);margin:var(--sp-2) 0 0;font-size:var(--fs-xs);color:var(--muted)}
+.mt-leg span{display:inline-flex;margin-right:calc(-1 * var(--sp-2))}
 .mt-leg .mt-ico{width:14px;height:14px}
-.mt-filtre{margin:-4px 0 8px}
-.mt-puce{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 4px 2px 10px;border-radius:999px;border:1px solid var(--accent);color:var(--accent)}
-.mt-puce button{border:0;background:none;color:inherit;font:inherit;cursor:pointer;padding:0 6px;line-height:1.4}
+.mt-filtre{margin:calc(-1 * var(--sp-1)) 0 var(--sp-2)}
+.mt-puce{display:inline-flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm);font-weight:600;padding:var(--sp-05) var(--sp-1) var(--sp-05) var(--sp-2);border-radius:999px;border:1px solid var(--accent);color:var(--accent)}
+.mt-puce button{border:0;background:none;color:inherit;font:inherit;cursor:pointer;padding:0 var(--sp-2);line-height:1.4}
 
 /* Disposition des cartes. Empilées, l'enveloppe d'une carte ne compte pas
    dans la mise en page : la pile reste exactement celle d'avant. En onglets,
@@ -490,26 +499,51 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 .en-onglets>.carte>details.card>summary,.en-onglets>.carte>div>details.card>summary{pointer-events:none;cursor:default;list-style:none}
 .en-onglets>.carte>details.card>summary::-webkit-details-marker,.en-onglets>.carte>div>details.card>summary::-webkit-details-marker{display:none}
 .en-onglets>.carte>details.card>summary::after,.en-onglets>.carte>div>details.card>summary::after{content:none}
-.seg .cpt{font:700 11px var(--f-mono);margin-left:2px}
+.seg .cpt{font:700 var(--fs-xs) var(--f-mono);margin-left:var(--sp-05)}
 .seg .cpt.crit{color:var(--bad)}
 .seg .cpt.imp{color:var(--warn)}
 .seg .cpt.info{color:var(--muted)}
 /* Le menu « Afficher : N » d'une liste, et son « Voir plus » */
-.liste-tete{gap:8px}
+.liste-tete{gap:var(--sp-2)}
 .liste-tete h2{margin:0}
-.cartes-menu{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:6px 0;white-space:nowrap}
-.cartes-menu select{width:auto;max-width:96px;flex:0 0 auto;padding:2px 6px;font-size:12px}
-.voir-plus{margin-top:6px;align-self:flex-start}
-.cartes-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
-.cartes-table th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:4px 0}
-.cartes-table td{padding:4px 0;border-top:1px solid var(--line)}
+.cartes-menu{display:flex;justify-content:flex-end;align-items:center;gap:var(--sp-2);margin:var(--sp-2) 0;white-space:nowrap}
+.cartes-menu select{width:auto;max-width:96px;flex:0 0 auto;padding:var(--sp-05) var(--sp-2);font-size:var(--fs-sm)}
+.voir-plus{margin-top:var(--sp-2);align-self:flex-start}
+.cartes-table{width:100%;border-collapse:collapse;margin-top:var(--sp-2);font-size:var(--fs-md)}
+.cartes-table th{text-align:left;font-weight:500;color:var(--muted);font-size:var(--fs-sm);padding:var(--sp-1) 0}
+.cartes-table td{padding:var(--sp-1) 0;border-top:1px solid var(--line)}
 .cartes-table td:last-child{text-align:right}
 .cartes-table select{width:auto}
 
 /* Sécurité : l'attaque en tête, le tableau des transports suggérés. */
 .secu-crit{border:1px solid var(--bad, #e0102b);}
-.secu-crit h3{font-size:12px;margin:10px 0 4px;text-transform:uppercase;letter-spacing:.04em;opacity:.8;}
+.secu-crit h3{font-size:var(--fs-sm);margin:var(--sp-2) 0 var(--sp-1);text-transform:uppercase;letter-spacing:.04em;opacity:.8;}
 .secu-on > summary{color:var(--warn, #ff8c1a);}
-.fs-tab{width:100%;border-collapse:collapse;margin:8px 0 4px;font-size:11px;}
-.fs-tab th,.fs-tab td{text-align:left;vertical-align:top;padding:3px 4px;border-bottom:1px solid rgba(127,127,127,.25);white-space:normal;}
-.fs-tab th{font-size:10px;}
+.fs-tab{width:100%;border-collapse:collapse;margin:var(--sp-2) 0 var(--sp-1);font-size:var(--fs-xs);}
+.fs-tab th,.fs-tab td{text-align:left;vertical-align:top;padding:var(--sp-1);border-bottom:1px solid rgba(127,127,127,.25);white-space:normal;}
+.fs-tab th{font-size:var(--fs-xs);}
+
+/* Utilitaires (ENH-54) : ce que les attributs style="…" d'app.js faisaient
+   chacun à sa façon — 26 « margin-top:8px », 11 « margin-top:6px », des gap
+   de 6, 8 ou 10 px. Ils passent par l'échelle et viennent en dernier : à
+   spécificité égale, ils l'emportent sur .note{margin:0} ou input{width:100%}. */
+.m-0{margin:0}
+.mt-1{margin-top:var(--sp-1)} .mt-2{margin-top:var(--sp-2)} .mt-3{margin-top:var(--sp-3)} .mt-4{margin-top:var(--sp-4)}
+.mb-1{margin-bottom:var(--sp-1)} .mb-2{margin-bottom:var(--sp-2)} .mb-3{margin-bottom:var(--sp-3)} .mb-4{margin-bottom:var(--sp-4)}
+.mr-2{margin-right:var(--sp-2)}
+.gap-1{gap:var(--sp-1)} .gap-2{gap:var(--sp-2)} .gap-3{gap:var(--sp-3)}
+.items-start{align-items:flex-start}
+.grow{flex:1}
+.w-auto{width:auto}
+.span-all{grid-column:1/-1}
+/* Une ligne de tableau sans effet (règle de défense hors de portée). */
+.terne{opacity:.45}
+/* Les étapes numérotées d'une carte. */
+ol.etapes{margin:0;padding-left:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-1)}
+/* Un champ numérique court, dans une phrase. */
+input.court{width:6em}
+/* Une pastille qu'on coche : plus grande qu'une étiquette, elle se clique. */
+.pill.choix{padding:var(--sp-1) var(--sp-3)}
+label.pill.choix{cursor:pointer}
+/* Les choix exclusifs d'une rangée de boutons : même largeur pour tous. */
+.btn.choix{min-width:152px}
