@@ -52,6 +52,51 @@ et l'infobulle dit « décalage non vérifié ». Le choix est retenu d'une sess
 à l'autre, et `save.json` porte toujours les deux heures (`serverTime`,
 `localTime`, `localTimeZone`, `serverOffsetMinutes`).
 
+## La météo
+
+Tout en haut du panneau, au-dessus des onglets, un bandeau dit l'état de
+l'empire d'un mot et d'une icône : **Soleil**, **Nuageux**, **Orage** ou
+**Tempête**. Un clic le déplie : une ligne par planète, son icône, et quatre
+pastilles — **Sécurité**, **Activité**, **Économie**, **Défense**. Le panneau
+se souvient s'il est replié ou déplié.
+
+- **Rouge** : au moins une alerte Critique dans ce domaine ; **orange** : au
+  moins une Importante ; **vert** : rien, ou de simples conseils.
+- Une planète prend la pire de ses pastilles ; une attaque qui arrive sur elle
+  la met en **Tempête**. L'empire prend la pire de ses planètes.
+- Survole une ligne : l'infobulle dit les causes par domaine, ou « Tout va
+  bien ». Clique-la : les cartes ne montrent plus que cette planète, jusqu'à ce
+  que tu retires la puce « Filtré » (ou que le panneau se recharge). Le jeu,
+  lui, ne change pas de page.
+
+La météo n'invente rien : elle relit les alertes du moteur, les flottes
+hostiles que montrent tes mouvements de flotte, et le palier de ton modèle de
+défense. Une alerte que tu **ignores** cesse de la noircir.
+
+## Les cartes en onglets
+
+Le bouton 🗂️ de l'en-tête — ou **Réglages › Allure du panneau › Organiser les
+sections en onglets** — range les cartes d'**Aujourd'hui** (Profil,
+Maintenant, Alertes, Expéditions, Ta journée, Minuteurs) en onglets, avec la
+même barre que dans **Outils**. Une seule carte s'affiche, toujours dépliée ;
+ses sections internes gardent leur état. Empilé reste le mode par défaut.
+
+- Chaque onglet porte un compteur : **rouge** s'il contient au moins un
+  élément urgent, **orange** un élément à surveiller, **gris** des conseils
+  seulement. Pas de compteur quand l'onglet est vide.
+- Alertes n'a d'onglet que lorsqu'il y a une alerte ; les autres cartes ont
+  toujours le leur.
+- Une nouvelle alerte urgente fait basculer une fois sur son onglet. Revenir
+  sur le tien ne te ramène pas pour la même alerte ; une autre, si. Une alerte
+  déjà vue en mode empilé ne fait pas basculer.
+- L'onglet choisi est retenu sur cette machine (changement de page, de
+  planète, redémarrage). S'il n'existe plus, c'est le premier qui s'affiche,
+  et le tien revient dès qu'il réapparaît.
+- En passant en onglets, la carte où tu t'étais arrêté de défiler devient
+  l'onglet actif ; en revenant à la pile, le panneau défile jusqu'à elle.
+- Le mode suit ton compte d'un poste à l'autre, comme l'interrupteur des
+  heures.
+
 ## Combien de cartes par liste
 
 Chaque liste d'Aujourd'hui — **Maintenant**, **Alertes**, **Expéditions**,

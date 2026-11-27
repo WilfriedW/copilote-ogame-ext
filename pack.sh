@@ -7,7 +7,7 @@
 # le manifeste, par sidepanel.html ou par panel.css manque ici.
 set -e
 cd "$(dirname "$0")"
-FICHIERS="README.md manifest.json background.js boot.js ids.js profils.js rules.json content.js app.js sidepanel.html panel.css icon32.png icon128.png oxanium.woff2 plex-sans.woff2 jetbrains-mono.woff2"
+FICHIERS="README.md manifest.json background.js boot.js ids.js profils.js meteo.js rules.json content.js app.js sidepanel.html panel.css icon32.png icon128.png oxanium.woff2 plex-sans.woff2 jetbrains-mono.woff2"
 rm -rf dist && mkdir dist
 cp $FICHIERS dist/
 

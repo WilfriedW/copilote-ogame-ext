@@ -3750,19 +3750,18 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
      `ids.js` par un `importScripts`. On relit donc chaque fichier emporté et on
      prend tout nom de fichier local qu'il cite — un nom qu'on lit dans du code
      qui part est un fichier qui doit partir avec lui. */
+  /* Un nom donné à un téléchargement (`filename:'save.json'`, `a.download=…`)
+     est un fichier que l'extension ÉCRIT chez le joueur, pas un fichier qu'elle
+     charge : il ne part pas dans le zip. */
   const cites = liste.filter(f => /\.(js|html|css)$/.test(f))
-    .flatMap(f => [...lu(f).matchAll(/['"]([\w-]+\.(?:js|css|html|png|woff2|json))['"]/g)].map(x => x[1]));
+    .flatMap(f => [...lu(f).matchAll(/(?<!(?:filename\s*:|download\s*=)\s*)['"]([\w-]+\.(?:js|css|html|png|woff2|json))['"]/g)].map(x => x[1]));
   const voulus = new Set(['manifest.json', m.background.service_worker,
     ...m.content_scripts.flatMap(c => c.js),
     ...Object.values(m.icons),
     ...m.web_accessible_resources.flatMap(r => r.resources),
     ...[...lu('sidepanel.html').matchAll(/(?:src|href)="([^":]+)"/g)].map(x => x[1]),
     ...cites]);
-  /* Un nom cité n'est pas toujours un fichier chargé : `save.json` est le nom
-     du fichier que « Enregistrer » écrit chez le joueur. Il ne part pas, et
-     ne doit pas partir — ce serait l'empire de quelqu'un dans le zip. */
-  const ecrits = new Set(['save.json']);
-  for (const f of voulus) if (!ecrits.has(f))
+  for (const f of voulus)
     assert.ok(liste.includes(f), f + ' est chargé par l\'extension et pack.sh ne l\'emporte pas');
   for (const f of liste)
     assert.ok(fs.existsSync(path.join(root, f)), 'pack.sh emporte ' + f + ', qui n\'existe pas');
@@ -8635,7 +8634,7 @@ t('le champ du volet Empire republie le plan après avoir posé', () => {
 t('la minuterie de 30 s republie le plan aussi sur Empire', () => {
   /* setInterval est neutralisé dans le harnais : on épingle la source. */
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
-  assert.match(src, /REFRESH\[tab\]\(\);\s*publieLePlan\(\);\s*finDeNuit\(\);\s*nightBar\(\);\s*\}, 30000\)/);
+  assert.match(src, /REFRESH\[tab\]\(\);\s*(?:cartesSync\(\);\s*\}\s*)?publieLePlan\(\);\s*finDeNuit\(\);\s*nightBar\(\);\s*\}, 30000\)/);
 });
 
 t('le changement que provoque l\'effacement lui-même ne rejoue rien', () => {
@@ -8678,14 +8677,12 @@ t('un changement d\'une autre clé ne touche pas aux priorités', () => {
 t('boot.js transmet prioAsk à app.js, clé sans préfixe ls:', () => {
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'boot.js'), 'utf8');
   const win = {}, ask = [D()];
-  /* boot.js lit aussi rules.json (fetch de l'URL de l'extension) et le mode
-     des heures (storage.sync) avant de charger app.js : le faux chrome les
-     sert, et `fetch` est passé pour ne jamais toucher au réseau. */
-  const chrome = {runtime: {getURL: f => 'chrome-extension://test/' + f},
-    storage: {local: {get(k, cb) { cb({'ls:x': '1', prioAsk: ask, game: null}); }, set() { return Promise.resolve(); }},
-      sync: {get(k, cb) { cb({}); }}}};
-  const fetch = () => Promise.resolve({ok: true, json: () => ({version: 1, regles: []})});
+  /* Le chrome que boot.js voit dans le panneau : il lit aussi rules.json par
+     l'URL de l'extension, et le mode des heures dans le stockage synchronisé. */
+  const chrome = {storage: {local: {get(k, cb) { cb({'ls:x': '1', prioAsk: ask, game: null}); }, set() { return Promise.resolve(); }},
+    sync: {get(k, cb) { cb({}); }}}, runtime: {getURL: f => 'chrome-extension://test/' + f}};
   const document = {createElement: () => ({}), body: {appendChild() {}}};
+  const fetch = () => Promise.resolve({ok: true, json: () => Promise.resolve({version: 1, regles: []})});
   new Function('window', 'chrome', 'document', 'fetch', src)(win, chrome, document, fetch);
   assert.deepEqual(win.__prioAsk, ask);
   assert.equal(win.__mem.x, '1');
@@ -12457,6 +12454,319 @@ t('le sélecteur écrit sous chaque nom sa recette et son pack', () => {
   const d = lu(g.VIEWS.defense());
   assert.ok(/data-defpick="" data-dp=/.test(d), 'et chaque planète garde « Comme les réglages »');
   assert.ok(!/data-launch|data-sent/.test(d), 'toujours en lecture seule');
+});
+
+/* ---------- la météo de l'empire ---------- */
+
+const METEO_WANT = ['S', 'domainColor', 'planetWeather', 'empireWeather', 'meteoElements', 'meteoCauses', 'meteoHtml',
+  'renderMeteo', 'meteoVoit', 'REFRESH', 'VIEWS', 'render', 'constats', 'ignore', 'ignKey', 'planetById', 'esc'];
+/** Un empire où tout tourne : deux files occupées, une recherche en cours,
+    des stocks bas, assez d'énergie. Rien ne doit y dégrader la météo. */
+const CALME = s => {
+  const fin = SOIR + 3 * 3600e3;
+  s.timers = [
+    { id: 'b1', kind: 'b', pid: 'mere', k: 'metal', lvl: 15, end: fin },
+    { id: 'b2', kind: 'b', pid: 'colo', k: 'metal', lvl: 5, end: fin },
+    { id: 't1', kind: 't', pid: 'mere', k: 'computer', lvl: 3, end: fin }
+  ];
+  s.planets.forEach(p => { p.stock = { m: 100, c: 100, d: 0, at: SOIR }; p.b.solar = 20; });
+};
+function meteo(modifier, ext) {
+  const s = fixtureState();
+  s.planets.forEach(p => { p.stock.at = SOIR; });
+  CALME(s);
+  if (modifier) modifier(s);
+  return loadApp(s, SOIR, METEO_WANT, null, ext);
+}
+const rangDe = (g, pid) => g.planetWeather(g.meteoElements(), pid);
+const empireDe = g => g.empireWeather(g.meteoElements(), g.S.planets.map(p => p.id));
+
+t('météo : les fonctions de calcul suivent le tableau des couleurs', () => {
+  const g = meteo();
+  const el = [{ pid: 'a', dom: 'eco', niveau: 'conseil', txt: 'x' }];
+  assert.equal(g.domainColor(el, 'a', 'eco'), 'good', 'un simple Conseil ne dégrade pas');
+  el.push({ pid: 'a', dom: 'eco', niveau: 'important', txt: 'y' });
+  assert.equal(g.domainColor(el, 'a', 'eco'), 'warn');
+  assert.equal(g.planetWeather(el, 'a'), 1, 'une orange : Nuageux');
+  el.push({ pid: 'a', dom: 'eco', niveau: 'critique', txt: 'z' });
+  assert.equal(g.domainColor(el, 'a', 'eco'), 'bad');
+  assert.equal(g.planetWeather(el, 'a'), 2, 'une rouge : Orage');
+  assert.equal(g.domainColor(el, 'b', 'eco'), 'good', 'une autre planète n\'en hérite pas');
+  assert.equal(g.domainColor(el, 'a', 'act'), 'good', 'ni un autre domaine');
+  el.push({ pid: 'b', dom: 'sec', niveau: 'critique', tempete: true, txt: 'attaque' });
+  assert.equal(g.planetWeather(el, 'b'), 3, 'une attaque : Tempête');
+  assert.equal(g.empireWeather(el, ['a', 'b']), 3, 'l\'empire prend la pire');
+  assert.equal(g.empireWeather([], ['a', 'b']), 0);
+});
+
+t('météo : un empire sans alerte est au soleil, quatre pastilles vertes', () => {
+  const g = meteo();
+  assert.deepEqual(g.meteoElements().filter(e => e.niveau !== 'conseil'), [], 'rien ne colore');
+  assert.equal(empireDe(g), 0);
+  const h = g.meteoHtml(g.meteoElements());
+  assert.ok(/<b>Soleil<\/b>/.test(h), 'le bandeau dit Soleil');
+  assert.equal((h.match(/mt-dot mt-good/g) || []).length, 8, 'deux planètes, quatre pastilles vertes chacune');
+  assert.ok(/title="Tout va bien"/.test(h), 'le survol dit « Tout va bien »');
+});
+
+t('météo : une file vide met Activité au rouge, la planète et l\'empire en Orage', () => {
+  const g = meteo(s => { s.timers = s.timers.filter(t => t.id !== 'b2'); });
+  const el = g.meteoElements();
+  assert.equal(g.domainColor(el, 'colo', 'act'), 'bad');
+  assert.equal(g.planetWeather(el, 'colo'), 2);
+  assert.equal(g.planetWeather(el, 'mere'), 0, 'la voisine reste au soleil');
+  assert.equal(empireDe(g), 2);
+  assert.ok(/Activité : file de construction vide/.test(g.meteoCauses(el, 'colo')), g.meteoCauses(el, 'colo'));
+});
+
+t('météo : un hangar bientôt plein met Économie à l\'orange, planète Nuageux', () => {
+  const g = meteo(s => { s.planets[0].b.metal = 20; s.planets[0].stock = { m: 66000, c: 0, d: 0, at: SOIR }; });
+  const el = g.meteoElements();
+  assert.equal(g.domainColor(el, 'mere', 'eco'), 'warn', JSON.stringify(el));
+  assert.equal(g.planetWeather(el, 'mere'), 1);
+  assert.ok(/Économie : hangar de métal plein dans/.test(g.meteoCauses(el, 'mere')), g.meteoCauses(el, 'mere'));
+});
+
+t('météo : une alerte ignorée ne dégrade plus la météo', () => {
+  const g = meteo(s => { s.timers = s.timers.filter(t => t.id !== 'b2'); });
+  assert.equal(rangDe(g, 'colo'), 2);
+  const c = g.constats().find(x => x.regle === 'INST_QUEUE_EMPTY' && x.pid === 'colo');
+  g.ignore(c);
+  assert.equal(rangDe(g, 'colo'), 0, 'la planète redevient Soleil');
+  g.REFRESH.today();
+  const html = lu(g.el('tdAlerts').innerHTML);
+  assert.ok(!/File de construction vide/.test(html), 'et l\'alerte quitte la carte');
+});
+
+t('météo : la carte Alertes porte un bouton Ignorer sur un constat', () => {
+  const g = meteo(s => { s.timers = s.timers.filter(t => t.id !== 'b2'); });
+  g.REFRESH.today();
+  const html = lu(g.el('tdAlerts').innerHTML);
+  assert.ok(/File de construction vide/.test(html), html.slice(0, 300));
+  assert.ok(/data-ign="INST_QUEUE_EMPTY\|colo\|/.test(html), 'Ignorer porte la clé du constat');
+});
+
+t('météo : une attaque entrante fait Tempête sur la planète et sur l\'empire', () => {
+  const g = meteo(s => { s.moves = [{ mission: 1, ret: false, arrival: SOIR / 1000 + 3600, origin: '2:10:5', dest: '1:142:6' }]; });
+  const el = g.meteoElements();
+  assert.equal(g.domainColor(el, 'colo', 'sec'), 'bad');
+  assert.equal(g.planetWeather(el, 'colo'), 3);
+  assert.equal(empireDe(g), 3);
+  assert.ok(/<b>Tempête<\/b>/.test(g.meteoHtml(el)));
+  assert.ok(/Sécurité : attaque entrant/.test(g.meteoCauses(el, 'colo')));
+});
+
+t('météo : un espionnage entrant met Sécurité à l\'orange, sans tempête', () => {
+  const g = meteo(s => { s.moves = [{ mission: 6, ret: false, arrival: SOIR / 1000 + 600, origin: '2:10:5', dest: '1:142:8' }]; });
+  const el = g.meteoElements();
+  assert.equal(g.domainColor(el, 'mere', 'sec'), 'warn');
+  assert.equal(g.planetWeather(el, 'mere'), 1);
+});
+
+t('météo : ses propres flottes, un retour ou une arrivée passée ne sont pas une menace', () => {
+  const g = meteo(s => { s.moves = [
+    { mission: 1, ret: false, arrival: SOIR / 1000 + 600, origin: '1:142:8', dest: '1:142:6' },
+    { mission: 1, ret: true, arrival: SOIR / 1000 + 600, origin: '2:10:5', dest: '1:142:6' },
+    { mission: 1, ret: false, arrival: SOIR / 1000 - 600, origin: '2:10:5', dest: '1:142:6' },
+    { mission: 3, ret: false, arrival: SOIR / 1000 + 600, origin: '2:10:5', dest: '1:142:6' }]; });
+  assert.equal(empireDe(g), 0);
+});
+
+t('météo : la défense suit le palier du modèle choisi', () => {
+  const tenu = meteo(s => { s.planets[0].b.shipyard = 8; Object.assign(s.tech, {laser: 12, ion: 5, energy: 8, plasma: 7, weapons: 3, shielding: 6});
+    s.planets[0].defs = {rl: 800, ll: 500, hl: 200, ic: 0, gc: 80, pt: 20, sd: 1, ld: 1}; });
+  assert.equal(tenu.domainColor(tenu.meteoElements(), 'mere', 'def'), 'good', 'palier atteint : vert');
+  const court = meteo(s => { s.planets[0].b.shipyard = 8; Object.assign(s.tech, {laser: 12, ion: 5, energy: 8, plasma: 7, weapons: 3, shielding: 6});
+    s.planets[0].defs = {rl: 700, ll: 450, hl: 180, ic: 0, gc: 70, pt: 18, sd: 1, ld: 1}; });
+  assert.equal(court.domainColor(court.meteoElements(), 'mere', 'def'), 'warn', 'incomplet : orange');
+  const vide = meteo(s => { s.planets[0].b.shipyard = 8; Object.assign(s.tech, {laser: 12, ion: 5, energy: 8, plasma: 7, weapons: 3, shielding: 6});
+    s.planets[0].defs = {rl: 100, ll: 450, hl: 180, ic: 0, gc: 70, pt: 18, sd: 1, ld: 1}; });
+  assert.equal(vide.domainColor(vide.meteoElements(), 'mere', 'def'), 'bad', 'une pièce sous 50 % : rouge');
+  assert.equal(vide.domainColor(vide.meteoElements(), 'colo', 'def'), 'good', 'une défense jamais relevée ne dit rien');
+});
+
+t('météo : un style qui met la défense à 0 ne la compte pas', () => {
+  const g = meteo(s => { s.profil = {style: 'raideur', activite: 'souvent', focus: []};
+    s.planets[0].defs = {rl: 0, ll: 0, hl: 0, ic: 0, gc: 0, pt: 0, sd: 0, ld: 0}; });
+  assert.equal(g.domainColor(g.meteoElements(), 'mere', 'def'), 'good');
+});
+
+t('météo : la recherche à l\'arrêt va sur la planète d\'où la dernière est partie', () => {
+  const g = meteo(s => { s.timers = s.timers.filter(t => t.kind !== 't'); s.rechPid = 'colo'; s.planets[1].b.lab = 1; });
+  const el = g.meteoElements();
+  assert.equal(g.domainColor(el, 'colo', 'act'), 'warn', JSON.stringify(el));
+  assert.equal(g.domainColor(el, 'mere', 'act'), 'good');
+});
+
+t('météo : un clic sur le bandeau replie ou déplie la grille, et l\'état se garde', () => {
+  const g = meteo();
+  g.renderMeteo();
+  assert.ok(/class="mt-grid" hidden/.test(g.el('meteo').innerHTML), 'repliée par défaut');
+  const tog = { closest: sel => sel === '[data-meteo-tog]' ? {} : null };
+  g.click('meteo', tog);
+  assert.equal(g.saved().ui.fold.meteo, true, 'l\'état part dans le stockage, comme celui des cartes');
+  assert.ok(!/class="mt-grid" hidden/.test(g.el('meteo').innerHTML), 'dépliée');
+  g.click('meteo', tog);
+  assert.equal(g.saved().ui.fold.meteo, false);
+});
+
+t('météo : la grille se rouvre comme on l\'a laissée', () => {
+  const g = meteo(s => { s.ui.fold = { meteo: true }; });
+  g.renderMeteo();
+  assert.ok(/aria-expanded="true"/.test(g.el('meteo').innerHTML));
+  assert.ok(!/class="mt-grid" hidden/.test(g.el('meteo').innerHTML));
+});
+
+t('météo : une ligne par planète, dans l\'ordre du jeu, en-têtes abrégés', () => {
+  const g = meteo();
+  const h = g.meteoHtml(g.meteoElements());
+  assert.ok(h.indexOf('data-meteo-p="mere"') < h.indexOf('data-meteo-p="colo"'));
+  for (const [c, n] of [['Séc', 'Sécurité'], ['Act', 'Activité'], ['Éco', 'Économie'], ['Déf', 'Défense']])
+    assert.ok(h.includes(`<abbr title="${n}">${c}</abbr>`), c);
+  assert.ok(/Soleil.*Nuageux.*Orage.*Tempête/s.test(h.slice(h.indexOf('mt-leg'))), 'la légende porte les quatre');
+  assert.ok(!/#[0-9a-f]{3,6}\b/i.test(h), 'aucune couleur en dur');
+  assert.ok(!/data-launch|data-go|href=/.test(h), 'lecture seule : rien ne mène au jeu');
+});
+
+t('météo : un clic sur une planète filtre les cartes, la croix retire le filtre', () => {
+  const g = meteo(s => { s.timers = []; });
+  g.REFRESH.today();
+  assert.ok(/Planète mère/.test(lu(g.el('tdAlerts').innerHTML)) && /Colonie/.test(lu(g.el('tdAlerts').innerHTML)), 'sans filtre, les deux');
+  g.click('meteo', { closest: sel => sel === '[data-meteo-p]' ? { dataset: { meteoP: 'colo' } } : null });
+  assert.ok(/Filtré : Colonie/.test(lu(g.el('meteoFiltre').innerHTML)), 'la puce apparaît');
+  assert.equal(g.el('meteoFiltre').hidden, false);
+  g.REFRESH.today();
+  const al = lu(g.el('tdAlerts').innerHTML);
+  assert.ok(/Colonie/.test(al) && !/Planète mère/.test(al), 'seules ses alertes : ' + al.slice(0, 300));
+  assert.ok(!/Planète mère/.test(lu(g.el('tdNow').innerHTML)), 'et seules ses cartes');
+  assert.ok(g.meteoVoit({ p: 1 }) && !g.meteoVoit({ p: 0 }));
+  assert.ok(!/filterPlanet|meteoP/.test(JSON.stringify(g.saved())), 'le filtre ne s\'écrit nulle part');
+  g.click('meteoFiltre', { closest: sel => sel === '[data-meteo-off]' ? {} : null });
+  assert.equal(g.el('meteoFiltre').hidden, true, 'la puce s\'en va');
+  assert.ok(g.meteoVoit({ p: 0 }), 'toutes les cartes reviennent');
+});
+
+t('météo : l\'Empire n\'affiche que la planète filtrée', () => {
+  const g = meteo();
+  g.click('meteo', { closest: sel => sel === '[data-meteo-p]' ? { dataset: { meteoP: 'colo' } } : null });
+  const h = g.VIEWS.planets();
+  assert.ok(/data-pi="0"[^>]* hidden/.test(h), 'la planète mère se cache');
+  assert.ok(!/data-pi="1"[^>]* hidden/.test(h), 'la colonie reste');
+});
+
+/* ---------- disposition des cartes : empilées ou en onglets ---------- */
+
+const CARTES_W = ['VIEWS', 'CARTES', 'RESUMES', 'REFRESH', 'resumeDe', 'niveauDe', 'critCle', 'segTabs', 'cardLayout', 'cartesPresentes', 'setCardMode', 'header', 'render'];
+/** Le panneau avec ce que boot.js aurait lu : `mode` vaut 'tabs', 'stacked' ou rien. */
+function appCartes(mode, modifier) {
+  const s = fixtureState();
+  s.planets.forEach(p => { p.stock.at = SOIR; });
+  if (modifier) modifier(s);
+  if (mode) s.__win = { __cardLayout: mode };
+  return loadApp(s, SOIR, CARTES_W.concat(['cardMode', 'cardTabs']));
+}
+const ordreCartes = h => [...h.matchAll(/data-carte="([^"]+)"/g)].map(m => m[1]);
+
+t('cartes : le mode empilé reste le défaut, sans barre ni masquage', () => {
+  const g = appCartes();
+  const h = g.VIEWS.today();
+  assert.ok(!/en-onglets|carteTabs/.test(h), 'rien du mode onglets');
+  assert.ok(!/<div class="carte"[^>]* hidden/.test(h), 'aucune carte masquée');
+  assert.deepEqual(ordreCartes(h), ['profil', 'maintenant', 'alertes', 'expeditions', 'journee', 'minuteurs']);
+  for (const id of ['tdNow', 'tdAlerts', 'expoBloc', 'tdDay', 'tmList']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là');
+});
+t('cartes : un mode inconnu retombe sur l\'empilé', () => {
+  assert.ok(!/en-onglets/.test(appCartes('grille').VIEWS.today()));
+});
+t('cartes : en onglets, une barre .seg en tête, les cartes dans le même ordre', () => {
+  const h = appCartes('tabs').VIEWS.today();
+  assert.ok(/<section class="panel en-onglets" data-disposition="today"><div class="seg" role="tablist" id="carteTabs"/.test(h));
+  assert.deepEqual(ordreCartes(h), ['profil', 'maintenant', 'alertes', 'expeditions', 'journee', 'minuteurs']);
+});
+t('cartes : une carte ne sait pas dans quel mode elle est montrée', () => {
+  const pile = appCartes().VIEWS.today();
+  const ong = appCartes('tabs').VIEWS.today()
+    .replace(' en-onglets', '').replace('<div class="seg" role="tablist" id="carteTabs" aria-label="Sections"></div>', '');
+  assert.equal(ong, pile, 'seul le conteneur change');
+});
+t('cartes : le compteur prend le niveau le plus grave', () => {
+  const g = appCartes();
+  assert.deepEqual(g.resumeDe([{sev: 'info'}, {sev: 'warn'}, {sev: 'good'}], 'x'), {count: 3, maxLevel: 'imp', critiques: []});
+  const r = g.resumeDe([{sev: 'warn'}, {sev: 'bad', key: 'Plus un emplacement libre sur Erablis (12/12)'}], 'alertes');
+  assert.equal(r.maxLevel, 'crit');
+  assert.deepEqual(r.critiques, ['alertes:Plus un emplacement libre sur Erablis ( / )']);
+  assert.deepEqual(g.resumeDe([], 'x'), {count: 0, maxLevel: null, critiques: []});
+  assert.equal(g.niveauDe('good'), 'info', 'un « Prêt » reste un conseil');
+});
+t('cartes : une alerte dont seuls les montants bougent reste la même', () => {
+  const g = appCartes();
+  assert.equal(g.critCle('Hangar plein sur Mère : 1 200 000 métal'), g.critCle('Hangar plein sur Mère : 1 350 500 métal'));
+  assert.notEqual(g.critCle('Hangar plein sur Mère'), g.critCle('Hangar plein sur Colonie'));
+});
+t('cartes : compteurs colorés, rien quand l\'onglet est vide', () => {
+  const g = appCartes();
+  const h = g.segTabs([['securite', 'Sécurité', {count: 2, maxLevel: 'crit'}], ['defense', 'Défense', {count: 0, maxLevel: null}], ['conseils', 'Conseils', {count: 3, maxLevel: 'info'}], ['x', 'X', null]], 'data-carte-tab', 'defense');
+  assert.ok(/data-carte-tab="securite" aria-selected="false">Sécurité <span class="cpt crit"[^>]*>\(2\)<\/span>/.test(h));
+  assert.ok(/data-carte-tab="defense" aria-selected="true">Défense<\/button>/.test(h), 'pas de compteur à zéro');
+  assert.ok(/class="cpt info"[^>]*>\(3\)/.test(h), 'gris pour des conseils seuls');
+  assert.ok(/data-carte-tab="x" aria-selected="false">X<\/button>/.test(h));
+});
+t('cartes : Outils garde la même barre, construite par le même composant', () => {
+  const g = appCartes();
+  const h = g.VIEWS.tools();
+  assert.ok(/<div class="seg" role="tablist"><button role="tab" data-tool="explore" aria-selected="false">Cibles<\/button>/.test(h));
+  assert.ok(/data-tool="colony" aria-selected="true">Colonie</.test(h));
+});
+t('cartes : une carte dynamique vide n\'a pas d\'onglet, une fixe toujours', () => {
+  const g = appCartes();
+  g.RESUMES.alertes = g.resumeDe([], 'alertes');
+  g.RESUMES.maintenant = g.resumeDe([], 'maintenant');
+  let ids = g.cartesPresentes('today').map(x => x.c.cardId);
+  assert.ok(!ids.includes('alertes'), 'pas d\'alerte, pas d\'onglet');
+  assert.deepEqual(ids, ['profil', 'maintenant', 'expeditions', 'journee', 'minuteurs']);
+  g.RESUMES.alertes = g.resumeDe([{sev: 'warn'}], 'alertes');
+  ids = g.cartesPresentes('today').map(x => x.c.cardId);
+  assert.equal(ids[2], 'alertes', 'à sa place dans l\'ordre de la pile');
+});
+t('cartes : le rafraîchissement dit ce que contient chaque carte', () => {
+  // toutes les cases prises : l'alerte la plus grave que le moteur sache dire
+  const g = appCartes(null, s => { s.planets[0].cases = {max: 163, pris: 163}; });
+  g.render();
+  const r = g.RESUMES;
+  assert.ok(r.maintenant && r.alertes && r.expeditions, 'les trois cartes calculées ont leur résumé');
+  assert.equal(r.alertes.maxLevel, 'crit', JSON.stringify(r.alertes));
+  assert.ok(r.alertes.critiques.length && r.alertes.critiques.every(k => k.startsWith('alertes:') && !/\d/.test(k)), 'clé sans chiffres');
+});
+t('cartes : l\'interrupteur se retient dans le stockage partagé et redessine', () => {
+  const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; });
+  const g = loadApp(s, SOIR, ['setCardMode', 'VIEWS', 'cardMode']);
+  g.setCardMode('tabs');
+  assert.equal(g.shared().cardLayout, 'tabs');
+  assert.ok(/class="panel en-onglets"/.test(g.el('view').innerHTML), 'appliqué sans recharger');
+  assert.ok(g.el('cartesBtn').classList.contains('primary'), 'l\'en-tête le montre');
+  assert.ok(/id="sOnglets" data-onglets-mode="1" checked/.test(g.VIEWS.settings()), 'Réglages aussi');
+  g.setCardMode('stacked');
+  assert.equal(g.shared().cardLayout, 'stacked');
+  assert.ok(!/id="sOnglets" data-onglets-mode="1" checked/.test(g.VIEWS.settings()));
+  assert.ok(!g.el('cartesBtn').classList.contains('primary'));
+});
+t('cartes : un autre panneau change le mode, celui-ci suit sans le réécrire', () => {
+  const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; });
+  const g = loadApp(s, SOIR, ['VIEWS']);
+  g.fire({cardLayout: {newValue: 'tabs'}}, 'sync');
+  assert.ok(/class="panel en-onglets"/.test(g.el('view').innerHTML));
+  assert.equal(g.shared().cardLayout, undefined, 'rien de renvoyé');
+});
+t('cartes : l\'onglet choisi se relit au démarrage', () => {
+  const s = fixtureState(); s.__win = {__cardLayout: 'tabs', __cardTab: {today: 'expeditions'}};
+  const g = loadApp(s, SOIR, ['cardTabs', 'cardMode']);
+  assert.equal(g.cardMode, 'tabs');
+  assert.deepEqual(g.cardTabs, {today: 'expeditions'});
+});
+t('cartes : les onglets ne lancent rien dans le jeu', () => {
+  const g = appCartes('tabs');
+  const h = g.segTabs(g.CARTES.today.map(c => [c.cardId, c.titre, null]), 'data-carte-tab', 'maintenant');
+  assert.ok(!/data-launch|data-sent|data-prep|href/.test(h));
 });
 
 /* ---------- combien de cartes par liste ---------- */

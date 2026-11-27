@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.9.0';
+const APP_VERSION = '2.11.0';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -28,13 +28,13 @@ REGLES.regles.forEach((r, i) => { if(r && typeof r.id === 'string' && !aSoi(REGL
    vérifie qu'elles disent la même chose que rules.json. */
 const REGLES_SECOURS = {};
 [
-  {id:'RES_STORAGE_FULL', domaine:'ressources', cat:'stock', niveau:'critique', condition:'storageRatio', parametres:{seuil:0.98}, effet:'pousser',
+  {id:'RES_STORAGE_FULL', domaine:'ressources', cat:'', niveau:'critique', condition:'storageRatio', parametres:{seuil:0.98}, effet:'pousser',
     message:'{hangar} plein{sur}',
     raison:'La production de {ressource} est arrêtée. {depense} Monter {hangar} {niveau+1} prend {montee}, et la production reste à l\'arrêt jusque-là.'},
-  {id:'RES_STORAGE_SOON', domaine:'ressources', cat:'stock', niveau:'important', condition:'storageEta', parametres:{heures:8}, effet:'pousser',
+  {id:'RES_STORAGE_SOON', domaine:'ressources', cat:'', niveau:'important', condition:'storageEta', parametres:{heures:8}, effet:'pousser',
     message:'{hangar} plein dans {dans}{sur}',
     raison:'Lance {hangar} {niveau+1} maintenant : il met {montee} à sortir, et au plafond la production s\'arrête.'},
-  {id:'RES_ENERGY_NEGATIVE', domaine:'ressources', cat:'mines', niveau:'critique', condition:'energyBalance', parametres:{}, effet:'pousser',
+  {id:'RES_ENERGY_NEGATIVE', domaine:'ressources', cat:'', niveau:'critique', condition:'energyBalance', parametres:{}, effet:'pousser',
     message:'Rétablir l\'énergie{sur}',
     raison:'Tes mines tournent à {pct} %. {options}'},
 ].forEach((r, i) => { if(!aSoi(REGLES_PAR_ID, r.id)) REGLES_SECOURS[r.id] = Object.assign({actif_par_defaut:true, verrou:false}, r, {rang:REGLES.regles.length + i}); });
@@ -308,6 +308,8 @@ function save(){ try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){ saveFailed(
    jamais sur une voisine, ce qui était la vieille faute du rang. */
 function planetById(id){ return S.planets.find(p => p.id === id) || null; }
 function planetIndexById(id){ return S.planets.findIndex(p => p.id === id); }
+/** L'identifiant du jeu d'une planète locale, ou null : ce qui voyage entre postes voyage en gid. */
+const gidDe = pid => { const p = planetById(pid); return p && p.gid != null ? String(p.gid) : null; };
 
 /* Ce que le joueur retire, il le retire vraiment : ici l'absence est une
    certitude et non un défaut d'appariement, donc ce qui visait cette planète
@@ -1521,6 +1523,9 @@ function gameSkin(acts, missions, waits){
    labo à elle qui en fixe la durée et les prérequis. Sans centre — joueur de
    flotte, planète unique — on retombe sur le plus haut labo de l'empire,
    c'est-à-dire sur le comportement d'avant. */
+/** La planète de recherche habituelle : celle d'où la dernière recherche est
+    partie, sinon le centre. C'est à elle que « recherche à l'arrêt » se rattache. */
+function planeteRecherche(){ return planetById(S.rechPid) || labPlanet(); }
 function labPlanet(){ return centrePlanet() || S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
 /* Le labo du centre, et non plus le maximum de l'empire : les deux
    coïncidaient tant que le centre était par construction la planète du plus
@@ -1986,6 +1991,210 @@ function fold(name, def){
   const v = (S.ui.fold||{})[name];
   return (v==null ? def : v) ? ' open' : '';
 }
+
+/* ---------- disposition des cartes : empilées ou en onglets ---------- */
+/* Aujourd'hui empile ses cartes, et il faut défiler pour retrouver la bonne.
+   Le joueur peut préférer les ranger en onglets — une carte à la fois, avec la
+   barre de la section Outils. Les cartes, elles, ne savent pas comment elles
+   sont montrées : chacune se déclare (identifiant, titre, fixe ou non, ce
+   qu'elle contient) et c'est le conteneur qui les empile ou les range.
+   Le mode suit le joueur d'un poste à l'autre (chrome.storage.sync) ; l'onglet
+   choisi reste sur la machine (chrome.storage.local), comme l'état des volets. */
+/* `var` : header() peut s'exécuter avant que ces lignes soient atteintes. */
+var cardMode = (typeof window !== 'undefined' && window.__cardLayout === 'tabs') ? 'tabs' : 'stacked';
+/** Vue → onglet choisi par le joueur. Seul un clic l'écrit (ou le passage
+    d'empilé à onglets, qui retient la carte qu'il lisait). */
+var cardTabs = (()=>{
+  const w = typeof window !== 'undefined' ? window.__cardTab : null;
+  if(w && typeof w === 'object') return {...w};
+  try{ const v = JSON.parse(LS.getItem(KEY+'-cardTab') || 'null'); if(v && typeof v === 'object') return v; }catch(e){}
+  return {};
+})();
+/** Vue → onglet où une alerte critique a fait basculer. Il passe devant le
+    choix du joueur tant que sa carte existe, et s'efface au premier clic :
+    l'alerte finie, le joueur retrouve son onglet, pas le premier venu. */
+var cardForce = {};
+/** Vue → onglet réellement affiché au dernier passage. */
+var cardAffiche = {};
+/** Les alertes critiques déjà traitées dans cette session du panneau : une
+    même alerte ne fait basculer qu'une fois, même si le joueur revient sur
+    son onglet. */
+var cardCritVus = new Set();
+/** Ce que les cartes calculées au rafraîchissement disent contenir. */
+var RESUMES = {};
+const NIVEAU_RANG = {crit:3, imp:2, info:1};
+/** Le niveau d'un élément : rouge (critique), orange (important), gris (conseil). */
+function niveauDe(sev){ return sev === 'bad' ? 'crit' : sev === 'warn' ? 'imp' : 'info'; }
+/** Ce qui identifie une alerte sans ses montants : un stock qui grossit ne
+    fait pas une nouvelle alerte. */
+function critCle(s){ return String(s || '').replace(/[\d\s.,:%]+/g, ' ').trim(); }
+/**
+ * Le résumé d'une carte, pour son onglet.
+ * @param {{sev?:string, key?:string}[]} items les éléments de la carte
+ * @param {string} cardId la carte, préfixe des clés d'alerte critique
+ * @returns {{count:number, maxLevel:string|null, critiques:string[]}}
+ */
+function resumeDe(items, cardId){
+  let max = null; const critiques = [];
+  for(const x of items){
+    const n = niveauDe(x.sev);
+    if(!max || NIVEAU_RANG[n] > NIVEAU_RANG[max]) max = n;
+    if(n === 'crit' && x.key) critiques.push(cardId + ':' + critCle(x.key));
+  }
+  return {count: items.length, maxLevel: max, critiques};
+}
+/* La déclaration des cartes, dans l'ordre de la pile. Une carte fixe a
+   toujours son onglet ; une carte dynamique n'en a que si elle contient
+   quelque chose. `getSummary` dit combien d'éléments et le plus grave. */
+const CARTES = {
+  today: [
+    {cardId:'profil', titre:'Profil', fixe:true,
+      getSummary:()=> S.profil.set ? null : {count:1, maxLevel:'info', critiques:[]}},
+    {cardId:'maintenant', titre:'Maintenant', fixe:true, getSummary:()=>RESUMES.maintenant},
+    {cardId:'alertes', titre:'Alertes', fixe:false, getSummary:()=>RESUMES.alertes},
+    {cardId:'expeditions', titre:'Expéditions', fixe:true, getSummary:()=>RESUMES.expeditions},
+    {cardId:'journee', titre:'Ta journée', fixe:true},
+    {cardId:'minuteurs', titre:'Minuteurs', fixe:true, getSummary:()=>{
+      const v = visibleTimers(), now = Date.now();
+      return v.length ? {count:v.length, maxLevel: v.some(t=>t.done || t.end<=now) ? 'imp' : 'info', critiques:[]} : null;
+    }},
+  ],
+};
+const CPT_TITRE = {crit:'dont au moins un urgent', imp:'dont au moins un important', info:'des conseils'};
+/**
+ * La barre d'onglets du panneau, la même partout (Outils, cartes en onglets) :
+ * `.seg`, qui défile en largeur quand les onglets ne tiennent pas.
+ * @param {Array<[string, string, {count:number, maxLevel:string}?]>} items clé, libellé, compteur
+ * @param {string} attr l'attribut qui porte la clé (data-tool, data-carte-tab)
+ * @param {string} sel la clé sélectionnée
+ */
+function segTabs(items, attr, sel){
+  return items.map(([k, l, n])=>{
+    const cpt = n && n.count ? ` <span class="cpt ${n.maxLevel || 'info'}" title="${n.count} élément${n.count>1?'s':''}, ${CPT_TITRE[n.maxLevel || 'info']}">(${n.count})</span>` : '';
+    return `<button role="tab" ${attr}="${esc(k)}" aria-selected="${sel===k}">${esc(l)}${cpt}</button>`;
+  }).join('');
+}
+/**
+ * Le conteneur des cartes : il les empile, ou les range en onglets.
+ * @param {string} vue la vue, clé de CARTES
+ * @param {Object<string,string>} html le HTML de chaque carte, par cardId
+ */
+function cardLayout(vue, html){
+  const tabs = cardMode === 'tabs';
+  const corps = CARTES[vue].map(c=>`<div class="carte" data-carte="${c.cardId}">${html[c.cardId] || ''}</div>`).join('');
+  return `<section class="panel${tabs ? ' en-onglets' : ''}" data-disposition="${vue}">${tabs ? '<div class="seg" role="tablist" id="carteTabs" aria-label="Sections"></div>' : ''}${corps}</section>`;
+}
+function cartesSection(){ const s = view.querySelector('[data-disposition]'); return s && s.dataset && s.dataset.disposition && CARTES[s.dataset.disposition] ? s : null; }
+/** Les cartes qui ont un onglet, avec leur résumé. */
+function cartesPresentes(vue){
+  return CARTES[vue].map(c=>({c, r:(c.getSummary && c.getSummary()) || null}))
+    .filter(({c, r})=>c.fixe || (r && r.count > 0));
+}
+/**
+ * Pose l'onglet affiché, la barre et ses compteurs, après chaque rafraîchissement.
+ * En mode empilé, elle ne fait que noter les alertes critiques déjà vues.
+ */
+function cartesSync(){
+  const sec = cartesSection(); if(!sec) return;
+  const vue = sec.dataset.disposition, presentes = cartesPresentes(vue), ids = presentes.map(x=>x.c.cardId);
+  /* Une alerte critique jamais vue fait basculer sur sa carte, une fois. Vue
+     en mode empilé, elle est vue aussi : passer en onglets ne la rejoue pas. */
+  let bascule = null;
+  for(const {c, r} of presentes) for(const k of (r && r.critiques) || []){
+    if(cardCritVus.has(k)) continue;
+    cardCritVus.add(k); if(!bascule) bascule = c.cardId;
+  }
+  if(cardMode !== 'tabs'){ delete cardAffiche[vue]; return; }
+  if(bascule) cardForce[vue] = bascule;
+  const voulu = cardForce[vue] && ids.includes(cardForce[vue]) ? cardForce[vue] : cardTabs[vue];
+  const affiche = ids.includes(voulu) ? voulu : ids[0];
+  cardAffiche[vue] = affiche;
+  sec.querySelectorAll('.carte[data-carte]').forEach(w=>{
+    const on = w.dataset.carte === affiche;
+    w.hidden = !on;
+    /* Le contenu de l'onglet est toujours déplié, sans toucher à l'état
+       enregistré du volet : revenu en mode empilé, la carte retrouve le sien.
+       Les sections internes, elles, gardent le leur. */
+    const d = w.firstElementChild;
+    if(on && d && d.tagName === 'DETAILS' && !d.open) d.open = true;
+  });
+  const bar = sec.querySelector('#carteTabs');
+  if(bar){
+    const h = segTabs(presentes.map(({c, r})=>[c.cardId, c.titre, r]), 'data-carte-tab', affiche);
+    // réécrite seulement quand elle change : le focus clavier et le défilement de la barre restent
+    if(bar.dataset.h !== h){ bar.innerHTML = h; bar.dataset.h = h; }
+    if(bascule || bar.dataset.vu !== affiche){
+      bar.dataset.vu = affiche;
+      const b = bar.querySelector(`[data-carte-tab="${affiche}"]`);
+      if(b && b.scrollIntoView) b.scrollIntoView({block:'nearest', inline:'nearest'});
+    }
+  }
+}
+/** Le joueur choisit un onglet : il est retenu, et la bascule d'alerte s'efface. */
+function carteChoisie(id){
+  const sec = cartesSection(); if(!sec) return;
+  const vue = sec.dataset.disposition;
+  cardTabs[vue] = id; delete cardForce[vue];
+  carteRetiens();
+  cartesSync();
+}
+function carteRetiens(){
+  try{
+    if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local){ const r = chrome.storage.local.set({cardTab: cardTabs}); if(r && r.catch) r.catch(()=>{}); }
+    else LS.setItem(KEY+'-cardTab', JSON.stringify(cardTabs));
+  }catch(e){}
+}
+/** Le bas de la barre d'onglets collante : ce qui passe dessous n'est pas lu. */
+function carteSeuil(){ const n = document.getElementById('tabs'); const r = n && n.getBoundingClientRect ? n.getBoundingClientRect() : null; return r ? r.bottom : 0; }
+/** La carte que le joueur lit en mode empilé : la première visible sous la barre. */
+function carteEnHaut(sec){
+  const seuil = carteSeuil() + 8;
+  for(const w of sec.querySelectorAll('.carte[data-carte]')){
+    const el = w.firstElementChild, r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    if(r && r.height > 0 && r.bottom > seuil) return w.dataset.carte;
+  }
+  return null;
+}
+/* La carte que le joueur lisait, notée quand le défilement se pose. L'en-tête
+   ne colle pas en haut : pour atteindre l'interrupteur, le joueur remonte, et
+   au moment du clic la carte du haut serait toujours la première. On garde
+   donc celle où il s'est arrêté de défiler, pas celles qu'il a traversées. */
+var cardLue = {}, cardLueT = 0;
+if(typeof window !== 'undefined' && window.addEventListener) window.addEventListener('scroll', ()=>{
+  clearTimeout(cardLueT);
+  cardLueT = setTimeout(()=>{
+    const sec = cardMode === 'stacked' ? cartesSection() : null;
+    if(sec){ const id = carteEnHaut(sec); if(id) cardLue[sec.dataset.disposition] = id; }
+  }, 800);
+}, {passive:true});
+/** Fait défiler la pile jusqu'à une carte, juste sous la barre collante. */
+function carteDefile(id){
+  const w = view.querySelector(`.carte[data-carte="${id}"]`), el = w && w.firstElementChild;
+  const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+  if(r && r.height > 0 && typeof window.scrollBy === 'function') window.scrollBy(0, r.top - carteSeuil() - 8);
+}
+/**
+ * Change de disposition, la retient, et redessine sans recharger. La carte
+ * lue passe de l'un à l'autre : empilé → onglets, celle du haut devient
+ * l'onglet actif ; onglets → empilé, la pile défile jusqu'à l'onglet actif.
+ * @param {string} m 'tabs' ou 'stacked'
+ * @param {boolean} [distant] venu d'un autre panneau : rien à réécrire
+ */
+function setCardMode(m, distant){
+  m = m === 'tabs' ? 'tabs' : 'stacked';
+  if(m === cardMode) return;
+  const sec = cartesSection(), vue = sec ? sec.dataset.disposition : null;
+  let cible = null;
+  if(vue && m === 'tabs'){
+    const haut = cardLue[vue] || carteEnHaut(sec);
+    if(haut){ cardTabs[vue] = haut; delete cardForce[vue]; carteRetiens(); }
+  } else if(vue) cible = cardAffiche[vue];
+  cardMode = m;
+  if(!distant) try{ if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){ const r = chrome.storage.sync.set({cardLayout: m}); if(r && r.catch) r.catch(syncFailed); } }catch(e){ syncFailed(e); }
+  render();
+  if(cible) carteDefile(cible);
+}
+
 /* ---------- combien de cartes par liste ---------- */
 /* Une liste qui s'allonge repousse tout le reste sous le pli : le joueur
    choisit combien de cartes chacune montre d'office, une valeur pour toutes et,
@@ -2400,6 +2609,15 @@ function header(){
   tzl.textContent = timeMode === 'local' ? 'Heures : locale' : (inconnu ? 'Heures : serveur ?' : 'Heures : serveur');
   tzl.title = inconnu ? 'Heure serveur pas encore lue : les heures restent en heure locale jusqu\'à la prochaine page du jeu'
     : (S.srvTz && S.srvTz.ok === false ? 'Décalage du serveur non vérifié sur la dernière page : le dernier connu sert' : (LOCAL_TZ ? 'Fuseau local : ' + LOCAL_TZ : ''));
+  /* La disposition des cartes : allumé = en onglets. */
+  const cb = document.getElementById('cartesBtn');
+  if(cb){
+    const ong = cardMode === 'tabs';
+    cb.setAttribute('aria-checked', String(ong));
+    cb.title = cb.ariaLabel = ong ? 'Empiler les sections' : 'Organiser les sections en onglets';
+    cb.classList.toggle('primary', ong);
+    cb.classList.toggle('ghost', !ong);
+  }
   /* L'engrenage est un onglet comme les autres, hors de la barre : il porte le
      même `data-tab`, donc le même état sélectionné. */
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.tab===tab)));
@@ -2411,10 +2629,10 @@ function header(){
 }
 /** Vrai tant que l'écran du relevé tient la place du contenu. */
 function enScan(){ return !!(scanEcran && releveEnCours); }
-function render(){ prioClean(); header(); view.innerHTML = enScan() ? VIEWS.scan() : VIEWS[tab](); bind(); refresh(); }
+function render(){ prioClean(); ignClean(); header(); view.innerHTML = enScan() ? VIEWS.scan() : VIEWS[tab](); bind(); refresh(); }
 /* Pendant le relevé, les REFRESH écriraient dans des éléments que l'écran du
    relevé n'a pas : ils ne rafraîchissent que ce qui est à l'écran. */
-function refresh(){ if(!enScan()) (REFRESH[tab]||(()=>{}))(); header(); }
+function refresh(){ if(!enScan()){ (REFRESH[tab]||(()=>{}))(); cartesSync(); } header(); renderMeteo(); }
 
 /* ---------- advice ---------- */
 const MILESTONES = [
@@ -2720,7 +2938,7 @@ EVAL.queueEmpty = p => {
   return [{valeur:l.reduce((m, t) => Math.max(m, +t.end || 0), 0), repond:{kinds:['b']}, vars:{}}];
 };
 EVAL.researchIdle = p => {
-  const lab = labPlanet();
+  const lab = planeteRecherche();
   if(!lab || lab.id !== p.id || !(p.b.lab >= 1)) return [];
   const l = (S.timers || []).filter(t => t && (t.kind === 't' || (t.kind === 'x' && t.queue === 'research')));
   if(l.some(enCours)) return [];
@@ -2762,7 +2980,7 @@ function publieCritiques(cs){
 function planetAlerts(p){
   const out = [], pr = production(p), st = stockNow(p);
   const where = S.planets.length>1 ? ` sur ${p.name}` : '';
-  const deRegle = id => constatsDe(p, id).map(c => ({sev:NIVEAU_SEV[c.niveau], what:c.what, why:c.why, regle:c.regle, valeur:c.valeur}));
+  const deRegle = id => constatsDe(p, id).map(c => ({sev:NIVEAU_SEV[c.niveau], what:c.what, why:c.why, regle:c.regle, valeur:c.valeur, domaine:c.domaine, c}));
   out.push(...deRegle('RES_ENERGY_NEGATIVE'));
   if(pr.factor<1 && regleActive('RES_ENERGY_NEGATIVE')){
     const opts = energyOptions(p), ok = opts.filter(o=>o.prete), best = ok[0];
@@ -2770,7 +2988,7 @@ function planetAlerts(p){
        sinon l'avertissement ferait regretter un réglage qui ne changeait rien. */
     for(const o of opts)
       if(!o.prete && (!best || o.perPoint < best.perPoint))
-        out.push({sev:'warn', what:`${o.kind==='sats' ? 'Satellites écartés' : 'Fusion écartée'}${where}`,
+        out.push({sev:'warn', domaine:'ressources', what:`${o.kind==='sats' ? 'Satellites écartés' : 'Fusion écartée'}${where}`,
           why:`${energyLine(o)} : moins cher par point d'énergie que ${best ? best.label.toLowerCase() : 'la centrale'}, mais ${o.pourquoiPas}.${o.kind==='sats' ? ' Un satellite part en débris au premier raid, et l\'énergie retombe avec lui.' : ''}`});
   }
   /* Le jeu dit son énergie libre mines bridées ; le moteur les compte à 100 %.
@@ -2778,8 +2996,8 @@ function planetAlerts(p){
   const br = bridage(p);
   if(br){
     const marge = Math.round(pr.eBal - br.extra);
-    if(marge >= 0) out.push({sev:'good', what:`Remonter les mines à 100 %${where}`, why:`Tu les as bridées à ${br.min} %. L'énergie suffit de nouveau : il en resterait ${marge} de libre une fois les mines remontées.`});
-    else if(pr.factor>=1) out.push({sev:'warn', what:`Mines bridées à ${br.min} %${where}`, why:`Il manque ${-marge} d'énergie pour les remonter à 100 %. Monte la centrale solaire, je te dirai quand les remonter.`});
+    if(marge >= 0) out.push({sev:'good', domaine:'ressources', what:`Remonter les mines à 100 %${where}`, why:`Tu les as bridées à ${br.min} %. L'énergie suffit de nouveau : il en resterait ${marge} de libre une fois les mines remontées.`});
+    else if(pr.factor>=1) out.push({sev:'warn', domaine:'ressources', what:`Mines bridées à ${br.min} %${where}`, why:`Il manque ${-marge} d'énergie pour les remonter à 100 %. Monte la centrale solaire, je te dirai quand les remonter.`});
   }
   /* Chaque niveau de bâtiment occupe un emplacement, et le Terraformeur est un
      bâtiment comme un autre : il lui en faut un de libre pour être posé. Le
@@ -2787,8 +3005,8 @@ function planetAlerts(p){
      donc le dernier sans un mot, et le joueur ne l'apprenait que dans la fenêtre
      du jeu, au moment de lancer. */
   const libres = casesLibres(p);
-  if(libres === 0) out.push({sev:'bad', what:`Plus un emplacement libre${where}`, why:`${p.cases.max} emplacements, tous pris. Le jeu refuse toute construction ici, Terraformeur compris. Démolis un bâtiment que tu ne sers pas — un hangar surdimensionné, le Dépôt de ravitaillement — pour en rendre un.`});
-  else if(libres === 1) out.push({sev:'warn', what:`Un seul emplacement libre${where}`, why:`${p.cases.pris} sur ${p.cases.max}. La prochaine construction prend le dernier, et plus rien ne se posera ensuite. Le Terraformeur en agrandit la planète, mais il lui faut cet emplacement-là pour être construit : garde-le-lui si tu le vises.`});
+  if(libres === 0) out.push({sev:'bad', domaine:'installations', what:`Plus un emplacement libre${where}`, why:`${p.cases.max} emplacements, tous pris. Le jeu refuse toute construction ici, Terraformeur compris. Démolis un bâtiment que tu ne sers pas — un hangar surdimensionné, le Dépôt de ravitaillement — pour en rendre un.`});
+  else if(libres === 1) out.push({sev:'warn', domaine:'installations', what:`Un seul emplacement libre${where}`, why:`${p.cases.pris} sur ${p.cases.max}. La prochaine construction prend le dernier, et plus rien ne se posera ensuite. Le Terraformeur en agrandit la planète, mais il lui faut cet emplacement-là pour être construit : garde-le-lui si tu le vises.`});
   /* Le hangar, plein ou bientôt : deux règles du moteur (RES_STORAGE_FULL,
      RES_STORAGE_SOON). Au plafond, le hangar arrive trop tard — il met des
      heures à sortir — et ce qui relance la production est le plus gros
@@ -2868,7 +3086,7 @@ function tickTimers(){
     if(changed || list.dataset.count !== String(visibleTimers().length)) renderTimers();
     else S.timers.forEach(tm=>{ const el=document.getElementById('cd-'+tm.id); if(el && !tm.done) el.textContent = clock((tm.end-now)/1000); });
   }
-  if(changed && tab==='today') REFRESH.today();
+  if(changed && tab==='today'){ REFRESH.today(); cartesSync(); }
 }
 function clock(sec){ sec=Math.max(0,Math.round(sec)); const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60), s=sec%60; return (d?d+'j ':'') + `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
 /** Timers still worth showing: running, or finished but not yet acknowledged. */
@@ -3844,14 +4062,14 @@ function simulateDay(){
   for(const t of S.timers||[]){
     if(t.done || t.end<=now) continue;
     const pi = planetIndexById(t.pid);
-    if(t.kind==='t' && T[t.k]){ sim.rq=Math.max(sim.rq,t.end); busy.push({q:'Recherche · '+planetRef(labPlanet()), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ sim.tech[t.k]=Math.max(sim.tech[t.k],t.lvl); }}); }
-    else if(t.kind==='b' && P[pi]){ const p=P[pi]; p.bq=Math.max(p.bq,t.end); p.bqKey=t.k; busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.b[t.k]=Math.max(p.b[t.k],t.lvl); }}); }
-    else if(t.kind==='x' && t.k==='expo'){ expoBusy.push(t.end); busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[pi]){ const p=P[pi]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
-    else if(t.kind==='x' && t.k==='fleet'){ busy.push({q:'Flotte', what:timerLabel(t), end:t.end}); if(t.manual && t.ships && P[pi]){ const p=P[pi]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
-    else if(t.kind==='x' && t.k!=='sats' && (t.k==='shipyard' || t.queue==='shipyard') && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); if(t.manual && t.ships) sim.ev.push({at:t.end, fn:()=>addBuilt(p, t.ships)}); }
-    else if(t.kind==='x' && (t.queue==='lfbuilding' || t.queue==='lfresearch') && P[pi]){ const p=P[pi]; p.lfq[t.queue]=Math.max(p.lfq[t.queue],t.end); busy.push({q:'Forme de vie · '+planetRef(p), what:timerLabel(t), end:t.end}); }
-    else if(t.kind==='x' && t.k==='sats' && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
-    else if(t.kind==='x' && t.k==='colship'){ const p=P[planetIndexById(S.colo.fromId)]||P[0]; p.sq=t.end; sim.colShip=true; sim.colReady=t.end; busy.push({q:'Chantier spatial', what:'Vaisseau de colonisation', end:t.end}); }
+    if(t.kind==='t' && T[t.k]){ sim.rq=Math.max(sim.rq,t.end); busy.push({q:'Recherche · '+planetRef(labPlanet()), what:timerLabel(t), end:t.end, p:pi}); sim.ev.push({at:t.end, fn:()=>{ sim.tech[t.k]=Math.max(sim.tech[t.k],t.lvl); }}); }
+    else if(t.kind==='b' && P[pi]){ const p=P[pi]; p.bq=Math.max(p.bq,t.end); p.bqKey=t.k; busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end, p:pi}); sim.ev.push({at:t.end, fn:()=>{ p.b[t.k]=Math.max(p.b[t.k],t.lvl); }}); }
+    else if(t.kind==='x' && t.k==='expo'){ expoBusy.push(t.end); busy.push({q:'Flotte', what:timerLabel(t), end:t.end, p:pi}); if(t.manual && t.ships && P[pi]){ const p=P[pi]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
+    else if(t.kind==='x' && t.k==='fleet'){ busy.push({q:'Flotte', what:timerLabel(t), end:t.end, p:pi}); if(t.manual && t.ships && P[pi]){ const p=P[pi]; for(const [k,n] of Object.entries(t.ships)) p.ships[k]=Math.max(0,(p.ships[k]||0)-n); sim.ev.push({at:t.end, fn:()=>{ for(const [k,n] of Object.entries(t.ships)) p.ships[k]=(p.ships[k]||0)+n; }}); } }
+    else if(t.kind==='x' && t.k!=='sats' && (t.k==='shipyard' || t.queue==='shipyard') && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end, p:pi}); if(t.manual && t.ships) sim.ev.push({at:t.end, fn:()=>addBuilt(p, t.ships)}); }
+    else if(t.kind==='x' && (t.queue==='lfbuilding' || t.queue==='lfresearch') && P[pi]){ const p=P[pi]; p.lfq[t.queue]=Math.max(p.lfq[t.queue],t.end); busy.push({q:'Forme de vie · '+planetRef(p), what:timerLabel(t), end:t.end, p:pi}); }
+    else if(t.kind==='x' && t.k==='sats' && P[pi]){ const p=P[pi]; p.sq=Math.max(p.sq,t.end); p.satPending=t.end; busy.push({q:'Chantier spatial · '+planetRef(p), what:timerLabel(t), end:t.end, p:pi}); sim.ev.push({at:t.end, fn:()=>{ p.sats+=t.n||0; p.satPending=0; }}); }
+    else if(t.kind==='x' && t.k==='colship'){ const p=P[planetIndexById(S.colo.fromId)]||P[0]; p.sq=t.end; sim.colShip=true; sim.colReady=t.end; busy.push({q:'Chantier spatial', what:'Vaisseau de colonisation', end:t.end, p:pi}); }
     /* Un chantier que le relevé n'a pas su nommer : le jeu n'écrit pas toujours
        l'identifiant de ce qu'il construit, et le minuteur arrive alors sans
        technologie. Il ne vaut plus que par sa file — et sa file suffit. Sans
@@ -3859,8 +4077,8 @@ function simulateDay(){
        `queue`, pendant que le plan, qui se fiait à `kind`, relançait sur une
        planète déjà prise. On ne sait pas ce qui monte : la file est occupée,
        aucun niveau ne s'ajoute à la fin. */
-    else if(t.kind==='x' && t.queue==='building' && P[pi]){ const p=P[pi]; p.bq=Math.max(p.bq,t.end); busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end}); }
-    else if(t.kind==='x' && t.queue==='research'){ sim.rq=Math.max(sim.rq,t.end); busy.push({q:'Recherche · '+planetRef(labPlanet()), what:timerLabel(t), end:t.end}); }
+    else if(t.kind==='x' && t.queue==='building' && P[pi]){ const p=P[pi]; p.bq=Math.max(p.bq,t.end); busy.push({q:'Bâtiment · '+planetRef(p), what:timerLabel(t), end:t.end, p:pi}); }
+    else if(t.kind==='x' && t.queue==='research'){ sim.rq=Math.max(sim.rq,t.end); busy.push({q:'Recherche · '+planetRef(labPlanet()), what:timerLabel(t), end:t.end, p:pi}); }
   }
   /* Les expéditions en vol, prises sur les mouvements de flotte du jeu
      (mission 15, trajet de retour). Les compter sur les seuls minuteurs les
@@ -3903,7 +4121,7 @@ function simulateDay(){
   // Trié par sévérité, l'ordre des planètes conservé à sévérité égale : sans
   // cela un Urgent de la deuxième planète se lit sous un Attention de la
   // première, et le joueur à quatre planètes balaie la carte de travers.
-  const alerts = S.planets.flatMap(p=>planetAlerts(p)).sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1));
+  const alerts = S.planets.flatMap(p=>planetAlerts(p).map(a=>Object.assign(a, {pid:p.id}))).sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1));
   S.tech = sim.tech; S.planets = P;
   try{
     const startV = P.reduce((a,p)=>{ const r=production(p); return a+mse(r.m,r.c,r.d); },0);
@@ -5334,7 +5552,7 @@ function expoHtml(){
      du jeu. */
   parts.push(`<p class="note">L'envoi reste à toi : Préparer ouvre le formulaire du jeu avec la planète, les vaisseaux, la destination et la mission, et <b>la durée d'exploration est à choisir dans le jeu</b>. Plafond de points calé sur le n°1 de l'univers (${esc(EXPO_LABELS[top1Tier()])}) : <b>${fmt(expoPts())}</b>. Facteur de fret ${fmt(num(S.settings.expoFret, EXPO_FRET))} ressources par point, réserve de ${fmt(expoRes(null))} grands transporteurs par planète, durée par défaut ${Math.max(1, Math.round(num(S.settings.expoHold,1)))} h — tout cela se change dans <b>Outils › Flotte</b>.</p>`);
   const sum = `${e.pris}/${e.max} · ${etat}`;
-  return {sum, html: parts.join('')};
+  return {sum, html: parts.join(''), n: props.length};
 }
 
 /** Context-aware to-do items that sit outside the build and research queues. */
@@ -6558,7 +6776,9 @@ function defMixList(p){ const m = defMix(p); return m ? shipList(m.cible) : ''; 
 
 /** Le modèle que cette planète suit : le sien d'abord, celui des réglages
     ensuite. @returns {string} une clé de DEF_MODELES */
-function defModeleK(p){ const k = p && p.defModele; return k && DEF_MODELES[k] ? k : S.settings.defModele; }
+/* Un réglage venu d'ailleurs (sauvegarde, autre poste) peut nommer un modèle
+   que la table n'a plus : le framework répond, plutôt qu'un rendu qui casse. */
+function defModeleK(p){ const k = p && p.defModele; return k && DEF_MODELES[k] ? k : (DEF_MODELES[S.settings.defModele] ? S.settings.defModele : 'framework'); }
 /** Le ratio d'un modèle. Celui du joueur sort de ses réglages. */
 function defRatio(k){ return k === 'perso' ? S.settings.defPerso : (DEF_MODELES[k] || {}).r; }
 /** La pièce qui compte le palier : le lanceur de plasma, ou, si le modèle n'en
@@ -7296,18 +7516,20 @@ const VIEWS = {
    vaut la peine d'être ouvert. */
 today(){
   const d=S.day;
-  return `<section class="panel">
-    ${profilCard()}${profilBloc()}
-    <div class="card"><div class="row spread liste-tete"><h2>Maintenant <span class="note" id="tdNowN"></span></h2>${cartesMenu('maintenant')}</div><div id="tdNow"></div></div>
-    <div id="tdAlerts"></div>
-    <details class="card"${fold('expeditions', true)}><summary data-fold="expeditions">Expéditions <span class="note" id="expoSum"></span></summary>
+  /* Chaque carte se déclare dans CARTES.today ; le conteneur les empile ou
+     les range en onglets, elles n'en savent rien. */
+  return cardLayout('today', {
+    profil: profilCard() + profilBloc(),
+    maintenant: `<div class="card"><div class="row spread liste-tete"><h2>Maintenant <span class="note" id="tdNowN"></span></h2>${cartesMenu('maintenant')}</div><div id="tdNow"></div></div>`,
+    alertes: `<div id="tdAlerts"></div>`,
+    expeditions: `<details class="card"${fold('expeditions', true)}><summary data-fold="expeditions">Expéditions <span class="note" id="expoSum"></span></summary>
       <div id="expoBloc"></div>
-    </details>
-    <details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
+    </details>`,
+    journee: `<details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
       <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${d.nightStart}h–${d.nightEnd}h <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
       <div id="tdDay"></div>
-    </details>
-    <details class="card"${fold('minuteurs', true)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
+    </details>`,
+    minuteurs: `<details class="card"${fold('minuteurs', true)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
       <ul class="timers" id="tmList"></ul>
       <details><summary class="note">Ajouter un minuteur à la main</summary>
         <div class="timer-form" style="margin-top:8px">
@@ -7317,8 +7539,8 @@ today(){
         </div>
       </details>
       <div class="row"><button class="btn sm ghost" id="tmSound">Tester le son</button></div>
-    </details>
-  </section>`;
+    </details>`,
+  });
 },
 empire(){ return `<div class="panel">${VIEWS.planets()}${VIEWS.research()}</div>`; },
 /* L'écran du relevé. Il tient la place du contenu tant qu'il tourne : ce que
@@ -7412,7 +7634,7 @@ server(){
 },
 tools(){
   const sub = toolTab();
-  return `<section class="panel"><div class="seg" role="tablist">${TOOLS.map(([k,l])=>`<button role="tab" data-tool="${k}" aria-selected="${sub===k}">${l}</button>`).join('')}</div>${VIEWS[sub]()}</section>`;
+  return `<section class="panel"><div class="seg" role="tablist">${segTabs(TOOLS, 'data-tool', sub)}</div>${VIEWS[sub]()}</section>`;
 },
 planets(){
   return `<section class="panel">
@@ -7420,7 +7642,7 @@ planets(){
     <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><details class="volet"${fold('mix', false)}><summary data-fold="mix">Pourquoi ce classement</summary><p class="note" id="empireMix" style="margin-top:8px"></p></details></div>
     ${poseBloc()}
     ${(()=>{ const voc = vocations(), ci = centreIndex(), auto = centreIndex(true); return S.planets.map((p,i)=>`
-    <details class="card volet" data-pi="${i}"${fold('pl:' + p.id, false)}>
+    <details class="card volet" data-pi="${i}"${fold('pl:' + p.id, false)}${meteoVoit(p.id) ? '' : ' hidden'}>
       <summary data-fold="pl:${p.id}" class="plsum"><b>${esc(p.name)}</b> <span class="note">${esc(p.coords)}</span><span class="mono" id="psum-${i}"></span></summary>
       <div class="planet-head">
         <input id="pn-${p.id}" data-p="name" value="${esc(p.name)}" aria-label="Nom de la planète">
@@ -7663,6 +7885,7 @@ settings(){
       <p class="note">Relief suit le clair ou le sombre de ton système ; les trois autres sont sombres. Le changement se voit tout de suite, sur toutes les pages.</p>
       <div class="bascules">
         ${bascule('sMuet','data-set="muet"','Couper le son', s.muet, 'Plus de carillon à la fin d\'un minuteur, et les notifications du navigateur arrivent sans bruit.')}
+        ${bascule('sOnglets','data-onglets-mode="1"','Organiser les sections en onglets', cardMode === 'tabs', 'Les cartes d\'Aujourd\'hui se rangent en onglets, une seule affichée à la fois, au lieu de s\'empiler. Le même interrupteur est dans l\'en-tête (🗂️).')}
       </div>
     </div>
     ${affichageCard()}
@@ -7715,7 +7938,8 @@ function crawlerPill(p){
  * posée sur les pages du jeu la porte toujours — c'est là, sur l'écran de
  * flotte, qu'elle sert encore.
  */
-function actsVus(x){ return x.acts.filter(a=>a.kind !== 'expo'); }
+/* Sous le filtre de la météo, seules les cartes de la planète choisie restent. */
+function actsVus(x){ return x.acts.filter(a=>a.kind !== 'expo' && meteoVoit(a)); }
 
 const REFRESH = {
 today(){
@@ -7748,10 +7972,10 @@ today(){
     pfMuets.textContent = muets.length
       ? `Rien à déplacer pour l'instant, aucune carte n'en relève : ${muets.join(', ')}.` : '';
   }
-  const timed = missions.filter(m=>m.at && m.at > plan.now), slotMs = new Map();
+  const timed = missions.filter(meteoVoit).filter(m=>m.at && m.at > plan.now), slotMs = new Map();
   for(const m of timed){ let host = null; for(const x of plan.sessions) if(x.T <= m.at) host = x; if(host && host!==s0){ if(!slotMs.has(host)) slotMs.set(host, []); slotMs.get(host).push(m); } else m.at = 0; }
-  const nowMs = missions.filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
-  const infoMs = missions.filter(m=>m.info);
+  const nowMs = missions.filter(meteoVoit).filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
+  const infoMs = missions.filter(meteoVoit).filter(m=>m.info);
   const taskHtml = m=>{
     const [wi, wb] = whyParts([m.why]);
     const meta = (m.tags||[]).map(planetTag).join('') + (m.sol ? `<span>${esc(m.sol)}</span>` : '') + copyChips(m);
@@ -7781,20 +8005,34 @@ today(){
   if(cartesNow.length) nowParts.push(listeCartes('maintenant', cartesNow, 'acts'));
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
-  if(s0.waits.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${s0.waits.length})</summary>${cartesMenu('attente')}${listeCartes('attente', s0.waits.map(w=>({crit:false, html:`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+formatTime(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`})), 'acts')}</details>`);
-  if(plan.busy.length || infoMs.length) nowParts.push(`<details${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${plan.busy.length + infoMs.length})</summary>${cartesMenu('encours')}${listeCartes('encours', plan.busy.map(b=>({crit:false, html:`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${formatTime(b.end)}</span></li>`})).concat(infoMs.map(m=>({crit:false, html:`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`}))), 'acts')}</details>`);
+  const waits0 = s0.waits.filter(meteoVoit), busy0 = plan.busy.filter(meteoVoit);
+  if(waits0.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${waits0.length})</summary>${cartesMenu('attente')}${listeCartes('attente', waits0.map(w=>({crit:false, html:`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+formatTime(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`})), 'acts')}</details>`);
+  if(busy0.length || infoMs.length) nowParts.push(`<details${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${busy0.length + infoMs.length})</summary>${cartesMenu('encours')}${listeCartes('encours', busy0.map(b=>({crit:false, html:`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${formatTime(b.end)}</span></li>`})).concat(infoMs.map(m=>({crit:false, html:`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`}))), 'acts')}</details>`);
   const nextS = plan.sessions.slice(1).find(x=>actsVus(x).length);
   if(!a0.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${formatTime(nextS.T)}</b>.`:''}</p>`);
   const aide = `<details${fold('aide', false)}><summary class="note" data-fold="aide">Comment lire ces cartes</summary><p class="note" style="margin-top:6px"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. <b>Non</b> met la carte de côté jusqu'à ce que tu la remettes. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p></details>`;
   const remets = noListe();
   document.getElementById('tdNow').innerHTML = nowParts.join('') + aide + prioHtml(plan) + remets;
+  /* Ce que chaque carte contient, pour le compteur de son onglet : les
+     chantiers sont des conseils, les missions portent leur gravité. */
+  RESUMES.maintenant = resumeDe(a0.map(()=>({sev:'info'})).concat(nowMs.map(m=>({sev:m.sev, key:'m:'+m.id}))), 'maintenant');
   /* Le bloc Expéditions se recalcule à chaque passage, comme le reste : un
      emplacement qui se libère — retour de flotte, échec, annulation — fait
      apparaître sa recommandation sans que le joueur recharge la page. */
   const eb = document.getElementById('expoBloc');
-  if(eb){ const r = expoHtml(); eb.innerHTML = r.html; document.getElementById('expoSum').textContent = r.sum; }
-  const alerts = plan.alerts;
-  document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><div class="row spread liste-tete"><h2>Alertes <span class="note">(${alerts.length})</span></h2>${cartesMenu('alertes')}</div>${listeCartes('alertes', alerts.map(a=>({crit: a.sev === 'bad', html:`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`})), 'advice')}</div>` : '';
+  if(eb){ const r = expoHtml(); eb.innerHTML = r.html; document.getElementById('expoSum').textContent = r.sum;
+    RESUMES.expeditions = resumeDe(Array.from({length:r.n || 0}, ()=>({sev:'info'})), 'expeditions'); }
+  /* Les constats qui « marquent » une carte (file vide, labo à l'arrêt) n'ont
+     pas encore leur marque sur la carte : ils se disent ici, pour qu'on puisse
+     les lire — et les ignorer. Un constat ignoré ne s'affiche plus, et ne
+     colore plus la météo. */
+  const marques = constatsVus().filter(c=>c.effet === 'marquer')
+    .map(c=>({sev:NIVEAU_SEV[c.niveau], what:c.what, why:c.why, regle:c.regle, pid:c.pid, c}));
+  const alerts = plan.alerts.filter(a=>!(a.c && estIgnore(a.c))).concat(marques)
+    .sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1)).filter(meteoVoit);
+  RESUMES.alertes = resumeDe(alerts.map(a=>({sev:a.sev, key:a.what})), 'alertes');
+  const ignBtn = a => a.c ? `<button class="btn sm ghost" data-ign="${esc(ignKey(a.c))}" title="Ne plus l'afficher tant que rien ne change (24 h au plus)">Ignorer</button>` : '';
+  document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><div class="row spread liste-tete"><h2>Alertes <span class="note">(${alerts.length})</span></h2>${cartesMenu('alertes')}</div>${listeCartes('alertes', alerts.map(a=>({crit: a.sev === 'bad', html:`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span>${ignBtn(a)}</li>`})), 'advice')}</div>` : '';
   const later = plan.sessions.slice(1).filter(x=>actsVus(x).length || slotMs.has(x));
   const slot = x=>`<div class="slot"><div class="time">${formatTime(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${actsVus(x).map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
@@ -8078,6 +8316,7 @@ function bind(){
      redessine au lieu de se rafraîchir. */
   view.querySelectorAll('[data-centre]').forEach(el=>el.addEventListener('change',()=>{ S.centre = el.checked ? el.dataset.centre : null; save(); render(); }));
   view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ applyReport(el.value); save(); render(); return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); if(k!=='safe') S.raid.at=Date.now(); save(); REFRESH.explore(); }));
+  view.querySelectorAll('[data-onglets-mode]').forEach(el=>el.addEventListener('change',()=>setCardMode(el.checked ? 'tabs' : 'stacked')));
   view.querySelectorAll('[data-lf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.lf, f=new Set(S.lf.found); el.checked ? f.add(k) : f.delete(k); S.lf.found=[...f]; save(); render(); }));
   /* Répondre, c'est à la fois choisir et passer à la suite : le plan entier
      change, donc la vue se redessine — et l'assistant disparaît à la dernière
@@ -8372,7 +8611,13 @@ view.addEventListener('click', e=>{
     return; }
   const n1 = e.target.closest('[data-noone]'); if(n1){ delete S.daily.no[n1.dataset.noone]; save(); render(); toast('Carte remise'); return; }
   const nc = e.target.closest('[data-noclear]'); if(nc){ S.daily.no = {}; save(); render(); toast('Cartes refusées remises'); return; }
+  const ig = e.target.closest('[data-ign]');
+  if(ig){ const c = constats().find(x=>ignKey(x) === ig.dataset.ign); if(c){ ignore(c); save(); render(); toast('Ignoré tant que rien ne change'); } return; }
+  const ctb = e.target.closest('[data-carte-tab]'); if(ctb){ carteChoisie(ctb.dataset.carteTab); return; }
   const sm = e.target.closest('summary[data-fold]');
+  /* En onglets, la carte affichée reste dépliée : son titre ne la replie pas,
+     et l'état enregistré pour le mode empilé ne bouge pas. */
+  if(sm && cardMode === 'tabs' && sm.parentElement.parentElement && sm.parentElement.parentElement.matches('.en-onglets > .carte')){ e.preventDefault(); return; }
   // Le repli bascule tout seul : on ne note que l'état où il va.
   if(sm){ (S.ui.fold = S.ui.fold || {})[sm.dataset.fold] = !sm.parentElement.open; save(); return; }
   const rpp = e.target.closest('[data-raidprep]'); if(rpp){ S.raid = {coords:rpp.dataset.raidprep, name:rpp.dataset.raidname, m:0, c:0, d:0, safe:false}; save(); render(); return; }
@@ -8385,7 +8630,7 @@ view.addEventListener('click', e=>{
   const la = e.target.closest('[data-launch]');
   if(la){
     const a = JSON.parse(la.dataset.launch), tm = {id:Math.random().toString(36).slice(2,8), manual:true, at:Date.now(), end:Date.now()+a.dur*1000, done:false};
-    if(a.kind==='t'){ tm.kind='t'; tm.k=a.k; tm.lvl=a.lvl; }
+    if(a.kind==='t'){ tm.kind='t'; tm.k=a.k; tm.lvl=a.lvl; if(a.pid){ tm.pid=a.pid; S.rechPid=a.pid; } }
     else if(a.kind==='b'){ tm.kind='b'; tm.pid=a.pid; tm.k=a.k; tm.lvl=a.lvl; }
     else if(a.kind==='shipbuild' || a.kind==='def'){ tm.kind='x'; tm.k='shipyard'; tm.ships=a.ships; tm.pid=a.pid; tm.label=a.what; }
     else if(a.kind==='transfer' || a.kind==='raid'){ tm.kind='x'; tm.k='fleet'; tm.ships=a.ships; tm.pid=a.pid; tm.label=a.kind==='raid' ? `Retour du pillage ${a.coords}` : 'Arrivée du rapatriement'; }
@@ -8557,6 +8802,7 @@ document.getElementById('nightBtn').addEventListener('click',()=>{
     : `Absence jusqu'à ${S.day.backHour} h`);
 });
 document.getElementById('tzBtn').addEventListener('click',()=>setTimeMode(timeMode === 'local' ? 'server' : 'local'));
+{ const cb = document.getElementById('cartesBtn'); if(cb) cb.addEventListener('click',()=>setCardMode(cardMode === 'tabs' ? 'stacked' : 'tabs')); }
 document.getElementById('luneBtn').addEventListener('click',()=>{ S.lune.on = !S.lune.on; luneTouche(); save(); render(); });
 view.addEventListener('click', e=>{
   if(e.target.id==='tmSound'){ unlockAudio(); chime(); }
@@ -8577,7 +8823,7 @@ view.addEventListener('click', e=>{
 setInterval(tickTimers, 1000);
 /* publieLePlan est sans effet sur Aujourd'hui, qui se publie en se dessinant ;
    sur Empire, REFRESH.empire ne publie rien : sans cet appel la tuile resterait muette. */
-setInterval(()=>{ if(tab==='today'||tab==='empire') REFRESH[tab](); publieLePlan(); finDeNuit(); nightBar(); }, 30000);
+setInterval(()=>{ if(tab==='today'||tab==='empire'){ REFRESH[tab](); cartesSync(); } publieLePlan(); finDeNuit(); nightBar(); }, 30000);
 /** Recalcule le plan du jour pour la page du jeu, sans rien afficher.
     `today` le publie en se dessinant ; ailleurs, c'est à nous de le faire.
     Le dessin qui suit la publication écrit dans des éléments de l'onglet
@@ -8680,7 +8926,7 @@ function applyGame(g){
   for(const t of (g.timers || [])){
     const tm = {id:'g'+t.end+(t.techId||t.type)+(t.planetId||''), game:true, queue:t.type, end:t.end*1000, done:t.end*1000 <= Date.now()};
     const pi = S.planets.findIndex(p=>p.gid===t.planetId);
-    if(OG_TECH[t.techId]){ tm.kind='t'; tm.k=OG_TECH[t.techId]; tm.lvl=S.tech[tm.k]+1; }
+    if(OG_TECH[t.techId]){ tm.kind='t'; tm.k=OG_TECH[t.techId]; tm.lvl=S.tech[tm.k]+1; if(pi>=0){ tm.pid=S.planets[pi].id; if(!tm.done) S.rechPid = tm.pid; } }
     else if(OG_BUILD[t.techId] && pi>=0){ tm.kind='b'; tm.pid=S.planets[pi].id; tm.k=OG_BUILD[t.techId]; tm.lvl=S.planets[pi].b[tm.k]+1; }
     else if(t.type==='fleet'){ tm.kind='x'; tm.k = /exp/i.test(t.label) ? 'expo' : 'fleet'; tm.label = t.label; }
     else {
@@ -8749,6 +8995,7 @@ function applyGame(g){
   // render() ne publie le plan que sur Aujourd'hui : une demande placée ici resterait muette sur la tuile
   publieLePlan();
 }
+meteoBind();
 render();
 /* Et à l'ouverture du panneau : le réglage peut avoir été posé avant que la
    page sache l'écouter, auquel cas aucun changement de sélecteur ne viendra
@@ -8792,7 +9039,7 @@ chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioA
    compteur est indexé par identifiant de planète, tiré au sort sur chaque
    poste ; envoyé tel quel il désignait la mauvaise planète à l'arrivée. */
 const SYNC_KEYS = ['settings','day','expo','lf','raids','daily','profil'];
-const gidDe = pid => { const p = planetById(pid); return p && p.gid != null ? String(p.gid) : null; };
+/* gidDe est déclarée plus haut, près de planetIndexById : le premier rendu la lit déjà (clé d'« Ignorer »). */
 const pidDe = gid => { const p = (S.planets || []).find(x => x.gid != null && String(x.gid) === String(gid)); return p ? p.id : null; };
 /* Une recherche ne porte pas de pid : elle voyage telle quelle.
    L'ordre des clés compte, et c'est tout sauf cosmétique : syncApply compare au
@@ -8929,6 +9176,8 @@ if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){
     if(area !== 'sync') return;
     // le mode des heures choisi dans un autre panneau ouvert
     if(ch.timeMode) setTimeMode(ch.timeMode.newValue);
+    // et la disposition des cartes
+    if(ch.cardLayout) setCardMode(ch.cardLayout.newValue, true);
     const d = {}; for(const k in ch) d[k] = ch[k].newValue;
     syncApply(d);
   });
