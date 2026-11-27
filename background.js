@@ -38,6 +38,16 @@ function reinject() {
           return chrome.scripting.executeScript({ target: { tabId: t.id }, files: ['ids.js', 'content.js'] });
         })
         .catch(() => {});
+      /* Le masquage a son propre marqueur : il vit dans un autre script, posé
+         à document_start, et l'onglet peut avoir perdu l'un sans l'autre. */
+      chrome.scripting
+        .executeScript({ target: { tabId: t.id }, func: () => !!self.__cpMasque })
+        .then(res => {
+          if (res && res[0] && res[0].result) return null;
+          return chrome.scripting.insertCSS({ target: { tabId: t.id }, files: ['masque.css'] })
+            .then(() => chrome.scripting.executeScript({ target: { tabId: t.id }, files: ['masque-conf.js', 'masque.js'] }));
+        })
+        .catch(() => {});
     }
   });
 }

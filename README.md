@@ -52,6 +52,30 @@ et l'infobulle dit « décalage non vérifié ». Le choix est retenu d'une sess
 à l'autre, et `save.json` porte toujours les deux heures (`serverTime`,
 `localTime`, `localTimeZone`, `serverOffsetMinutes`).
 
+## Masquer la pub, le bandeau ou le chat
+
+Trois interrupteurs indépendants masquent des morceaux de la page du jeu :
+**Publicité** (bannières et encarts promo), **Bandeau supérieur** (la barre
+Gameforge : compte, lobby, liens) et **Barre de chat**. Ils sont dans
+l'en-tête du panneau, sous 👁 (🙈 quand quelque chose est masqué), et dans
+**Réglages › Masquer dans la page du jeu** ; les deux restent synchronisés.
+**Tout masquer** coche les trois ; s'ils le sont déjà, le bouton dit **Tout
+afficher** et les décoche.
+
+Le changement s'applique tout de suite, dans tous les onglets du jeu ouverts,
+et se retrouve au prochain lancement. Rien n'est supprimé de la page : les
+éléments sont seulement non affichés, et le jeu marche comme avant. La barre
+de ressources, la liste des planètes, le menu et les alertes du jeu ne se
+masquent jamais.
+
+Chat masqué, un nouveau message fait sortir une pastille en bas à droite
+(« 1 message », « 3 messages ») ; un clic dessus rouvre le chat jusqu'à la
+page suivante, sans toucher à l'interrupteur.
+
+Quand Gameforge change son interface, les sélecteurs se corrigent dans
+`config/hide-selectors.json`, puis `node config/masque-css.js` (ou
+`./pack.sh`, qui le lance) réécrit `masque.css` et `masque-conf.js`.
+
 ## Mettre à jour
 
 **Réglages › Version** dit en quelle version tourne le panneau, si le dépôt en

@@ -1,0 +1,37 @@
+{
+  "_note": "Sélecteurs des éléments que les interrupteurs Publicité, Bandeau supérieur et Barre de chat masquent. Après modification : node config/masque-css.js (pack.sh le fait aussi), qui réécrit masque.css. « masquer » : display:none quand la classe cp-hide-<clé> est sur <html>. « recaler » : sélecteur → déclarations, appliquées sous la même classe pour reprendre la place libérée. « racine », « compteur », « ligne » (chat seulement) : où guetter les nouveaux messages, le chiffre de non-lus que le jeu écrit, et une ligne de message ajoutée. Ne jamais mettre ici la barre de ressources (#resourcesbarcomponent), la liste des planètes (#planetList), le menu (#menuTable), l'indicateur de messages (#newmessagesindicatorcomponent), la liste des événements (#eventboxContent) ni les alertes d'attaque (#attack_alert) : un test le refuse.",
+  "pub": {
+    "masquer": [
+      "#bannerskyscrapercomponent",
+      "#banner_skyscraper",
+      "#promotionCountdownBox"
+    ],
+    "recaler": {}
+  },
+  "bandeau": {
+    "masquer": [
+      "#mmonetbar"
+    ],
+    "recaler": {}
+  },
+  "chat": {
+    "masquer": [
+      "#chatbarcomponent",
+      "#chatBar",
+      ".chat_box"
+    ],
+    "recaler": {},
+    "racine": [
+      "#chatbarcomponent",
+      "#chatBar"
+    ],
+    "compteur": [
+      "#chatbarcomponent .new_msg_count",
+      "#chatBar .new_msg_count"
+    ],
+    "ligne": [
+      ".chat_msg",
+      ".chatMsg"
+    ]
+  }
+}

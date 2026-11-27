@@ -12410,6 +12410,201 @@ t('le sélecteur écrit sous chaque nom sa recette et son pack', () => {
   assert.ok(!/data-launch|data-sent/.test(d), 'toujours en lecture seule');
 });
 
+/* ---------- masquer la pub, le bandeau et le chat ---------- */
+
+const MASQUE_CONF = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'config', 'hide-selectors.json'), 'utf8'));
+
+t('masque.css et masque-conf.js sont ceux que donne le JSON des sélecteurs', () => {
+  const fs = require('fs'), path = require('path');
+  const { cssDe, confDe } = require('../config/masque-css.js');
+  const root = path.join(__dirname, '..');
+  assert.equal(fs.readFileSync(path.join(root, 'masque.css'), 'utf8'), cssDe(MASQUE_CONF),
+    'masque.css ne suit plus config/hide-selectors.json : lance node config/masque-css.js');
+  assert.equal(fs.readFileSync(path.join(root, 'masque-conf.js'), 'utf8'), confDe(MASQUE_CONF));
+});
+
+t('chaque interrupteur ne masque que ses éléments, sous sa propre classe', () => {
+  const { cssDe } = require('../config/masque-css.js');
+  const css = cssDe(MASQUE_CONF);
+  for (const k of ['pub', 'bandeau', 'chat']) {
+    assert.ok(MASQUE_CONF[k].masquer.length, k + ' masque au moins un élément');
+    for (const sel of MASQUE_CONF[k].masquer) {
+      assert.ok(css.includes(`html.cp-hide-${k} ${sel}`), sel + ' sous cp-hide-' + k);
+      for (const autre of ['pub', 'bandeau', 'chat'].filter(x => x !== k))
+        assert.ok(!css.includes(`html.cp-hide-${autre} ${sel},`) && !css.includes(`html.cp-hide-${autre} ${sel}{`), sel + ' ne dépend pas de ' + autre);
+    }
+  }
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'masque.js'), 'utf8');
+  assert.ok(!/innerHTML\s*=|\.click\(\)|fetch\(|XMLHttpRequest|sendBeacon|\.submit\(/.test(src),
+    'masque.js ne réécrit rien, ne clique rien, n\'appelle aucun serveur');
+  for (const l of src.split('\n').filter(x => /\.remove\(\)/.test(x)))
+    assert.ok(/pastille|vieille|p\.remove/i.test(l), 'masque.js ne retire du DOM que sa propre pastille : ' + l.trim());
+});
+
+t('ni les ressources, ni les planètes, ni le menu, ni les alertes ne se masquent', () => {
+  const tous = [].concat(...['pub', 'bandeau', 'chat'].map(k => MASQUE_CONF[k].masquer.concat(Object.keys(MASQUE_CONF[k].recaler || {}))));
+  for (const interdit of ['resourcesbarcomponent', 'resources', 'planetList', 'menuTable', 'links',
+    'newmessagesindicatorcomponent', 'eventboxContent', 'eventListWrap', 'attack_alert', 'notificationbarcomponent'])
+    for (const sel of tous)
+      assert.ok(!new RegExp('[#.]' + interdit + '(?![\\w-])').test(sel), sel + ' touche ' + interdit);
+});
+
+/** Le panneau en mode extension, avec les fonctions du masquage. */
+function appMasque(modifier) {
+  const st = fixtureState();
+  st.planets.forEach(p => { p.stock.at = SOIR; });
+  if (modifier) modifier(st);
+  return loadApp(st, SOIR, ['masque', 'setMasque', 'masqueBascule', 'toutMasque', 'masqueMigre', 'VIEWS', 'render', 'header'], null, true);
+}
+
+t('« Tout masquer » cache les trois, et « Tout afficher » les rend', () => {
+  const g = appMasque();
+  assert.deepEqual(g.masqueBascule({ pub: false, bandeau: false, chat: false }), { pub: true, bandeau: true, chat: true });
+  assert.deepEqual(g.masqueBascule({ pub: true, bandeau: false, chat: true }), { pub: true, bandeau: true, chat: true }, 'à moitié masqué : tout se masque');
+  assert.deepEqual(g.masqueBascule({ pub: true, bandeau: true, chat: true }), { pub: false, bandeau: false, chat: false });
+});
+
+t('un interrupteur du panneau s\'écrit dans le stockage partagé, que la page écoute', () => {
+  const g = appMasque();
+  g.setMasque({ pub: true, bandeau: false, chat: true });
+  assert.deepEqual(g.shared().masque, { pub: true, bandeau: false, chat: true });
+  assert.ok(/🙈/.test(g.el('masqueBtn').textContent), 'l\'en-tête dit que quelque chose est masqué');
+  assert.ok(/Tout masquer/.test(g.el('masqueMenu').innerHTML));
+  g.setMasque({ pub: true, bandeau: true, chat: true });
+  assert.ok(/Tout afficher/.test(g.el('masqueMenu').innerHTML), 'tout masqué : le raccourci rend tout');
+});
+
+t('les Réglages portent les trois mêmes cases que l\'en-tête', () => {
+  const g = appMasque();
+  g.setMasque({ pub: false, bandeau: true, chat: false });
+  const h = g.VIEWS.settings();
+  for (const k of ['pub', 'bandeau', 'chat']) assert.ok(h.includes(`data-masque="${k}"`), k + ' dans Réglages');
+  assert.ok(/id="sMqbandeau" data-masque="bandeau" checked/.test(h), 'la case suit le choix');
+  assert.ok(!/id="sMqpub" data-masque="pub" checked/.test(h));
+  assert.ok(/data-masque-tout>Tout masquer/.test(h));
+  for (const k of ['pub', 'bandeau', 'chat']) assert.ok(g.el('masqueMenu').innerHTML.includes(`data-masque="${k}"`), k + ' dans l\'en-tête');
+});
+
+t('jamais réglé, « Épurer » coché devient pub et bandeau masqués', () => {
+  // le harnais répond {} à la première lecture du stockage partagé : la reprise se fait au chargement
+  const g = appMasque(s => { s.settings.lean = true; });
+  assert.deepEqual(g.shared().masque, { pub: true, bandeau: true, chat: false });
+  const h = appMasque();
+  assert.equal(h.shared().masque, undefined, 'sans « Épurer », rien à reprendre');
+  const k = appMasque(s => { s.settings.lean = true; });
+  k.setMasque({ pub: false, bandeau: false, chat: true });
+  k.masqueMigre({ masque: { pub: false, bandeau: false, chat: true } });
+  assert.deepEqual(k.shared().masque, { pub: false, bandeau: false, chat: true }, 'un choix déjà fait ne se réécrit pas');
+});
+
+/** Un document de page du jeu, juste assez pour masque.js. */
+function pageMasque({ sync, local, compteurs = [] } = {}) {
+  const classes = new Set(), byId = new Map(), listeners = [], observers = [];
+  const el = (tag) => {
+    const e = { tagName: tag, textContent: '', title: '', attrs: {}, on: {},
+      setAttribute(k, v) { this.attrs[k] = v; },
+      addEventListener(t, f) { (this.on[t] = this.on[t] || []).push(f); },
+      remove() { if (this.id) byId.delete(this.id); this.parent = null; } };
+    Object.defineProperty(e, 'id', { get() { return this._id; }, set(v) { this._id = v; } });
+    return e;
+  };
+  const html = { classList: { add: c => classes.add(c), remove: c => classes.delete(c),
+    toggle: (c, on) => { if (on) classes.add(c); else classes.delete(c); }, contains: c => classes.has(c) } };
+  const doc = {
+    documentElement: html, readyState: 'loading',
+    body: { appendChild(n) { n.parent = this; if (n.id) byId.set(n.id, n); } },
+    getElementById: id => byId.get(id) || null,
+    createElement: el,
+    querySelectorAll: () => compteurs,
+    addEventListener() {}
+  };
+  let syncCb = null, localCb = null;
+  const chrome = {
+    runtime: { id: 'x' },
+    storage: {
+      sync: { get(k, cb) { syncCb = () => cb(sync === undefined ? {} : { masque: sync }); } },
+      local: { get(k, cb) { localCb = () => cb(local || {}); } },
+      onChanged: { addListener: f => listeners.push(f) }
+    }
+  };
+  class MO { constructor(f) { this.f = f; observers.push(this); } observe() { this.on = true; } disconnect() { this.on = false; } }
+  const { demarre } = require('../masque.js');
+  const api = demarre({ doc, chrome, conf: MASQUE_CONF, win: { addEventListener() {} }, MO });
+  return { api, classes, byId, observers,
+    repondSync: () => syncCb && syncCb(), repondLocal: () => localCb && localCb(),
+    change: v => listeners.forEach(f => f({ masque: { newValue: v } }, 'sync')) };
+}
+
+t('rien ne clignote : tout attend masqué que les choix soient lus', () => {
+  const p = pageMasque({ sync: { pub: true, bandeau: false, chat: false } });
+  assert.ok(p.classes.has('cp-masque-attente'), 'avant la réponse du stockage, la page attend');
+  p.repondSync();
+  assert.ok(!p.classes.has('cp-masque-attente'), 'l\'attente se lève une fois les choix lus');
+  assert.ok(p.classes.has('cp-hide-pub') && !p.classes.has('cp-hide-bandeau') && !p.classes.has('cp-hide-chat'));
+  const { cssDe } = require('../config/masque-css.js');
+  for (const k of ['pub', 'bandeau', 'chat']) for (const sel of MASQUE_CONF[k].masquer)
+    assert.ok(cssDe(MASQUE_CONF).includes('html.cp-masque-attente ' + sel), sel + ' est caché pendant l\'attente');
+});
+
+t('un interrupteur changé ailleurs s\'applique sans recharger', () => {
+  const p = pageMasque({ sync: {} });
+  p.repondSync();
+  assert.ok(![...p.classes].some(c => c.startsWith('cp-hide-')));
+  p.change({ pub: true, bandeau: true, chat: true });
+  assert.ok(['pub', 'bandeau', 'chat'].every(k => p.classes.has('cp-hide-' + k)));
+  p.change({ pub: false, bandeau: false, chat: false });
+  assert.ok(![...p.classes].some(c => c.startsWith('cp-hide-')));
+});
+
+t('jamais réglé : « Épurer » coché garde la page sans pub ni bandeau', () => {
+  const p = pageMasque({ sync: undefined, local: { skin: { lean: true } } });
+  p.repondSync();
+  assert.ok(p.classes.has('cp-masque-attente'), 'on attend encore la lecture de l\'ancien réglage');
+  p.repondLocal();
+  assert.ok(p.classes.has('cp-hide-pub') && p.classes.has('cp-hide-bandeau') && !p.classes.has('cp-hide-chat'));
+  assert.ok(!p.classes.has('cp-masque-attente'));
+  const q = pageMasque({ sync: undefined, local: {} });
+  q.repondSync(); q.repondLocal();
+  assert.ok(![...q.classes].some(c => c.startsWith('cp-hide-')), 'sans « Épurer », rien n\'est masqué');
+});
+
+t('chat masqué : un message fait sortir la pastille, un clic rouvre le chat', () => {
+  const compteurs = [];
+  const p = pageMasque({ sync: { chat: true }, compteurs });
+  p.repondSync();
+  assert.ok(p.classes.has('cp-hide-chat'));
+  assert.equal(p.observers.filter(o => o.on).length, 1, 'le chat se guette tant qu\'il est masqué');
+  p.api.montre();
+  assert.equal(p.byId.get('cp-pastille-chat'), undefined, 'pas de message, pas de pastille');
+  compteurs.push({ textContent: '1' });
+  p.api.montre();
+  const past = p.byId.get('cp-pastille-chat');
+  assert.ok(past, 'un non-lu : la pastille sort');
+  assert.equal(past.textContent, '1 message');
+  compteurs.push({ textContent: '2' });
+  p.api.montre();
+  assert.equal(past.textContent, '3 messages');
+  past.on.click.forEach(f => f());
+  assert.ok(!p.classes.has('cp-hide-chat'), 'le clic réaffiche le chat');
+  assert.equal(p.byId.get('cp-pastille-chat'), undefined, 'et la pastille s\'en va');
+  assert.equal(p.api.etat().chat, true, 'sans toucher à l\'interrupteur');
+  assert.equal(p.observers.filter(o => o.on).length, 0, 'chat visible : plus rien à guetter');
+  p.change({ chat: false });
+  p.change({ chat: true });
+  assert.ok(p.classes.has('cp-hide-chat'), 'rebasculé, l\'interrupteur reprend la main');
+});
+
+t('les lignes de chat de la page qui se charge ne comptent pas', () => {
+  const p = pageMasque({ sync: { chat: true } });
+  p.repondSync();
+  const ligne = { nodeType: 1, closest: () => ({}), matches: () => true };
+  assert.equal(p.api.compte([{ addedNodes: [ligne] }]), 0, 'l\'historique du chat arrive avec la page');
+  p.api.ouvreCompte();
+  assert.equal(p.api.compte([{ addedNodes: [ligne, { nodeType: 3 }] }]), 1, 'après, chaque ligne ajoutée compte');
+  const ailleurs = { nodeType: 1, closest: () => null, matches: () => true };
+  assert.equal(p.api.compte([{ addedNodes: [ailleurs] }]), 0, 'hors de la barre de chat, rien ne compte');
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

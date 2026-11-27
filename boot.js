@@ -31,7 +31,7 @@ chrome.storage.local.get(null, d => {
     .then(j => { window.__rules = j; })
     .catch(e => { window.__rules = null; console.error('Copilote : rules.json illisible, le moteur tourne sans réglages de règles', e); });
   const heures = new Promise(ok => {
-    try { chrome.storage.sync.get('timeMode', v => { window.__timeMode = (v && v.timeMode) || null; ok(); }); }
+    try { chrome.storage.sync.get(['timeMode', 'masque'], v => { window.__timeMode = (v && v.timeMode) || null; window.__masque = (v && v.masque) || null; ok(); }); }
     catch (e) { ok(); }
   });
   Promise.all([regles, heures]).then(go, go);
