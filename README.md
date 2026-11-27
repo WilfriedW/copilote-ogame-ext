@@ -34,6 +34,24 @@ hors du Store : laisse-le, il ne casse rien.
 
 Ensuite il se tient à jour tout seul au fil de ta navigation.
 
+## Les heures
+
+L'interrupteur à côté du badge, en haut du panneau, choisit dans quel fuseau
+le panneau écrit **toutes** ses heures — retours d'expédition, fins de
+construction et de recherche, arrivées de flotte, alertes : **heure serveur**
+(au premier lancement, comme le jeu) ou **heure locale** (celle du navigateur).
+Le libellé à côté dit le mode actif. Survole une heure : l'infobulle donne la
+même dans l'autre fuseau. Les comptes à rebours ne bougent pas. Les dates des
+messages et les heures d'arrivée, dans les pages du jeu, suivent le même
+interrupteur ; seule l'horloge du jeu reste toujours en heure serveur.
+
+L'heure du serveur se relit à chaque page du jeu, donc l'écart suit seul les
+changements d'heure, même les semaines où l'Europe et l'Amérique ne changent
+pas le même dimanche. Si une page ne la donne pas, le dernier écart connu sert
+et l'infobulle dit « décalage non vérifié ». Le choix est retenu d'une session
+à l'autre, et `save.json` porte toujours les deux heures (`serverTime`,
+`localTime`, `localTimeZone`, `serverOffsetMinutes`).
+
 ## Mettre à jour
 
 **Réglages › Version** dit en quelle version tourne le panneau, si le dépôt en

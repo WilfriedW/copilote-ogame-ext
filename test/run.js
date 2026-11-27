@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -3751,7 +3751,7 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
      prend tout nom de fichier local qu'il cite — un nom qu'on lit dans du code
      qui part est un fichier qui doit partir avec lui. */
   const cites = liste.filter(f => /\.(js|html|css)$/.test(f))
-    .flatMap(f => [...lu(f).matchAll(/['"]([\w-]+\.(?:js|css|html|png|woff2))['"]/g)].map(x => x[1]));
+    .flatMap(f => [...lu(f).matchAll(/['"]([\w-]+\.(?:js|css|html|png|woff2|json))['"]/g)].map(x => x[1]));
   const voulus = new Set(['manifest.json', m.background.service_worker,
     ...m.content_scripts.flatMap(c => c.js),
     ...Object.values(m.icons),
@@ -7130,7 +7130,7 @@ const HEURES = {
 };
 
 t('une heure du jeu se relit à la montre du joueur', () => {
-  const r = runPage({ skin: null, heures: HEURES });
+  const r = runPage({ skin: null, heures: HEURES, heuresMode: 'local' });
   assert.equal(r.heures[0].txt, '21:57:27', 'onze heures de moins, la veille');
   assert.equal(r.heures[0].titre, 'heure du serveur : 08:57:27', 'et le serveur à portée de souris');
   assert.ok(/copilote-heure/.test(r.heures[0].cls), 'marquée comme traduite');
@@ -7145,7 +7145,7 @@ t('un joueur à l\'heure du serveur ne voit rien changer', () => {
 
 t('la date d\'un message se relit à la montre du joueur', () => {
   // 23.11.2026 08:20:27 au serveur (UTC+1) : 22.11.2026 21:20:27 à Tahiti.
-  const r = runPage({ skin: null, heures: { ...HEURES, messages: ['23.11.2026 08:20:27'] } });
+  const r = runPage({ skin: null, heures: { ...HEURES, messages: ['23.11.2026 08:20:27'] }, heuresMode: 'local' });
   assert.equal(r.dates[0].txt, '22.11.2026 21:20:27', 'onze heures de moins, la veille');
   assert.equal(r.dates[0].titre, 'heure du serveur : 23.11.2026 08:20:27', 'et le serveur à portée de souris');
   assert.ok(/copilote-heure/.test(r.dates[0].cls), 'marquée comme traduite');
@@ -7159,10 +7159,30 @@ t('l\'horloge du jeu garde l\'heure du serveur', () => {
 t('une date déjà traduite ne se décale pas à chaque passage', () => {
   /* Le script repeint plusieurs fois une même page : sans la marque, la date
      reculerait d'onze heures de plus à chaque fois. */
-  const r = runPage({ skin: null, heures: { ...HEURES, messages: ['23.11.2026 08:20:27'] } });
+  const r = runPage({ skin: null, heures: { ...HEURES, messages: ['23.11.2026 08:20:27'] }, heuresMode: 'local' });
   r.secousse();
   r.secousse();
   assert.equal(r.read().dates[0].txt, '22.11.2026 21:20:27', 'traduite une fois, pas trois');
+});
+
+t('en heure serveur, le jeu garde ses heures et donne la locale au survol', () => {
+  // le mode par défaut, celui du premier lancement
+  const r = runPage({ skin: null, heures: { ...HEURES, messages: ['23.11.2026 08:20:27'] } });
+  assert.equal(r.heures[0].txt, '08:57:27', 'l\'arrivée reste à l\'heure du serveur');
+  assert.equal(r.heures[0].titre, 'heure locale : 21:57:27');
+  assert.equal(r.dates[0].txt, '23.11.2026 08:20:27', 'le message aussi');
+  assert.equal(r.dates[0].titre, 'heure locale : 22.11.2026 21:20:27');
+});
+
+t('l\'interrupteur du panneau bascule les heures du jeu sans recharger', () => {
+  const r = runPage({ skin: null, heures: { ...HEURES, messages: ['23.11.2026 08:20:27'] } });
+  r.majMode('local');
+  assert.equal(r.read().dates[0].txt, '22.11.2026 21:20:27', 'passée à l\'heure du joueur');
+  assert.equal(r.read().heures[0].txt, '21:57:27');
+  r.majMode('server');
+  r.secousse();
+  assert.equal(r.read().dates[0].txt, '23.11.2026 08:20:27', 'revenue au serveur, sans dériver');
+  assert.equal(r.read().heures[0].txt, '08:57:27');
 });
 
 t('un texte qui n\'est pas l\'heure de cet instant n\'est pas touché', () => {
@@ -12333,6 +12353,61 @@ t('une sauvegarde d\'avant le modèle de défense en reçoit un', () => {
   assert.equal(g.S.settings.defModele, 'framework');
   assert.equal(g.S.settings.defPalier, 20);
   assert.ok(g.defPlan(g.S.planets[0]), 'et le calcul tourne quand même');
+});
+
+/* ---------- la recette des modèles, en clair ---------- */
+
+/* Intl écrit ses milliers avec une espace insécable fine : on la ramène à une
+   espace pour comparer au tableau de la demande. */
+const esp = s => String(s).replace(/[  ]/g, ' ');
+const RECETTES = {
+  framework: ['Pour 1 PL : 40 LM / 25 LL / 10 LLo / 4 Gauss', '', '307,5 k M / 142,5 k C / 38 k D'],
+  balanced: ['Pour 100 LL : 20 LM / 10 LLo / 10 Gauss / 20 Ions / 5 PL', 'Pour 1 PL : 4 LM / 20 LL / 2 LLo / 2 Gauss / 4 Ions', '800 k M / 530 k C / 170 k D'],
+  vetter: ['Pour 1 PL : 270 LM / 180 LL / 45 LLo / 5 Gauss / 15 Ions', '', '1,305 M M / 350 k C / 40 k D'],
+  turtle: ['Pour 40 PL : 1 000 LM / 1 000 LL / 400 LLo / 100 Gauss / 100 Ions', 'Pour 1 PL : 25 LM / 25 LL / 10 LLo / 2,5 Gauss / 2,5 Ions', '10,4 M M / 5,1 M C / 1,4 M D'],
+  fodder: ['Pour 9 PL : 900 LM / 300 LL / 50 LLo / 18 Gauss / 30 Ions', 'Pour 1 PL : 100 LM / 33,3 LL / 5,6 LLo / 2 Gauss / 3,3 Ions', '3,51 M M / 1,06 M C / 306 k D'],
+  plasma: ['Pour 1 PL : 50 LM', '', '150 k M / 50 k C / 30 k D'],
+};
+t('chaque modèle du wiki a sa recette, sa version à 1 PL et son pack', () => {
+  const g = app();
+  for (const [k, [nat, pl, cout]] of Object.entries(RECETTES)) {
+    const m = g.defModele(k);
+    assert.equal(esp(g.formatRecipe(m, {per: 'native'})), nat, k + ' natif');
+    if (pl) assert.equal(esp(g.formatRecipe(m, {per: 'PL'})), pl, k + ' à 1 PL');
+    assert.equal(esp(g.packText(g.packCost(m))), cout, k + ' pack');
+    const carte = esp(lu(g.defModeleCarte(k)).replace(/<[^>]+>/g, ''));
+    assert.ok(carte.includes(nat), k + ' : la carte porte la recette native');
+    assert.equal(/Pour 1 PL : \d/.test(carte.replace(nat, '')), !!pl, k + ' : la ligne à 1 PL seulement hors ancre 1 PL');
+    assert.ok(lu(g.defModeleCarte(k)).includes('Defense_Build_Strategies'), k + ' : le lien source');
+  }
+});
+t('le pack se calcule sur la table DEF, pas sur des prix recopiés', () => {
+  const g = app();
+  g.DEF.gc.c = [1, 2, 3];
+  assert.deepEqual(g.packCost({r: {gc: 2}}), [2, 4, 6]);
+});
+t('le ratio perso : ancre par défaut, 1 PL / 15 Gauss', () => {
+  const g = app(s => { s.settings.defModele = 'perso'; s.settings.defPerso = {rl: 0, ll: 0, hl: 0, ic: 0, gc: 15, pt: 1}; });
+  const m = g.defModele('perso');
+  assert.equal(esp(g.formatRecipe(m)), 'Pour 1 PL : 15 Gauss');
+  assert.equal(esp(g.packText(g.packCost(m))), '350 k M / 275 k C / 60 k D');
+  const sans = g.defModele('perso'); sans.r = {rl: 40, ll: 0, hl: 0, ic: 0, gc: 4, pt: 0};
+  assert.equal(esp(g.formatRecipe(sans)), 'Pour 4 Gauss : 40 LM', 'sans PL, la pièce la plus chère');
+  assert.equal(g.formatRecipe(sans, {per: 'PL'}), '', 'et pas de ligne à 1 PL');
+});
+t('une abréviation dit son nom complet et son prix', () => {
+  const g = app();
+  assert.equal(esp(g.defUniteTitre('hl')), 'Artillerie laser lourde : 6 000 M / 2 000 C');
+  assert.ok(/<abbr title="Artillerie laser lourde/.test(g.defRecetteHtml(g.defModele('framework'))));
+});
+t('le sélecteur écrit sous chaque nom sa recette et son pack', () => {
+  const g = app(DEFENSE);
+  const h = esp(lu(g.VIEWS.settings()));
+  for (const k of Object.keys(RECETTES)) assert.ok(h.includes(RECETTES[k][0] + ' · ' + RECETTES[k][2]), k + ' dans le menu');
+  assert.ok(/data-defpick="perso"/.test(h), 'le perso y est aussi');
+  const d = lu(g.VIEWS.defense());
+  assert.ok(/data-defpick="" data-dp=/.test(d), 'et chaque planète garde « Comme les réglages »');
+  assert.ok(!/data-launch|data-sent/.test(d), 'toujours en lecture seule');
 });
 
 if (failures.length) {

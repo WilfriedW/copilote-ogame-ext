@@ -295,6 +295,11 @@
          avant que le relevé accepte d'y passer. On ne lit que la forme du
          paramètre dans les liens du menu, rien de ce qui est écrit dedans. */
       lfMenu: lfAuMenu(),
+      /* Le décalage du serveur sur UTC, en secondes, relu à chaque page : le
+         panneau en tire l'heure serveur de ses propres heures. Null quand
+         l'horloge du jeu ne se lit pas — le panneau garde alors le dernier
+         connu et le dit. */
+      srvOff: (() => { try { return decalageServeur(); } catch (e) { return null; } })(),
       slots,
       timers: unique
     };
@@ -420,11 +425,17 @@ html.copilote-large ul.icons{width:auto !important;max-width:none !important}`;
        décalage. On ne devine rien du pays du serveur. */
     const meta = document.querySelector('meta[name="ogame-timestamp"]');
     const epoch = meta && Number(meta.content);
-    if (!epoch) return null;
     const horloge = document.querySelector('.OGameClock');
     const t = horloge && (horloge.textContent || '').match(/(\d{1,2}):(\d{2}):(\d{2})/);
     if (!t) return null;
-    let d = (+t[1]) * 3600 + (+t[2]) * 60 + (+t[3]) - (epoch % 86400);
+    /* L'horloge tourne depuis la naissance de la page : comparée à l'instant
+       de naissance seul, une page restée ouverte dix minutes donnait dix
+       minutes de trop, et l'arrondi au quart basculait. On avance donc
+       l'instant du temps écoulé depuis. Sans la balise, l'horloge du poste
+       fait le repère — l'arrondi au quart absorbe un poste mal réglé de
+       quelques minutes. */
+    const maintenant = epoch ? epoch + performance.now() / 1000 : Date.now() / 1000;
+    let d = (+t[1]) * 3600 + (+t[2]) * 60 + (+t[3]) - (Math.floor(maintenant) % 86400);
     if (d > 43200) d -= 86400; else if (d < -43200) d += 86400;
     /* L'horloge a pu avancer d'une seconde ou deux depuis que la page est
        née. Les fuseaux allant par quart d'heure, on arrondit au quart. */
@@ -460,7 +471,33 @@ html.copilote-large ul.icons{width:auto !important;max-width:none !important}`;
       + ' ' + d2(d.getHours()) + ':' + d2(d.getMinutes()) + ':' + d2(d.getSeconds());
   }
 
-  /** Réécrit à l'heure du joueur ce que le jeu date d'un instant précis. */
+  /* Le mode choisi par l'interrupteur du panneau : 'server' (le défaut, comme
+     le jeu) ou 'local'. Les heures du jeu le suivent comme celles du panneau. */
+  let heuresMode = 'server';
+
+  /* Une heure reconnue garde ses deux écritures sur elle — celle du serveur,
+     celle du joueur — et `montreHeure` pose celle du mode, l'autre dans
+     l'infobulle. Basculer revient donc à relire deux attributs : aucun calcul
+     sur un texte qu'on aurait soi-même déjà réécrit. */
+  function poseHeure(n, srv, ici) {
+    n.dataset.cpSrv = srv;
+    n.dataset.cpIci = ici;
+    n.classList.add('copilote-heure');
+    montreHeure(n);
+  }
+  /** Écrit l'heure du mode, et seulement si elle diffère : la page ne bouge pas pour rien. */
+  function montreHeure(n) {
+    const loc = heuresMode === 'local';
+    const txt = loc ? n.dataset.cpIci : n.dataset.cpSrv;
+    const titre = loc ? 'heure du serveur : ' + n.dataset.cpSrv : 'heure locale : ' + n.dataset.cpIci;
+    if (n.textContent !== txt) n.textContent = txt;
+    if (n.title !== titre) n.title = titre;
+  }
+  /** Vrai si le nœud porte encore l'une de nos deux écritures. */
+  const dejaPosee = (n, txt) => n.classList.contains('copilote-heure') && n.dataset.cpSrv != null
+    && (txt === n.dataset.cpSrv || txt === n.dataset.cpIci);
+
+  /** Écrit dans le fuseau choisi ce que le jeu date d'un instant précis. */
   function heuresIci() {
     const dec = decalageServeur();
     if (dec == null) return;
@@ -472,14 +509,13 @@ html.copilote-large ul.icons{width:auto !important;max-width:none !important}`;
       for (const n of [cadre, ...cadre.querySelectorAll('*')]) {
         if (n.children.length) continue;
         const txt = (n.textContent || '').trim();
+        if (dejaPosee(n, txt)) { montreHeure(n); continue; }
         /* Le texte doit dire l'heure du serveur pour cet instant-là, à la
            seconde ou à la minute. Tout le reste — une durée, un compte à
            rebours, un nombre de vaisseaux — ne ressemble pas et ne bouge pas. */
         const avecSec = txt.length > 5;
         if (txt !== heureServeur(epoch, dec, avecSec)) continue;
-        n.textContent = heureIci(epoch, avecSec);
-        n.title = 'heure du serveur : ' + txt;
-        n.classList.add('copilote-heure');
+        poseHeure(n, txt, heureIci(epoch, avecSec));
       }
     });
     /* Les messages. Le jeu n'y date rien d'un attribut : la seule source est
@@ -489,17 +525,17 @@ html.copilote-large ul.icons{width:auto !important;max-width:none !important}`;
 
        Deux exclusions. L'horloge, qui porte la même forme et reste le repère
        en heure serveur. Et ce qu'on a déjà traduit : sans cette marque, chaque
-       passage décalerait la date un peu plus. */
+       passage décalerait la date un peu plus — une date à l'heure du joueur
+       a la même forme qu'une date du serveur. */
     (function balaye(p) {
       for (const n of p.children) {
         if (n.classList.contains('OGameClock')) continue;
         if (n.children.length) { balaye(n); continue; }
-        if (n.classList.contains('copilote-heure')) continue;
-        const m = DATE_JEU.exec((n.textContent || '').trim());
+        const txt = (n.textContent || '').trim();
+        if (dejaPosee(n, txt)) { montreHeure(n); continue; }
+        const m = DATE_JEU.exec(txt);
         if (!m) continue;
-        n.textContent = dateIci(epochDeDate(m, dec));
-        n.title = 'heure du serveur : ' + m[0];
-        n.classList.add('copilote-heure');
+        poseHeure(n, m[0], dateIci(epochDeDate(m, dec)));
       }
     })(document.body);
   }
@@ -2484,6 +2520,16 @@ font-size:11px;letter-spacing:.08em;color:var(--cp-accent)}
       if (ch.prioAsk) { askVu = true; prends(ch.prioAsk.newValue); }
     });
     try { chrome.storage.local.get('prioAsk', v => { if (!askVu) prends(v && v.prioAsk); }); } catch (e) {}
+    /* Le mode des heures vit dans le stockage partagé, où l'interrupteur du
+       panneau l'écrit : basculer là-bas repeint les heures ici, sans recharger. */
+    const prendsMode = m => { const v = m === 'local' ? 'local' : 'server'; if (v !== heuresMode) { heuresMode = v; paint(); } };
+    let modeVu = false;
+    try {
+      chrome.storage.onChanged.addListener((ch, area) => {
+        if (area === 'sync' && ch.timeMode) { modeVu = true; prendsMode(ch.timeMode.newValue); }
+      });
+      chrome.storage.sync.get('timeMode', v => { if (!modeVu) prendsMode(v && v.timeMode); });
+    } catch (e) {}
   } catch (e) {}
 
   let last = '', dirty = true;

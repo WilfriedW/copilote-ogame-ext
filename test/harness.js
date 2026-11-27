@@ -40,7 +40,10 @@ function fakeEl() {
  * @param {string[]} want noms des symboles d'app.js à récupérer
  * @returns {object} les symboles demandés
  */
-function loadApp(state, nowMs, want, api, ext, prioAsk) {
+function loadApp(state, nowMs, want, api, ext, prioAsk, rules) {
+  /* Les règles du moteur, comme boot.js les pose : le vrai fichier par défaut,
+     un objet donné par le test, ou null pour un fichier illisible. */
+  if (rules === undefined) rules = JSON.parse(fs.readFileSync(path.join(ROOT, 'rules.json'), 'utf8'));
   // l'onglet où le panneau se trouve à l'ouverture : il le relit dans le stockage de page
   const tab = state.__tab; delete state.__tab;
   const store = { 'ogame-copilot-v1': JSON.stringify(state) };
@@ -97,7 +100,7 @@ function loadApp(state, nowMs, want, api, ext, prioAsk) {
 
   // IS_EXT se lit sur window.chrome.runtime.id : seuls les tests qui veulent
   // le mode extension le demandent, les autres restent en mode page.
-  const window = { addEventListener() {}, chrome: ext ? chrome : undefined, __api: api || null, __game: null, __prioAsk: prioAsk || null };
+  const window = { addEventListener() {}, chrome: ext ? chrome : undefined, __api: api || null, __game: null, __prioAsk: prioAsk || null, __rules: rules };
 
   // même ordre que boot.js
   const src = ['ids.js', 'profils.js', 'app.js']

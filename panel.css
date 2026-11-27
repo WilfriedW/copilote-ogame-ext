@@ -83,13 +83,39 @@ nav.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(
    Rond comme les onglets, et il s'allume quand les réglages sont ouverts. */
 .gear{border-radius:999px;padding:4px 8px;font-size:14px;line-height:1.2}
 .gear[aria-selected="true"]{background:var(--accent);border-color:var(--accent)}
+/* L'interrupteur des heures : la même bascule que les Réglages, en plus petit,
+   et son libellé discret juste à droite. Allumé = heure locale. */
+.tzsw{flex:0 0 auto;appearance:none;width:30px;height:18px;padding:0;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);position:relative;cursor:pointer}
+.tzsw .knob{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:transform .15s,background .15s}
+.tzsw[aria-checked="true"]{background:var(--accent);border-color:var(--accent)}
+.tzsw[aria-checked="true"] .knob{transform:translateX(12px);background:var(--accent-ink)}
+.tzsw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tzlbl{flex:0 0 auto;font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap}
+:root[data-skin=hud] .tzsw,:root[data-skin=hud] .tzsw .knob{border-radius:0}
+/* Une heure du panneau : son infobulle donne l'autre fuseau. */
+time.hr{cursor:help;text-decoration:underline dotted color-mix(in srgb,currentColor 35%,transparent);text-underline-offset:3px}
 section.panel{display:flex;flex-direction:column;gap:14px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .spread{justify-content:space-between}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
 .grid.tight{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
-label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+label.f,div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+/* Le sélecteur de modèle de défense : un volet plutôt qu'un <select>, pour
+   écrire sous chaque nom sa recette et son pack. Une ligne, coupée par « … »,
+   la recette entière en infobulle. */
+details.defpick{position:relative;min-width:0}
+details.defpick>summary{list-style:none;cursor:pointer;font-family:var(--f-mono);font-size:13px;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:7px 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+details.defpick>summary::-webkit-details-marker{display:none}
+details.defpick>summary::after{content:" ▾";color:var(--muted)}
+.defopts{position:absolute;z-index:20;left:0;top:calc(100% + 4px);width:min(480px,calc(100vw - 48px));display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:0 10px 30px rgba(0,0,0,.35);padding:4px}
+.defopt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;min-width:0;text-align:left;font:inherit;font-size:13px;color:var(--fg);background:transparent;border:none;border-radius:var(--r-sm);padding:6px 8px;cursor:pointer}
+.defopt:hover,.defopt[aria-pressed="true"]{background:var(--surface-2)}
+.defopt .note{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.defmod{display:flex;flex-direction:column;gap:4px;margin-top:10px;padding:8px 10px;background:var(--surface-2);border-radius:var(--r-sm)}
+.defmod p{margin:0}
+abbr[title]{text-decoration:underline dotted;cursor:help}
+.defmod a{color:var(--accent)}
 /* Une case à cocher n'est pas un champ qu'on coiffe d'un titre : dans le
    gabarit en colonne elle partait seule sur sa ligne, étirée par la largeur
    des champs, et son libellé tombait dessous. */

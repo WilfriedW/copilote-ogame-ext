@@ -89,13 +89,14 @@ function el(tag, attrs = {}) {
  * @param {object} opts.noms par tuile : le nom que le jeu écrit dans son étiquette
  * @param {string} opts.prodHref href du lien du jeu vers « Paramétrage de la production », absent par défaut
  * @param {boolean} opts.menuLf le menu du jeu offre les pages de forme de vie (univers qui en a)
+ * @param {string} opts.heuresMode le mode des heures choisi au panneau ('server' ou 'local'), absent par défaut
  * @returns {object} { html, eta, dataset }
  */
 function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], details = true,
   search = '?page=ingame&component=research', tiles = [], vieuxStyle = null, intruse = false,
   casesIntruses = false, planetList = true, menuMuet = false, champsFlotte = false,
   enChantier = null, heures = null, niveaux = {}, noms = {}, stockageCasse = null, getDiffere = false, askAvant,
-  prodHref = null, menuLf = false }) {
+  prodHref = null, menuLf = false, heuresMode }) {
   const html = el('html');
   const head = el('head');
   const body = el('body');
@@ -357,7 +358,10 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
   const ecrit = {};
   if (askAvant !== undefined) ecrit.prioAsk = askAvant;
   let dernier = null;
-  // Le panneau republie son envoi : on garde l'écouteur pour rejouer la scène.
+  /* Le panneau republie son envoi : on garde les écouteurs pour rejouer la
+     scène. Tous : le script en pose un pour le stockage local et un pour le
+     mode des heures, et n'en garder qu'un faisait taire l'autre. */
+  const ecouteurs = [];
   let republie = null;
   const enAttente = [];
   const chrome = {
@@ -381,7 +385,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
           try { if (cb) cb(); } finally { delete chrome.runtime.lastError; }
         }
       },
-      onChanged: { addListener(fn) { republie = fn; } }
+      sync: { get(k, cb) { cb(heuresMode ? { timeMode: heuresMode } : {}); } },
+      onChanged: { addListener(fn) { ecouteurs.push(fn); republie = (ch, area) => ecouteurs.forEach(f => f(ch, area)); } }
     },
     runtime: { sendMessage(m) { envois.push(m); return { catch() {} }; } }
   };
@@ -537,6 +542,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
       if (neuf === undefined) delete ecrit.prioAsk; else ecrit.prioAsk = neuf;
       republie && republie({ prioAsk: neuf === undefined ? { oldValue: [] } : { newValue: neuf } }, 'local');
     },
+    /** L'interrupteur du panneau bascule le mode des heures. */
+    majMode: m => republie && republie({ timeMode: { newValue: m } }, 'sync'),
     /** Le stockage répond enfin aux `get('prioAsk')` restés en l'air. */
     livre: () => { while (enAttente.length) enAttente.shift()(); },
     /** Ce que la tuile du jeu porte : sa pastille, son infobulle, sa teinte. */

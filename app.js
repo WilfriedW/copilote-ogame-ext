@@ -1,10 +1,32 @@
 
-const APP_VERSION = '2.7.9';
+const APP_VERSION = '2.8.0';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
 /** La version du dépôt, quand on a pu la lire. */
 let MAJ = null;
+
+/* ---------- les règles du moteur ----------
+   Décrites dans rules.json, que boot.js lit avant ce fichier et pose dans
+   `window.__rules`. Une règle ne fait pas qu'écrire une phrase à côté du plan :
+   ce qu'elle trouve — un constat — pousse un candidat que la simulation paie,
+   marque une carte que le plan sort déjà, suspend ce qui dépend d'une donnée
+   manquante, ou se signale quand le plan n'a rien à y répondre.
+   Voir docs/superpowers/specs/2026-11-26-regles-du-moteur-design.md. */
+const REGLES_VIDE = () => ({version:0, regles:[], mineBalance:{byStyle:{}, byPosition:{}}, lifeforms:{}});
+/* Un fichier illisible ne bloque rien : le moteur d'avant tourne, ses secours et
+   ses cartes existent sans rules.json, ils perdent seulement leurs réglages. */
+const REGLES_ERR = (()=>{ const r = window.__rules; return r && typeof r === 'object' && Array.isArray(r.regles) ? '' : 'règles illisibles : le moteur tourne sans réglages'; })();
+const REGLES = REGLES_ERR ? REGLES_VIDE() : Object.assign(REGLES_VIDE(), window.__rules);
+const aSoi = (o, k) => !!o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
+const REGLES_PAR_ID = {};
+REGLES.regles.forEach((r, i) => { if(r && typeof r.id === 'string' && !aSoi(REGLES_PAR_ID, r.id)) REGLES_PAR_ID[r.id] = Object.assign({}, r, {rang:i}); });
+/** Une fonction par type de condition : (planète, paramètres, ctx) → constats bruts. */
+const EVAL = {};
+const NIVEAUX = ['critique', 'important', 'conseil'];
+const NIVEAU_SEV = {critique:'bad', important:'warn', conseil:'info'};
+const SEV_NIVEAU = {bad:'critique', warn:'important', info:'conseil'};
+const DOMAINES = {ressources:'Ressources', installations:'Installations', recherche:'Recherche', formes_de_vie:'Formes de vie'};
 
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -242,6 +264,7 @@ migratePlanetIds();
    la case du volet Empire afficherait « undefined » et le joueur l'y saisirait. */
 for(const p of S.planets || []) p.b = Object.assign(Object.fromEntries(Object.keys(B).map(k=>[k,0])), p.b);
 S.daily = Object.assign(sample().daily, S.daily);
+regleSaine();
 /* Le profil indexe des tables par ses propres clés : une clé inconnue y lève,
    et `sainEtat` ne passe qu'à l'import d'une sauvegarde ou au retour d'une
    synchro. Il se remet donc d'aplomb ici aussi, au démarrage. */
@@ -1406,7 +1429,7 @@ function bandData(acts, missions, waits){
   for(const w of waits || []){
     const m = manque(w);
     pose(actGo(w), w.what, (w.q || '').split(' · ')[1], m ? 'Il manque ' + m : '',
-      isFinite(w.eta) ? 'vers ' + hm(Date.now() + w.eta*1000) : 'à faire livrer', true);
+      isFinite(w.eta) ? 'vers ' + formatTime(Date.now() + w.eta*1000) : 'à faire livrer', true);
   }
   return {pages};
 }
@@ -1439,7 +1462,7 @@ function colonneData(acts, missions, waits){
   for(const w of waits || []){
     const m = manque(w);
     pose(actGo(w), w.what, (w.q || '').split(' · ')[1], m ? 'Il manque ' + m : '',
-      isFinite(w.eta) ? 'vers ' + hm(Date.now() + w.eta*1000) : 'à faire livrer', true);
+      isFinite(w.eta) ? 'vers ' + formatTime(Date.now() + w.eta*1000) : 'à faire livrer', true);
   }
   return l;
 }
@@ -2226,8 +2249,8 @@ function header(){
      yeux, le bouton parle de la planète la moins souvent vue. Tant qu'il est
      là, l'en-tête annonce donc ce qu'il corrige. */
   const quand = perime
-    ? (perime > 7*864e5 ? 'jamais relevé' : 'relevé ' + hm(Date.now() - perime))
-    : (S.syncAt ? 'synchro ' + new Date(S.syncAt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : 'en attente du jeu');
+    ? (perime > 7*864e5 ? 'jamais relevé' : 'relevé ' + formatTime(Date.now() - perime))
+    : (S.syncAt ? 'synchro ' + formatTime(S.syncAt) : 'en attente du jeu');
   const cls = ({collector:'Collecteur',general:'Général',explorer:'Explorateur',none:'Sans classe'})[s.cls];
   const ub = document.getElementById('uniBadge');
   ub.innerHTML = `${esc(quand)}<span class="cls"> · ${esc(cls)}</span>`;
@@ -2245,6 +2268,16 @@ function header(){
   lb.title = lb.ariaLabel = lune ? 'Quitter le mode lune' : 'Mode lune';
   lb.classList.toggle('primary', lune);
   lb.classList.toggle('ghost', !lune);
+  /* L'interrupteur des heures : coché = heure locale. Son libellé dit le mode
+     choisi ; s'il dit « serveur ? », aucune page du jeu n'a encore donné
+     l'heure du serveur et le panneau montre la locale en attendant. */
+  const tz = document.getElementById('tzBtn'), tzl = document.getElementById('tzLbl');
+  const inconnu = timeMode === 'server' && srvOffSec() == null;
+  tz.setAttribute('aria-checked', String(timeMode === 'local'));
+  tz.title = tz.ariaLabel = timeMode === 'local' ? 'Afficher les heures en heure serveur' : 'Afficher les heures en heure locale';
+  tzl.textContent = timeMode === 'local' ? 'Heures : locale' : (inconnu ? 'Heures : serveur ?' : 'Heures : serveur');
+  tzl.title = inconnu ? 'Heure serveur pas encore lue : les heures restent en heure locale jusqu\'à la prochaine page du jeu'
+    : (S.srvTz && S.srvTz.ok === false ? 'Décalage du serveur non vérifié sur la dernière page : le dernier connu sert' : (LOCAL_TZ ? 'Fuseau local : ' + LOCAL_TZ : ''));
   /* L'engrenage est un onglet comme les autres, hors de la barre : il porte le
      même `data-tab`, donc le même état sélectionné. */
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.tab===tab)));
@@ -2367,15 +2400,250 @@ function depensesPayables(p, j, st){
     }
   return out.sort((a,b)=>b.cost[j]-a.cost[j]);
 }
+/* ---------- les règles du moteur : lecture, constats ---------- */
+/**
+ * La règle telle qu'elle s'applique : le fichier, puis ce que le joueur a
+ * changé. Une règle à verrou reste allumée quoi qu'il ait écrit : la
+ * simulation en a besoin pour rester vraie.
+ * @param {string} id
+ * @returns {object|null} null si le fichier ne la connaît pas
+ */
+function regle(id){
+  if(!aSoi(REGLES_PAR_ID, id)) return null;
+  const r = REGLES_PAR_ID[id], reg = S.settings && S.settings.regles;
+  const j = aSoi(reg, id) ? reg[id] : null;
+  const on = r.verrou ? true : (j && typeof j.on === 'boolean' ? j.on : r.actif_par_defaut !== false);
+  const parametres = Object.assign({}, r.parametres);
+  if(j && j.p && typeof j.p === 'object')
+    for(const k of Object.keys(parametres)) if(aSoi(j.p, k) && Number.isFinite(j.p[k])) parametres[k] = j.p[k];
+  return Object.assign({}, r, {on, parametres});
+}
+/* Une règle que le fichier ne connaît pas — fichier illisible, ou plus ancien
+   que le code — laisse le moteur faire ce qu'il faisait avant elle : allumée,
+   avec la valeur d'avant. Le moteur ne s'éteint pas faute de réglage. */
+function regleActive(id){
+  const r = regle(id);
+  return !r || (r.on && !(r.cat && poidsCat(r.cat) === 0));
+}
+function regleParam(id, k, defaut){
+  const r = regle(id);
+  return r && Number.isFinite(r.parametres[k]) ? r.parametres[k] : defaut;
+}
+function regleTexte(id, champ, defaut, vars){
+  const r = regle(id);
+  return gabarit(r && typeof r[champ] === 'string' ? r[champ] : defaut, vars || {});
+}
+/** Remet `S.settings.regles` d'aplomb : n'y reste que ce qui s'écarte du fichier. */
+function regleSaine(){
+  const src = S.settings && S.settings.regles, out = {};
+  if(src && typeof src === 'object') for(const id of Object.keys(src)){
+    if(!aSoi(REGLES_PAR_ID, id)) continue;
+    const r = REGLES_PAR_ID[id], j = src[id];
+    if(!j || typeof j !== 'object') continue;
+    const e = {};
+    if(!r.verrou && typeof j.on === 'boolean' && j.on !== (r.actif_par_defaut !== false)) e.on = j.on;
+    if(j.p && typeof j.p === 'object'){
+      const p = {};
+      for(const k of Object.keys(r.parametres || {}))
+        if(aSoi(j.p, k) && Number.isFinite(j.p[k]) && j.p[k] !== r.parametres[k]) p[k] = j.p[k];
+      if(Object.keys(p).length) e.p = p;
+    }
+    if(Object.keys(e).length) out[id] = e;
+  }
+  if(S.settings) S.settings.regles = out;
+}
+/** Ce que le joueur change sur une règle, fusionné à ce qu'il avait déjà écrit. */
+function reglePose(id, ecart){
+  if(!aSoi(REGLES_PAR_ID, id) || !ecart) return;
+  const reg = S.settings.regles || (S.settings.regles = {});
+  const avant = aSoi(reg, id) ? reg[id] : {};
+  const neuf = Object.assign({}, avant);
+  if(typeof ecart.on === 'boolean') neuf.on = ecart.on;
+  if(ecart.p && typeof ecart.p === 'object') neuf.p = Object.assign({}, avant.p, ecart.p);
+  reg[id] = neuf;
+  regleSaine();
+}
+/**
+ * Un texte de règle, ses variables remplies : `{x}` et `{x+1}`, rien d'autre.
+ * Une variable inconnue reste écrite : un trou visible vaut mieux qu'une phrase
+ * qui ment.
+ */
+function gabarit(txt, vars){
+  return String(txt == null ? '' : txt).replace(/\{(\w+)(\+1)?\}/g, (m, k, plus) =>
+    aSoi(vars, k) && vars[k] != null ? (plus ? String((+vars[k] || 0) + 1) : String(vars[k])) : m);
+}
+const rangNiveau = n => { const i = NIVEAUX.indexOf(n); return i < 0 ? NIVEAUX.length : i; };
+/* Une règle cassée ne le dit qu'une fois : rendue toutes les trente secondes,
+   elle noierait la console. */
+const _regleTue = new Set();
+function regleTue(id, quoi, e){
+  if(_regleTue.has(id)) return; _regleTue.add(id);
+  console.error(`Copilote : règle ${id} — ${quoi}`, e || '');
+}
+/**
+ * Les constats d'une règle sur une planète. Une règle éteinte, d'une catégorie
+ * que le profil met à 0, ou coupée pour cette planète n'en rend aucun : le
+ * poids 0 coupe la règle avant la simulation, jamais une carte qu'elle a payée.
+ */
+function constatsDe(p, id){
+  const r = regle(id);
+  if(!r || !r.on || !p) return [];
+  if(r.cat && poidsCat(r.cat) === 0) return [];
+  if(p.regOff && p.regOff[id] === true) return [];
+  const ev = aSoi(EVAL, r.condition) ? EVAL[r.condition] : null;
+  if(typeof ev !== 'function'){ regleTue(id, `aucun évaluateur pour « ${r.condition} »`); return []; }
+  let bruts;
+  try{ bruts = ev(p, r.parametres, r) || []; }catch(e){ regleTue(id, 'évaluation impossible', e); return []; }
+  return bruts.map(b => {
+    const vars = Object.assign({planete:p.name, sur:S.planets.length > 1 ? ` sur ${p.name}` : ''}, b.vars);
+    return {regle:id, pid:p.id, niveau:r.niveau, effet:r.effet, domaine:r.domaine, cat:r.cat || '',
+      rang:r.rang, statut:r.statut, source:r.source || '', valeur:b.valeur == null ? 0 : b.valeur, vars,
+      what:gabarit(r.message, vars), why:gabarit(r.raison, vars), action:r.action ? gabarit(r.action, vars) : '',
+      cost:b.cost || null, repond:b.repond || null, servi:false};
+  });
+}
+/**
+ * Tous les constats de l'empire, sur l'état réel : niveau, puis poids du
+ * profil, puis ordre du fichier, puis ordre des planètes. N'écrit rien — comme
+ * `prios()`, elle est lue pendant que la simulation tient la place de l'état.
+ * @returns {object[]}
+ */
+function constats(){
+  const out = [], ps = S.planets || [];
+  for(const id of Object.keys(REGLES_PAR_ID)) for(const p of ps) out.push(...constatsDe(p, id));
+  const pi = new Map(ps.map((p, i) => [p.id, i]));
+  return out.sort((a, b) => rangNiveau(a.niveau) - rangNiveau(b.niveau)
+    || poidsCat(b.cat) - poidsCat(a.cat) || a.rang - b.rang || pi.get(a.pid) - pi.get(b.pid));
+}
+/** La carte du plan qui répond à ce constat, ou undefined. */
+function repondA(c, a, i){
+  const r = c.repond;
+  return !!r && r.kinds.includes(a.kind) && (r.partout || a.p === i)
+    && (!r.ks || a.kind !== 'b' || r.ks.includes(a.k));
+}
+
+/* ---------- les règles du moteur : évaluateurs ---------- */
+const HANGARS = [['Hangar de métal', 'smetal'], ['Hangar de cristal', 'scrystal'], ['Réservoir de deutérium', 'sdeut']];
+/* Au plafond, la production s'arrête. Ce qui la relance, c'est dépenser : le
+   plan pousse le plus gros chantier productif payable (pickBuildings). */
+EVAL.storageRatio = (p, prm) => {
+  const pr = production(p), st = stockNow(p), out = [];
+  for(let k = 0; k < 3; k++){
+    if(!(st[k] >= pr.cap[k] * prm.seuil)) continue;
+    const [name, bk] = HANGARS[k], mont = buildTime(bk, p.b[bk] + 1, p), d = depensesPayables(p, k, st)[0];
+    out.push({valeur:k, cost:d ? d.cost : null, repond:{kinds:['b']},
+      vars:{hangar:name, ressource:NOM_RES[k], niveau:p.b[bk], montee:dur(mont), quoi:d ? d.what : 'Un transport',
+        depense:d ? `Lance ${d.what} : c'est la plus grosse dépense payable tout de suite ${d.kind === 't' ? 'depuis ton labo' : 'ici'}, ${fmt(d.cost[k])} de ${NOM_RES[k]} d'un coup.`
+          : 'Rien n\'est payable ici pour la vider : fais partir un transport.'}});
+  }
+  return out;
+};
+/* Le délai couvre le temps de montée du hangar, et au moins `heures` : il doit
+   être MONTÉ avant le plafond. Le garde sur le débit évite une durée infinie. */
+EVAL.storageEta = (p, prm) => {
+  const pr = production(p), st = stockNow(p), rates = [pr.m, pr.c, pr.d], out = [];
+  const plein = regleParam('RES_STORAGE_FULL', 'seuil', .98);
+  for(let k = 0; k < 3; k++){
+    if(st[k] >= pr.cap[k] * plein || !(rates[k] > 0)) continue;
+    const [name, bk] = HANGARS[k], mont = buildTime(bk, p.b[bk] + 1, p), h = (pr.cap[k] - st[k]) / rates[k];
+    if(h < Math.max(prm.heures, mont / 3600))
+      out.push({valeur:k, cost:levelCost(B[bk], p.b[bk] + 1), repond:{kinds:['b'], ks:[bk]},
+        vars:{hangar:name, ressource:NOM_RES[k], niveau:p.b[bk], dans:dur(h * 3600), montee:dur(mont)}});
+  }
+  return out;
+};
+/* L'option satellites est respectée par energyOptions : un satellite écarté
+   ne sort pas comme la solution, il se dit à part dans planetAlerts. */
+EVAL.energyBalance = p => {
+  const pr = production(p);
+  if(!(pr.factor < 1)) return [];
+  const ok = energyOptions(p).filter(o => o.prete), best = ok[0];
+  return [{valeur:0, repond:{kinds:['b', 'sats'], ks:['solar', 'fusion']},
+    vars:{pct:Math.round(pr.factor * 100), quoi:best ? best.label : B.solar.n,
+      options:best ? `Le moins cher par point d'énergie : ${energyLine(best)}.${ok.length > 1 ? ` Sinon ${ok.slice(1).map(energyLine).join(', ')}.` : ''}`
+        : 'Monte la centrale solaire.'}}];
+};
+/* Le meilleur pas du classement ne tient pas dans le hangar : le plan monte le
+   hangar d'abord (pickBuildings). Sans cette règle l'attente serait infinie et
+   setGoal la tairait, d'où son verrou. */
+EVAL.nextLevelCost = p => {
+  const best = rankUpgrades(p).filter(u => u.payback < Infinity && B[u.key])[0];
+  if(!best) return [];
+  const pr = production(p), bc = best.extraSolar ? levelCost(B.solar, p.b.solar + 1) : levelCost(B[best.key], best.lvl), out = [];
+  for(let j = 0; j < 3; j++) if(bc[j] > pr.cap[j]){
+    const [name, bk] = HANGARS[j];
+    out.push({valeur:`${best.key}${best.lvl}:${j}`, cost:levelCost(B[bk], p.b[bk] + 1), repond:{kinds:['b'], ks:[bk]},
+      vars:{mine:upLabel(best), hangar:name, niveau:p.b[bk]}});
+  }
+  return out;
+};
+/* La mine conseillée ferait passer l'énergie en négatif : la centrale d'abord,
+   et son prix est compté dans celui de la mine (rankUpgrades). */
+EVAL.nextMineEnergy = p => {
+  const u = rankUpgrades(p).filter(x => x.payback < Infinity && B[x.key]).slice(0, 2).find(x => x.extraSolar);
+  if(!u || p.satPending) return [];
+  return [{valeur:`${u.key}${u.lvl}`, cost:levelCost(B.solar, p.b.solar + 1), repond:{kinds:['b', 'sats'], ks:['solar']},
+    vars:{mine:`${B_SHORT[u.key]} ${u.lvl}`, niveau:p.b.solar}}];
+};
+/* Une file est occupée quand le jeu y montre un chantier, nommé ou non : même
+   lecture que simulateDay. */
+const fileDe = (p, test) => (S.timers || []).filter(t => t && t.pid === p.id && test(t));
+const enCours = t => !t.done && t.end > Date.now();
+const fileBat = t => t.kind === 'b' || (t.kind === 'x' && t.queue === 'building');
+/* La valeur du constat est la fin du dernier chantier connu : une file revidée
+   plus tard est une autre occurrence, et un « Ignorer » d'hier ne la cache pas. */
+EVAL.queueEmpty = p => {
+  const l = fileDe(p, fileBat);
+  if(l.some(enCours)) return [];
+  return [{valeur:l.reduce((m, t) => Math.max(m, +t.end || 0), 0), repond:{kinds:['b']}, vars:{}}];
+};
+EVAL.researchIdle = p => {
+  const lab = labPlanet();
+  if(!lab || lab.id !== p.id || !(p.b.lab >= 1)) return [];
+  const l = (S.timers || []).filter(t => t && (t.kind === 't' || (t.kind === 'x' && t.queue === 'research')));
+  if(l.some(enCours)) return [];
+  return [{valeur:l.reduce((m, t) => Math.max(m, +t.end || 0), 0), repond:{kinds:['t'], partout:true}, vars:{}}];
+};
+
+/* ---------- les règles du moteur : ignorer, compter ---------- */
+/** La clé d'« Ignorer » : la règle, la planète en identifiant du jeu (`daily`
+    voyage), et la valeur de la condition. */
+function ignKey(c){ return `${c.regle}|${gidDe(c.pid) || c.pid}|${c.valeur}`; }
+const IGN_MS = 24 * 3600e3;
+function ignores(){ return S.daily && S.daily.ign && typeof S.daily.ign === 'object' ? S.daily.ign : {}; }
+function ignore(c){ if(!c) return; S.daily.ign = Object.assign({}, ignores(), {[ignKey(c)]: Date.now()}); }
+function estIgnore(c){ const t = ignores()[ignKey(c)]; return Number.isFinite(t) && Date.now() - t < IGN_MS; }
+/** Les constats que le joueur n'a pas mis de côté. Ignorer ne change rien au
+    plan : un constat ignoré pousse et suspend comme avant. */
+function constatsVus(cs){ return (cs || constats()).filter(c => !estIgnore(c)); }
+/* « Jusqu'à ce que la condition change » se lit au sens propre : une entrée
+   dont aucun constat de ce rendu ne porte la clé tombe, et toutes tombent au
+   bout de 24 h. Seulement sur un vrai relevé : sur les données d'exemple
+   aucun constat n'existe, et tout serait effacé. */
+function ignClean(){
+  if(!IS_EXT || S.sample || !S.daily || !S.daily.ign) return;
+  const vivantes = new Set(constats().map(ignKey)), avant = S.daily.ign, apres = {};
+  for(const k of Object.keys(avant)) if(vivantes.has(k) && Number.isFinite(avant[k]) && Date.now() - avant[k] < IGN_MS) apres[k] = avant[k];
+  if(Object.keys(apres).length !== Object.keys(avant).length){ S.daily.ign = apres; save(); }
+}
+/* Le compte des critiques, pour l'icône. Le service worker compose le badge :
+   le panneau ne fait que dire ce qu'il voit, et quand. */
+let _critPub = null;
+function publieCritiques(cs){
+  if(!IS_EXT) return;
+  const n = constatsVus(cs).filter(c => c.niveau === 'critique').length;
+  if(_critPub && _critPub.n === n && Date.now() - _critPub.at < 5 * 60e3) return;
+  _critPub = {n, at:Date.now()};
+  try{ chrome.storage.local.set({critiques:_critPub}); }catch(e){}
+}
+
 function planetAlerts(p){
   const out = [], pr = production(p), st = stockNow(p);
   const where = S.planets.length>1 ? ` sur ${p.name}` : '';
-  if(pr.factor<1){
+  const deRegle = id => constatsDe(p, id).map(c => ({sev:NIVEAU_SEV[c.niveau], what:c.what, why:c.why, regle:c.regle, valeur:c.valeur}));
+  out.push(...deRegle('RES_ENERGY_NEGATIVE'));
+  if(pr.factor<1 && regleActive('RES_ENERGY_NEGATIVE')){
     const opts = energyOptions(p), ok = opts.filter(o=>o.prete), best = ok[0];
-    out.push({sev:'bad', what:`Rétablir l'énergie${where}`,
-      why:`Tes mines tournent à ${Math.round(pr.factor*100)} %. ${best
-        ? `Le moins cher par point d'énergie : ${energyLine(best)}.${ok.length>1 ? ` Sinon ${ok.slice(1).map(energyLine).join(', ')}.` : ''}`
-        : 'Monte la centrale solaire.'}`});
     /* Une option écartée ne se dit que si elle aurait été la moins chère :
        sinon l'avertissement ferait regretter un réglage qui ne changeait rien. */
     for(const o of opts)
@@ -2399,22 +2667,12 @@ function planetAlerts(p){
   const libres = casesLibres(p);
   if(libres === 0) out.push({sev:'bad', what:`Plus un emplacement libre${where}`, why:`${p.cases.max} emplacements, tous pris. Le jeu refuse toute construction ici, Terraformeur compris. Démolis un bâtiment que tu ne sers pas — un hangar surdimensionné, le Dépôt de ravitaillement — pour en rendre un.`});
   else if(libres === 1) out.push({sev:'warn', what:`Un seul emplacement libre${where}`, why:`${p.cases.pris} sur ${p.cases.max}. La prochaine construction prend le dernier, et plus rien ne se posera ensuite. Le Terraformeur en agrandit la planète, mais il lui faut cet emplacement-là pour être construit : garde-le-lui si tu le vises.`});
-  ['m','c','d'].forEach((x,k)=>{
-    const rate=[pr.m,pr.c,pr.d][k], name=['Hangar de métal','Hangar de cristal','Réservoir de deutérium'][k], bk=['smetal','scrystal','sdeut'][k];
-    const mont = buildTime(bk, p.b[bk]+1, p);
-    if(st[k]>=pr.cap[k]*0.98){
-      /* Au plafond, le hangar arrive trop tard : il met des heures à sortir et
-         la production ne repart pas avant. Ce qui la relance, c'est le plus
-         gros chantier payable ici. */
-      const d = depensesPayables(p, k, st)[0];
-      out.push({sev:'bad', what:`${name} plein${where}`, why:`La production de ${NOM_RES[k]} est arrêtée. ${d ? `Lance ${d.what} : c'est la plus grosse dépense payable tout de suite ${d.kind === 't' ? 'depuis ton labo' : 'ici'}, ${fmt(d.cost[k])} de ${NOM_RES[k]} d'un coup.` : `Rien n'est payable ici pour la vider : fais partir un transport.`} Monter ${name} ${p.b[bk]+1} prend ${dur(mont)}, et la production reste à l'arrêt jusque-là.`});
-    }
-    // Le délai couvre le temps de montée du hangar, et au moins huit heures :
-    // l'avertissement doit sortir assez tôt pour que le hangar soit MONTÉ avant
-    // le plafond, et servir aussi à prévoir une longue absence. Le garde sur le
-    // débit évite une durée infinie.
-    else if(rate>0 && (pr.cap[k]-st[k])/rate < Math.max(8, mont/3600)) out.push({sev:'warn', what:`${name} plein dans ${dur((pr.cap[k]-st[k])/rate*3600)}${where}`, why:`Lance ${name} ${p.b[bk]+1} maintenant : il met ${dur(mont)} à sortir, et au plafond la production s'arrête.`});
-  });
+  /* Le hangar, plein ou bientôt : deux règles du moteur (RES_STORAGE_FULL,
+     RES_STORAGE_SOON). Au plafond, le hangar arrive trop tard — il met des
+     heures à sortir — et ce qui relance la production est le plus gros
+     chantier payable ici ; avant, le hangar, assez tôt pour être monté. Une
+     ressource à la fois, dans l'ordre métal, cristal, deutérium. */
+  out.push(...deRegle('RES_STORAGE_FULL').concat(deRegle('RES_STORAGE_SOON')).sort((a, b) => a.valeur - b.valeur));
   return out;
 }
 const SEV_LABEL = {bad:'Urgent', warn:'Attention', good:'Prêt', info:'Conseillé'};
@@ -2506,7 +2764,7 @@ function renderTimers(){
       : cours.length ? `${cours.length} en cours · le premier dans ${dur((cours[0].end-Date.now())/1000)}`
       : 'aucun';
   }
-  list.innerHTML = sorted.length ? sorted.map(tm=>`<li class="${tm.done?'done':''}"><div><div>${esc(timerLabel(tm))}</div><div class="note">fin à ${new Date(tm.end).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}${new Date(tm.end).toDateString()!==new Date().toDateString()?' le '+new Date(tm.end).toLocaleDateString('fr-FR'):''}</div></div>
+  list.innerHTML = sorted.length ? sorted.map(tm=>`<li class="${tm.done?'done':''}"><div><div>${esc(timerLabel(tm))}</div><div class="note">fin à ${formatTime(tm.end, {date: true})}</div></div>
     <div class="row" style="gap:8px"><span class="cd" id="cd-${tm.id}">${tm.done?'Terminé':clock((tm.end-Date.now())/1000)}</span><button class="btn sm ghost" data-tmrm="${tm.id}">${tm.done?'OK':'Annuler'}</button></div></li>`).join('')
     : `<li><div class="note">Aucun minuteur. Copie le compte à rebours affiché dans le jeu, colle-le ici et lance.</div></li>`;
 }
@@ -2912,7 +3170,123 @@ function dayValue(k, v, prev){
   const t = {focus:FOCUS, lf:LF_MODE, research:RESEARCH_MODE}[k];
   return t ? (t[v] ? v : prev) : Math.max(0, parseInt(v) || 0);
 }
-const hm = ms => { const d=new Date(ms), today=new Date(); const t=d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}); return d.toDateString()===today.toDateString() ? t : (new Date(today.getTime()+864e5).toDateString()===d.toDateString() ? 'demain '+t : d.toLocaleDateString('fr-FR',{weekday:'short'})+' '+t); };
+/* ---------- les heures du panneau : serveur ou locale ----------
+
+   Le jeu vit à l'heure de son serveur, le joueur à la sienne, et l'écart
+   bouge deux fois l'an — l'Europe et l'Amérique ne changent pas d'heure le
+   même dimanche. Les instants restent donc partout des millisecondes UTC ;
+   seul `formatTime` choisit un fuseau, au moment d'écrire. Tout le panneau
+   passe par lui : le mode s'applique partout ou nulle part.
+
+   L'heure locale est celle du navigateur, que `Date` connaît déjà avec ses
+   changements d'heure. L'heure serveur se déduit du décalage du serveur sur
+   UTC, relu par le script de page à chaque page du jeu (`S.srvTz`). Tant
+   qu'aucune page ne l'a donné, il n'y a pas d'heure serveur à montrer : on
+   montre la locale et l'infobulle le dit. */
+const LOCAL_TZ = (()=>{ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; }catch(e){ return ''; } })();
+/* `var` : header() peut s'exécuter avant que cette ligne soit atteinte. */
+var timeMode = (typeof window !== 'undefined' && window.__timeMode === 'local') ? 'local' : 'server';
+/** Le décalage du serveur sur UTC en secondes, ou null s'il n'a jamais été lu. */
+function srvOffSec(){ const z = S && S.srvTz; return z && Number.isFinite(z.off) ? z.off : null; }
+/** Le fuseau réellement affiché : le serveur demandé mais inconnu retombe sur la locale. */
+function timeZoneShown(){ return timeMode === 'server' && srvOffSec() != null ? 'server' : 'local'; }
+/** Jour, heure, minute d'un instant, dans le fuseau dit. */
+function clockParts(ms, zone){
+  const off = zone === 'server' ? srvOffSec() : null;
+  if(off != null){ const d = new Date(ms + off*1000); return {y:d.getUTCFullYear(), mo:d.getUTCMonth(), d:d.getUTCDate(), h:d.getUTCHours(), mi:d.getUTCMinutes(), s:d.getUTCSeconds(), wd:d.getUTCDay()}; }
+  const d = new Date(ms); return {y:d.getFullYear(), mo:d.getMonth(), d:d.getDate(), h:d.getHours(), mi:d.getMinutes(), s:d.getSeconds(), wd:d.getDay()};
+}
+const JOURS_COURTS = ['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'];
+const p2 = n => String(n).padStart(2, '0');
+/** L'heure d'un instant dans un fuseau : « 18:29 », « demain 04:12 », « jeu. 07:00 ». */
+function clockText(ms, zone, opts){
+  const c = clockParts(ms, zone), n = clockParts(Date.now(), zone);
+  const t = p2(c.h) + ':' + p2(c.mi);
+  // l'écart en jours civils du fuseau, pas en tranches de 24 h : un changement d'heure ne le fausse pas
+  const ecart = Math.round((Date.UTC(c.y, c.mo, c.d) - Date.UTC(n.y, n.mo, n.d)) / 864e5);
+  if(ecart === 0) return t;
+  if(opts && opts.date) return `${t} le ${p2(c.d)}/${p2(c.mo+1)}/${c.y}`;
+  if(ecart === 1) return 'demain ' + t;
+  if(Math.abs(ecart) < 7) return JOURS_COURTS[c.wd] + ' ' + t;
+  return `${p2(c.d)}/${p2(c.mo+1)} ${t}`;
+}
+/* Ce que formatTime a écrit, et pour quel instant : l'infobulle s'en sert
+   pour retrouver l'instant derrière un texte déjà posé dans la page — même
+   quand ce texte a traversé esc() au milieu d'une phrase. Deux instants qui
+   s'écrivent pareil tombent à la même minute : leur autre fuseau aussi. */
+var timeSeen = new Map();
+/**
+ * La seule façon d'écrire une heure dans le panneau.
+ * @param {number} timestampUtc instant en millisecondes UTC
+ * @param {{date?:boolean}} [opts] `date` : la date en entier hors du jour même
+ * @returns {string} l'heure dans le mode choisi (serveur ou locale)
+ */
+function formatTime(timestampUtc, opts){
+  const txt = clockText(timestampUtc, timeZoneShown(), opts);
+  if(timeSeen.size > 600) timeSeen.clear();
+  timeSeen.set(txt, timestampUtc);
+  return txt;
+}
+/** Ce que dit l'infobulle d'une heure : la même dans l'autre fuseau. */
+function timeTitle(ms){
+  if(srvOffSec() == null) return 'heure locale · heure serveur pas encore lue : ouvre une page du jeu';
+  const autre = timeZoneShown() === 'server' ? 'local' : 'server';
+  const verif = S.srvTz && S.srvTz.ok === false ? ' · décalage non vérifié' : '';
+  return clockText(ms, autre) + (autre === 'server' ? ' heure serveur' : ' heure locale') + verif;
+}
+/** Change de mode, le retient, et redessine sans recharger. */
+function setTimeMode(m){
+  m = m === 'local' ? 'local' : 'server';
+  if(m === timeMode) return;
+  timeMode = m; timeSeen.clear();
+  try{ if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){ const r = chrome.storage.sync.set({timeMode: m}); if(r && r.catch) r.catch(syncFailed); } }catch(e){ syncFailed(e); }
+  render();
+}
+/* L'infobulle se pose après coup, sur ce qui est déjà dans la page : les heures
+   vivent dans des phrases que esc() traverse, un balisage glissé par
+   formatTime y serait échappé. On cherche donc dans les textes les écritures
+   que formatTime vient de produire, et on les entoure d'un <time>. */
+function tagTimes(root){
+  if(!root || typeof document.createTreeWalker !== 'function' || !timeSeen.size) return;
+  const keys = [...timeSeen.keys()].sort((a, b) => b.length - a.length).map(k => k.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'));
+  const re = new RegExp('(?<![\\w:])(' + keys.join('|') + ')(?![\\d:])', 'g');
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {acceptNode: n =>
+    n.parentElement && !n.parentElement.closest('time.hr,script,style,textarea,input,select,option') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT});
+  const todo = [];
+  for(let n; (n = w.nextNode());){ re.lastIndex = 0; if(re.test(n.nodeValue)) todo.push(n); }
+  for(const n of todo){
+    const f = document.createDocumentFragment(), s = n.nodeValue; let i = 0; re.lastIndex = 0;
+    for(let m; (m = re.exec(s));){
+      if(m.index > i) f.appendChild(document.createTextNode(s.slice(i, m.index)));
+      const el = document.createElement('time'); el.className = 'hr';
+      const ms = timeSeen.get(m[1]); el.dateTime = new Date(ms).toISOString(); el.title = timeTitle(ms);
+      el.textContent = m[1]; f.appendChild(el); i = m.index + m[1].length;
+    }
+    if(i < s.length) f.appendChild(document.createTextNode(s.slice(i)));
+    n.parentNode.replaceChild(f, n);
+  }
+}
+if(typeof MutationObserver !== 'undefined' && typeof Node !== 'undefined' && document.body instanceof Node){
+  /* Directement dans le rappel, pas dans une image d'animation : un panneau
+     caché n'en dessine pas, et ses heures restaient sans infobulle. Nos
+     propres <time> relancent l'observateur une fois, qui n'y trouve plus rien. */
+  new MutationObserver(() => {
+    try{ tagTimes(document.querySelector('.wrap')); tagTimes(document.querySelector('.alertes')); }
+    catch(e){ console.error('Copilote : infobulle des heures', e); }
+  }).observe(document.body, {childList: true, subtree: true, characterData: true});
+}
+/** Les quatre champs horaires de l'export : les deux heures, toujours, quel que soit le mode. */
+function timeExport(ms){
+  const off = srvOffSec(), loc = new Date(ms);
+  const full = c => `${c.y}-${p2(c.mo+1)}-${p2(c.d)} ${p2(c.h)}:${p2(c.mi)}:${p2(c.s)}`;
+  return {
+    serverTime: off == null ? null : full(clockParts(ms, 'server')),
+    localTime: full(clockParts(ms, 'local')),
+    localTimeZone: LOCAL_TZ,
+    // heure serveur − heure locale, en minutes : les fuseaux vont par quart d'heure
+    serverOffsetMinutes: off == null ? null : Math.round((off/60 + loc.getTimezoneOffset()) / 15) * 15
+  };
+}
 function isNight(ms){ const d=new Date(ms), h=d.getHours()+d.getMinutes()/60, a=+S.day.nightStart, b=+S.day.nightEnd; if(a===b) return false; return a>b ? (h>=a || h<b) : (h>=a && h<b); }
 /** Connection times over the planning horizon, skipping the night window. */
 function sessionTimes(now){
@@ -3491,7 +3865,7 @@ function simulateDay(){
         const R = nr.list[0], key='t:'+R.k+R.lvl, c = levelCost(T[R.k],R.lvl), mine = goals.find(g=>g.key===key);
         if(phase==='pre' && !R.crit && !mine) return;
         const sr = phase==='post' ? softRes(labP) : [0,0,0], rr = reserveOf(labP,Tm,mine).map((x,j)=>x+sr[j]);
-        if(can(labP,c,rr)){ launchR(R, mine ? `Économisée depuis ${hm(mine.since)}` : ''); dropGoal(key); delete sim.rSince[key]; return; }
+        if(can(labP,c,rr)){ launchR(R, mine ? `Économisée depuis ${formatTime(mine.since)}` : ''); dropGoal(key); delete sim.rSince[key]; return; }
         if(!sim.rSince[key]) sim.rSince[key] = Tm;
         const starving = Tm - sim.rSince[key] >= Math.max(4, 4*iv)*3600e3;
         /* `mine` d'abord : un objectif déjà posé se retrouve, même sous une
@@ -3602,7 +3976,7 @@ function simulateDay(){
            après planète. C'est le pas qu'on retient, pas la priorité : quand
            `prioStep` a fait un détour par un hangar, le hangar part. */
         if(pas.k === 'lab' && sim.rq > Tm){
-          const dit = `Le jeu ne monte aucun laboratoire tant qu'une recherche tourne : celle-ci finit à ${hm(sim.rq)}.`;
+          const dit = `Le jeu ne monte aucun laboratoire tant qu'une recherche tourne : celle-ci finit à ${formatTime(sim.rq)}.`;
           waits.push({q:'Bâtiment · '+planetRef(pp), what:`${B.lab.n} ${pas.lvl}`, why:`${pas.why} ${dit}`,
             eta:(sim.rq-Tm)/1000, miss:[0,0,0], kind:'b', k:'lab', p:pp.i});
           prioEtat.push({id, etat:dit});
@@ -3770,10 +4144,10 @@ function simulateDay(){
           : `Les hangars de ${planetRef(q)} se remplissent : ces ressources travaillent mieux sur ${planetRef(dst)}.`) + ' ';
         acts.push(own
           ? {q:'Flotte · '+planetRef(q), what:`Rapatrier vers ${planetRef(dst)} : ${charge}`,
-             why:`${motif}${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${hm(arrive)}`,
+             why:`${motif}${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${formatTime(arrive)}`,
              dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i, dest:dst.coords, res:sent, mission:3}
           : {q:'Flotte · '+planetRef(src), what:`Envoie ${shipList(ships)} vers ${planetRef(q)}`,
-             why:`${motif}À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${hm(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge} vers ${planetRef(dst)}, arrivée vers ${hm(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.`,
+             why:`${motif}À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${formatTime(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge} vers ${planetRef(dst)}, arrivée vers ${formatTime(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.`,
              dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i, dest:q.coords, mission:4});
         libres--;
       }
@@ -3802,7 +4176,7 @@ function simulateDay(){
         const ret = Tm + total*1000, out = Object.assign({}, f.ships);
         expoBusy.push(ret);
         sim.ev.push({at:ret, fn:()=>{ for(const [k,n] of Object.entries(out)){ p.ships[k]=(p.ships[k]||0)+n; sim.away[k]-=n; } }});
-        acts.push({q:'Flotte · '+planetRef(p), what:'Expédition : '+shipList(f.ships), why:`Ramène des ressources, parfois des vaisseaux, pour ${fmt(fuel)} deut de carburant · vers ${tgt}, retour vers ${hm(ret)} · soute ${fmt(f.cargo)} pour ${fmt(f.cap)} max`, cost:c, dur:total, end:ret, kind:'expo', ships:out, p:p.i, dest:tgt, mission:15});
+        acts.push({q:'Flotte · '+planetRef(p), what:'Expédition : '+shipList(f.ships), why:`Ramène des ressources, parfois des vaisseaux, pour ${fmt(fuel)} deut de carburant · vers ${tgt}, retour vers ${formatTime(ret)} · soute ${fmt(f.cargo)} pour ${fmt(f.cap)} max`, cost:c, dur:total, end:ret, kind:'expo', ships:out, p:p.i, dest:tgt, mission:15});
       }
       for(const p of P){
         if(p.b.shipyard<1 || p.sq>Tm) continue;
@@ -4084,9 +4458,9 @@ function whyParts(parts){
 }
 function actHtml(a, withBtn){
   const [wi, wb, lead] = whyParts([a.why,
-    a.src==='estimé' ? 'Prix et durée estimés d\'après les niveaux déjà vus, pas lus sur le jeu ; la durée est probablement sous-estimée.' : a.src==='lu' && a.at ? `Prix lu à ${hm(a.at)}.` : '',
+    a.src==='estimé' ? 'Prix et durée estimés d\'après les niveaux déjà vus, pas lus sur le jeu ; la durée est probablement sous-estimée.' : a.src==='lu' && a.at ? `Prix lu à ${formatTime(a.at)}.` : '',
     goNote(a)]);
-  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${hm(a.end)}</span>` : '', copyChips(a)].filter(Boolean).join('');
+  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${formatTime(a.end)}</span>` : '', copyChips(a)].filter(Boolean).join('');
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,pid:(S.planets[a.p]||{}).id,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
@@ -4823,7 +5197,7 @@ function expoHtml(){
         <div class="w">${esc(shipList(x.f.ships))}</div>
       </div>
       <span class="btns">${url ? `<button class="btn sm primary" data-prep="${esc(url)}">Préparer</button>` : ''}<button class="btn sm" data-launch='${esc(JSON.stringify(lance))}'>Lancé</button></span>
-      <div class="m"><span>vers ${coordLink(x.tgt)}</span><span>exploration visée ${x.heures} h</span><span>retour vers ${hm(x.retour)}</span></div>
+      <div class="m"><span>vers ${coordLink(x.tgt)}</span><span>exploration visée ${x.heures} h</span><span>retour vers ${formatTime(x.retour)}</span></div>
       <div class="m"><span>${fmt(x.f.pts)} / ${fmt(x.f.ptsCap)} points</span><span>fret ${fmt(x.f.cargo)} pour ${fmt(x.f.fret)} visés</span><span>carburant ${fmt(x.fuel)} deutérium</span></div>
       ${ennuis.length ? `<div class="m">⚠ ${esc(ennuis.join(' · '))}</div>` : ''}
       ${x.pourquoi.length ? `<div class="m">${esc(x.pourquoi.join(' · '))}</div>` : ''}
@@ -4844,7 +5218,7 @@ function dailyMissions(){
   const now = Date.now(), out = [], h = new Date(now).getHours();
   const target = coloTarget(), lfCible = c => LIFEFORMS[lfPourPos((parseC(c)||[])[2]||0)].n;
   const colMove = (S.moves||[]).find(m=>m.mission===7 && !m.ret && m.arrival*1000>now);
-  if(colMove) out.push({id:'colo-fly', info:true, q:'Colonie', every:24, sev:'info', what:`Colonisation en route vers ${colMove.dest||coloTarget()}`, why:`Arrivée vers ${hm(colMove.arrival*1000)}. Prépare le kit et la forme de vie ${lfCible(colMove.dest||target)}.`, how:['Garde des transporteurs libres pour le kit.', 'À l\'arrivée, relève le nombre de cases et saisis-le dans Outils › Colonie.']});
+  if(colMove) out.push({id:'colo-fly', info:true, q:'Colonie', every:24, sev:'info', what:`Colonisation en route vers ${colMove.dest||coloTarget()}`, why:`Arrivée vers ${formatTime(colMove.arrival*1000)}. Prépare le kit et la forme de vie ${lfCible(colMove.dest||target)}.`, how:['Garde des transporteurs libres pour le kit.', 'À l\'arrivée, relève le nombre de cases et saisis-le dans Outils › Colonie.']});
   if(!colMove && S.colo.sentAt && now - S.colo.sentAt < 12*3600e3 && !S.colo.fields){
     out.push({id:'colo-eval', q:'Colonie', every:24, sev:'warn', what:'Évaluer ta nouvelle colonie', why:'Dès son arrivée, vérifie sa taille avant d\'y construire quoi que ce soit.',
       how:['Vue d\'ensemble de la colonie : relève le nombre de cases.', 'Outils › Colonie › Après l\'arrivée : saisis-le pour savoir si tu la gardes.', `Choisis la forme de vie ${lfCible(target)} — ${lfRaisonPos((parseC(target)||[])[2]||0)}. Puis envoie les transporteurs du kit (mission Transporter).`]});
@@ -4858,7 +5232,7 @@ function dailyMissions(){
   /* L'heure de la lecture, et pas seulement le chiffre : il ne vaut que trois
      heures, et le joueur doit pouvoir juger si celui-ci est encore d'actualité. */
   const sExp = S.slots && S.slots.expo
-    ? `lu dans le jeu à ${hm(S.slots.at || S.syncAt)} : ${S.slots.expo[0]}/${S.slots.expo[1]}` : null;
+    ? `lu dans le jeu à ${formatTime(S.slots.at || S.syncAt)} : ${S.slots.expo[0]}/${S.slots.expo[1]}` : null;
   const sFl = fs ? `emplacements de flotte ${fs[0]}/${fs[1]}` : null;
   const source = sExp ? ` (${[sExp, sFl].filter(Boolean).join(`, `)})` : ` (déduit d'Astrophysique ${S.tech.astro} : la page de flotte n'a pas encore été lue)`;
   const flottes = S.planets.map(p=>expoFleet(Object.assign({}, p.ships), p)).filter(Boolean);
@@ -5073,7 +5447,7 @@ function dailyMissions(){
          le <b> — alors que what et why passent par esc(). Tout ce qui vient de
          la page du jeu s'échappe donc ici à la main. */
       how:['Mission <b>Stationner</b>, pas Transporter : un Transporter repartirait seul et les vaisseaux ne seraient plus là au coucher.',
-        `${dur(fl.secs)} de vol, ${fmt(fl.fuel)} deutérium${tard ? ` — arrivée vers ${hm(arrive)}, après le début de la nuit. Pour cette nuit-là, dépense le stock sur place.` : `, arrivée vers ${hm(arrive)}, avant la nuit.`}`,
+        `${dur(fl.secs)} de vol, ${fmt(fl.fuel)} deutérium${tard ? ` — arrivée vers ${formatTime(arrive)}, après le début de la nuit. Pour cette nuit-là, dépense le stock sur place.` : `, arrivée vers ${formatTime(arrive)}, avant la nuit.`}`,
         `Il te restera ${fmt(cargo)} de soute à demeure sur ${esc(planetRef(g.p))} : garde-la là, c'est elle qui part chaque soir.`]});
   }
   if(S.day.night || (!isNight(now) && nightAt - now <= (+S.day.horizon||24)*3600e3)){
@@ -5132,7 +5506,7 @@ function dailyMissions(){
         how:(tete ? ['Dépense d\'abord ce que tu peux : lance une construction longue et une recherche.'] : []).concat([
           `Charge ${porte < r.load ? `${fmt(porte)} sur ${fmt(r.load)}` : `<b>tout</b> le stock`} dans ${shipList(r.ships)} sur ${esc(r.from.name)}, destination ${esc(r.dest)}, mission ${FS_MISSION_N[r.mission]}. ${porte < r.load ? 'La soute ne lève pas le reste : il passe la nuit au sol. Les pastilles disent quoi charger — le deutérium d\'abord, il vaut trois métaux.' : 'Ne laisse rien de valeur au sol.'}`
         ].concat(manque > 0 ? [`${fmt(manque)} restent au sol faute de soute${don ? ` : ${fmt(don.dispo)} de soute libre dorment sur ${esc(planetRef(don.p))}, et la carte « Ramène… » plus haut l'amène ici. Fais-la avant de charger.` : `, et toute la soute libre de l'empire est déjà promise ailleurs : il faut en construire ici.`}`] : []).concat([
-          `Règle la vitesse sur ${r.pct} % — c'est la seule chose que le lien ne prépare pas, et elle change d'un jour à l'autre exprès : une routine se chronomètre. ${r.oneWay ? `La flotte se pose vers ${hm(r.arrive)}` : `La flotte rentre vers ${hm(r.back)}`}, après ton réveil. Coût : ${fmt(r.fuel)} deutérium.`,
+          `Règle la vitesse sur ${r.pct} % — c'est la seule chose que le lien ne prépare pas, et elle change d'un jour à l'autre exprès : une routine se chronomètre. ${r.oneWay ? `La flotte se pose vers ${formatTime(r.arrive)}` : `La flotte rentre vers ${formatTime(r.back)}`}, après ton réveil. Coût : ${fmt(r.fuel)} deutérium.`,
           /* Le pourquoi de la méthode, et pas seulement le quoi : c'est lui qui
              évite au joueur de « simplifier » en Transporter le soir où il est
              pressé. Il reste sur chaque carte parce que la mission, elle, change
@@ -5454,13 +5828,16 @@ const DEF_POURQUOI = {
    ponytail: une table dans le code, pas un fichier de config à charger. Un
    modèle de plus, c'est une ligne de plus, et rien à empaqueter ni à lire au
    démarrage. */
+/* `a` est l'ancre que le wiki donne à la recette : « pour 100 LL », « pour
+   40 PL ». Elle ne sert qu'à l'affichage — le palier, lui, se compte toujours
+   par `defAncre`. */
 const DEF_MODELES = {
-  framework: {n:'Framework mineur',           r:{rl:40,   ll:25,   hl:10,  ic:0,   gc:4,   pt:1}},
-  balanced:  {n:'Balanced Defense',           r:{rl:20,   ll:100,  hl:10,  ic:20,  gc:10,  pt:5}},
-  vetter:    {n:'Ryan A. Vetter',             r:{rl:270,  ll:180,  hl:45,  ic:15,  gc:5,   pt:1}},
-  turtle:    {n:'Late Game Turtle',           r:{rl:1000, ll:1000, hl:400, ic:100, gc:100, pt:40}},
-  fodder:    {n:'Fodder build-up',            r:{rl:900,  ll:300,  hl:50,  ic:30,  gc:18,  pt:9}},
-  plasma:    {n:'Plasma pur et chair à canon', r:{rl:50,  ll:0,    hl:0,   ic:0,   gc:0,   pt:1}},
+  framework: {n:'Framework mineur',           a:'pt', r:{rl:40,   ll:25,   hl:10,  ic:0,   gc:4,   pt:1}},
+  balanced:  {n:'Balanced Defense',           a:'ll', r:{rl:20,   ll:100,  hl:10,  ic:20,  gc:10,  pt:5}},
+  vetter:    {n:'Ryan A. Vetter',             a:'pt', r:{rl:270,  ll:180,  hl:45,  ic:15,  gc:5,   pt:1}},
+  turtle:    {n:'Late Game Turtle',           a:'pt', r:{rl:1000, ll:1000, hl:400, ic:100, gc:100, pt:40}},
+  fodder:    {n:'Fodder build-up',            a:'pt', r:{rl:900,  ll:300,  hl:50,  ic:30,  gc:18,  pt:9}},
+  plasma:    {n:'Plasma pur et chair à canon', a:'pt', r:{rl:50,  ll:0,    hl:0,   ic:0,   gc:0,   pt:1}},
   /* Le ratio du joueur vit dans ses réglages, pas ici : la table reste ce que
      le wiki dit, et `defRatio` sait où chercher le sien. */
   perso:     {n:'Personnalisé', r:null},
@@ -5470,6 +5847,119 @@ const DEF_RATIO = DEF_ORDER.filter(k=>!DEF[k].un);
 /* Les paliers proposés. Une liste fermée, et pas un champ libre : le menu dit
    ce que le joueur peut viser, et `sainEtat` n'a qu'elle à vérifier. */
 const DEF_PALIERS = [10, 20, 40, 60];
+
+/* ---------- la recette d'un modèle, en clair ---------- */
+
+/* Le menu ne montrait que des noms : « Balanced » ne dit pas ce qu'il coûte ni
+   ce qu'il demande, et il fallait aller sur le wiki pour comparer. La recette
+   s'écrit donc comme le wiki l'écrit, dans l'ordre et avec les abréviations
+   des joueurs, et le coût d'un pack se calcule sur la table `DEF` : aucun prix
+   n'est recopié ici. Lecture seule, rien ne part vers le jeu. */
+const DEF_SOURCE = 'https://ogame.fandom.com/wiki/Defense_Build_Strategies';
+/* L'ordre de lecture, qui n'est pas celui de construction : le wiki nomme le
+   Gauss avant les ions. */
+const DEF_RECETTE = ['rl','ll','hl','gc','ic','pt'];
+const DEF_ABR = {rl:['LM','Lanceur de missiles'], ll:['LL','Artillerie laser légère'], hl:['LLo','Artillerie laser lourde'],
+  gc:['Gauss','Canon de Gauss'], ic:['Ions','Artillerie à ions'], pt:['PL','Lanceur de plasma']};
+/* Une décimale au plus, et rien quand elle est nulle : « 2,5 », « 25 ». */
+const nf1 = new Intl.NumberFormat('fr-FR', {maximumFractionDigits:1});
+const nf3 = new Intl.NumberFormat('fr-FR', {maximumFractionDigits:3});
+/* Si aucune ancre n'est donnée, la pièce la plus chère que le modèle nomme :
+   c'est elle que les joueurs comptent. */
+const DEF_PAR_VALEUR = ['pt','gc','hl','ic','ll','rl'];
+
+/** Un modèle sous la forme que lisent les fonctions de recette : `{n, a, r}`.
+    Le perso prend le ratio des réglages et n'a pas d'ancre à lui. */
+function defModele(k){ const m = DEF_MODELES[k] || DEF_MODELES.framework; return {n:m.n, a:m.a, r:defRatio(k) || {}, perso: k === 'perso'}; }
+/** L'ancre d'affichage : celle du modèle si son ratio la contient, sinon la
+    pièce la plus chère présente. Une table sans ancre se signale en
+    développement — le perso n'en a jamais, ce n'est pas une erreur. */
+function defAncreRecette(m){
+  const r = m.r || {};
+  if(m.a && r[m.a] > 0) return m.a;
+  if(!m.perso && !IS_EXT) console.warn(`modèle de défense sans ancre : ${m.n}`);
+  return DEF_PAR_VALEUR.find(k=>r[k] > 0) || null;
+}
+/**
+ * La recette d'un modèle, pièce par pièce, dans son ancre ou ramenée à 1 PL.
+ * @param {{a?:string, r:object}} m
+ * @param {{per?:'native'|'PL'}} [o]
+ * @returns {{ancre:string, q:number, items:Array<{k:string, n:number}>}|null}
+ *   null quand le modèle est vide, ou sans PL pour `per:'PL'`
+ */
+function defRecette(m, o = {}){
+  const r = m.r || {};
+  if(o.per === 'PL'){
+    if(!(r.pt > 0)) return null;
+    return {ancre:'pt', q:1, items: DEF_RECETTE.filter(k=>k !== 'pt' && r[k] > 0).map(k=>({k, n: Math.round(r[k] / r.pt * 10) / 10}))};
+  }
+  const a = defAncreRecette(m);
+  if(!a) return null;
+  return {ancre:a, q:r[a], items: DEF_RECETTE.filter(k=>k !== a && r[k] > 0).map(k=>({k, n:r[k]}))};
+}
+/** « Pour 100 LL : 20 LM / 10 LLo / … ». */
+function formatRecipe(m, o){
+  const d = defRecette(m, o);
+  if(!d) return o && o.per === 'PL' ? '' : 'Aucune pièce';
+  return `Pour ${nf1.format(d.q)} ${DEF_ABR[d.ancre][0]} : ${d.items.length ? d.items.map(i=>`${nf1.format(i.n)} ${DEF_ABR[i.k][0]}`).join(' / ') : 'rien d\'autre'}`;
+}
+/** La même recette, chaque abréviation dans un <abbr> qui dit son nom et son prix. */
+function defRecetteHtml(m, o){
+  const d = defRecette(m, o);
+  if(!d) return o && o.per === 'PL' ? '' : 'Aucune pièce';
+  const u = k => `<abbr title="${esc(defUniteTitre(k))}">${DEF_ABR[k][0]}</abbr>`;
+  return `Pour ${nf1.format(d.q)} ${u(d.ancre)} : ${d.items.length ? d.items.map(i=>`${nf1.format(i.n)} ${u(i.k)}`).join(' / ') : 'rien d\'autre'}`;
+}
+/** « Artillerie laser lourde : 6 000 M / 2 000 C » — les ressources nulles se taisent. */
+function defUniteTitre(k){
+  return `${DEF_ABR[k][1]} : ${DEF[k].c.map((x,i)=>x > 0 ? `${nf.format(x)} ${'MCD'[i]}` : '').filter(Boolean).join(' / ')}`;
+}
+/** Ce que coûte une fois la recette native : [métal, cristal, deutérium]. */
+function packCost(m){ const r = m.r || {}; return [0,1,2].map(i=>DEF_RECETTE.reduce((a,k)=>a + num(r[k], 0) * DEF[k].c[i], 0)); }
+/** Le format court d'un pack : « 307,5 k », « 1,305 M ». `fmt` arrondit trop
+    pour comparer deux modèles — 307,5 k y devient 308 k. */
+function fmtCourt(n){ const a = Math.abs(n); return a >= 1e6 ? `${nf3.format(n / 1e6)} M` : a >= 1e3 ? `${nf3.format(n / 1e3)} k` : nf.format(n); }
+/** « 307,5 k M / 142,5 k C / 38 k D ». */
+function packText(c){ return `${fmtCourt(c[0])} M / ${fmtCourt(c[1])} C / ${fmtCourt(c[2])} D`; }
+/** La ligne du menu : recette native et coût d'un pack, sur une ligne. */
+function defLigne(m){ return `${formatRecipe(m)} · ${packText(packCost(m))}`; }
+/** La carte du modèle choisi : la recette, sa version à 1 PL, le pack, la source. */
+function defModeleCarte(k){
+  const m = defModele(k), a = defAncreRecette(m), parPL = !(a === 'pt' && m.r.pt === 1) ? defRecetteHtml(m, {per:'PL'}) : '';
+  const c = packCost(m);
+  return `<div class="defmod" id="defModCarte" data-k="${esc(k)}">
+      <p><b>${esc(m.n)}</b></p>
+      <p class="mono">${defRecetteHtml(m)}</p>
+      ${parPL ? `<p class="note mono">${parPL}</p>` : ''}
+      <p class="note">Un pack : <span class="mono"><span class="c-m">${fmtCourt(c[0])} M</span> / <span class="c-c">${fmtCourt(c[1])} C</span> / <span class="c-d">${fmtCourt(c[2])} D</span></span></p>
+      <p class="note">${m.perso ? 'Ton propre ratio, saisi ci-dessous.' : `Source : <a href="${DEF_SOURCE}" target="_blank" rel="noopener noreferrer">wiki OGame, Defense Build Strategies</a>`}</p>
+    </div>`;
+}
+/**
+ * Le sélecteur de modèle : un volet qui liste chaque modèle avec sa recette et
+ * son pack sous le nom. Un <select> ne sait pas écrire deux lignes par option,
+ * d'où ces boutons. `dp` vide = le réglage global ; sinon la planète, qui
+ * garde son choix « Comme les réglages ».
+ * @param {string} actuel la clé choisie, '' pour « Comme les réglages »
+ * @param {string} [dp] l'id de la planète
+ */
+function defPicker(actuel, dp){
+  const opt = (k, nom, ligne) => `<button type="button" class="defopt" data-defpick="${esc(k)}"${dp ? ` data-dp="${esc(dp)}"` : ''} aria-pressed="${actuel === k}">
+      <b>${esc(nom)}</b>${ligne ? `<span class="note" title="${esc(ligne)}" data-defligne="${esc(k)}">${esc(ligne)}</span>` : ''}</button>`;
+  const nom = actuel ? (DEF_MODELES[actuel] || {}).n : 'Comme les réglages';
+  return `<details class="defpick"><summary>${esc(nom || '')}</summary><div class="defopts">
+      ${dp ? opt('', 'Comme les réglages', '') : ''}
+      ${Object.keys(DEF_MODELES).map(k=>opt(k, DEF_MODELES[k].n, defLigne(defModele(k)))).join('')}
+    </div></details>`;
+}
+/** Le ratio perso a changé sous les doigts du joueur : la carte et la ligne
+    du menu suivent sans redessiner la vue, pour ne pas lui voler le focus. */
+function defPersoLive(){
+  const carte = document.getElementById('defModCarte');
+  if(carte && carte.dataset.k === 'perso') carte.outerHTML = defModeleCarte('perso');
+  const ligne = defLigne(defModele('perso'));
+  document.querySelectorAll('[data-defligne="perso"]').forEach(el=>{ el.textContent = ligne; el.title = ligne; });
+}
 
 /* ---------- le tir de lune ---------- */
 
@@ -6005,7 +6495,7 @@ function defPrereq(j, p){
 function defCarte(p){
   const tete = `<div class="row spread"><h2>${esc(p.name)} <span class="note">${esc(p.coords)}</span></h2></div>`;
   const menus = `<div class="grid">
-      <label class="f">Modèle<select data-def="modele" data-dp="${p.id}"><option value="">Comme les réglages</option>${Object.keys(DEF_MODELES).map(k=>`<option value="${k}" ${p.defModele===k?'selected':''}>${esc(DEF_MODELES[k].n)}</option>`).join('')}</select></label>
+      <div class="f"><span>Modèle</span>${defPicker(p.defModele && DEF_MODELES[p.defModele] ? p.defModele : '', p.id)}</div>
       <label class="f">Palier<select data-def="palier" data-dp="${p.id}"><option value="">Comme les réglages</option>${defPalierOpts(p.defPalier)}</select></label>
     </div>`;
   const d = defPlan(p);
@@ -6013,6 +6503,7 @@ function defCarte(p){
   const exces = d.lignes.filter(l=>l.exces > 0), bloques = d.lignes.filter(l=>l.req);
   return `<div class="card">${tete}${menus}
     <p class="note">${esc(d.nom)} · ${d.palier} ${esc(DEF[d.ancre].p)}${defPalierDe(p)==='fill' ? ' déjà au sol' : ''}</p>
+    ${p.defModele ? `<p class="note mono">${defRecetteHtml(defModele(d.modele))}</p>` : ''}
     <div class="tbl-wrap"><table><thead><tr><th>Pièce</th><th class="n">Au sol</th><th class="n">Cible</th><th class="n">Manque</th><th>Coût du manque</th></tr></thead><tbody>
       ${d.lignes.map(l=>`<tr><td>${esc(DEF[l.k].n)}</td><td class="n">${fmt(l.n)}</td><td class="n">${fmt(l.cible)}</td><td class="n">${l.manque ? fmt(l.manque) : l.exces ? `<span class="note">+${fmt(l.exces)}</span>` : '—'}</td><td>${l.manque ? costHtml(l.cout) : ''}</td></tr>`).join('')}
     </tbody></table></div>
@@ -6745,7 +7236,7 @@ scan(){
 explore(){
   if(!IS_EXT) return `<div class="card"><h2>Cibles</h2><p class="note">Cette partie utilise les données publiques officielles d'OGame. Elle ne fonctionne que dans l'extension Copilote.</p></div>`;
   const a = API, ok = a && a.planets && a.players;
-  const age = k => a && a.at && a.at[k] ? hm(a.at[k]) : '–';
+  const age = k => a && a.at && a.at[k] ? formatTime(a.at[k]) : '–';
   return `<section class="panel">
     <div class="card"><div class="row spread"><h2>Données de l'univers</h2><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>
       <p class="note">${ok ? `${fmt(a.planets.length)} planètes, ${fmt(Object.keys(a.players).length)} joueurs. Classement mis à jour à ${age('scores')}, univers à ${age('universe')}. Les positions libres peuvent dater de quelques jours : vérifie toujours dans Galaxie.` : (a && a.error ? `Erreur de téléchargement : ${esc(a.error)}.` : 'Téléchargement en cours… ouvre une page du jeu si rien ne vient.')}${myScore()!=null ? ` Tes points : <b>${fmt(myScore())}</b>.` : ''}</p>
@@ -6790,7 +7281,7 @@ server(){
   }).join('');
   return `<section class="panel">
     <div class="card"><div class="row spread"><h2>Ton serveur</h2><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>
-      <p class="note">Les paramètres publics de <b>${esc(sv.name||'ton univers')}</b>${sv.number?` (n°${esc(String(sv.number))})`:''}, lus dans <span class="mono">serverData.xml</span>${at?` à ${hm(at)}`:''}. Ce sont des faits du serveur, pas des réglages : ce que le copilote calcule en part — vitesses, carburant, débris, soute — sans que tu aies à le recopier nulle part.</p>
+      <p class="note">Les paramètres publics de <b>${esc(sv.name||'ton univers')}</b>${sv.number?` (n°${esc(String(sv.number))})`:''}, lus dans <span class="mono">serverData.xml</span>${at?` à ${formatTime(at)}`:''}. Ce sont des faits du serveur, pas des réglages : ce que le copilote calcule en part — vitesses, carburant, débris, soute — sans que tu aies à le recopier nulle part.</p>
     </div>
     ${cards}
   </section>`;
@@ -6901,6 +7392,7 @@ defense(){
   return `<section class="panel">
     <div class="card"><h2>Modèle de défense</h2>
       <p class="note"><b>${esc(DEF_MODELES[s.defModele].n)}</b> · ${s.defPalier === 'fill' ? 'compléter l\'existant' : `${s.defPalier} ${esc(DEF[anc].p)}`} <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
+      ${defModeleCarte(s.defModele)}
       <p class="note">Le modèle donne la proportion entre les pièces, le palier la taille. Rien ne se construit ici, et le plan du jour garde son propre budget : la moitié d'une nuit de production, de quoi rendre le pillage non rentable.</p>
     </div>
     ${S.planets.map(defCarte).join('')}
@@ -7024,9 +7516,10 @@ settings(){
     </div>
     <div class="card"><h2>Modèle de défense</h2>
       <div class="grid">
-        <label class="f">Modèle<select id="sDefM" data-def="modele">${Object.keys(DEF_MODELES).map(k=>`<option value="${k}" ${s.defModele===k?'selected':''}>${esc(DEF_MODELES[k].n)}</option>`).join('')}</select></label>
+        <div class="f"><span>Modèle</span>${defPicker(s.defModele)}</div>
         <label class="f">Palier visé<select id="sDefP" data-def="palier">${defPalierOpts(s.defPalier)}</select><span class="note">En ${esc(DEF[defAncre(defRatio(s.defModele) || {})].p)}. « Compléter » part de ce que la planète a déjà.</span></label>
       </div>
+      ${defModeleCarte(s.defModele)}
       ${s.defModele === 'perso' ? `<div class="grid tight">${DEF_RATIO.map(k=>`<label class="f">${esc(DEF[k].n)}<input id="sDefR-${k}" type="number" min="0" step="1" data-def="${k}" value="${num(S.settings.defPerso[k])}"></label>`).join('')}</div>
       <p class="note">Combien de pièces par lanceur de plasma. Les deux boucliers restent hors ratio : un de chaque.</p>` : ''}
       ${S.profil.set && s.defModele === (PROFILS.styles[S.profil.style] || {}).defense
@@ -7157,10 +7650,10 @@ today(){
   if(a0.length || nowMs.length) nowParts.push(`<ul class="acts">${avant}${a0.map(a=>actHtml(a,true)).join('')}${apres}</ul>`);
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
-  if(s0.waits.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${s0.waits.length})</summary><ul class="acts" style="margin-top:6px">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+hm(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`).join('')}</ul></details>`);
-  if(plan.busy.length || infoMs.length) nowParts.push(`<details${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${plan.busy.length + infoMs.length})</summary><ul class="acts" style="margin-top:6px">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${hm(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`).join('')}</ul></details>`);
+  if(s0.waits.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${s0.waits.length})</summary><ul class="acts" style="margin-top:6px">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+formatTime(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`).join('')}</ul></details>`);
+  if(plan.busy.length || infoMs.length) nowParts.push(`<details${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${plan.busy.length + infoMs.length})</summary><ul class="acts" style="margin-top:6px">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${formatTime(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`).join('')}</ul></details>`);
   const nextS = plan.sessions.slice(1).find(x=>actsVus(x).length);
-  if(!a0.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${hm(nextS.T)}</b>.`:''}</p>`);
+  if(!a0.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${formatTime(nextS.T)}</b>.`:''}</p>`);
   const aide = `<details${fold('aide', false)}><summary class="note" data-fold="aide">Comment lire ces cartes</summary><p class="note" style="margin-top:6px"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. <b>Non</b> met la carte de côté jusqu'à ce que tu la remettes. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p></details>`;
   const remets = noListe();
   document.getElementById('tdNow').innerHTML = nowParts.join('') + aide + prioHtml(plan) + remets;
@@ -7172,7 +7665,7 @@ today(){
   const alerts = plan.alerts;
   document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><h2>Alertes</h2><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('')}</ul></div>` : '';
   const later = plan.sessions.slice(1).filter(x=>actsVus(x).length || slotMs.has(x));
-  const slot = x=>`<div class="slot"><div class="time">${hm(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${actsVus(x).map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
+  const slot = x=>`<div class="slot"><div class="time">${formatTime(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${actsVus(x).map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
   const phases = [], horizonEnd = plan.now + (+S.day.horizon||24)*3600e3;
   for(const x of plan.sessions){ const key = x.goals.map(g=>g.key).join('|') || 'free'; const last = phases[phases.length-1]; if(last && last.key===key) continue; if(last) last.to = x.T; phases.push({key, from:x.T, to:horizonEnd, goals:x.goals}); }
@@ -7180,9 +7673,9 @@ today(){
   for(const ph of phases){ const n = nightStartAfter(ph.from); if(n < ph.to) ph.to = n; }
   const launchedAt = label => { for(const x of plan.sessions) if(x.acts.some(a=>a.what===label || (label==='le vaisseau de colonisation' && a.kind==='ship'))) return x.T; return null; };
   const phaseHtml = ph => {
-    if(ph.key==='free') return `<li><span class="pill good">Soutenu</span><span class="what">${hm(ph.from)} → ${hm(ph.to)}</span><span class="why">Rien de gros à financer : dépense tout à chaque connexion, mines et bâtiments à la chaîne.</span></li>`;
-    const txt = ph.goals.map(g=>{ const at = launchedAt(g.label); return `on garde le ${g.res} pour ${g.label}${at?`, lancement vers ${hm(at)}`:''}`; }).join(' ; ');
-    return `<li><span class="pill warn">Tempo</span><span class="what">${hm(ph.from)} → ${hm(ph.to)}</span><span class="why">${esc(txt.charAt(0).toUpperCase()+txt.slice(1))}. Les bâtiments n'utilisent que le surplus. Bon moment pour la flotte : expéditions, espionnage d'inactifs.</span></li>`;
+    if(ph.key==='free') return `<li><span class="pill good">Soutenu</span><span class="what">${formatTime(ph.from)} → ${formatTime(ph.to)}</span><span class="why">Rien de gros à financer : dépense tout à chaque connexion, mines et bâtiments à la chaîne.</span></li>`;
+    const txt = ph.goals.map(g=>{ const at = launchedAt(g.label); return `on garde le ${g.res} pour ${g.label}${at?`, lancement vers ${formatTime(at)}`:''}`; }).join(' ; ');
+    return `<li><span class="pill warn">Tempo</span><span class="what">${formatTime(ph.from)} → ${formatTime(ph.to)}</span><span class="why">${esc(txt.charAt(0).toUpperCase()+txt.slice(1))}. Les bâtiments n'utilisent que le surplus. Bon moment pour la flotte : expéditions, espionnage d'inactifs.</span></li>`;
   };
   const strategy = `<ul class="advice" style="margin-bottom:14px">${phases.slice(0,5).map(phaseHtml).join('')}</ul>`;
   /* Où en est le début de partie. Le compte est le nombre de jalons franchis,
@@ -7241,7 +7734,7 @@ explore(){
 
   const raids = raidTargets(), safe = raids.filter(r=>!r.outlaw).slice(0,8), risky = raids.filter(r=>r.outlaw).slice(0,4);
   const sc = shipStats('sc');
-  const row = r=>{ const f = flight(home, r.coords, {sc:1}, 100), last = S.raids[r.coords]; return `<tr><td class="mono">${r.coords}</td><td>${esc(r.name)} <span class="note">(${esc(r.status)})</span></td><td class="n">${fmt(r.score)}</td><td class="n">${f?dur(f.secs):'–'}</td><td>${r.outlaw?'<span class="pill bad">plus fort que toi</span>':r.longInactive?'<span class="pill good">inactif longue durée</span>':'<span class="pill info">inactif</span>'}${last?` <span class="note">${last.probe?'espionné':'pillé'} ${hm(last.at)}</span>`:''}</td><td>${r.outlaw?'':`<button class="btn sm" data-raidprep="${r.coords}" data-raidname="${esc(r.name)}">Préparer</button>`}</td></tr>`; };
+  const row = r=>{ const f = flight(home, r.coords, {sc:1}, 100), last = S.raids[r.coords]; return `<tr><td class="mono">${r.coords}</td><td>${esc(r.name)} <span class="note">(${esc(r.status)})</span></td><td class="n">${fmt(r.score)}</td><td class="n">${f?dur(f.secs):'–'}</td><td>${r.outlaw?'<span class="pill bad">plus fort que toi</span>':r.longInactive?'<span class="pill good">inactif longue durée</span>':'<span class="pill info">inactif</span>'}${last?` <span class="note">${last.probe?'espionné':'pillé'} ${formatTime(last.at)}</span>`:''}</td><td>${r.outlaw?'':`<button class="btn sm" data-raidprep="${r.coords}" data-raidname="${esc(r.name)}">Préparer</button>`}</td></tr>`; };
   document.getElementById('exRaid').innerHTML = (safe.length||risky.length) ? `<div class="tbl-wrap"><table><thead><tr><th>Coordonnées</th><th>Joueur</th><th class="n">Points</th><th class="n">Vol PT</th><th></th><th></th></tr></thead><tbody>${safe.map(row).join('')}${risky.length?`<tr><td colspan="6" class="note">À éviter tant que tu as ta protection (avertissement « joueur plus puissant ») :</td></tr>${risky.map(row).join('')}`:''}</tbody></table></div><p class="note">Points = taille de son économie, donc ce que tu peux espérer piller. Espionne avant d'attaquer : il faut ni flotte ni défense. Si le jeu refuse l'attaque, c'est la protection débutant.</p>` : '<p class="note">Aucun inactif repéré dans un rayon de 30 systèmes.</p>';
 
   const rp = raidPlan(), rpEl = document.getElementById('rdPlan');
@@ -7260,7 +7753,7 @@ explore(){
       ${!S.raid.safe ? '<p class="pill warn" style="margin-top:8px">Coche la case seulement si le rapport ne montre ni flotte ni défense. Sinon, ne l\'attaque pas.</p>' : ''}
       ${rp.stale && rp.need>0 ? '<p class="pill bad" style="margin-top:8px">Rapport périmé (plus de 2 h) : réespionne avant d\'attaquer, le stock a changé.</p>' : ''}
       ${rp.short>0 ? `<p class="note">Il te manque ${fmt(rp.short)} de soute à ${esc(rp.home.name)} : le reste attendra un second passage.</p>` : ''}
-      ${S.raid.safe && !rp.stale && okShips && rp.net>0 ? `<ul class="acts" style="margin-top:8px">${actHtml({q:'Flotte · '+rp.home.name, what:`Attaquer ${S.raid.coords} avec ${shipList(rp.ships)}`, why:`Galaxie ou Flotte → ${S.raid.coords} → mission Attaquer · retour vers ${hm(Date.now()+2*rp.fl.secs*1000)}`, cost:[0,0,rp.fuel], dur:2*rp.fl.secs, end:Date.now()+2*rp.fl.secs*1000, kind:'raid', ships:rp.ships, p:cargoHomeIndex(), coords:S.raid.coords, dest:S.raid.coords, mission:1}, true)}</ul>` : ''}`;
+      ${S.raid.safe && !rp.stale && okShips && rp.net>0 ? `<ul class="acts" style="margin-top:8px">${actHtml({q:'Flotte · '+rp.home.name, what:`Attaquer ${S.raid.coords} avec ${shipList(rp.ships)}`, why:`Galaxie ou Flotte → ${S.raid.coords} → mission Attaquer · retour vers ${formatTime(Date.now()+2*rp.fl.secs*1000)}`, cost:[0,0,rp.fuel], dur:2*rp.fl.secs, end:Date.now()+2*rp.fl.secs*1000, kind:'raid', ships:rp.ships, p:cargoHomeIndex(), coords:S.raid.coords, dest:S.raid.coords, mission:1}, true)}</ul>` : ''}`;
   }
   const ex = exploreSystems();
   document.getElementById('exExplore').innerHTML = `<ul class="advice">${ex.map(x=>`<li><span class="pill info">${x.left} pos.</span><span class="what">Système ${x.sys}</span><span class="why">${x.dist===0?'Ton système':`À ${x.dist} système${x.dist>1?'s':''}`} : ${x.left} position${x.left>1?'s':''} pas explorée${x.left>1?'s':''} depuis 7 jours.</span></li>`).join('')}</ul><p class="note">Missions de découverte : bouton Découverte dans Galaxie. Copilote retient les positions explorées quand il voit tes missions dans Mouvements de flotte. Pour les expéditions, alterne la position 16 de systèmes voisins si les résultats baissent.</p>`;
@@ -7588,12 +8081,26 @@ function bind(){
      une valeur : sans ça le joueur ne pourrait plus revenir aux réglages.
      `render()` et pas `refresh()` : le choix du modèle fait apparaître ou
      disparaître les cases du ratio, et la carte entière change. */
+  const defPose = (q, v) => {
+    if(!q) S.settings.defModele = DEF_MODELES[v] ? v : 'framework';
+    else if(DEF_MODELES[v]) q.defModele = v; else delete q.defModele;
+  };
+  /* Le sélecteur de modèle est un volet de boutons : un clic pose le modèle
+     comme le faisait le menu, et le rendu referme le volet. */
+  view.querySelectorAll('[data-defpick]').forEach(el=>el.addEventListener('click',()=>{
+    defPose(el.dataset.dp ? planetById(el.dataset.dp) : null, el.dataset.defpick);
+    S.sample = false; save(); render();
+  }));
+  /* Le ratio perso se relit à chaque frappe : la recette et le pack suivent
+     en direct, et le `change` d'après redessine comme avant. */
+  view.querySelectorAll('[data-def]').forEach(el=>{ if(DEF_RATIO.includes(el.dataset.def)) el.addEventListener('input',()=>{
+    S.settings.defPerso[el.dataset.def] = Math.max(0, Math.round(num(el.value, 0)));
+    defPersoLive();
+  }); });
   view.querySelectorAll('[data-def]').forEach(el=>el.addEventListener('change',()=>{
     const k = el.dataset.def, q = el.dataset.dp ? planetById(el.dataset.dp) : null, v = el.value;
-    if(k === 'modele'){
-      if(!q) S.settings.defModele = DEF_MODELES[v] ? v : 'framework';
-      else if(DEF_MODELES[v]) q.defModele = v; else delete q.defModele;
-    }else if(k === 'palier'){
+    if(k === 'modele') defPose(q, v);
+    else if(k === 'palier'){
       const n = v === 'fill' ? 'fill' : DEF_PALIERS.includes(+v) ? +v : null;
       if(!q) S.settings.defPalier = n == null ? 20 : n;
       else if(n == null) delete q.defPalier; else q.defPalier = n;
@@ -7611,7 +8118,8 @@ function bind(){
      Téléchargements. L'URL n'est pas révoquée : le téléchargement démarre après
      le retour, et le panneau fermé la libère de toute façon. */
   on('ioSave','click',()=>{
-    const url = URL.createObjectURL(new Blob([JSON.stringify(S)], {type:'application/json'}));
+    // les deux heures de l'enregistrement, quel que soit le mode d'affichage
+    const url = URL.createObjectURL(new Blob([JSON.stringify(Object.assign({}, S, timeExport(Date.now())))], {type:'application/json'}));
     if(typeof chrome!=='undefined' && chrome.downloads){
       chrome.downloads.download({url, filename:'save.json', saveAs:true}, ()=>msg('Enregistre-le dans le dépôt, puis pousse-le'));
     } else {
@@ -7745,6 +8253,9 @@ function appliqueSauvegarde(txt){
   const jeton = x => x == null || /^[a-z0-9]{1,24}$/i.test(String(x));
   if(!d.planets.every(q => !q || jeton(q.id))) return false;
   if(Array.isArray(d.timers) && !d.timers.every(x => !x || jeton(x.id))) return false;
+  // l'heure de l'enregistrement le date, elle n'est pas un état
+  for(const k of ['serverTime','localTime','localTimeZone','serverOffsetMinutes']) delete d[k];
+  if(d.srvTz && !Number.isFinite(d.srvTz.off)) delete d.srvTz;
   S = Object.assign(sample(), d); S.sample = false; sainEtat(); save(); render(); return true;
 }
 /**
@@ -7875,6 +8386,7 @@ document.getElementById('nightBtn').addEventListener('click',()=>{
     ? `Absence de ${nightLen()} h supposée — Réglages pour l'heure de retour`
     : `Absence jusqu'à ${S.day.backHour} h`);
 });
+document.getElementById('tzBtn').addEventListener('click',()=>setTimeMode(timeMode === 'local' ? 'server' : 'local'));
 document.getElementById('luneBtn').addEventListener('click',()=>{ S.lune.on = !S.lune.on; luneTouche(); save(); render(); });
 view.addEventListener('click', e=>{
   if(e.target.id==='tmSound'){ unlockAudio(); chime(); }
@@ -7950,6 +8462,8 @@ function applyGame(g){
   if(m.playerId) S.me = m.playerId;
   if(m.host) S.host = m.host;
   S.explored = g.explored || S.explored || {};
+  // le décalage du serveur, relu à chaque page : formatTime en tire l'heure serveur
+  if(g.srvTz && Number.isFinite(g.srvTz.off)) S.srvTz = {off: g.srvTz.off, at: g.srvTz.at || 0, ok: g.srvTz.ok !== false};
   if(m.eco) S.settings.eco = m.eco;
   if(m.fleet) S.settings.fleet = m.fleet;
   if(m.cls) S.settings.cls = m.cls;
@@ -8243,6 +8757,8 @@ if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){
   chrome.storage.sync.get(null, syncApply);
   chrome.storage.onChanged.addListener((ch, area)=>{
     if(area !== 'sync') return;
+    // le mode des heures choisi dans un autre panneau ouvert
+    if(ch.timeMode) setTimeMode(ch.timeMode.newValue);
     const d = {}; for(const k in ch) d[k] = ch[k].newValue;
     syncApply(d);
   });

@@ -167,6 +167,11 @@ async function merge(s) {
     chrome.alarms.create('tm|' + k, { when: t.end * 1000 });
   }
   game.timers = dedupe(timers);
+  /* Le décalage du serveur sur UTC, relu à chaque page : il suit donc les
+     changements d'heure du serveur. Une page dont l'horloge ne se lit pas
+     garde le dernier connu, marqué non vérifié — le panneau le dit. */
+  if (Number.isFinite(s.srvOff)) game.srvTz = { off: s.srvOff, at: now, ok: true };
+  else if (game.srvTz) game.srvTz = { ...game.srvTz, ok: false };
   game.at = now;
   for (const m of s.moves || []) if (m.mission === 18 && m.dest) { game.explored = game.explored || {}; game.explored[m.dest] = now; }
   await chrome.storage.local.set({ game });

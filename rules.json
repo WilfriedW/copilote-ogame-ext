@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "regles": [],
+  "mineBalance": {
+    "byStyle": { "mineur": 2, "turtle": 2, "raideur": 1, "fleeter": 1, "explorateur": 1 },
+    "byPosition": { "1-3": -1, "4-5": 0, "6-10": 1, "11-15": 0 }
+  },
+  "lifeforms": {
+    "humans": {
+      "idPrefix": "111",
+      "statut": "a_valider",
+      "base": { "habitat": 11101, "nourriture": 11102 },
+      "buildings": {
+        "11101": "Secteur résidentiel",
+        "11102": "Ferme biosphérique",
+        "11103": "Centre de recherche",
+        "11104": "Académie des sciences",
+        "11105": "Centre de neurocalibrage",
+        "11106": "Fusion à haute énergie",
+        "11107": "Réserve alimentaire",
+        "11108": "Extraction par fusion",
+        "11109": "Tour d'habitation",
+        "11110": "Laboratoire de biotechnologie",
+        "11111": "Métropolis",
+        "11112": "Bouclier planétaire"
+      },
+      "research": {
+        "11201": "Ambassadeurs intergalactiques",
+        "11202": "Extracteurs à haute performance",
+        "11203": "Moteurs à fusion",
+        "11204": "Générateur de champ de camouflage"
+      }
+    },
+    "rocktal": { "idPrefix": "121", "statut": "a_valider", "base": {}, "buildings": {}, "research": {} },
+    "mechas":  { "idPrefix": "131", "statut": "a_valider", "base": {}, "buildings": {}, "research": {} },
+    "kaelesh": { "idPrefix": "141", "statut": "a_valider", "base": {}, "buildings": {}, "research": {} }
+  }
+}
