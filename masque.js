@@ -15,10 +15,12 @@
 (function (racineGlobale) {
   const CLES = ['pub', 'bandeau', 'chat'];
 
-  /** Les trois choix, ramenés à des booléens ; tout ce qui manque vaut « visible ». */
+  /** Les trois choix, ramenés à des booléens ; tout ce qui manque vaut
+      « masqué » — la valeur par défaut, la même que dans le panneau. Un choix
+      enregistré à false, lui, reste visible. */
   function normalise(m) {
     const o = {};
-    for (const k of CLES) o[k] = !!(m && m[k]);
+    for (const k of CLES) o[k] = !m || m[k] === undefined ? true : !!m[k];
     return o;
   }
 
@@ -158,15 +160,10 @@
         if (area === 'sync' && ch.masque) { vu = true; prends(ch.masque.newValue); }
       });
       chrome.storage.sync.get('masque', v => {
-        if (vu) { fini(); return; }
-        if (v && v.masque) { prends(v.masque); fini(); return; }
-        /* Jamais réglé : le joueur qui avait coché « Épurer » avant que
-           l'épuration se découpe en interrupteurs garde sa page sans pub ni
-           bandeau, le temps que le panneau écrive le réglage pour de bon. */
-        chrome.storage.local.get('skin', l => {
-          if (!vu) { const lean = !!(l && l.skin && l.skin.lean); prends({ pub: lean, bandeau: lean, chat: false }); }
-          fini();
-        });
+        /* Jamais réglé : normalise(undefined) masque les trois, la valeur
+           par défaut. Rien n'est écrit : le défaut n'écrase aucun choix. */
+        if (!vu) prends(v && v.masque);
+        fini();
       });
     } catch (e) { fini(); }
 

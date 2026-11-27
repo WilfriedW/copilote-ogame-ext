@@ -847,59 +847,18 @@ Allure seulement : ni le panneau ni les calculs ne changent.
 | Son niveau de Bouclier | `moonCalc.bou` | entier ≥ 0 | *(le tien)* | Celui de ton camarade : il monte le bouclier de ses vaisseaux, donc baisse ce que ta défense tue |
 | Débris de ton univers | `settings.debris` | 30 · 40 · 50 · 60 · 70 | **30** | En pourcent, un fait du serveur. À lire dans les paramètres de ton univers : il change le nombre de vaisseaux jusqu'à 2,3 fois |
 
-Les cinq premiers **suivent sur ton autre poste** avec l'état du mode, dès que
-ta planète visée porte un identifiant de jeu — voir la section suivante. Le
-sixième suit de toute façon, c'est un réglage d'univers.
+Les cinq premiers restent **sur ce poste**. Le sixième suit sur ton autre
+poste, c'est un réglage d'univers.
 
 Rien dans cette carte n'influence le plan du jour ni quoi que ce soit d'autre :
-c'est une calculatrice, comme Outils › Flotte. Le **mode lune**, lui, s'en sert
-pour parler dans Aujourd'hui — section suivante.
+c'est une calculatrice, comme Outils › Flotte.
 
-### 6.11 Outils › Lune — le mode
+### 6.11 Le mode lune — retiré
 
-Un interrupteur 🌑 dans Aujourd'hui, voisin du 🌙 du mode nuit. Tant qu'il est
-allumé, les cartes du tir passent devant le reste du plan. Ses quatre champs
-vivent dans Outils › Lune et non dans la carte, parce que la zone « Maintenant »
-se réécrit toutes les 30 secondes et perdrait une saisie en cours de frappe.
-
-| Réglage | Clé | Valeurs | Défaut | Effet |
-|---|---|---|---|---|
-| *(l'interrupteur 🌑)* | `lune.on` | oui / non | **non** | Allume le mode. Les cartes `Lune` sortent, et celle du tir **échappe au filtre du mode nuit** : un impact à 2 h du matin reste dit. Les autres attendent le réveil |
-| Heure d'impact du prochain tir | `lune.impact` | date et heure | *(vide)* | Décide laquelle des quatre cartes sort. Dans l'heure qui précède, la carte passe **devant les chantiers** |
-| Sa planète | `lune.rendu.coords` | coordonnées | *(vide)* | Où part le tir que tu rends |
-| Chasseurs légers par tir rendu | `lune.rendu.n` | entier ≥ 0 | **0** | Ce que **ton camarade** demande. Le copilote ne voit pas sa défense et ne peut pas le calculer |
-| Tirs promis | `lune.rendu.dus` | entier ≥ 0 | **0** | La dette. `lune.rendu.faits` compte ceux déjà envoyés |
-
-Le compteur de tirs reçus, `lune.tirs`, est tenu **par planète** et avance quand
-tu réponds « Pas cette fois ». Un « Lune ! » le remet à zéro et éteint le mode :
-une campagne réussie ne lègue pas son compteur à la suivante.
-
-**La campagne entière suit d'un poste à l'autre** : l'interrupteur, l'heure
-d'impact, le compteur de tirs, la dette, et les réglages de la carte dont le
-mode dépend. Elle voyage en **identifiants de jeu**, les seuls que tes deux
-postes nomment pareil — tes identifiants de planète, eux, sont tirés au sort
-sur chaque machine.
-
-Deux garde-fous, et ils comptent. **Rien ne part** si une planète nommée dans
-la campagne n'a pas encore d'identifiant de jeu : mieux vaut ne rien envoyer
-qu'un paquet que l'autre poste lirait de travers. Et **rien n'est appliqué** si
-la planète visée est inconnue sur le poste d'arrivée — sans cette règle, la
-carte t'aurait dit d'évacuer ta planète mère pour un tir visant une colonie.
-
-Un compteur dont la planète n'est pas encore relevée ici n'est pas perdu : il
-attend le prochain échange, comme une priorité dans le même cas.
-
-**Quatre choses que ce mode ne fait pas**, et chacune pour une raison :
-
-- **Il ne voit pas l'attaque arriver.** `content.js` lit tes propres mouvements
-  de flotte, jamais la boîte d'événements du jeu. C'est toi qui saisis l'heure.
-- **Il n'affirme jamais que ta flotte est sortie.** `S.moves` ne porte aucun
-  compte de vaisseaux, et le relevé au sol peut dater d'avant le départ. Un faux
-  « elle est dehors » coûterait les millions que la carte existe pour sauver —
-  c'est pourquoi la carte d'avant-impact n'a pas de bouton.
-- **Il ne met pas les chasseurs du tir rendu dans ton plan.** La carte donne le
-  nombre, le coût et la durée de chantier ; tu lances le chantier. Faire entrer
-  des vaisseaux de combat dans l'arbitrage du plan demande ses propres garde-fous.
+Le mode lune (interrupteur 🌑, campagne de tirs croisés, cartes « Sors ta
+flotte », dette de tirs rendus) a été retiré en 2.16.0. Une sauvegarde qui le
+porte encore le perd au chargement, et son reste dans le stockage partagé
+(`sy:lune`) est effacé. Le calculateur d'Outils › Lune ci-dessus est conservé.
 
 ### 6.12 Réglages › Modèle de défense, et Outils › Défense
 
