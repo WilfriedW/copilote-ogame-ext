@@ -22,9 +22,12 @@ var PROFILS = {
      `defense` est la clé du modèle de défense qu'il pose par défaut, dans
      `DEF_MODELES` : seul le turtle vise la tortue de fin de partie, les
      autres se contentent du framework du mineur. Les ratios, eux, restent
-     dans `app.js`, là où le wiki les a mis — ici on ne nomme que le modèle. */
+     dans `app.js`, là où le wiki les a mis — ici on ne nomme que le modèle.
+     `plancher` est la défense minimale, en packs du modèle, que le plan fait
+     tenir à chaque planète avant de monter vers le palier visé : un mineur
+     reste rentable à piller tant qu'il grimpe. Réglable dans Réglages. */
   styles: {
-    mineur:      {n:'Mineur',      classe:'collector', plan:'ecocol', defense:'framework',
+    mineur:      {n:'Mineur',      classe:'collector', plan:'ecocol', defense:'framework', plancher:2,
       aide:'Des mines, des colonies, et de la recherche qui les fait rapporter. Rien ne décolle.'},
     turtle:      {n:'Turtle',      classe:'collector', plan:'ecocol', defense:'turtle',
       aide:'Des mines, et une défense qui coûte plus cher à percer qu\'elle ne rapporte.'},
