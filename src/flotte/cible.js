@@ -21,9 +21,9 @@ import { S } from '../core/etat.js';
 import { dur, formatTime } from '../core/temps.js';
 import {
   SHIPS, EXPO_GROS, expoRes, fmtLigne, fmt, esc, num, planetRef,
-  production, mse, stockNow, souteUtile, shipStats, flight, expoFleet,
-  shipList, SHIP_COURT, shipCourt, mcd, secu, prochaineHeure, planeteEn,
-  mouvements, projectResources, attaquesEntrantes, aQuai,
+  production, mse, stockNow, souteUtile, shipStats, flight, tab,
+  expoFleet, shipList, SHIP_COURT, shipCourt, mcd, secu, prochaineHeure,
+  planeteEn, mouvements, projectResources, attaquesEntrantes, aQuai,
   transportSuggere, expoCap, fmtCourt
 } from '../../app.js';
 
