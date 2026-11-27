@@ -4463,6 +4463,45 @@ t('energie negative et hangar plein sont dits tous les deux', () => {
   assert.ok(a.some(x => /[Hh]angar/.test(x.what)), 'le hangar plein aussi');
 });
 
+/* rules.json illisible, ou plus ancien que le code : les alertes que les
+   règles ont remplacées sortent quand même, avec les mêmes mots. */
+function appRegles(rules, modifier) {
+  const s = fixtureState();
+  s.planets.forEach(p => { p.stock.at = SOIR; });
+  if (modifier) modifier(s);
+  return loadApp(s, SOIR, ['simulateDay', 'planetAlerts', 'constats', 'regle', 'S', 'REGLES_SECOURS'], null, false, null, rules);
+}
+const VIDE_ET_PLEIN = s => { Object.assign(s.planets[0].b, { metal: 20, solar: 1, smetal: 0 }); s.planets[0].stock = { m: 9e9, c: 0, d: 0, at: SOIR }; };
+
+t('rules.json illisible : énergie négative et hangar plein sont dits quand même', () => {
+  for (const [nom, rules] of [['illisible', null], ['sans ces règles', { version: 1, regles: [] }]]) {
+    const g = appRegles(rules, VIDE_ET_PLEIN);
+    const a = g.planetAlerts(g.S.planets[0]);
+    assert.ok(a.some(x => x.sev === 'bad' && /^Rétablir l'énergie/.test(x.what)), nom + ' : l\'énergie : ' + JSON.stringify(a));
+    assert.ok(a.some(x => x.sev === 'bad' && /^Hangar de métal plein/.test(x.what)), nom + ' : le hangar');
+    assert.ok(g.constats().some(x => x.regle === 'RES_ENERGY_NEGATIVE'), nom + ' : et constats() les compte');
+  }
+});
+
+t('le repli et rules.json disent la même chose', () => {
+  const fichier = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'rules.json'), 'utf8'));
+  const sec = appRegles(null).REGLES_SECOURS;
+  for (const id of Object.keys(sec)) {
+    const f = fichier.regles.find(r => r.id === id);
+    assert.ok(f, id + ' manque dans rules.json');
+    for (const k of ['domaine', 'cat', 'niveau', 'condition', 'parametres', 'effet', 'message', 'raison', 'actif_par_defaut', 'verrou'])
+      assert.deepEqual(sec[id][k], f[k], id + '.' + k + ' diffère entre app.js et rules.json');
+  }
+  assert.deepEqual(appRegles(undefined).REGLES_SECOURS, {}, 'le fichier lu, le repli ne sert à rien');
+});
+
+t('rules.json illisible : les réglages de règles du joueur ne sont pas effacés', () => {
+  const reg = { INST_QUEUE_EMPTY: { on: false }, RES_STORAGE_SOON: { p: { heures: 12 } } };
+  const g = appRegles(null, s => { s.settings.regles = JSON.parse(JSON.stringify(reg)); });
+  assert.deepEqual(g.S.settings.regles, reg);
+  assert.equal(g.regle('RES_STORAGE_SOON').parametres.heures, 12, 'le repli suit le réglage du joueur');
+});
+
 t('une construction en cours ne fait pas taire les alertes', () => {
   const g = app(s => {
     const p = s.planets[0];
