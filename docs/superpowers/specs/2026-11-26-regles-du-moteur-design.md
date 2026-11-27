@@ -527,6 +527,24 @@ file, il cède la place au compte des files finies au lieu de l'écraser.
 - Une condition d'un type neuf demande son évaluateur.
 - Pas de `core/formulas.js`.
 
+Décidé à l'implémentation de la vague 3 (26 novembre 2026) :
+
+- **Les séries sont validées** : 111/121/131/141 pour les bâtiments, +1 pour
+  les recherches, le chiffre des milliers étant la race. L'habitat et la
+  nourriture de chaque race sont ses cases `01` et `02`, dans `rules.json`.
+- **FDV_FOOD_LIMIT et FDV_HOUSING_LIMIT ne sont pas dans le fichier**, même
+  éteintes : une case qui ne fait rien est un mensonge par omission. Elles y
+  entreront avec la lecture de la nourriture et de la population.
+- **Les missions `lfb` et `lfr` restent** : elles disent « page jamais
+  ouverte », « choisis ton espèce » et « aucun prix », qui ne sont pas des
+  manques de race ou de nom. FDV_DATA_MISSING ne s'évalue que sur une planète
+  qui a une espèce — des cases lues, ou une race posée.
+- **Rescanner n'efface pas les noms du fichier** : vider le cache ne fait sortir
+  FDV_DATA_MISSING que pour une race dont `rules.json` ne connaît pas les noms.
+  Aujourd'hui, toutes sauf les Humains.
+- **La lecture de l'Encyclopédie attend son URL** : la ligne le dit, sans bouton
+  « Scanner » ; `applyGame` accepte déjà un `lfNoms` dans l'instantané.
+
 ## Ce qui reste au constructeur
 
 - L'URL de la page Encyclopédie d'une race, et ce que `content.js` doit y lire

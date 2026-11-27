@@ -266,6 +266,83 @@
       "source": "https://ogame.fandom.com/wiki/Hyperspace_Technology",
       "statut": "a_valider",
       "actif_par_defaut": true
+    },
+    {
+      "id": "FDV_DATA_MISSING",
+      "nom": "Données de forme de vie manquantes",
+      "domaine": "formes_de_vie",
+      "niveau": "important",
+      "condition": "lifeformDataComplete",
+      "effet": "suspendre",
+      "parametres": {},
+      "message": "Formes de vie : données manquantes{sur}",
+      "raison": "{detail}. Tant qu'elles manquent, les conseils de forme de vie qui en dépendent sont suspendus ici.",
+      "action": "{scanner}",
+      "source": "https://ogame.fandom.com/wiki/Lifeforms",
+      "statut": "valide",
+      "actif_par_defaut": true
+    },
+    {
+      "id": "FDV_QUEUE_EMPTY",
+      "nom": "File de bâtiments de forme de vie vide",
+      "domaine": "formes_de_vie",
+      "niveau": "important",
+      "condition": "lfQueueEmpty",
+      "file": "lfbuilding",
+      "effet": "marquer",
+      "parametres": {},
+      "message": "File des bâtiments de forme de vie vide{sur}",
+      "raison": "Le plan propose le prochain bâtiment de forme de vie.",
+      "action": "Lancer le bâtiment conseillé",
+      "source": "https://ogame.fandom.com/wiki/Lifeforms",
+      "statut": "valide",
+      "actif_par_defaut": true
+    },
+    {
+      "id": "FDV_RESEARCH_IDLE",
+      "nom": "Recherche de forme de vie à l'arrêt",
+      "domaine": "formes_de_vie",
+      "niveau": "important",
+      "condition": "lfQueueEmpty",
+      "file": "lfresearch",
+      "effet": "marquer",
+      "parametres": {},
+      "message": "Aucune recherche de forme de vie en cours{sur}",
+      "raison": "Le plan propose la prochaine recherche de forme de vie.",
+      "action": "Lancer la recherche conseillée",
+      "source": "https://ogame.fandom.com/wiki/Lifeforms",
+      "statut": "valide",
+      "actif_par_defaut": true
+    },
+    {
+      "id": "FDV_POP_LIMIT",
+      "nom": "Population trop faible",
+      "domaine": "formes_de_vie",
+      "niveau": "important",
+      "condition": "lifeformPop",
+      "effet": "pousser",
+      "parametres": {},
+      "message": "La population bloque {bloquees}{sur}",
+      "raison": "Le jeu refuse ces cases faute de population. Il ne dit pas si c'est la nourriture ou le logement : la nourriture d'abord, puis l'habitat.",
+      "action": "{nourriture}, puis {habitat}",
+      "source": "https://ogame.fandom.com/wiki/Lifeforms",
+      "statut": "valide",
+      "actif_par_defaut": true
+    },
+    {
+      "id": "FDV_BASE_FIRST",
+      "nom": "La base avant les bâtiments avancés",
+      "domaine": "formes_de_vie",
+      "niveau": "conseil",
+      "condition": "lifeformBase",
+      "effet": "pousser",
+      "parametres": { "nourriture": 21, "habitat": 21 },
+      "message": "La base d'abord : {base}{sur}",
+      "raison": "L'habitat et la nourriture portent la population dont les bâtiments avancés ont besoin : la base avant eux.",
+      "action": "Monter {base}",
+      "source": "https://ogame.fandom.com/wiki/Lifeforms",
+      "statut": "a_valider",
+      "actif_par_defaut": true
     }
   ],
   "mineBalance": {
@@ -275,7 +352,7 @@
   "lifeforms": {
     "humans": {
       "idPrefix": "111",
-      "statut": "a_valider",
+      "statut": "valide",
       "base": { "habitat": 11101, "nourriture": 11102 },
       "buildings": {
         "11101": "Secteur résidentiel",
@@ -298,8 +375,8 @@
         "11204": "Générateur de champ de camouflage"
       }
     },
-    "rocktal": { "idPrefix": "121", "statut": "a_valider", "base": {}, "buildings": {}, "research": {} },
-    "mechas":  { "idPrefix": "131", "statut": "a_valider", "base": {}, "buildings": {}, "research": {} },
-    "kaelesh": { "idPrefix": "141", "statut": "a_valider", "base": {}, "buildings": {}, "research": {} }
+    "rocktal": { "idPrefix": "121", "statut": "valide", "base": { "habitat": 12101, "nourriture": 12102 }, "buildings": {}, "research": {} },
+    "mechas": { "idPrefix": "131", "statut": "valide", "base": { "habitat": 13101, "nourriture": 13102 }, "buildings": {}, "research": {} },
+    "kaelesh": { "idPrefix": "141", "statut": "valide", "base": { "habitat": 14101, "nourriture": 14102 }, "buildings": {}, "research": {} }
   }
 }

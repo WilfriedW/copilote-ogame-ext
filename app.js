@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.10.0';
+const APP_VERSION = '2.11.0';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -265,6 +265,8 @@ migratePlanetIds();
 for(const p of S.planets || []) p.b = Object.assign(Object.fromEntries(Object.keys(B).map(k=>[k,0])), p.b);
 S.daily = Object.assign(sample().daily, S.daily);
 regleSaine();
+/* Le cache des noms de forme de vie : sur ce poste, hors de la synchro. */
+if(!S.lfNoms || typeof S.lfNoms !== 'object' || Array.isArray(S.lfNoms)) S.lfNoms = {};
 /* Le profil indexe des tables par ses propres clés : une clé inconnue y lève,
    et `sainEtat` ne passe qu'à l'import d'une sauvegarde ou au retour d'une
    synchro. Il se remet donc d'aplomb ici aussi, au démarrage. */
@@ -540,8 +542,7 @@ const lfCle = id => lfQueue(id) + ':' + (+id % 100);
 /* Le nom d'une case. Celui du relevé d'abord : il vient de la partie en cours,
    et le jeu peut le traduire autrement que notre table. */
 function lfNom(p, id){
-  const v = ((p || {}).lf || {})[id] || {};
-  return v.nom || v.name || LF_NAMES[id] || ('Forme de vie ' + id);
+  return lfNomConnu(p, id) || ('Forme de vie ' + id);
 }
 /* La case de cette planète à ce rang, ou rien : l'espèce diffère d'une planète
    à l'autre, et le jeu n'ouvre pas tous les rangs d'un coup. */
@@ -1034,8 +1035,11 @@ function goNote(a){
 }
 /* Noms relevés sur le jeu ; le panneau de détail en apporte d'autres au fil
    des visites, et ceux-là priment puisqu'ils viennent de la partie en cours. */
-const LF_NAMES = Object.assign({}, typeof OG_LF_BUILD !== 'undefined' ? OG_LF_BUILD : {},
-  typeof OG_LF_TECH !== 'undefined' ? OG_LF_TECH : {});
+/* Les noms par défaut viennent de rules.json, toutes races confondues : un nom
+   lu dans le jeu les remplace (lfNom), et le fichier corrige ce qui a changé
+   sans toucher au code. */
+const LF_NAMES = Object.assign({}, ...Object.values(REGLES.lifeforms || {})
+  .flatMap(r => [r && r.buildings, r && r.research]).filter(x => x && typeof x === 'object'));
 
 /**
  * Le prix relevé vaut-il encore ? Il a été lu pour un niveau précis ; dès que
@@ -1213,7 +1217,7 @@ function lfCandidates(p, queue){
     if(!c || !(v.secs > 0)) return [];
     return [{id:+id, cost:c.cost, src:c.src, at:c.at, secs:v.secs, next,
       eff: [0,1,2].includes(v.eff) ? v.eff : null,
-      nom: v.nom || v.name || LF_NAMES[id] || 'Forme de vie'}];
+      nom: lfNomConnu(p, id) || 'Forme de vie'}];
   /* Une case qui produit passe devant, quel que soit son prix : son gain porte
      sur toutes les planètes et dure toute la partie, quand une case qui ne
      produit rien ne rembourse jamais. Le prix ne départage plus qu'à effet
@@ -1237,6 +1241,17 @@ function lfCandidates(p, queue){
   /* Si la première posée n'est pas candidate (le plus souvent : pas encore
      chiffrée), la suivante de la même file passe : servir une priorité qu'on
      sait chiffrer vaut mieux que ne rien faire. */
+  /* Les règles de forme de vie (FDV_POP_LIMIT, FDV_BASE_FIRST) mettent la base
+     en tête, dans leur ordre ; une priorité du joueur passe encore devant. */
+  for(const pz of lfPousses(p, queue)){
+    const tetes = pz.ids.map(id => liste.find(c => c.id === id)).filter(Boolean);
+    if(!tetes.length) continue;
+    const pourquoi = regleTexte(pz.regle, 'raison', '', {bloquees:casesPop(p).map(id => lfNom(p, id)).join(', '),
+      base:tetes.map(c => `${c.nom} ${c.next - 1}`).join(' et ')});
+    for(const c of tetes) c.why = pourquoi + reste;
+    liste.splice(0, liste.length, ...tetes, ...liste.filter(c => !tetes.includes(c)));
+    break;
+  }
   const voulue = priosLf().find(x => x.pid === p.id && liste.some(c => c.id === x.k));
   if(!voulue) return liste;
   const tete = liste.find(c => c.id === voulue.k);
@@ -2492,6 +2507,11 @@ function constatsDe(p, id){
   if(!r || !r.on || !p) return [];
   if(r.cat && poidsCat(r.cat) === 0) return [];
   if(p.regOff && p.regOff[id] === true) return [];
+  /* Les formes de vie suivent leur propre réglage : « Ne pas s'en occuper »
+     les fait taire. Sauf ce qui dit un manque — il ne conseille rien. */
+  if(r.domaine === 'formes_de_vie' && r.effet !== 'suspendre' && lfMode() === 'off') return [];
+  /* Une règle propre à une race ne s'évalue que sur une planète de cette race. */
+  if(Array.isArray(r.races) && r.races.length && !r.races.includes(raceDe(p).race)) return [];
   const ev = aSoi(EVAL, r.condition) ? EVAL[r.condition] : null;
   if(typeof ev !== 'function'){ regleTue(id, `aucun évaluateur pour « ${r.condition} »`); return []; }
   let bruts;
@@ -2521,7 +2541,8 @@ function constats(){
 function repondA(c, a, i){
   const r = c.repond;
   return !!r && r.kinds.includes(a.kind) && (r.partout || a.p === i)
-    && (!r.ks || a.kind !== 'b' || r.ks.includes(a.k)) && (!r.tk || a.k === r.tk);
+    && (!r.ks || a.kind !== 'b' || r.ks.includes(a.k)) && (!r.tk || a.k === r.tk)
+    && (!r.lfq || lfQueue(a.id) === r.lfq) && (!r.ids || r.ids.includes(a.id));
 }
 
 /* ---------- les règles du moteur : évaluateurs ---------- */
@@ -2736,6 +2757,149 @@ function reglesRecherche(){
   return out;
 }
 
+/* ---------- les règles du moteur : formes de vie ---------- */
+const LF_RACES = REGLES.lifeforms && typeof REGLES.lifeforms === 'object' ? REGLES.lifeforms : {};
+/* La race d'une case, d'après sa série : le chiffre des milliers est la race,
+   la centaine impaire construit, la paire cherche (121xx et 122xx, Rock'tal). */
+function raceDeSerie(id){
+  const s = Math.floor(+id / 100);
+  return Object.keys(LF_RACES).find(r => { const pre = +(LF_RACES[r] || {}).idPrefix; return pre > 0 && (s === pre || s === pre + 1); }) || null;
+}
+/**
+ * La race d'une planète : posée à la main, sinon déduite des identifiants de
+ * ses cases, sinon du nom d'un bâtiment du tableau de production. Identifiants
+ * et nom qui se contredisent ne font pas une race : un conseil sur la mauvaise
+ * espèce serait pire que pas de conseil.
+ * @returns {{race:string|null, src:string, conflit:boolean, ids?:string[], nom?:string}}
+ */
+function raceDe(p){
+  if(p && p.race && aSoi(LIFEFORMS, p.race)) return {race:p.race, src:'main', conflit:false};
+  const ids = [...new Set(lfIds(p).map(raceDeSerie).filter(Boolean))], nom = p ? speciesOfPlanet(p) : null;
+  if(ids.length > 1 || (ids.length && nom && nom !== ids[0])) return {race:null, src:'ids', conflit:true, ids, nom};
+  if(ids.length) return {race:ids[0], src:'ids', conflit:false};
+  if(nom) return {race:nom, src:'nom', conflit:false};
+  return {race:null, src:'', conflit:false};
+}
+const RACE_SRC = {main:'posée à la main', ids:'déduite des identifiants', nom:'lue dans le tableau de production'};
+const nomRace = r => (LIFEFORMS[r] || {}).n || r;
+/** L'habitat et la nourriture de la race de cette planète, ou null. */
+function baseDe(p){
+  const r = raceDe(p).race, b = r && (LF_RACES[r] || {}).base;
+  return b && +b.habitat > 0 && +b.nourriture > 0 ? {habitat:+b.habitat, nourriture:+b.nourriture} : null;
+}
+/** Le nom d'une case quand quelqu'un le connaît : le jeu, puis le cache, puis le fichier. */
+function lfNomConnu(p, id){
+  const v = ((p || {}).lf || {})[id] || {};
+  return v.nom || v.name || (aSoi(S.lfNoms, id) ? S.lfNoms[id] : null) || LF_NAMES[id] || null;
+}
+/**
+ * Ce qui manque pour conseiller sur les formes de vie de cette planète, du plus
+ * bloquant au moins bloquant. Vide quand tout est là, ou quand la planète n'a
+ * pas encore d'espèce : c'est alors un choix à faire, pas une donnée à relire.
+ * @returns {{quoi:string, detail:string, page:string, ids?:number[]}[]}
+ */
+function lfManques(p){
+  const ids = lfIds(p);
+  if(!p || (!ids.length && !p.race)) return [];
+  const r = raceDe(p);
+  if(r.conflit) return [{quoi:'conflit', page:'lfbuildings',
+    detail:`Race contradictoire : les identifiants disent ${r.ids.map(nomRace).join(' et ')}${r.nom ? `, le tableau de production ${nomRace(r.nom)}` : ''}`}];
+  if(!r.race) return [{quoi:'race', page:'lfbuildings', detail:'Race inconnue'}];
+  const out = [], nr = nomRace(r.race);
+  const sansNom = ids.filter(id => !lfNomConnu(p, id));
+  if(sansNom.length){
+    const bat = sansNom.some(id => lfQueue(id) === 'lfbuilding'), rech = sansNom.some(id => lfQueue(id) === 'lfresearch');
+    out.push({quoi:'noms', page:bat ? 'lfbuildings' : 'lfresearch', ids:sansNom,
+      detail:`Noms ${bat && rech ? 'des bâtiments et des recherches' : bat ? 'des bâtiments' : 'des recherches'} ${nr} inconnus (${sansNom.length})`});
+  } else if(!ids.length && !Object.keys((LF_RACES[r.race] || {}).buildings || {}).length)
+    out.push({quoi:'noms', page:'encyclopedie', detail:`Noms ${nr} inconnus`});
+  const sansNiv = ids.filter(id => !Number.isFinite(+((p.lf || {})[id] || {}).lvl));
+  if(sansNiv.length) out.push({quoi:'niveau', page:lfQueue(sansNiv[0]) === 'lfresearch' ? 'lfresearch' : 'lfbuildings', ids:sansNiv,
+    detail:`Niveau illisible pour ${sansNiv.length} case${sansNiv.length > 1 ? 's' : ''}`});
+  return out;
+}
+/* Ce que FDV_DATA_MISSING suspend : toute la planète sans race, les seules
+   cases concernées sans nom ou sans niveau. Un conseil sur une case qu'on ne
+   sait pas nommer serait un conseil à l'aveugle. */
+function lfSuspendu(p){
+  if(!regleActive('FDV_DATA_MISSING')) return {tout:false, ids:new Set()};
+  const m = lfManques(p);
+  return {tout:m.some(x => x.quoi === 'race' || x.quoi === 'conflit'), ids:new Set(m.flatMap(x => x.ids || []))};
+}
+EVAL.lifeformDataComplete = p => {
+  const m = lfManques(p); if(!m.length) return [];
+  const i = S.planets.indexOf(p), page = m[0].page;
+  const url = page === 'encyclopedie' ? null : goUrl(page, i);
+  return [{valeur:m.map(x => `${x.quoi}:${(x.ids || []).length}`).join(','),
+    vars:{detail:m.map(x => x.detail).join(' · '), url,
+      scanner:url ? 'Ouvre la page dans le jeu : le copilote la lit à son chargement' : 'Ouvre l\'Encyclopédie de cette race dans le jeu : le copilote y lira les noms'}}];
+};
+/* Une file de forme de vie vide. La recherche n'existe qu'une fois une case
+   de bâtiment lue : avant, l'arbre n'est pas ouvert. */
+EVAL.lfQueueEmpty = (p, prm, r) => {
+  const ids = lfIds(p);
+  if(!ids.some(id => lfQueue(id) === 'lfbuilding') || lfManques(p).length) return [];
+  const l = fileDe(p, t => t.kind === 'x' && t.queue === r.file);
+  if(l.some(enCours)) return [];
+  return [{valeur:l.reduce((m, t) => Math.max(m, +t.end || 0), 0), repond:{kinds:['lf'], lfq:r.file}, vars:{}}];
+};
+/* Les cases que la population bloque : le jeu ne dit pas si c'est la
+   nourriture ou le logement, la nourriture passe donc d'abord (lfPousses). */
+const casesPop = p => Object.entries((p && p.lf) || {}).filter(([, v]) => v && v.state === 'pop').map(([id]) => +id);
+EVAL.lifeformPop = p => {
+  const b = baseDe(p), pop = casesPop(p);
+  if(!b || !pop.length || lfManques(p).length) return [];
+  return [{valeur:pop.join(','), repond:{kinds:['lf'], ids:[b.nourriture, b.habitat]},
+    vars:{bloquees:pop.map(id => lfNom(p, id)).join(', '), nourriture:lfNom(p, b.nourriture), habitat:lfNom(p, b.habitat)}}];
+};
+/* La base sous son palier alors qu'une case avancée (rang 6 et plus) attend. */
+function baseEnRetard(p){
+  const b = baseDe(p); if(!b) return null;
+  const n = id => +(((p.lf || {})[id] || {}).lvl) || 0;
+  const prm = (regle('FDV_BASE_FIRST') || {}).parametres || {};
+  const sous = [[b.nourriture, prm.nourriture], [b.habitat, prm.habitat]].filter(([id, x]) => Number.isFinite(x) && n(id) < x).map(([id]) => id);
+  const avancee = lfIds(p).some(id => lfQueue(id) === 'lfbuilding' && id % 100 >= 6 && !lfBloquee(p.lf[id]));
+  return sous.length && avancee ? sous : null;
+}
+EVAL.lifeformBase = p => {
+  const sous = !lfManques(p).length && baseEnRetard(p); if(!sous) return [];
+  return [{valeur:sous.map(id => `${id}:${+(p.lf[id] || {}).lvl || 0}`).join(','), repond:{kinds:['lf'], ids:sous},
+    vars:{base:sous.map(id => `${lfNom(p, id)} ${+(p.lf[id] || {}).lvl || 0}`).join(' et ')}}];
+};
+/* Les cases que les règles de forme de vie mettent en tête de la file des
+   bâtiments, dans l'ordre : la population bloquée d'abord, la base ensuite. */
+function lfPousses(p, queue){
+  if(queue !== 'lfbuilding') return [];
+  const b = baseDe(p); if(!b) return [];
+  if(regleActive('FDV_POP_LIMIT') && casesPop(p).length) return [{ids:[b.nourriture, b.habitat], regle:'FDV_POP_LIMIT'}];
+  const sous = regleActive('FDV_BASE_FIRST') && baseEnRetard(p);
+  return sous ? [{ids:sous, regle:'FDV_BASE_FIRST'}] : [];
+}
+/** Vide le cache des noms : utile après une mise à jour du jeu. La race posée
+    à la main reste — c'est une décision du joueur, pas une lecture. */
+function rescanner(){
+  S.lfNoms = {};
+  for(const p of S.planets || []) for(const v of Object.values(p.lf || {})) if(v){ delete v.nom; delete v.name; }
+}
+/* Les noms lus sur n'importe quelle planète servent à toutes : la même case
+   porte le même nom partout. Bornés : une page abîmée ne fait pas grossir le
+   stockage. */
+function lfNomsRetiens(extra){
+  const c = S.lfNoms && typeof S.lfNoms === 'object' ? S.lfNoms : (S.lfNoms = {});
+  const pose = (id, nom) => { if(Number.isInteger(+id) && +id >= 11000 && +id < 100000 && typeof nom === 'string' && nom.trim() && nom.length <= 80) c[+id] = nom.trim(); };
+  for(const p of S.planets || []) for(const [id, v] of Object.entries(p.lf || {})) if(v) pose(id, v.nom || v.name);
+  if(extra && typeof extra === 'object') for(const [id, nom] of Object.entries(extra)) pose(id, nom);
+}
+/** Réglages › Formes de vie : la race de chaque planète, d'où elle vient, et de quoi la corriger. */
+function raceRows(){
+  const ps = (S.planets || []).filter(p => lfIds(p).length || p.race);
+  if(!ps.length) return '';
+  return `<p class="note" style="margin:10px 0 4px"><b>Race par planète</b> — corrige-la si la lecture se trompe : la valeur posée à la main l'emporte.</p><ul class="list">${ps.map(p => {
+    const r = raceDe(p), etat = r.conflit ? 'contradictoire' : r.race ? `${nomRace(r.race)} · ${RACE_SRC[r.src] || ''}` : 'inconnue';
+    return `<li><span><b>${esc(p.name)}</b> <span class="note">${esc(etat)}</span></span><select data-race="${esc(p.id)}" style="width:auto"><option value="">Lire dans le jeu</option>${Object.entries(LIFEFORMS).map(([k, l]) => `<option value="${k}" ${p.race === k ? 'selected' : ''}>${esc(l.n)}</option>`).join('')}</select></li>`;
+  }).join('')}</ul><div class="row" style="margin-top:6px"><button class="btn sm ghost" data-rescan="1" title="Oublie les noms lus et relance les conseils : utile après une mise à jour du jeu">Rescanner</button><span class="note">Les noms se relisent à la prochaine visite des pages Formes de vie.</span></div>`;
+}
+
 /* ---------- les règles du moteur : ignorer, compter ---------- */
 /** La clé d'« Ignorer » : la règle, la planète en identifiant du jeu (`daily`
     voyage), et la valeur de la condition. */
@@ -2801,6 +2965,9 @@ function conseilHtml(l, avecPlanete){
   const tete = [l.domaine ? DOMAINES[l.domaine] || l.domaine : '', avecPlanete && p && S.planets.length > 1 ? p.name : ''].filter(Boolean).join(' · ');
   return `<li><span class="pill ${l.sev}">${SEV_LABEL[l.sev] || ''}</span><span class="what">${tete ? `<span class="note">${esc(tete)}</span> ` : ''}${esc(l.what)}${l.statut === 'a_valider' ? ' <span class="pill info">à valider</span>' : ''}</span>`
     + `<span class="why">${esc(l.why)}${l.action ? `<br>→ <b>${esc(l.action)}</b>${cout}${quand}` : quand}`
+    /* « Scanner » ouvre la page à relire, d'un clic du joueur, comme toutes les
+       cartes : le copilote ne navigue jamais seul. */
+    + `${l.vars && l.vars.url ? ` <button class="btn sm" data-prep="${esc(l.vars.url)}">Scanner</button>` : ''}`
     + `${l.source ? ` <a href="${esc(l.source)}" target="_blank" rel="noopener">source</a>` : ''}`
     + `${l.regle ? ` <button class="btn sm ghost" data-ign="${esc(ignKey(l))}" title="Masqué jusqu'à ce que la situation change, ou 24 h">Ignorer</button>` : ''}</span></li>`;
 }
@@ -3971,7 +4138,7 @@ function simulateDay(){
      automatique pour tout le reste de la journée simulée. */
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
-  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, satsOk:p.satsOk, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs, regOff:p.regOff}));
+  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, satsOk:p.satsOk, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs, regOff:p.regOff, race:p.race}));
   const expoBusy = [], expoDeja = {};
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
@@ -4042,6 +4209,7 @@ function simulateDay(){
   /* Les constats des règles, sur le même état réel et pour la même raison. Ils
      marquent plus bas les cartes de la première connexion qui leur répondent. */
   const cs = constats();
+  const lfSusp = new Map(S.planets.map(p => [p.id, lfSuspendu(p)]));
   S.tech = sim.tech; S.planets = P;
   try{
     const startV = P.reduce((a,p)=>{ const r=production(p); return a+mse(r.m,r.c,r.d); },0);
@@ -4483,7 +4651,10 @@ function simulateDay(){
         if(lfMode()==='off') return;
         for(const p of P) for(const q of ['lfbuilding','lfresearch']){
           if(p.lfq[q]>Tm) continue;
-          const liste = lfCandidates(p, q).filter(c=>!refused(cardKey('lf', p.id, c.id))); if(!liste.length) continue;
+          /* FDV_DATA_MISSING : une planète sans race ne reçoit rien, une case
+             sans nom ni niveau lisible non plus — pas de conseil à l'aveugle. */
+          const susp = lfSusp.get(p.id); if(susp && susp.tout) continue;
+          const liste = lfCandidates(p, q).filter(c=>!refused(cardKey('lf', p.id, c.id)) && !(susp && susp.ids.has(c.id))); if(!liste.length) continue;
           /* Au plafond, cette file sert à vider le stock : la case la plus
              chère qu'on peut payer tout de suite y fait plus que la moins
              chère, qui laisse le plafond en place. Hors plafond, le tri de
@@ -7186,10 +7357,16 @@ const LF_ROLE = {1:'Hébergement', 2:'Nourriture', 3:'Technologies',
    viser la mauvaise case.
    Les niveaux viennent du joueur, pas du jeu : le wiki ne documente aucun
    palier de population. Ils sont écrits ici pour être relus et changés. */
-const LF_PALIER = {nourriture:21, population:[21, 41]};
+/* Les deux premiers paliers se lisent dans rules.json (FDV_BASE_FIRST) : la
+   règle qui pousse la base et le bouton qui la pose visent le même niveau. */
+const LF_PALIER = (()=>{ const pr = (REGLES_PAR_ID.FDV_BASE_FIRST || {}).parametres || {};
+  return {nourriture:Number.isFinite(pr.nourriture) ? pr.nourriture : 21, population:[Number.isFinite(pr.habitat) ? pr.habitat : 21, 41]}; })();
 function lfPopNourriture(p){
   const ids = lfIds(p);
   if(!ids.length) return null;
+  /* La race d'abord : posée à la main, elle déplace l'habitat et la nourriture. */
+  const b = baseDe(p);
+  if(b && ids.includes(b.habitat) && ids.includes(b.nourriture)) return {pop:b.habitat, nour:b.nourriture};
   const serie = Math.floor(ids[0] / 100), pop = serie * 100 + 1, nour = serie * 100 + 2;
   return ids.includes(pop) && ids.includes(nour) ? {pop, nour} : null;
 }
@@ -7794,6 +7971,7 @@ settings(){
     <div class="card"><h2>Formes de vie découvertes</h2>
       <div class="chips">${lfSettingsHtml()}</div>
       <p class="note">Copilote s'en sert pour te conseiller la forme de vie de tes colonies.</p>
+      ${raceRows()}
     </div>
     ${reglesCard()}
     <div class="card"><h2>Bonus</h2>
@@ -8442,6 +8620,11 @@ view.addEventListener('click', e=>{
    seulement — `ui` ne voyage pas. */
 view.addEventListener('change', e=>{
   /* Réglages › Règles : n'est écrit que ce qui s'écarte du fichier. */
+  /* La race posée à la main l'emporte sur la lecture ; vide, la lecture reprend. */
+  const rc = e.target.closest && e.target.closest('[data-race]');
+  if(rc){ const p = planetById(rc.dataset.race);
+    if(p){ if(aSoi(LIFEFORMS, rc.value)) p.race = rc.value; else delete p.race; save(); render(); }
+    return; }
   const off = e.target.closest && e.target.closest('[data-regoff]');
   if(off){ const [pid, id] = off.dataset.regoff.split('|'), p = planetById(pid);
     if(p && aSoi(REGLES_PAR_ID, id)){ const o = Object.assign({}, p.regOff); if(off.checked) delete o[id]; else o[id] = true; p.regOff = o; save(); render(); }
@@ -8492,6 +8675,7 @@ view.addEventListener('click', e=>{
   const no = e.target.closest('[data-no]'); if(no){ S.daily.no[no.dataset.no] = Date.now(); save(); refresh(); toast('Mis de côté'); return; }
   /* « Ignorer » ne vit que jusqu'à ce que la situation change, ou 24 h : ce
      n'est pas « Non », qui oublie une carte du plan pour toujours. */
+  const rs = e.target.closest('[data-rescan]'); if(rs){ rescanner(); save(); render(); toast('Noms oubliés : ouvre les pages Formes de vie pour les relire'); return; }
   const ig = e.target.closest('[data-ign]'); if(ig){ S.daily.ign = Object.assign({}, ignores(), {[ig.dataset.ign]: Date.now()}); save(); refresh(); toast('Masqué jusqu\'à ce que ça change'); return; }
   /* Les boutons du mode lune vivent dans #tdNow, que REFRESH réécrit sans
      repasser par bind() : un on('id') ne les verrait jamais. Ils passent donc
@@ -8884,6 +9068,7 @@ function applyGame(g){
   S.page = g.page || null;
   S.sample = false;
   S.syncAt = g.at || Date.now();
+  lfNomsRetiens(g.lfNoms); // les noms lus sur une planète servent à toutes
   prioRecoit(); // une planète vient peut-être d'être relevée
   save();
   const a = document.activeElement;

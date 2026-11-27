@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk, rules) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'REGLES', 'REGLES_ERR', 'EVAL', 'regle', 'regleSaine', 'reglePose', 'regleActive', 'gabarit', 'constats', 'constatsDe', 'SEV_LABEL', 'ignore', 'ignKey', 'constatsVus', 'ignClean', 'conseilsHtml', 'reglesCard', 'planeteOuverte', 'cibleMines', 'mineEnRetard', 'naniteRetard', 'laboEnRetard', 'rechercheAilleurs', 'reglesRecherche', 'regOffHtml'], api, ext, prioAsk, rules);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'REGLES', 'REGLES_ERR', 'EVAL', 'regle', 'regleSaine', 'reglePose', 'regleActive', 'gabarit', 'constats', 'constatsDe', 'SEV_LABEL', 'ignore', 'ignKey', 'constatsVus', 'ignClean', 'conseilsHtml', 'reglesCard', 'planeteOuverte', 'cibleMines', 'mineEnRetard', 'naniteRetard', 'laboEnRetard', 'rechercheAilleurs', 'reglesRecherche', 'regOffHtml', 'raceDe', 'baseDe', 'lfNom', 'lfNomConnu', 'lfManques', 'rescanner', 'lfNomsRetiens', 'raceRows'], api, ext, prioAsk, rules);
 }
 /** L'application avec un rules.json donné — null pour un fichier illisible. */
 const appRegles = (rules, modifier, ext) => app(modifier, null, null, ext, null, rules);
@@ -12873,6 +12873,153 @@ t('une planète de plus possible : constat, et en économie pure il dit pourquoi
   assert.match(e.constats().find(x => x.regle === 'RECH_ASTRO_COLONY').why, /Économie pure/);
   const plein = app(s => { s.tech.astro = 1; });
   assert.ok(!plein.constats().some(x => x.regle === 'RECH_ASTRO_COLONY'));
+});
+
+/* ---------- les règles du moteur : vague 3, formes de vie ---------- */
+
+/** Une planète Humains : habitat et nourriture lus, la nourriture chiffrée. */
+const HUMAINS = s => { s.host = 's1-fr.ogame.gameforge.com'; s.planets[0].gid = '101';
+  s.planets[0].lf = { 11101: { lvl: 20, nom: 'Secteur résidentiel' },
+    11102: { lvl: 18, nom: 'Ferme biosphérique', cost: [1, 1, 0], next: 19, secs: 60 } }; };
+/** Le tableau de production de la mère nomme un bâtiment Rock'tal. */
+const PROD_ROCTA = s => { s.prod = { '101': { at: SOIR, rows: [{ label: 'Centre technologique runique (Niveau 3)' }] } }; };
+const lfActs = g => g.simulateDay().sessions[0].acts.filter(a => a.kind === 'lf' && a.p === 0);
+
+t('la race se déduit des identifiants de ses cases', () => {
+  const g = app(HUMAINS);
+  assert.deepEqual(g.raceDe(g.S.planets[0]), { race: 'humans', src: 'ids', conflit: false });
+  assert.deepEqual(g.lfManques(g.S.planets[0]), []);
+});
+
+t('les quatre séries de rules.json donnent les quatre races', () => {
+  const g = app(s => { s.planets[0].lf = { 14203: { lvl: 1 } }; s.planets[1].lf = { 13105: { lvl: 2 } }; });
+  assert.equal(g.raceDe(g.S.planets[0]).race, 'kaelesh', 'une recherche Kaelesh (142xx)');
+  assert.equal(g.raceDe(g.S.planets[1]).race, 'mechas');
+});
+
+t('la race posée à la main l\'emporte, et déplace habitat et nourriture', () => {
+  const g = app(s => { HUMAINS(s); s.planets[0].race = 'rocktal'; });
+  assert.deepEqual(g.raceDe(g.S.planets[0]), { race: 'rocktal', src: 'main', conflit: false });
+  assert.deepEqual(g.baseDe(g.S.planets[0]), { habitat: 12101, nourriture: 12102 });
+});
+
+t('identifiants et nom qui se contredisent : pas de race, et rien de forme de vie dans le plan', () => {
+  assert.ok(lfActs(app(HUMAINS)).length, 'préalable : sans contradiction, la nourriture part');
+  const g = app(s => { HUMAINS(s); PROD_ROCTA(s); });
+  const r = g.raceDe(g.S.planets[0]);
+  assert.equal(r.conflit, true); assert.equal(r.race, null);
+  const c = g.constats().find(x => x.regle === 'FDV_DATA_MISSING' && x.pid === 'mere');
+  assert.match(c.why, /Race contradictoire : les identifiants disent Humains, le tableau de production Roctas/);
+  assert.deepEqual(lfActs(g), [], 'suspendues : pas de conseil sur la mauvaise espèce');
+});
+
+t('FDV_DATA_MISSING coupée : plus de suspension', () => {
+  const g = app(s => { HUMAINS(s); PROD_ROCTA(s); s.settings.regles = { FDV_DATA_MISSING: { on: false } }; });
+  assert.ok(!g.constats().some(x => x.regle === 'FDV_DATA_MISSING'));
+  assert.ok(lfActs(g).length);
+});
+
+t('une case Rock\'tal sans nom : le manque est dit, et Scanner ouvre sa page', () => {
+  const g = app(s => { HUMAINS(s); s.planets[0].lf = { 12101: { lvl: 3 } }; });
+  const c = g.constats().find(x => x.regle === 'FDV_DATA_MISSING' && x.pid === 'mere');
+  assert.match(c.why, /^Noms des bâtiments Roctas inconnus \(1\)/);
+  assert.equal(c.vars.url, 'https://s1-fr.ogame.gameforge.com/game/index.php?page=ingame&component=lfbuildings&cp=101');
+  g.REFRESH.today();
+  assert.match(lu(g.el('tdAlerts').innerHTML), /data-prep="https:[^"]*component=lfbuildings&cp=101">Scanner/);
+});
+
+t('race Rock\'tal posée sans aucune donnée : noms inconnus, et l\'Encyclopédie est nommée', () => {
+  const g = app(s => { s.planets[0].race = 'rocktal'; });
+  const c = g.constats().find(x => x.regle === 'FDV_DATA_MISSING' && x.pid === 'mere');
+  assert.match(c.why, /^Noms Roctas inconnus/);
+  assert.equal(c.vars.url, null);
+  assert.match(c.action, /Encyclopédie/);
+});
+
+t('les noms reviennent par un instantané : le constat tombe, et sert à toutes les planètes', () => {
+  const g = app(s => { HUMAINS(s); s.planets[0].lf = { 12101: { lvl: 3 } }; s.planets[1].lf = { 12101: { lvl: 1 } }; });
+  assert.ok(g.constats().some(x => x.regle === 'FDV_DATA_MISSING' && x.pid === 'colo'));
+  g.S.planets[0].lf[12101].nom = 'Enclave stoïque';
+  g.lfNomsRetiens();
+  assert.equal(g.lfNom(g.S.planets[1], 12101), 'Enclave stoïque');
+  assert.ok(!g.constats().some(x => x.regle === 'FDV_DATA_MISSING'));
+});
+
+t('un nom lu dans le jeu remplace le nom du fichier', () => {
+  const g = app(s => { HUMAINS(s); s.planets[0].lf[11101].nom = 'Quartier résidentiel'; });
+  assert.equal(g.lfNom(g.S.planets[0], 11101), 'Quartier résidentiel');
+  assert.equal(g.lfNomConnu(g.S.planets[1], 11101), 'Secteur résidentiel', 'le fichier, faute de lecture ici');
+});
+
+t('le cache des noms ne voyage pas', () => {
+  const g = app(HUMAINS); g.lfNomsRetiens();
+  assert.ok(Object.keys(g.S.lfNoms).length);
+  assert.ok(!JSON.stringify(g.syncOut()).includes('Ferme biosphérique'));
+});
+
+t('Rescanner oublie les noms lus, garde la race posée à la main', () => {
+  const g = app(s => { s.planets[0].race = 'rocktal'; s.planets[0].lf = { 12101: { lvl: 3, nom: 'Enclave stoïque' } }; });
+  g.lfNomsRetiens();
+  assert.ok(!g.constats().some(x => x.regle === 'FDV_DATA_MISSING'));
+  g.rescanner();
+  assert.equal(g.S.planets[0].race, 'rocktal');
+  assert.match(g.constats().find(x => x.regle === 'FDV_DATA_MISSING').why, /Noms des bâtiments Roctas inconnus/);
+});
+
+t('Réglages › Formes de vie montre la race de chaque planète, et Rescanner', () => {
+  const g = app(HUMAINS);
+  const h = lu(g.raceRows());
+  assert.match(h, /Planète mère.*Humains · déduite des identifiants/);
+  assert.match(h, /data-race="mere"/); assert.match(h, /data-rescan="1"/);
+});
+
+t('une case que la population bloque : la nourriture passe en tête', () => {
+  const g = app(s => { HUMAINS(s);
+    s.planets[0].lf[11104] = { lvl: 0, state: 'pop', nom: 'Académie des sciences' };
+    s.planets[0].lf[11106] = { lvl: 1, nom: 'Fusion à haute énergie', cost: [1, 0, 0], next: 2, secs: 30, eff: 0 };
+    Object.assign(s.planets[0].lf[11101], { cost: [1, 1, 0], next: 21, secs: 60 }); });
+  const l = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.deepEqual(l.slice(0, 2).map(c => c.id), [11102, 11101], 'la nourriture, puis l\'habitat, devant la case qui produit');
+  assert.ok(g.constats().some(x => x.regle === 'FDV_POP_LIMIT'));
+});
+
+t('une priorité du joueur reste devant la base poussée par la règle', () => {
+  const g = app(s => { HUMAINS(s);
+    s.planets[0].lf[11104] = { lvl: 0, state: 'pop', nom: 'Académie des sciences' };
+    s.planets[0].lf[11106] = { lvl: 1, nom: 'Fusion à haute énergie', cost: [1, 0, 0], next: 2, secs: 30, eff: 0 };
+    s.prio = [{ kind: 'lf', pid: 'mere', k: 11106, lvl: 5 }]; });
+  assert.equal(g.lfCandidates(g.S.planets[0], 'lfbuilding')[0].id, 11106);
+});
+
+t('la base sous son palier alors qu\'un bâtiment avancé attend : la base d\'abord', () => {
+  const g = app(s => { HUMAINS(s); s.planets[0].lf[11102].lvl = 10; s.planets[0].lf[11102].next = 11;
+    s.planets[0].lf[11106] = { lvl: 1, nom: 'Fusion à haute énergie', cost: [1, 0, 0], next: 2, secs: 30, eff: 0 }; });
+  assert.equal(g.lfCandidates(g.S.planets[0], 'lfbuilding')[0].id, 11102);
+  assert.match(g.constats().find(x => x.regle === 'FDV_BASE_FIRST').what, /La base d'abord : Ferme biosphérique 10/);
+});
+
+t('file de forme de vie vide : sa carte est marquée', () => {
+  const a = lfActs(app(HUMAINS))[0];
+  assert.equal(a.niveau, 'important'); assert.equal(a.regle, 'FDV_QUEUE_EMPTY');
+});
+
+t('« Ne pas s\'en occuper » fait taire les règles de forme de vie, pas le manque', () => {
+  const g = app(s => { HUMAINS(s); s.planets[1].lf = { 12101: { lvl: 1 } }; s.day.lf = 'off'; });
+  const cs = g.constats().filter(x => x.domaine === 'formes_de_vie');
+  assert.deepEqual([...new Set(cs.map(x => x.regle))], ['FDV_DATA_MISSING']);
+});
+
+t('les paliers de population se lisent du fichier', () => {
+  const g = app();
+  assert.equal(g.LF_PALIER.nourriture, g.REGLES.regles.find(r => r.id === 'FDV_BASE_FIRST').parametres.nourriture);
+});
+
+t('une règle propre à une race ne s\'évalue que sur ses planètes', () => {
+  const r = { id: 'H', nom: 'H', domaine: 'installations', cat: 'infra', niveau: 'conseil', condition: 'queueEmpty',
+    effet: 'signaler', races: ['humans'], parametres: {}, message: 'h', raison: 'h', statut: 'a_valider', actif_par_defaut: true };
+  const g = appRegles({ version: 1, mineBalance: { byStyle: {}, byPosition: {} }, lifeforms: {}, regles: [r] },
+    s => { s.planets[0].race = 'rocktal'; s.planets[1].race = 'humans'; });
+  assert.deepEqual(g.constats().filter(x => x.regle === 'H').map(x => x.pid), ['colo']);
 });
 
 if (failures.length) {
