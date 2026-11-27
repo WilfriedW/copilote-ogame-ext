@@ -16,10 +16,10 @@
    app.js, comme quand il était un script chargé avant lui.
    Lecture seule : rien ici ne navigue, ne remplit ni n'envoie quoi que ce soit. */
 
+import { S } from './core/etat.js';
 import {
-  SEV_NIVEAU, S, planetById, fmt, esc, planetRef, uiOuvert, uiNote,
-  render, constatsVus, planetAlerts, formatTime, DEF, DEF_ABR, defPlan,
-  poidsCat
+  SEV_NIVEAU, planetById, fmt, esc, planetRef, uiOuvert, uiNote, render,
+  constatsVus, planetAlerts, formatTime, DEF, DEF_ABR, defPlan, poidsCat
 } from '../app.js';
 
 /** Les quatre domaines, dans l'ordre des colonnes. */

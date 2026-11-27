@@ -4095,10 +4095,31 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
     for (const f of mods) if (f !== 'app.js') visite(f, []);
   });
 
-  t('modules : le noyau (src/core/) n\'importe rien', () => {
+  t('modules : le noyau (src/core/) n\'importe que le noyau', () => {
     // la règle de #49 : core au fond, tout le reste peut s'appuyer dessus sans retour
     for (const f of mods.filter(f => f.startsWith('src/core/')))
-      assert.deepEqual(M.imports(f).map(i => i.de), [], f + ' importe');
+      for (const { de } of M.imports(f))
+        assert.ok(de.startsWith('src/core/'), f + ' importe ' + de);
+  });
+
+  t('modules : aucun module ne réassigne un nom qu\'il importe', () => {
+    /* Un import est en lecture seule : `S = …` hors de core/etat.js lève dans
+       le navigateur, mais passe dans le harnais, qui a tout mis à plat.
+       Remplacer l'état passe par remplaceEtat. */
+    const fautes = [];
+    for (const f of mods) {
+      const importes = new Set(M.imports(f).flatMap(i => i.noms));
+      const { locaux } = M.usages(lu(f));
+      const j = M.jetons(lu(f));
+      for (let k = 0; k < j.length - 1; k++) {
+        const x = j[k], av = j[k - 1], ap = j[k + 1];
+        if (x.t !== 'id' || !importes.has(x.v) || locaux.has(x.v)) continue;
+        if (av && (av.v === '.' || av.v === '?.')) continue;
+        if (/^(?:=|\+=|-=|\*=|\/=|%=|\|\|=|&&=|\?\?=|\+\+|--)$/.test(ap.v) || (av && /^(?:\+\+|--)$/.test(av.v)))
+          fautes.push(f + ' réassigne ' + x.v);
+      }
+    }
+    assert.deepEqual(fautes, []);
   });
 
   t('modules : node test/run.js lance chaque fichier de test/*.test.js', () => {
@@ -9616,11 +9637,8 @@ t('le Terraformeur et le Dock spatial se posent au clic droit', () => {
   }
 });
 
-t('une sauvegarde d\'avant ces bâtiments les compte à zéro, pas à « undefined »', () => {
-  const g = app(s => { for (const p of s.planets) { delete p.b.depot; delete p.b.silo; } });
-  assert.equal(g.S.planets[0].b.depot, 0);
-  assert.equal(g.S.planets[0].b.silo, 0);
-});
+/* l'état chargé, complété et remplacé : test/etat.test.js */
+require('./etat.test')({ t, app, assert, SOIR });
 
 t('une tuile à niveau que le copilote ne modélise pas est refusée dans la page', () => {
   for (const id of [41, 42, 43]) {   // Base lunaire, Phalange, Porte de saut
@@ -11045,13 +11063,6 @@ t('une planète sans aucune forme de vie garde son volet de stock', () => {
 
 /* ---------- le mode lune retiré ---------- */
 
-t('une sauvegarde qui porte encore le mode lune le perd, sans lever', () => {
-  // la fixture du harnais porte `lune` comme une sauvegarde d'avant le retrait
-  const g = app(s => { s.lune = { on: true, impact: SOIR + 3600e3, tirs: { mere: 4 }, rendu: { coords: '1:1:1', n: 9, dus: 2, faits: 0 } }; });
-  assert.equal(g.S.lune, undefined);
-  assert.ok(!g.dailyMissions().some(m => m.q === 'Lune' || /^lune-/.test(m.id)), 'plus aucune carte du mode');
-});
-
 t('l\'onglet Lune garde le calculateur, sans les champs du mode', () => {
   const g = app(s => { s.ui.tool = 'moon'; });
   const html = lu(g.VIEWS.moon());
@@ -11103,11 +11114,6 @@ t("le résumé du stock s'écrit comme le champ qu'il sert à recaler", () => {
   g.VIEWS.planets(); g.REFRESH.planets();
   const resume = lu(g.html()['pstk-0'] || '');
   assert.ok(!/\bk\b|\bM\b|\bG\b/.test(resume), 'un « 1,20 M » au-dessus d\'un champ qui dit 1200000 : ' + resume);
-});
-
-t('un moonCalc abîmé ne fait pas taire toute la synchro', () => {
-  const g = app(s => { s.moonCalc = null; });
-  assert.doesNotThrow(() => g.syncOut(), 'priorités, centre et réglages continuent de partir');
 });
 
 /* ---------- Outils › Colonie : la position libre, pas la position rêvée ---------- */
