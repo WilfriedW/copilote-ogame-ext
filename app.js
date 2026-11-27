@@ -2677,10 +2677,16 @@ function header(){
   const tz = document.getElementById('tzBtn'), tzl = document.getElementById('tzLbl');
   const inconnu = timeMode === 'server' && srvOffSec() == null;
   tz.setAttribute('aria-checked', String(timeMode === 'local'));
-  tz.title = tz.ariaLabel = timeMode === 'local' ? 'Afficher les heures en heure serveur' : 'Afficher les heures en heure locale';
+  /* Les deux avertissements du libellé — heure serveur pas encore lue, ou
+     décalage non vérifié sur la dernière page — sont aussi copiés dans
+     l'infobulle de l'interrupteur et dans son nom accessible : en panneau
+     étroit, le libellé est masqué (panel.css), donc ni vu ni lu. */
+  const avert = inconnu ? 'Heure serveur pas encore lue : les heures restent en heure locale jusqu\'à la prochaine page du jeu'
+    : (S.srvTz && S.srvTz.ok === false ? 'Décalage du serveur non vérifié sur la dernière page : le dernier connu sert' : '');
+  tz.title = tz.ariaLabel = (timeMode === 'local' ? 'Afficher les heures en heure serveur' : 'Afficher les heures en heure locale')
+    + (avert ? ' — ' + avert.charAt(0).toLowerCase() + avert.slice(1) : '');
   tzl.textContent = timeMode === 'local' ? 'Heures : locale' : (inconnu ? 'Heures : serveur ?' : 'Heures : serveur');
-  tzl.title = inconnu ? 'Heure serveur pas encore lue : les heures restent en heure locale jusqu\'à la prochaine page du jeu'
-    : (S.srvTz && S.srvTz.ok === false ? 'Décalage du serveur non vérifié sur la dernière page : le dernier connu sert' : (LOCAL_TZ ? 'Fuseau local : ' + LOCAL_TZ : ''));
+  tzl.title = avert || (LOCAL_TZ ? 'Fuseau local : ' + LOCAL_TZ : '');
   /* Le masquage de la page du jeu : un bouton, et sous lui les trois cases. */
   const mb = document.getElementById('masqueBtn'), mm = document.getElementById('masqueMenu');
   if(mb && mm){
