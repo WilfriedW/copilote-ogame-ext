@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.17.0';
+const APP_VERSION = '2.18.0';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -28,14 +28,14 @@ REGLES.regles.forEach((r, i) => { if(r && typeof r.id === 'string' && !aSoi(REGL
    vérifie qu'elles disent la même chose que rules.json. */
 const REGLES_SECOURS = {};
 [
-  {id:'RES_STORAGE_FULL', nom:'Stockage plein', domaine:'ressources', cat:'stock', niveau:'critique', condition:'storageRatio', parametres:{seuil:0.98}, effet:'pousser',
-    message:'{hangar} plein{sur}',
-    raison:'La production de {ressource} est arrêtée. {depense} Monter {hangar} {niveau+1} prend {montee}, et la production reste à l\'arrêt jusque-là.',
+  {id:'RES_STORAGE_FULL', nom:'Stockage plein', domaine:'ressources', cat:'stock', niveau:'critique', condition:'storageRatio', parametres:{seuil:0.98, recurrence:3}, effet:'pousser',
+    message:'{Ressource} au plafond{sur} : {pertes} perdus',
+    raison:'{excedent}. La production de {ressource} est arrêtée tant que le stock ne redescend pas. {depense}',
     action:'{quoi}', source:'https://ogame.fandom.com/wiki/Buildings', statut:'valide'},
   {id:'RES_STORAGE_SOON', nom:'Stockage bientôt plein', domaine:'ressources', cat:'stock', niveau:'important', condition:'storageEta', parametres:{heures:8}, effet:'pousser',
-    message:'{hangar} plein dans {dans}{sur}',
-    raison:'Lance {hangar} {niveau+1} maintenant : il met {montee} à sortir, et au plafond la production s\'arrête.',
-    action:'{hangar} {niveau+1}', source:'https://ogame.fandom.com/wiki/Buildings', statut:'valide'},
+    message:'{Ressource} au plafond dans {dans}{sur}',
+    raison:'{cause}Au plafond, la production de {ressource} s\'arrête : {pertes} perdus. {depense}',
+    action:'{quoi}', source:'https://ogame.fandom.com/wiki/Buildings', statut:'valide'},
   {id:'RES_ENERGY_NEGATIVE', nom:'Énergie négative', domaine:'ressources', cat:'mines', niveau:'critique', condition:'energyBalance', parametres:{}, effet:'pousser',
     message:'Rétablir l\'énergie{sur}',
     raison:'Tes mines tournent à {pct} %. {options}',
@@ -2149,6 +2149,8 @@ const CARTES = {
     /* Une attaque ou un espionnage entrants : la carte n'existe que tant qu'il y en a. */
     {cardId:'attaque', titre:'Attaque', fixe:false, getSummary:()=>RESUMES.attaque},
     {cardId:'maintenant', titre:'Maintenant', fixe:true, getSummary:()=>RESUMES.maintenant},
+    /* Une ressource au plafond, ou qui va l'atteindre : la carte n'existe que tant qu'il y en a. */
+    {cardId:'surplus', titre:'Ressources en trop', fixe:false, getSummary:()=>RESUMES.surplus},
     {cardId:'alertes', titre:'Alertes', fixe:false, getSummary:()=>RESUMES.alertes},
     {cardId:'securite', titre:'Sécurité', fixe:true, getSummary:()=>RESUMES.securite},
     {cardId:'expeditions', titre:'Expéditions', fixe:true, getSummary:()=>RESUMES.expeditions},
@@ -3034,34 +3036,393 @@ function repondA(c, a, i){
 
 /* ---------- les règles du moteur : évaluateurs ---------- */
 const HANGARS = [['Hangar de métal', 'smetal'], ['Hangar de cristal', 'scrystal'], ['Réservoir de deutérium', 'sdeut']];
-/* Au plafond, la production s'arrête. Ce qui la relance, c'est dépenser : le
-   plan pousse le plus gros chantier productif payable (pickBuildings). */
+/* Au plafond, la production s'arrête. Ce qui la relance, dans l'ordre :
+   dépenser sur place ce que le plan juge déjà utile, sinon envoyer l'excédent
+   là où il manque, sinon — et seulement si le débordement revient — monter le
+   hangar (solutionsSurplus). Baisser la production n'est jamais une réponse :
+   c'est la perte même qu'on cherche à éviter. */
 EVAL.storageRatio = (p, prm) => {
   const pr = production(p), st = stockNow(p), out = [];
   for(let k = 0; k < 3; k++){
     if(!(st[k] >= pr.cap[k] * prm.seuil)) continue;
-    const [name, bk] = HANGARS[k], mont = buildTime(bk, p.b[bk] + 1, p), d = depensesPayables(p, k, st)[0];
-    out.push({valeur:k, cost:d ? d.cost : null, repond:{kinds:['b']},
-      vars:{hangar:name, ressource:NOM_RES[k], niveau:p.b[bk], montee:dur(mont), quoi:d ? d.what : 'Un transport',
-        depense:d ? `Lance ${d.what} : c'est la plus grosse dépense payable tout de suite ${d.kind === 't' ? 'depuis ton labo' : 'ici'}, ${fmt(d.cost[k])} de ${NOM_RES[k]} d'un coup.`
-          : 'Rien n\'est payable ici pour la vider : fais partir un transport.'}});
+    const [name, bk] = HANGARS[k], sol = solutionsSurplus(p, k, null)[0] || null;
+    out.push({valeur:k, cost:sol && sol.cost ? sol.cost : null,
+      repond:sol && sol.type === 'hangar' ? {kinds:['b'], ks:[bk]} : {kinds:['b']},
+      vars:Object.assign(surplusVars(p, k, st, pr), {hangar:name, niveau:p.b[bk], montee:dur(buildTime(bk, p.b[bk] + 1, p)),
+        quoi:sol ? sol.what : 'Un transport', depense:solutionPhrase(sol, k)})});
   }
   return out;
 };
-/* Le délai couvre le temps de montée du hangar, et au moins `heures` : il doit
-   être MONTÉ avant le plafond. Le garde sur le débit évite une durée infinie. */
+/* Le plafond qui approche : par la production, avec un délai qui couvre au
+   moins `heures` ; ou par une livraison — un retour d'expédition ne se
+   détourne pas, et il peut remplir le hangar d'un coup. Les livraisons
+   comptent sur 24 h : la plus lointaine est celle qu'on peut encore préparer. */
 EVAL.storageEta = (p, prm) => {
   const pr = production(p), st = stockNow(p), rates = [pr.m, pr.c, pr.d], out = [];
-  const plein = regleParam('RES_STORAGE_FULL', 'seuil', .98);
+  const plein = regleParam('RES_STORAGE_FULL', 'seuil', .98), now = Date.now();
+  const livs = livraisons(p).filter(l => l.at > now && l.at <= now + 24 * 3600e3);
   for(let k = 0; k < 3; k++){
-    if(st[k] >= pr.cap[k] * plein || !(rates[k] > 0)) continue;
-    const [name, bk] = HANGARS[k], mont = buildTime(bk, p.b[bk] + 1, p), h = (pr.cap[k] - st[k]) / rates[k];
-    if(h < Math.max(prm.heures, mont / 3600))
-      out.push({valeur:k, cost:levelCost(B[bk], p.b[bk] + 1), repond:{kinds:['b'], ks:[bk]},
-        vars:{hangar:name, ressource:NOM_RES[k], niveau:p.b[bk], dans:dur(h * 3600), montee:dur(mont)}});
+    if(st[k] >= pr.cap[k] * plein) continue;
+    const [name, bk] = HANGARS[k], mont = buildTime(bk, p.b[bk] + 1, p);
+    let dans = rates[k] > 0 ? (pr.cap[k] - st[k]) / rates[k] * 3600 : Infinity, cause = '';
+    if(!(dans < Math.max(prm.heures, mont / 3600) * 3600)) dans = Infinity;
+    const l = livs.find(x => x.cargo[k] > 0 && projectResources(p, x.at)[k] >= pr.cap[k] * plein);
+    if(l && (l.at - now) / 1000 < dans){
+      dans = (l.at - now) / 1000;
+      const v = l.mv || {}, de = (v.sens === 'retour' ? v.cible : v.origine) || {};
+      cause = (v.mission === 15 ? `Retour d'expédition à ${formatTime(l.at)}` : `Convoi ${de.nom || de.coords || ''} à ${formatTime(l.at)}`.replace('  ', ' '))
+        + ` : +${fmt(l.cargo[k])} ${NOM_RES[k]}. `;
+    }
+    if(!isFinite(dans)) continue;
+    const sol = solutionsSurplus(p, k, null)[0] || null;
+    out.push({valeur:k, cost:sol && sol.cost ? sol.cost : null,
+      repond:sol && sol.type === 'hangar' ? {kinds:['b'], ks:[bk]} : null,
+      vars:Object.assign(surplusVars(p, k, st, pr), {hangar:name, niveau:p.b[bk], dans:dur(dans), montee:dur(mont), cause,
+        quoi:sol ? sol.what : 'Un transport', depense:solutionPhrase(sol, k), secs:dans})});
   }
   return out;
 };
+
+/* ---------- ressources en trop ---------- */
+/**
+ * Ce qu'un plafond coûte : la production horaire arrêtée, et sa valeur en
+ * métal au ratio du joueur — c'est elle qui classe les débordements entre eux,
+ * un cristal arrêté valant plus qu'autant de métal.
+ * @returns {{res:number, eqM:number}}
+ */
+function pertesParHeure(p, k, pr){
+  pr = pr || production(p);
+  const r = Math.max(0, [pr.m, pr.c, pr.d][k] || 0), ratio = S.settings.ratio || [3, 2, 1];
+  return {res:r, eqM:r * ratio[0] / ratio[k]};
+}
+/** « 12 k », « 1,20 M » : un débit se lit d'un coup d'œil. */
+function fmtK(n){ return !isFinite(n) ? '∞' : Math.abs(n) >= 1e6 ? fmt(n) : Math.abs(n) >= 1e4 ? `${Math.round(n / 1e3)} k` : fmt(n); }
+/** Les variables communes aux deux règles de hangar. */
+function surplusVars(p, k, st, pr){
+  const l = pertesParHeure(p, k, pr), e = st[k] - pr.cap[k];
+  return {ressource:NOM_RES[k], Ressource:majus(NOM_RES[k]), pertes:`${fmtK(l.res)} ${NOM_RES[k]}/h`,
+    excedent:e > 0 ? `${fmt(e)} au-dessus de la capacité (${fmt(pr.cap[k])})` : `${Math.floor(st[k] / pr.cap[k] * 100)} % de la capacité (${fmt(pr.cap[k])})`};
+}
+/** La première solution en une phrase, pour le texte de la règle. */
+function solutionPhrase(s, k){
+  if(!s) return `Rien d'utile n'est finançable ici avec le ${NOM_RES[k]} : envoie-le là où il manque.`;
+  if(s.type === 'depense') return `${s.what} : ${fmt(s.cost[k])} de ${NOM_RES[k]} d'un coup, pour une dépense utile — pas un achat pour vider.`;
+  if(s.type === 'transfert') return `Envoie ${fmt(s.charge[k])} de ${NOM_RES[k]} à ${s.dest.name} : ${s.pour}.`;
+  return `${s.what} : ${s.pourquoi}.`;
+}
+
+/* L'historique des débordements, propre au poste (chrome.storage.local, hors
+   de S et de la synchro). Une entrée par débordement : planète, ressource,
+   début, fin — fin vide tant qu'il dure. Sept jours glissants : c'est ce qui
+   dit si le hangar est trop petit pour de bon, ou si une livraison ponctuelle
+   l'a rempli une fois. `var` : un rendu peut passer avant cette ligne. */
+var SURPLUS_GARDE_MS = 7 * 864e5;
+var SURPLUS_REGLES = ['RES_STORAGE_FULL', 'RES_STORAGE_SOON'];
+var SURPLUS_LOG = (() => {
+  const v = typeof window !== 'undefined' ? window.__surplusLog : null;
+  return Array.isArray(v) ? v.filter(e => e && typeof e.pid === 'string' && [0, 1, 2].includes(e.k) && Number.isFinite(e.d)) : [];
+})();
+/**
+ * Note les débordements de l'instant : en ouvre un pour chaque ressource au
+ * plafond qui n'en a pas, ferme ceux qui sont redescendus, oublie ce qui a
+ * plus de sept jours. N'écrit que si quelque chose a changé.
+ * @returns {boolean} vrai si l'historique a changé
+ */
+function surplusNote(now){
+  if(S.sample) return false;
+  const seuil = regleParam('RES_STORAGE_FULL', 'seuil', .98);
+  let change = false;
+  for(const p of S.planets || []){
+    if(!p || !p.stock) continue;
+    const pr = production(p), st = stockNow(p);
+    for(let k = 0; k < 3; k++){
+      const ouvert = SURPLUS_LOG.find(e => e.pid === p.id && e.k === k && e.f == null), plein = st[k] >= pr.cap[k] * seuil;
+      if(plein && !ouvert){ SURPLUS_LOG.push({pid:p.id, k, d:now, f:null}); change = true; }
+      else if(!plein && ouvert){ ouvert.f = now; change = true; }
+    }
+  }
+  const garde = SURPLUS_LOG.filter(e => (e.f == null ? now : e.f) >= now - SURPLUS_GARDE_MS && planetById(e.pid));
+  if(garde.length !== SURPLUS_LOG.length){ SURPLUS_LOG = garde; change = true; }
+  if(change && typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local)
+    try{ const r = chrome.storage.local.set({surplusLog: SURPLUS_LOG.map(e => Object.assign({}, e))}); if(r && r.catch) r.catch(e => console.error('Copilote : historique des débordements non enregistré', e)); }
+    catch(e){ console.error('Copilote : historique des débordements non enregistré', e); }
+  return change;
+}
+/** Combien de fois cette ressource a débordé sur cette planète en sept jours, celui en cours compris. */
+function surplusCompte(pid, k, now){
+  now = now == null ? Date.now() : now;
+  return SURPLUS_LOG.filter(e => e.pid === pid && e.k === k && (e.f == null ? now : e.f) >= now - SURPLUS_GARDE_MS).length;
+}
+
+/**
+ * Ce que le plan met de côté sur `p` au début de la journée : la même règle
+ * que `reserveOf` dans simulateDay — le coût d'un objectif, moins ce que la
+ * production y apporte d'ici son échéance.
+ */
+function reservePlan(plan, p){
+  const s0 = plan && plan.sessions && plan.sessions[0], out = [0, 0, 0], pi = S.planets.indexOf(p);
+  if(!s0 || pi < 0) return out;
+  const pr = production(p), r = [pr.m, pr.c, pr.d];
+  for(const g of s0.goals || []){
+    if(g.p !== pi || !g.cost) continue;
+    const h = Math.max(0, (g.deadline - s0.T) / 3600e3);
+    g.cost.forEach((x, j) => { out[j] += Math.max(0, x - r[j] * h); });
+  }
+  return out;
+}
+/**
+ * Ce qui, sur `p`, est déjà utile au plan : ses chantiers, cases de forme de
+ * vie, vaisseaux et défenses, qu'ils partent aujourd'hui ou attendent ; les
+ * recherches du plan quand cette planète peut les payer (son labo est le
+ * centre, ou RECH_FUND_ELSEWHERE la laisse payer) ; les pièces que le modèle
+ * de défense réclame. Sans plan — une règle se lit avant lui — les mines,
+ * centrales, cases de forme de vie et recherches payables ici.
+ * Jamais un achat « pour vider » : les puits de PUITS n'y sont pas.
+ * @returns {{kind:string, what:string, cost:number[], depuis?:boolean}[]}
+ */
+function utilesSurPlace(p, plan, dispo, k){
+  const out = [], pi = S.planets.indexOf(p), lab = labPlanet(), rech = rechercheEnCours();
+  const ici = lab && lab.id === p.id, ailleurs = !ici && regleActive('RECH_FUND_ELSEWHERE');
+  const rechOk = t => !rech && T[t] && (ici || (ailleurs && labOkPour(t, p)));
+  if(plan){
+    for(const x of plan.sessions || []) for(const a of (x.acts || []).concat(x.waits || [])){
+      if(!a || !Array.isArray(a.cost)) continue;
+      if(a.kind === 't'){ if(rechOk(a.k)) out.push({kind:'t', what:a.what, cost:a.cost, depuis:!ici}); }
+      else if(a.p === pi && ['b', 'lf', 'def', 'shipbuild'].includes(a.kind)) out.push({kind:a.kind, what:a.what, cost:a.cost});
+    }
+  } else {
+    for(const d of depensesPayables(p, k, dispo)) if(!d.puits && d.kind !== 't') out.push(d);
+    if(!rech) for(const t of (nextResearch().list || []).slice(0, 3)) if(rechOk(t.k)) out.push({kind:'t', what:`${T[t.k].n} ${t.lvl}`, cost:levelCost(T[t.k], t.lvl), depuis:!ici});
+  }
+  /* Un lot de défense du modèle : autant de pièces que le stock libre en
+     paie, jamais plus que ce qui manque au palier. Page Défense jamais lue :
+     rien, on doublerait ce qui existe. */
+  const props = defsOf(p) ? defPropositions(p) : null;
+  for(const l of (props && props.ordre) || []){
+    const u = DEF[l.k].c, n = Math.min(l.manque, ...u.map((x, j) => x > 0 ? Math.floor(Math.max(0, dispo[j]) / x) : Infinity));
+    if(n >= 1 && !refused(cardKey('def', p.id, l.k))) out.push({kind:'def', what:`Construire ${shipList({[l.k]:n})}`, cost:u.map(x => x * n)});
+  }
+  return out;
+}
+/**
+ * La dépense utile qui vide le plus la ressource en trop, payable maintenant
+ * sur `p` après les réserves du plan. Le choix se fait sur la part de la
+ * ressource dans le prix (au ratio du joueur) : on veut vider le cristal, pas
+ * le métal qui manque peut-être ailleurs.
+ */
+function depenseSurPlace(p, k, plan){
+  const st = stockNow(p), res = reservePlan(plan, p), dispo = st.map((x, j) => x - res[j]), ratio = S.settings.ratio || [3, 2, 1];
+  const part = c => c[k] * ratio[0] / ratio[k] / Math.max(1e-9, mse(...c));
+  const vus = new Set(), cands = [];
+  for(const c of utilesSurPlace(p, plan, dispo, k)){
+    if(vus.has(c.what) || !(c.cost[k] > 0) || !c.cost.every((x, j) => x <= dispo[j] + 1e-6)) continue;
+    vus.add(c.what); cands.push(c);
+  }
+  /* La part décide, mais pas seule : 1 000 de cristal dans une sonde, c'est
+     du cristal pur et ça ne vide rien quand 2 M dépassent. Une dépense qui
+     absorbe au moins un dixième de l'excédent (au-dessus de 90 %) passe
+     devant ; sous le plafond, toutes se valent. */
+  const exces = Math.max(0, st[k] - 0.9 * production(p).cap[k]), pese = c => c.cost[k] >= 0.1 * exces ? 1 : 0;
+  cands.sort((a, b) => pese(b) - pese(a) || part(b.cost) - part(a.cost) || b.cost[k] - a.cost[k]);
+  const c = cands[0];
+  if(!c) return null;
+  const quoi = c.kind === 't' ? `Lancer ${c.what}${c.depuis && S.planets.length > 1 ? ` depuis ${p.name}` : ''}` : c.kind === 'def' || /^Construire /.test(c.what) ? c.what : `Lancer ${c.what}`;
+  return {type:'depense', kind:c.kind, what:quoi, cost:c.cost};
+}
+
+/** Les transporteurs que `p` peut prêter : ni le kit d'expédition, ni la réserve de GT (expoRes). */
+function flotteLibre(p){
+  const sh = {lc:(p.ships || {}).lc || 0, sc:(p.ships || {}).sc || 0};
+  sh.lc = Math.max(0, sh.lc - expoRes(p));
+  const kit = expoFleet(p.ships, p);
+  if(kit) for(const k of ['lc', 'sc']) sh[k] = Math.max(0, sh[k] - (kit.ships[k] || 0));
+  return sh;
+}
+/** Les transporteurs libres pour lever `amount`, les grands d'abord. */
+function soutePour(libres, amount){
+  const ships = {};
+  let cargo = 0;
+  for(const k of ['lc', 'sc']){
+    const u = shipStats(k).cargoEff, n = Math.min(libres[k] || 0, u ? Math.ceil(Math.max(0, amount - cargo) / u) : 0);
+    if(n > 0){ ships[k] = n; cargo += n * u; }
+  }
+  return ships;
+}
+/** Le moins qu'un transfert vaille : sous ce tonnage, le vol coûte plus d'attention qu'il ne rend. */
+var SURPLUS_MIN = 5000;
+/**
+ * Ce que chaque planète attend de cette ressource : ce qui manque aux
+ * éléments du plan qu'elle bloque (« En attente de ressources »), et à ses
+ * objectifs. La planète de recherche y est par ses recherches en attente.
+ * @returns {Map<number, {besoin:number, pour:string[]}>} par indice de planète
+ */
+function besoinsDe(plan, k){
+  const out = new Map(), s0 = plan && plan.sessions && plan.sessions[0];
+  if(!s0) return out;
+  const note = (i, x, what) => {
+    if(!(x > 0) || !S.planets[i]) return;
+    const e = out.get(i) || {besoin:0, pour:[]};
+    e.besoin = Math.max(e.besoin, x);
+    if(what && !e.pour.includes(what)) e.pour.push(what);
+    out.set(i, e);
+  };
+  for(const w of s0.waits || []) if(w.miss) note(w.p, w.miss[k], w.what);
+  for(const g of s0.goals || []) if(g.cost && S.planets[g.p]) note(g.p, g.cost[k] - stockNow(S.planets[g.p])[k], g.label);
+  return out;
+}
+/** Ce qui se pose encore sur `q` après `at` : la place d'aujourd'hui est la place de toute la journée. */
+function livreApres(q, at, k){ return livraisons(q).filter(l => l.at > at).reduce((a, l) => a + (l.cargo[k] || 0), 0); }
+/**
+ * L'excédent de `p` envoyé à une planète qui en manque et qui a la place.
+ * La quantité est le plus petit de : ce qui ramène `p` sous 90 %, le besoin
+ * de la cible, sa place libre jusqu'à 95 %, la soute des transporteurs libres.
+ * Cible : le plus gros besoin, puis la plus proche.
+ * @returns {object|null} au format de transportHtml, plus `pour` et `besoin`
+ */
+function transfertVersBesoin(p, k, plan){
+  const pr = production(p), st = stockNow(p), cp = parseC(p.coords), pi = S.planets.indexOf(p);
+  const exces = st[k] - 0.9 * pr.cap[k];
+  if(!cp || !(exces >= SURPLUS_MIN)) return null;
+  const libres = flotteLibre(p);
+  if(!libres.lc && !libres.sc) return null;
+  const now = Date.now(), cands = [];
+  for(const [i, b] of besoinsDe(plan, k)){
+    const q = S.planets[i];
+    if(i === pi || !q || !parseC(q.coords) || refused(cardKey('transfer', p.id, q.coords))) continue;
+    let ships = soutePour(libres, Math.min(exces, b.besoin)), fl = flight(p.coords, q.coords, ships, 100);
+    if(!fl) continue;
+    const arrivee = now + fl.secs * 1000, cq = production(q).cap[k];
+    const place = 0.95 * cq - projectResources(q, arrivee)[k] - livreApres(q, arrivee, k);
+    const qte = Math.floor(Math.min(exces, b.besoin, place, fl.cargo, k === 2 ? st[2] - fl.fuel : Infinity));
+    if(qte < SURPLUS_MIN) continue;
+    /* La flotte retaillée à la quantité : moins de vaisseaux, moins de deutérium. */
+    ships = soutePour(libres, qte); fl = flight(p.coords, q.coords, ships, 100) || fl;
+    const charge = [0, 0, 0]; charge[k] = Math.min(qte, fl.cargo);
+    cands.push({q, b, ships, fl, charge, arrivee:now + fl.secs * 1000, d:distance(cp, parseC(q.coords))});
+  }
+  cands.sort((a, b) => b.b.besoin - a.b.besoin || a.d - b.d);
+  const c = cands[0];
+  if(!c) return null;
+  const pour = `${c.b.pour.slice(0, 2).join(', ')} y attend${c.b.pour.length > 1 ? 'ent' : ''} ${fmt(c.b.besoin)} de ${NOM_RES[k]}`;
+  return {type:'transfert', what:`Transférer ${fmt(c.charge[k])} de ${NOM_RES[k]} vers ${c.q.name}`, p, pi, ships:c.ships, dest:c.q,
+    mission:3, missionNom:'Transport', pct:100, depart:now, arrivee:c.arrivee, retour:c.arrivee + c.fl.secs * 1000, fuel:c.fl.fuel,
+    charge:c.charge, pour, besoin:c.b.besoin, pourquoi:`${majus(pour)}, et la place pour la recevoir.`, note:'Kit d\'expédition et réserve de GT laissés à quai.', gt:0};
+}
+/**
+ * Le hangar, en dernier recours : seulement si la ressource a débordé au
+ * moins `recurrence` fois en sept jours, ou si la prochaine mine coûte plus
+ * que le hangar ne contient (RES_MINE_BLOCKED_BY_STORAGE). Un débordement de
+ * livraison ponctuelle ne le justifie pas : il coûte cher, met des heures, et
+ * ne sert plus une fois le stock redescendu.
+ */
+function hangarSiJustifie(p, k){
+  const pr = production(p), n = surplusCompte(p.id, k), seuil = regleParam('RES_STORAGE_FULL', 'recurrence', 3);
+  const best = rankUpgrades(p).filter(u => u.payback < Infinity && B[u.key])[0];
+  const bc = best ? (best.extraSolar ? levelCost(B.solar, p.b.solar + 1) : levelCost(B[best.key], best.lvl)) : null;
+  const bloque = !!bc && bc[k] > pr.cap[k];
+  if(n < seuil && !bloque) return null;
+  const [name, bk] = HANGARS[k], lvl = (p.b[bk] || 0) + 1, duree = buildTime(bk, lvl, p);
+  return {type:'hangar', what:`${name} ${lvl}`, k:bk, lvl, cost:levelCost(B[bk], lvl), duree,
+    pourquoi:bloque ? `${upLabel(best)} coûte plus que la capacité actuelle` : `${n} débordements de ${NOM_RES[k]} en 7 jours`};
+}
+/**
+ * Jusqu'à trois solutions pour une ressource au plafond, dans l'ordre :
+ * dépenser sur place, transférer vers un besoin, monter le hangar. Sans plan
+ * (une règle se lit avant lui), pas de transfert : les besoins sont ceux du plan.
+ */
+function solutionsSurplus(p, k, plan){
+  const out = [], d = depenseSurPlace(p, k, plan);
+  if(d) out.push(d);
+  const t = plan ? transfertVersBesoin(p, k, plan) : null;
+  if(t) out.push(t);
+  const h = hangarSiJustifie(p, k);
+  if(h) out.push(h);
+  return out.slice(0, 3);
+}
+
+/**
+ * Les ressources qu'une cargaison ferait passer au-dessus du hangar de `q` à
+ * son arrivée : la livraison n'est pas plafonnée, la production si — elle
+ * s'arrête tant que le stock reste au-dessus.
+ * @returns {number[]} indices de ressource
+ */
+function debordeA(q, cargo, at){
+  if(!q || !q.stock || !cargo) return [];
+  const pr = production(q), proj = projectResources(q, at);
+  return [0, 1, 2].filter(j => cargo[j] > 0 && proj[j] + cargo[j] > pr.cap[j]);
+}
+/** « À l'arrivée, Erablis dépassera sa capacité en cristal : la mine s'arrêtera. » */
+function debordeTexte(nom, js){
+  if(!js || !js.length) return '';
+  const mines = js.filter(j => j < 2).length, synth = js.includes(2);
+  const sujet = [mines > 1 ? 'les mines' : mines ? 'la mine' : '', synth ? 'le synthétiseur' : ''].filter(Boolean);
+  return `À l'arrivée, ${nom} dépassera sa capacité en ${js.map(j => NOM_RES[j]).join(' et ')} : ${sujet.join(' et ')} s'arrêter${sujet.length > 1 || mines > 1 ? 'ont' : 'a'}.`;
+}
+/** Une autre de mes planètes qui prendrait cette cargaison sous 95 % de ses hangars, la plus proche. */
+function autreCibleAvecPlace(from, cargo, at, exclus){
+  const c = parseC(from && from.coords);
+  if(!c) return null;
+  return S.planets.filter(q => q !== from && !(exclus || []).includes(q) && q.stock && parseC(q.coords)).filter(q => {
+    const pr = production(q), proj = projectResources(q, at);
+    return [0, 1, 2].every(j => !(cargo[j] > 0) || proj[j] + cargo[j] <= 0.95 * pr.cap[j]);
+  }).sort((a, b) => distance(c, parseC(a.coords)) - distance(c, parseC(b.coords)))[0] || null;
+}
+
+/**
+ * Les ressources au plafond, ou qui vont l'atteindre, une ligne par planète et
+ * ressource, la plus coûteuse en production perdue d'abord (en équivalent
+ * métal au ratio du joueur). Lit les constats du plan : une règle éteinte ou
+ * un constat ignoré n'y est pas.
+ */
+function surplusListe(plan){
+  const cs = constatsVus((plan && plan.constats) || []).filter(c => c.regle === 'RES_STORAGE_FULL' || c.regle === 'RES_STORAGE_SOON');
+  const vus = new Set(), out = [];
+  for(const c of cs){
+    const p = planetById(c.pid), k = c.valeur, cle = `${c.pid}:${k}`;
+    if(!p || ![0, 1, 2].includes(k) || vus.has(cle)) continue;
+    vus.add(cle);
+    const pr = production(p), st = stockNow(p), l = pertesParHeure(p, k, pr);
+    out.push({c, p, k, plein:c.regle === 'RES_STORAGE_FULL', st, cap:pr.cap[k], pertes:l, solutions:solutionsSurplus(p, k, plan)});
+  }
+  /* Un plafond atteint passe devant un plafond à venir ; à état égal, la
+     perte horaire décide. */
+  return out.sort((a, b) => (b.plein - a.plein) || b.pertes.eqM - a.pertes.eqM);
+}
+/**
+ * La carte Ressources en trop : une entrée par ressource au plafond ou qui va
+ * l'atteindre, la production perdue en tête, puis jusqu'à trois solutions
+ * dans l'ordre — dépenser sur place, transférer, monter le hangar. Rien ne
+ * part tout seul : « Préparer » ouvre le formulaire du jeu, l'envoi reste le
+ * clic du joueur. Baisser la production n'y figure jamais.
+ * @returns {{html:string, items:{sev:string, key:string}[]}}
+ */
+function surplusHtml(plan){
+  const l = surplusListe(plan).filter(x => typeof meteoVoit !== 'function' || meteoVoit({pid:x.p.id}));
+  if(!l.length) return {html:'', items:[]};
+  const solHtml = (s, x) => {
+    if(s.type === 'depense') return `<li><b>Dépenser sur place</b> · ${esc(s.what)} ${costHtml(s.cost)} <span class="note">${fmt(s.cost[x.k])} de ${NOM_RES[x.k]} d'un coup, déjà dans ton plan.</span></li>`;
+    if(s.type === 'transfert') return `<li><b>Transférer vers un besoin</b> · ${esc(s.what)}${transportHtml(s)}</li>`;
+    return `<li><b>Monter le hangar</b> · ${esc(s.what)} ${costHtml(s.cost)} <span class="note">${dur(s.duree)} de chantier · ${esc(s.pourquoi)}.</span></li>`;
+  };
+  const ligne = x => {
+    const c = x.c, sev = NIVEAU_SEV[c.niveau] || 'warn', where = S.planets.length > 1 ? ` sur ${x.p.name}` : '';
+    const titre = x.plein ? `${majus(NOM_RES[x.k])} au plafond${where} : ${fmtK(x.pertes.res)} ${NOM_RES[x.k]}/h perdus`
+      : `${majus(NOM_RES[x.k])} au plafond dans ${c.vars.dans}${where} : ${fmtK(x.pertes.res)} ${NOM_RES[x.k]}/h en jeu`;
+    const e = x.st[x.k] - x.cap;
+    const detail = (e > 0 ? `${fmt(e)} au-dessus de la capacité (${fmt(x.cap)})` : `${Math.floor(x.st[x.k] / x.cap * 100)} % de la capacité (${fmt(x.cap)})`)
+      + (x.k ? ` · ≈ ${fmtK(x.pertes.eqM)} métal/h au ratio` : '') + '.';
+    const n = surplusCompte(x.p.id, x.k), recur = regleParam('RES_STORAGE_FULL', 'recurrence', 3);
+    const sols = x.solutions.length ? `<ol class="surplus-sol">${x.solutions.map(s => solHtml(s, x)).join('')}</ol>`
+      : `<p class="note">Rien d'utile à financer ici, et aucune planète qui en manque n'a la place. Le hangar ne se propose qu'après ${recur} débordements en 7 jours (${n} pour l'instant) : un plafond ponctuel redescend avec la prochaine dépense.</p>`;
+    return `<li><span class="pill ${sev}">${SEV_LABEL[sev] || ''}</span><span class="what">${esc(titre)}</span>`
+      + `<span class="why">${c.vars.cause ? esc(c.vars.cause) : ''}${esc(detail)}${sols}`
+      + ` <button class="btn sm ghost" data-ign="${esc(ignKey(c))}" title="Masqué jusqu'à ce que la situation change, ou 24 h">Ignorer</button></span></li>`;
+  };
+  return {items:l.map(x => ({sev:NIVEAU_SEV[x.c.niveau] || 'warn', key:x.c.what})),
+    html:`<div class="card"><h2>Ressources en trop <span class="note">${l.length}</span></h2>`
+      + `<p class="note" style="margin:0 0 8px">Au plafond, la mine ou le synthétiseur s'arrête tant que le stock ne redescend pas. Dans l'ordre : le dépenser ici, sinon l'envoyer où il manque, et le hangar seulement si ça revient.</p>`
+      + `<ul class="advice">${l.map(ligne).join('')}</ul></div>`};
+}
 /* L'option satellites est respectée par energyOptions : un satellite écarté
    ne sort pas comme la solution, il se dit à part dans planetAlerts. */
 EVAL.energyBalance = p => {
@@ -3431,7 +3792,9 @@ function publieCritiques(cs){
  * réponse, et le bloc n'est pas une seconde liste des mêmes choses.
  */
 function conseilLignes(plan){
-  const cs = constatsVus(plan.constats || []).filter(c => !c.servi);
+  /* Les débordements ont leur carte, Ressources en trop, qui dit la perte et
+     les solutions : les répéter ici ferait deux listes des mêmes choses. */
+  const cs = constatsVus(plan.constats || []).filter(c => !c.servi && !SURPLUS_REGLES.includes(c.regle));
   const autres = (plan.alerts || []).filter(a => !a.regle).map(a => ({
     niveau:SEV_NIVEAU[a.sev] || 'conseil', sev:a.sev, what:a.what, why:a.why, pid:a.pid, domaine:'', cat:'', rang:Infinity}));
   const pi = new Map((S.planets || []).map((p, i) => [p.id, i]));
@@ -4633,8 +4996,14 @@ function pickBuildings(p, ctx){
          payée pour rien — même pour vider un hangar. */
       if(d && d.k && !(d.k === 'solar' && satsSoon)){ add(d.k, `Le ${NOM_RES[j]} est au plafond : ta production est arrêtée, et c'est le plus gros chantier payable tout de suite`, true); continue; }
     }
+    /* Le hangar ne passe qu'en dernier, et seulement quand le débordement
+       revient (RES_STORAGE_FULL.recurrence fois en sept jours) ou que la mine
+       suivante ne tient plus dedans : une livraison ponctuelle qui remplit le
+       hangar une fois ne justifie pas des heures de chantier et des millions
+       de métal. Le reste du temps, la carte Ressources en trop dit où dépenser
+       ou envoyer l'excédent. */
     const mont = buildTime(sk[j], (p.b[sk[j]]||0)+1, p), lead = Math.max(iv*2, iv + mont/3600);
-    if(bientotOn && p.st[j]+rates[j]*lead >= pr.cap[j]*plafond) add(sk[j], `Hangar plein dans moins de ${dur(lead*3600)}, et il met ${dur(mont)} à sortir`, true);
+    if(bientotOn && p.st[j]+rates[j]*lead >= pr.cap[j]*plafond && hangarSiJustifie(p, j)) add(sk[j], `Hangar plein dans moins de ${dur(lead*3600)}, et il met ${dur(mont)} à sortir`, true);
   }
   /* La priorité du joueur passe ici : derrière les deux secours — une mine au
      ralenti coûte de la production à chaque heure, une priorité repoussée ne
@@ -5146,6 +5515,12 @@ function simulateDay(){
         // et les vaisseaux ne seraient plus là pour charger. C'est ce premier
         // trajet qu'on annonce, et le minuteur prévient quand ils se posent.
         const charge = `${fmt(sent[0])} M, ${fmt(sent[1])} C, ${fmt(sent[2])} D`;
+        /* Une livraison n'est pas plafonnée, la production si : une cargaison
+           qui fait déborder la destination y arrête la mine. La carte le dit
+           avant l'envoi, et nomme une planète qui a la place quand il y en a. */
+        const capD = production(dst).cap, trop = [0,1,2].filter(j=>sent[j]>0 && dst.st[j]+sent[j] > capD[j]);
+        const alt = trop.length ? P.find(x=>x!==dst && x!==q && x.coords && [0,1,2].every(j=>!(sent[j]>0) || x.st[j]+sent[j] <= production(x).cap[j]*.95)) : null;
+        const avert = trop.length ? ' ' + debordeTexte(planetRef(dst), trop) + (alt ? ` Autre cible avec la place : ${planetRef(alt)}.` : '') : '';
         /* Trois raisons possibles d'un rapatriement, dans l'ordre où elles
            priment : le secours d'une planète à l'arrêt, un objectif qui épargne
            à destination, et sinon des hangars qui se remplissent ici. L'une des
@@ -5155,10 +5530,10 @@ function simulateDay(){
           : `Les hangars de ${planetRef(q)} se remplissent : ces ressources travaillent mieux sur ${planetRef(dst)}.`) + ' ';
         acts.push(own
           ? {q:'Flotte · '+planetRef(q), what:`Rapatrier vers ${planetRef(dst)} : ${charge}`,
-             why:`${motif}${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${formatTime(arrive)}`,
+             why:`${motif}${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${formatTime(arrive)}${avert}`,
              dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i, dest:dst.coords, res:sent, mission:3}
           : {q:'Flotte · '+planetRef(src), what:`Envoie ${shipList(ships)} vers ${planetRef(q)}`,
-             why:`${motif}À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${formatTime(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge} vers ${planetRef(dst)}, arrivée vers ${formatTime(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.`,
+             why:`${motif}À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${formatTime(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge} vers ${planetRef(dst)}, arrivée vers ${formatTime(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.${avert}`,
              dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i, dest:q.coords, mission:4});
         libres--;
       }
@@ -5406,7 +5781,7 @@ function simulateDay(){
       for(const w of waits) if(w.cost && P[w.p]) w.fin = finance(P[w.p], w.cost);
       sessions.push({T:Tm, acts, waits,
         prio:prioEtat.map(e=>({id:e.id, etat:e.etat, recoit:e === recoit})),
-        goals:goals.map(g=>({key:g.key, label:g.label, deadline:g.deadline, res:g.res, rang:g.rang, p:g.p.i}))});
+        goals:goals.map(g=>({key:g.key, label:g.label, deadline:g.deadline, res:g.res, rang:g.rang, p:g.p.i, cost:g.cost.slice()}))});
     }
     const end = now + (+S.day.horizon||24)*3600e3;
     advance(end);
@@ -5712,17 +6087,26 @@ function fsFor(p, now, wake){
   const tot = x => x.fin;
   const serre = bons.filter(x=>x.fin < wake + 6*3600e3);
   const pool = serre.length ? serre : bons;
-  const dep = pool.filter(x=>x.mode==='transport').sort((a,b)=>tot(a)-tot(b));
+  /* Un Transport décharge à l'arrivée : une planète qui n'a pas la place
+     passe après celles qui l'ont — la livraison n'est pas plafonnée, la
+     production si, et la mine d'arrivée resterait arrêtée au matin. */
+  const stp = stockNow(p);
+  for(const x of pool) if(x.mode==='transport'){
+    const q = planeteEn(x.dest), ch = partAbri(stp, souteUtile(cargo, 2*x.fl.fuel), 2*x.fl.fuel);
+    x.deborde = debordeA(q, ch, now + x.fl.secs*1000);
+  }
+  const dep = pool.filter(x=>x.mode==='transport').sort((a,b)=>(a.deborde.length>0)-(b.deborde.length>0) || tot(a)-tot(b));
   const alt = pool.filter(x=>x.mode!=='transport').sort((a,b)=>tot(a)-tot(b));
   /* Le Transport d'abord dès qu'il tient : la ressource se pose chez toi, la
      flotte rentre seule. L'expédition n'est qu'un pis-aller. */
-  const choix = dep.length ? dep : alt;
+  const depOk = dep.filter(x=>!x.deborde.length);
+  const choix = depOk.length ? depOk : dep.length ? dep : alt;
   // « Avoid using the same speed each time you fleetsave » : le cran change avec
   // le jour, pas à chaque rafraîchissement, sinon le plan se contredirait.
   const ch = choix[new Date(now).getDate() % Math.min(3, choix.length)];
   return {from:p, ships:ch.ships, dest:ch.dest, mission:ch.mode, oneWay:ch.oneWay, pct:ch.pct,
           arrive: now + ch.fl.secs*1000, back: ch.back, fuel:ch.fl.fuel*2,
-          load:need, cargo:souteUtile(cargo, ch.fl.fuel*2)};
+          load:need, cargo:souteUtile(cargo, ch.fl.fuel*2), deborde:ch.deborde || []};
 }
 
 /**
@@ -6007,14 +6391,17 @@ function espionnagesEntrants(now){
  * @param {Set<string>} visees ids des planètes attaquées
  * @returns {{q:object, pourquoi:string}|null}
  */
-function coffreFortPour(p, visees){
+function coffreFortPour(p, visees, cargo, at){
   const c = parseC(p.coords); if(!c) return null;
   const declares = secu().vaults.map(planetById).filter(Boolean);
   const pool = (declares.length ? declares : S.planets).filter(q => q !== p && q.id !== p.id && parseC(q.coords));
   if(!pool.length) return null;
   const cle = q => { const d = parseC(q.coords); return [d[0] === c[0] ? 0 : 1, distance(c, d)]; };
   const tri = (a, b) => { const x = cle(a), y = cle(b); return x[0] - y[0] || x[1] - y[1]; };
-  const sauf = pool.filter(q => !visees.has(q.id)).sort(tri);
+  /* Une cargaison qui ferait déborder le coffre-fort y arrête la mine : à
+     galaxie égale, celui qui a la place passe devant (debordeA). */
+  const trop = q => cargo && at ? (debordeA(q, cargo, at).length > 0 ? 1 : 0) : 0;
+  const sauf = pool.filter(q => !visees.has(q.id)).sort((a, b) => { const x = cle(a), y = cle(b); return x[0] - y[0] || trop(a) - trop(b) || x[1] - y[1]; });
   const sans = declares.length ? '' : ' Aucun coffre-fort déclaré (Réglages › Sécurité) : ta planète la plus proche en tient lieu.';
   if(sauf.length) return {q: sauf[0], pourquoi: (declares.length ? 'coffre-fort le plus proche' : 'planète la plus proche') + (pool.length > sauf.length ? ', les autres sont attaqués' : '') + '.' + sans};
   const loin = pool.slice().sort((a, b) => distance(c, parseC(b.coords)) - distance(c, parseC(a.coords)))[0];
@@ -6039,10 +6426,12 @@ function aQuai(p){ return Object.fromEntries(Object.entries(p.ships || {}).filte
  */
 function transportSuggere(p, o){
   const ships = aQuai(p); if(!Object.keys(ships).length) return null;
-  const dest = coffreFortPour(p, o.visees || new Set()); if(!dest) return null;
+  const soute0 = Object.entries(ships).reduce((a, [k, n]) => a + n*shipStats(k).cargoEff, 0);
+  const vise = partAbri(projectResources(p, o.now), soute0, 0);
+  const dest = coffreFortPour(p, o.visees || new Set(), vise, o.mode === 'attaque' ? o.impact : o.wake); if(!dest) return null;
   /* Toujours en Transport : c'est la préférence du joueur, et la bascule
-     « Préférer Stationner » n'existe plus. Seules les cartes Rééquilibrer
-     partent en Stationner, et elles le disent. */
+     « Préférer Stationner » n'existe plus. Seules les cartes qui déplacent
+     durablement des vaisseaux partent en Stationner, et elles le disent. */
   const mission = 3, trajets = 2;
   const now = o.now, vols = crans().map(pct => ({pct, fl: flight(p.coords, dest.q.coords, ships, pct)})).filter(x => x.fl);
   if(!vols.length) return null;
@@ -6067,7 +6456,14 @@ function transportSuggere(p, o){
   const lc = shipStats('lc').cargoEff, total = st[0] + st[1] + Math.max(0, st[2] - fuel);
   const gt = lc > 0 ? Math.ceil(total / lc) : 0;
   const arrivee = depart + choix.fl.secs*1000;
-  return {p, pi: S.planets.indexOf(p), ships, dest: dest.q, pourquoi: dest.pourquoi, mission, missionNom: mission === 4 ? 'Stationner' : 'Transport',
+  /* Le transport dépose sa cargaison au coffre-fort : s'il le fait déborder,
+     la carte le dit avant l'envoi, avec une planète qui a la place. */
+  const deborde = debordeA(dest.q, charge, arrivee);
+  if(deborde.length){
+    const alt = autreCibleAvecPlace(p, charge, arrivee, [dest.q].concat(S.planets.filter(q => (o.visees || new Set()).has(q.id))));
+    note = [note, debordeTexte(dest.q.name, deborde), alt ? `Autre cible avec la place : ${alt.name}.` : ''].filter(Boolean).join(' ');
+  }
+  return {p, pi: S.planets.indexOf(p), ships, dest: dest.q, pourquoi: dest.pourquoi, deborde, mission, missionNom: mission === 4 ? 'Stationner' : 'Transport',
     pct: choix.pct, depart, arrivee, retour: trajets === 2 ? arrivee + choix.fl.secs*1000 : null, fuel, charge, soute, gt, note,
     resteSol: st.map((x, j) => Math.max(0, x - charge[j] - (j === 2 ? fuel : 0)))};
 }
@@ -7017,7 +7413,7 @@ function dailyMissions(){
            pastilles copiables : c'est la seule chose que le lien ne prépare
            pas, avec la vitesse. */
         res:partAbri(st, porte, r.fuel),
-        why:`${fmt(porte)} ressources à l'abri sur ${r.from.name}${porte < r.load ? `, sur ${fmt(r.load)} au sol` : ''}. Une flotte en vol ne peut pas être détruite ; ce qui dort au sol se fait prendre.`,
+        why:`${fmt(porte)} ressources à l'abri sur ${r.from.name}${porte < r.load ? `, sur ${fmt(r.load)} au sol` : ''}. Une flotte en vol ne peut pas être détruite ; ce qui dort au sol se fait prendre.${r.deborde && r.deborde.length ? ' ' + debordeTexte((planeteEn(r.dest) || {}).name || r.dest, r.deborde) + ' Aucune autre planète assez loin n\'a la place.' : ''}`,
         /* Carte fermée, le joueur ne lit que le titre, la pastille et cette
            ligne : c'est le seul endroit où « j'ai un million de métal » se voit
            sans cliquer. Le ⓘ et le « Comment faire » demandent tous deux un
@@ -8538,6 +8934,7 @@ today(){
     profil: profilCard() + profilBloc(),
     attaque: `<div id="tdSecuAlerte"></div>`,
     maintenant: `<div class="card"><div class="row spread liste-tete"><h2>Maintenant <span class="note" id="tdNowN"></span></h2>${cartesMenu('maintenant')}</div><div id="tdNow"></div></div>`,
+    surplus: `<div id="tdSurplus"></div>`,
     alertes: `<div id="tdAlerts"></div>`,
     securite: `<div id="tdSecu"></div>`,
     expeditions: `<details class="card"${fold('expeditions', false)}><summary data-fold="expeditions">Expéditions <span class="note" id="expoSum"></span></summary>
@@ -8962,6 +9359,9 @@ function actsVus(x){ return x.acts.filter(a=>a.kind !== 'expo' && meteoVoit(a));
 
 const REFRESH = {
 today(){
+  /* L'historique des débordements avance avec le relevé : c'est lui qui dit,
+     plus bas, si le hangar se justifie (sept jours glissants). */
+  try{ surplusNote(Date.now()); }catch(e){ console.error('Copilote : historique des débordements', e); }
   const plan = simulateDay(), s0 = plan.sessions[0], night = !!S.day.night;
   /* Mode nuit : ni construction ni recherche à lancer, le panneau ne doit
      montrer que la mise à l'abri. Le plan est recalculé à chaque passage,
@@ -9047,6 +9447,8 @@ today(){
   /* Le bloc des conseils du moteur tient la place de l'ancienne carte
      Alertes : les constats non servis et non ignorés, puis les alertes qui ne
      sont pas des règles. Le compteur de l'onglet compte les mêmes lignes. */
+  try{ const sp = surplusHtml(plan); RESUMES.surplus = resumeDe(sp.items, 'surplus'); document.getElementById('tdSurplus').innerHTML = sp.html; }
+  catch(e){ console.error('Copilote : ressources en trop', e); }
   RESUMES.alertes = resumeDe(conseilLignes(plan).filter(meteoVoit).map(a=>({sev:a.sev, key:a.what})), 'alertes');
   document.getElementById('tdAlerts').innerHTML = conseilsHtml(plan);
   publieCritiques(plan.constats);

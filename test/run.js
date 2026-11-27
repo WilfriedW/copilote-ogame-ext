@@ -4463,7 +4463,7 @@ t('energie negative et hangar plein sont dits tous les deux', () => {
   });
   const a = g.simulateDay().alerts;
   assert.ok(a.some(x => /[Éé]nergie/.test(x.what)), 'l\'énergie négative doit être dite');
-  assert.ok(a.some(x => /[Hh]angar/.test(x.what)), 'le hangar plein aussi');
+  assert.ok(a.some(x => /au plafond/.test(x.what)), 'le hangar plein aussi');
 });
 
 /* rules.json illisible, ou plus ancien que le code : les alertes que les
@@ -4481,7 +4481,7 @@ t('rules.json illisible : énergie négative et hangar plein sont dits quand mê
     const g = appSecours(rules, VIDE_ET_PLEIN);
     const a = g.planetAlerts(g.S.planets[0]);
     assert.ok(a.some(x => x.sev === 'bad' && /^Rétablir l'énergie/.test(x.what)), nom + ' : l\'énergie : ' + JSON.stringify(a));
-    assert.ok(a.some(x => x.sev === 'bad' && /^Hangar de métal plein/.test(x.what)), nom + ' : le hangar');
+    assert.ok(a.some(x => x.sev === 'bad' && /^Métal au plafond/.test(x.what)), nom + ' : le hangar');
     assert.ok(g.constats().some(x => x.regle === 'RES_ENERGY_NEGATIVE'), nom + ' : et constats() les compte');
   }
 });
@@ -4560,11 +4560,12 @@ t('un hangar deja plein fait proposer de depenser, pas de l\'agrandir', () => {
   // qui n'en loge que 75 000 : elle est au plafond dès le départ.
   const g = app();
   const p = g.S.planets[0];
-  const a = g.planetAlerts(p).find(x => /Hangar de métal plein/.test(x.what));
+  const a = g.planetAlerts(p).find(x => /Métal au plafond/.test(x.what));
   assert.ok(a, 'le plafond se dit : ' + JSON.stringify(g.planetAlerts(p)));
-  assert.ok(/Lance /.test(a.why), 'et la phrase nomme le chantier qui vide : ' + a.why);
-  assert.ok(/reste à l'arrêt jusque-là/.test(a.why),
-    'et dit ce que le hangar coûte en temps d\'arrêt : ' + a.why);
+  assert.match(a.what, /: [\d\s k]+ métal\/h perdus$/, 'la perte horaire est dans le titre');
+  assert.ok(/Lancer /.test(a.why), 'et la phrase nomme le chantier qui vide : ' + a.why);
+  assert.ok(/45\s000 au-dessus de la capacité/.test(a.why), 'et dit l\'excédent : ' + a.why);
+  assert.ok(!/Hangar de métal \d/.test(a.why), 'premier débordement : pas de hangar : ' + a.why);
 });
 
 t('au plafond, le plan met le gros chantier devant le hangar', () => {
@@ -4580,12 +4581,14 @@ t('au plafond, le plan met le gros chantier devant le hangar', () => {
   assert.ok(hangar < 0 || vide < hangar, 'et il passe devant le hangar : ' + JSON.stringify(c.map(x => x.k)));
 });
 
-t('l\'alerte du plafond nomme le puits quand c\'est la plus grosse depense', () => {
+t('l\'alerte du plafond ne propose pas d\'achat pour vider', () => {
   // Sur la planète mère, Robots 7 coûte 25 600 de métal, plus que Métal 15
-  // (17 515) : c'est lui qui vide le hangar le plus vite.
+  // (17 515). Il viderait le hangar plus vite, mais rien ne dit qu'il sert :
+  // une dépense proposée doit déjà être utile, pas un puits.
   const g = app(ENERGIE);
-  const a = g.planetAlerts(g.S.planets[0]).find(x => /Hangar de métal plein/.test(x.what));
-  assert.ok(/Lance Robots 7/.test(a.why), 'le puits passe devant la mine : ' + a.why);
+  const a = g.planetAlerts(g.S.planets[0]).find(x => /Métal au plafond/.test(x.what));
+  assert.ok(!/Robots 7/.test(a.why), 'pas de puits : ' + a.why);
+  assert.ok(/Lancer /.test(a.why), 'une dépense utile à la place : ' + a.why);
 });
 
 t('la plus grosse depense compte les recherches, depuis le labo seulement', () => {
@@ -4619,6 +4622,8 @@ t('au plafond, le plan ne pose qu\'une montee productive', () => {
     'et c\'est une montée productive, pas un puits : ' + c.k);
 });
 
+/** `n` débordements fermés de la ressource k sur la planète pid, dans les sept derniers jours. */
+const RECURRENT = (pid, k, n) => Array.from({ length: n }, (_, i) => ({ pid, k, d: SOIR - (i + 1) * 864e5, f: SOIR - (i + 1) * 864e5 + 36e5 }));
 t('le hangar se propose assez tot pour etre monte avant le plafond', () => {
   // Un Hangar M 9 met près de quinze heures à sortir : proposé deux connexions
   // avant le plafond, il arriverait après. Quatorze heures avant, deux
@@ -4628,7 +4633,12 @@ t('le hangar se propose assez tot pour etre monte avant le plafond', () => {
   const base = g.S.planets[0], pr = g.production(base), cap = g.storageCap(8);
   const p = Object.assign({}, base, { st: [cap - pr.m * 14, 60000, 18000] });
   assert.ok(p.st[0] < cap * 0.98, 'préalable : la planète n\'est pas encore au plafond');
-  const c = g.pickBuildings(p, { T: SOIR, iv: 1.5, goals: [] }).find(x => x.k === 'smetal');
+  assert.ok(!g.pickBuildings(p, { T: SOIR, iv: 1.5, goals: [] }).some(x => x.k === 'smetal'),
+    'sans débordement récurrent, pas de hangar : la carte Ressources en trop propose de dépenser ou d\'envoyer');
+  // Trois débordements de métal en sept jours : le hangar se justifie.
+  const h = app(s => { ENERGIE(s); s.planets[0].b.smetal = 8; s.__win = { __surplusLog: RECURRENT('mere', 0, 3) }; });
+  const q = Object.assign({}, h.S.planets[0], { st: [cap - pr.m * 14, 60000, 18000] });
+  const c = h.pickBuildings(q, { T: SOIR, iv: 1.5, goals: [] }).find(x => x.k === 'smetal');
   assert.ok(c, 'le hangar se propose vingt heures avant le plafond');
   assert.ok(/à sortir/.test(c.why), 'et la carte dit combien de temps il met : ' + c.why);
 });
@@ -4656,9 +4666,10 @@ t('la carte Alertes affiche ce que le moteur produit', () => {
     s.planets[0].stock = { m: 9e9, c: 0, d: 0, at: SOIR };
   });
   g.REFRESH.today();
-  const html = g.html().tdAlerts || '';
+  const html = g.html().tdAlerts || '', sp = g.html().tdSurplus || '';
   assert.ok(/Critique/.test(html), 'la pastille de sévérité doit être rendue : ' + html.slice(0, 200));
-  assert.ok(/[Hh]angar/.test(html), 'et le hangar plein y figurer : ' + html.slice(0, 200));
+  assert.ok(/Métal au plafond/.test(sp) && /Critique/.test(sp), 'et le hangar plein a sa carte : ' + sp.slice(0, 200));
+  assert.ok(!/au plafond/.test(html), 'sans se répéter dans les conseils');
 });
 
 t('tous les jalons franchis, le bloc disparait', () => {
@@ -12876,7 +12887,7 @@ t('météo : un hangar bientôt plein met Économie à l\'orange, planète Nuage
   const el = g.meteoElements();
   assert.equal(g.domainColor(el, 'mere', 'eco'), 'warn', JSON.stringify(el));
   assert.equal(g.planetWeather(el, 'mere'), 1);
-  assert.ok(/Économie : hangar de métal plein dans/.test(g.meteoCauses(el, 'mere')), g.meteoCauses(el, 'mere'));
+  assert.ok(/Économie : métal au plafond dans/.test(g.meteoCauses(el, 'mere')), g.meteoCauses(el, 'mere'));
 });
 
 t('météo : une alerte ignorée ne dégrade plus la météo', () => {
@@ -13028,7 +13039,7 @@ t('cartes : le mode empilé reste le défaut, sans barre ni masquage', () => {
   const h = g.VIEWS.today();
   assert.ok(!/en-onglets|carteTabs/.test(h), 'rien du mode onglets');
   assert.ok(!/<div class="carte"[^>]* hidden/.test(h), 'aucune carte masquée');
-  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'alertes', 'securite', 'expeditions', 'journee', 'minuteurs']);
+  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions', 'journee', 'minuteurs']);
   for (const id of ['tdNow', 'tdAlerts', 'expoBloc', 'tdDay', 'tmList']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là');
 });
 t('cartes : un mode inconnu retombe sur l\'empilé', () => {
@@ -13037,7 +13048,7 @@ t('cartes : un mode inconnu retombe sur l\'empilé', () => {
 t('cartes : en onglets, une barre .seg en tête, les cartes dans le même ordre', () => {
   const h = appCartes('tabs').VIEWS.today();
   assert.ok(/<section class="panel en-onglets" data-disposition="today"><div class="seg" role="tablist" id="carteTabs"/.test(h));
-  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'alertes', 'securite', 'expeditions', 'journee', 'minuteurs']);
+  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions', 'journee', 'minuteurs']);
 });
 t('cartes : une carte ne sait pas dans quel mode elle est montrée', () => {
   const pile = appCartes().VIEWS.today();
@@ -13076,6 +13087,7 @@ t('cartes : Outils garde la même barre, construite par le même composant', () 
 t('cartes : une carte dynamique vide n\'a pas d\'onglet, une fixe toujours', () => {
   const g = appCartes();
   g.RESUMES.alertes = g.resumeDe([], 'alertes');
+  g.RESUMES.surplus = g.resumeDe([], 'surplus');
   g.RESUMES.maintenant = g.resumeDe([], 'maintenant');
   let ids = g.cartesPresentes('today').map(x => x.c.cardId);
   assert.ok(!ids.includes('alertes'), 'pas d\'alerte, pas d\'onglet');
@@ -13320,7 +13332,7 @@ t('cristal au-dessus du hangar : un constat critique, et le plan dépense', () =
   const g = app(CRISTAL_PLEIN);
   const c = g.constats().find(x => x.regle === 'RES_STORAGE_FULL' && x.valeur === 1);
   assert.equal(c.pid, 'mere'); assert.equal(c.niveau, 'critique');
-  assert.match(c.what, /^Hangar de cristal plein sur Planète mère$/);
+  assert.match(c.what, /^Cristal au plafond sur Planète mère : [\d\s k,M]+ cristal\/h perdus$/);
   const plan = g.simulateDay();
   assert.ok(plan.sessions[0].acts.some(a => a.kind === 'b' && a.p === 0), 'le plan pousse un chantier sur la mère');
   assert.ok(plan.constats.find(x => x.regle === 'RES_STORAGE_FULL' && x.valeur === 1).servi, 'et la carte est sa réponse');
@@ -14026,6 +14038,185 @@ t('flotte cible : fonctions pures, écart et mouvements groupés par paire', () 
   assert.deepEqual(g.fleetGap({ lc: 10, bs: 2 }, { lc: 4, bs: 5 }), { plus: { lc: 6 }, moins: { bs: 3 } });
   const m = g.suggestMoves([{ id: 'a', plus: {}, moins: { lc: 5, bs: 3 } }, { id: 'b', plus: { lc: 4, bs: 1 }, moins: {} }]);
   assert.deepEqual(m, [{ de: 'a', vers: 'b', ships: { lc: 4, bs: 1 } }]);
+});
+
+/* ---------- ressources en trop : dépenser, transférer, monter le hangar (#44) ---------- */
+const SURPLUS_NOMS = ['S', 'solutionsSurplus', 'surplusListe', 'surplusHtml', 'surplusNote', 'surplusCompte', 'transfertVersBesoin',
+  'hangarSiJustifie', 'depenseSurPlace', 'flotteLibre', 'pertesParHeure', 'transportSuggere', 'debordeA', 'debordeTexte', 'expoFleet',
+  'stockNow', 'production', 'storageCap', 'simulateDay', 'constats', 'REFRESH', 'transportHtml'];
+/** L'application avec les fonctions du surplus ; `ext` pour le stockage de l'extension. */
+function appSurplus(modifier, ext) {
+  const s = fixtureState();
+  s.planets.forEach(p => { p.stock.at = SOIR; });
+  if (modifier) modifier(s);
+  return loadApp(s, SOIR, SURPLUS_NOMS, null, ext);
+}
+/** Un plan réduit à ce que les solutions lisent : la première connexion. */
+const planDe = (waits, acts, goals) => ({ sessions: [{ T: SOIR, acts: acts || [], waits: waits || [], goals: goals || [] }], constats: [] });
+
+t('surplus : la perte se compte en production arrêtée, au ratio du joueur', () => {
+  const g = appSurplus(s => { s.planets[0].stock.c = 1e9; });
+  const p = g.S.planets[0], pr = g.production(p), l = g.pertesParHeure(p, 1);
+  assert.equal(Math.round(l.res), Math.round(pr.c));
+  assert.equal(Math.round(l.eqM), Math.round(pr.c * 3 / 2), 'un cristal vaut 1,5 métal au ratio 3/2/1');
+});
+
+t('surplus : la première solution est une dépense utile sur place, la recherche depuis la planète qui a le stock', () => {
+  // La colonie a un labo qui suffit, le cristal au plafond, et le plan attend
+  // une recherche : elle la paie, comme RECH_FUND_ELSEWHERE.
+  const g = appSurplus(s => { Object.assign(s.planets[1].b, { lab: 4, scrystal: 2 }); s.planets[1].stock = { m: 2e5, c: 4e5, d: 2e5, at: SOIR }; });
+  const plan = planDe([{ kind: 't', k: 'energy', what: 'Technologie Énergie 4', cost: [0, 800 * 8, 400 * 8], p: 0, miss: [0, 0, 0] }]);
+  const s = g.solutionsSurplus(g.S.planets[1], 1, plan);
+  assert.equal(s[0].type, 'depense', JSON.stringify(s));
+  assert.equal(s[0].what, 'Lancer Technologie Énergie 4 depuis Colonie');
+});
+
+t('surplus : une dépense absente du plan n\'est pas proposée — pas d\'achat pour vider', () => {
+  const g = appSurplus(s => { s.planets[1].stock = { m: 2e5, c: 4e5, d: 2e5, at: SOIR }; });
+  assert.equal(g.depenseSurPlace(g.S.planets[1], 1, planDe([])), null);
+});
+
+/** La mère déborde de cristal ; la colonie attend une mine qui en manque. */
+const VERS_COLONIE = s => {
+  s.planets[0].stock.c = 2e6; s.planets[0].ships = { lc: 200, sc: 0, pr: 4 };
+  Object.assign(s.planets[1].b, { scrystal: 5 });
+};
+const ATTENTE_COLONIE = besoin => planDe([{ kind: 'b', what: 'Mine de cristal 4', cost: [0, besoin, 0], p: 1, miss: [0, besoin, 0] }]);
+
+t('surplus : sans dépense, un transfert vers la planète bloquée, au format du tableau', () => {
+  const g = appSurplus(VERS_COLONIE);
+  const s = g.solutionsSurplus(g.S.planets[0], 1, ATTENTE_COLONIE(1e5));
+  assert.equal(s[0].type, 'transfert', JSON.stringify(s.map(x => x.type)));
+  assert.equal(s[0].dest.name, 'Colonie'); assert.equal(s[0].mission, 3);
+  assert.equal(s[0].charge[1], 1e5, 'limité par le besoin');
+  const h = lu(g.transportHtml(s[0]));
+  assert.match(h, /<th>Source<\/th><th>Vaisseaux<\/th><th>Cible<\/th><th>Mission<\/th><th>M \/ C \/ D<\/th>/);
+  assert.match(h, /Transport/);
+});
+
+t('surplus : la quantité respecte la place libre de la cible', () => {
+  // Hangar C 5 : 255 000. 95 % moins les 4 000 au sol laissent 238 250.
+  const g = appSurplus(VERS_COLONIE);
+  const t0 = g.transfertVersBesoin(g.S.planets[0], 1, ATTENTE_COLONIE(9e5));
+  const cap = g.storageCap(5), place = 0.95 * cap - g.stockNow(g.S.planets[1])[1];
+  assert.ok(t0.charge[1] <= place && t0.charge[1] > place - 5000, `${t0.charge[1]} pour ${place} de place`);
+});
+
+t('surplus : la quantité respecte la soute et l\'excédent', () => {
+  // Trois GT libres seulement : la soute borne.
+  const g = appSurplus(s => { VERS_COLONIE(s); s.planets[0].ships = { lc: 3 }; s.expo = { pf: false }; s.settings.expoRes = 0; });
+  const p = g.S.planets[0], kit = g.expoFleet(p.ships, p), libres = g.flotteLibre(p);
+  const t0 = g.transfertVersBesoin(p, 1, ATTENTE_COLONIE(1e5));
+  if (t0) assert.ok(t0.ships.lc <= libres.lc, 'jamais plus que les GT libres');
+  assert.ok(!t0 || t0.charge[1] <= 3 * 25000 * 2, 'jamais plus que la soute : ' + JSON.stringify(t0 && t0.charge) + ' kit ' + JSON.stringify(kit));
+  // Un débordement juste au-dessus de 90 % : l'excédent borne.
+  const h = appSurplus(s => { VERS_COLONIE(s); s.planets[0].stock.c = 75000 * 0.96; });
+  assert.equal(h.transfertVersBesoin(h.S.planets[0], 1, ATTENTE_COLONIE(1e5)), null, 'moins de 5 000 au-dessus de 90 % : rien ne vaut le vol');
+});
+
+t('surplus : le transfert laisse à quai le kit d\'expédition et la réserve de GT', () => {
+  const g = appSurplus(s => { VERS_COLONIE(s); s.settings.expoRes = 20; });
+  const p = g.S.planets[0], kit = g.expoFleet(p.ships, p), libres = g.flotteLibre(p);
+  assert.equal(libres.lc, 200 - 20 - ((kit && kit.ships.lc) || 0));
+  const t0 = g.transfertVersBesoin(p, 1, ATTENTE_COLONIE(1e5));
+  assert.ok(t0.ships.lc <= libres.lc, JSON.stringify(t0.ships));
+  // Rien de libre : pas de transfert.
+  const h = appSurplus(s => { VERS_COLONIE(s); s.settings.expoRes = 200; });
+  assert.equal(h.transfertVersBesoin(h.S.planets[0], 1, ATTENTE_COLONIE(1e5)), null);
+});
+
+t('surplus : une cible sans place n\'est pas retenue', () => {
+  const g = appSurplus(s => { VERS_COLONIE(s); s.planets[1].stock.c = g0cap(5) * 0.95; });
+  assert.equal(g.transfertVersBesoin(g.S.planets[0], 1, ATTENTE_COLONIE(1e5)), null);
+});
+/** La capacité d'un hangar, sans charger l'application. */
+function g0cap(L) { return 5000 * Math.floor(2.5 * Math.exp(20 * L / 33)); }
+
+t('surplus : premier débordement, pas de hangar ; récurrent, le hangar avec coût et durée', () => {
+  const g = appSurplus(s => { s.planets[0].stock.c = 1e9; });
+  const p = g.S.planets[0];
+  assert.equal(g.hangarSiJustifie(p, 1), null, 'un débordement ponctuel ne justifie pas le hangar');
+  const h = appSurplus(s => { s.planets[0].stock.c = 1e9; s.__win = { __surplusLog: RECURRENT('mere', 1, 3) }; });
+  h.surplusNote(SOIR);
+  assert.equal(h.surplusCompte('mere', 1, SOIR), 4, 'quatrième débordement en sept jours');
+  const x = h.hangarSiJustifie(h.S.planets[0], 1);
+  assert.equal(x.what, 'Hangar de cristal 4');
+  assert.ok(x.cost.some(c => c > 0) && x.duree > 0, JSON.stringify(x));
+  assert.equal(h.solutionsSurplus(h.S.planets[0], 1, planDe([])).slice(-1)[0].type, 'hangar', 'en dernier');
+});
+
+t('surplus : l\'historique s\'écrit dans le stockage local et oublie au-delà de sept jours', () => {
+  const vieux = { pid: 'mere', k: 1, d: SOIR - 9 * 864e5, f: SOIR - 8 * 864e5 };
+  const g = appSurplus(s => { s.planets[0].stock.c = 1e9; s.__win = { __surplusLog: [vieux] }; }, true);
+  g.surplusNote(SOIR);   // le premier rendu l'a déjà fait : relancer ne change rien
+  const log = g.stored().surplusLog;
+  assert.ok(Array.isArray(log), 'écrit dans chrome.storage.local');
+  assert.ok(!log.some(e => e.d === vieux.d), 'le débordement de neuf jours est oublié');
+  assert.ok(log.some(e => e.pid === 'mere' && e.k === 1 && e.f == null), 'celui en cours est ouvert');
+  // Le stock redescend : il se ferme.
+  g.S.planets[0].stock.c = 0;
+  g.surplusNote(SOIR + 1000);
+  assert.ok(g.stored().surplusLog.filter(e => e.k === 1).every(e => e.f != null), 'le cristal redescendu ferme son débordement');
+});
+
+t('surplus : la carte de la planète qui perd le plus passe devant', () => {
+  // Deux planètes pleines : la mère en métal, la colonie en cristal.
+  const g = appSurplus(s => { s.planets[0].stock.m = 1e9; s.planets[1].stock.c = 1e9; });
+  const l = g.surplusListe(g.simulateDay()).filter(x => x.plein);
+  assert.ok(l.length >= 2, JSON.stringify(l.map(x => [x.p.name, x.k])));
+  for (let i = 1; i < l.length; i++) assert.ok(l[i - 1].pertes.eqM >= l[i].pertes.eqM, 'trié par perte en équivalent métal');
+  assert.equal(l[0].p.name, 'Planète mère', 'la mère produit le plus');
+});
+
+t('surplus : la carte dit la perte horaire et l\'excédent, et ne propose jamais de baisser la production', () => {
+  const g = appSurplus(s => { s.planets[0].stock.c = 1e9; });
+  g.REFRESH.today();
+  const h = lu(g.html().tdSurplus || '');
+  assert.match(h, /Cristal au plafond sur Planète mère : [\d\s k,M]+ cristal\/h perdus/);
+  assert.match(h, /au-dessus de la capacité/);
+  assert.ok(!/baiss|rédui|diminu|pourcentage de production/i.test(h), h);
+});
+
+t('surplus : un retour d\'expédition qui fera déborder déclenche l\'alerte anticipée, avec sa cause', () => {
+  const g = appSurplus(s => {
+    s.moves = [{ mission: 15, ret: true, arrival: SOIR / 1000 + 8.7 * 3600, origin: '1:142:8', dest: '1:142:16', cargo: [0, 3.2e6, 0] }];
+  });
+  const c = g.constats().find(x => x.regle === 'RES_STORAGE_SOON' && x.valeur === 1 && x.pid === 'mere');
+  assert.ok(c, 'le cristal déborde au retour');
+  assert.match(c.vars.cause, /^Retour d'expédition à (demain )?\d\d:\d\d : \+3,20 M cristal\. $/);
+  assert.match(c.why, /Retour d'expédition/);
+});
+
+t('surplus : un convoi qui ferait déborder sa cible est signalé, avec une autre cible', () => {
+  const g = appSurplus(s => {
+    s.planets.push({ id: 'trois', name: 'Troisième', coords: '1:150:4', tmax: 40,
+      b: Object.assign({}, s.planets[0].b, { smetal: 10, scrystal: 10, sdeut: 10 }), sats: 0, ships: {}, shipsAt: 0, stock: { m: 0, c: 0, d: 0, at: SOIR } });
+    s.planets[0].stock = { m: 6e4, c: 6e4, d: 1e4, at: SOIR };
+    s.planets[0].ships = { lc: 10 };
+    s.planets[1].stock = { m: 9500, c: 9500, d: 9500, at: SOIR };   // Colonie à 95 % de ses hangars de 10 000
+    s.settings.secu = { vaults: ['colo'] };
+  });
+  const t0 = g.transportSuggere(g.S.planets[0], { mode: 'routine', now: SOIR, wake: REVEIL, visees: new Set() });
+  assert.equal(t0.dest.name, 'Colonie', 'le seul coffre-fort déclaré');
+  assert.ok(t0.deborde.length, 'la cargaison la fait déborder');
+  assert.match(t0.note, /À l'arrivée, Colonie dépassera sa capacité en .* s'arrêter/);
+  assert.match(t0.note, /Autre cible avec la place : Troisième\./);
+});
+
+t('surplus : la phrase de débordement nomme ce qui s\'arrête', () => {
+  const g = appSurplus();
+  assert.equal(g.debordeTexte('Erablis', [1]), 'À l\'arrivée, Erablis dépassera sa capacité en cristal : la mine s\'arrêtera.');
+  assert.equal(g.debordeTexte('Erablis', [2]), 'À l\'arrivée, Erablis dépassera sa capacité en deutérium : le synthétiseur s\'arrêtera.');
+  assert.equal(g.debordeTexte('Erablis', [0, 1]), 'À l\'arrivée, Erablis dépassera sa capacité en métal et cristal : les mines s\'arrêteront.');
+  assert.equal(g.debordeTexte('Erablis', []), '');
+});
+
+t('surplus : rien n\'est envoyé tout seul — un transfert ne se prépare que par le bouton', () => {
+  const g = appSurplus(VERS_COLONIE, true);
+  const s = g.transfertVersBesoin(g.S.planets[0], 1, ATTENTE_COLONIE(1e5));
+  g.REFRESH.today();
+  assert.ok(!g.sent().some(m => m && /fleet|send|dispatch/i.test(JSON.stringify(m))), JSON.stringify(g.sent()));
+  assert.ok(s && s.mission === 3);
 });
 
 if (failures.length) {
