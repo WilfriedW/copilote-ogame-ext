@@ -7337,6 +7337,101 @@ t('soute suffisante partout : aucune carte de répartition', () => {
   assert.ok(!g.dailyMissions().some(x => /^cargo-split/.test(x.id)));
 });
 
+/* ---------- « Ramène… » : critique au bon moment ---------- */
+/* Le vécu : à 13 h, quatre cartes « Ramène N grands transporteurs » en rouge,
+   devant les constructions, pour un vol de 25 minutes et une nuit dans 10 h.
+   Le niveau suit maintenant l'heure : Conseil jusqu'à rappel − (vol + 1 h),
+   Critique ensuite. */
+const AH = (h, mi) => new Date(2026, 10, 8, h, mi || 0, 0).getTime();
+/** Caribou pleine, trois grands transporteurs (assez pour son kit, pas pour son
+    stock) : la flotte cible ne la réclame pas, la carte « Ramène » reste. */
+function ramene(now, mod) {
+  return app(s => {
+    relie(s);
+    s.planets[0].name = 'Caribou';
+    s.planets[0].ships = { pr: 4, lc: 3 };
+    s.planets[0].stock = { m: 9e5, c: 4e5, d: 7e5, at: now };
+    s.planets[1].ships = { lc: 40, sc: 10 };
+    s.settings.secu = { rappel: '22:00' };
+    s.settings.reeqSeuil = 1;
+    if (mod) mod(s);
+  }, now);
+}
+const carteRamene = g => g.dailyMissions().find(x => /^cargo-split/.test(x.id));
+/** L'heure d'escalade attendue : rappel − vol − 1 h. */
+function escaladeDe(g, m, rappel) {
+  const fl = g.flight(g.S.planets[m.p].coords, m.dest, m.ships, 100);
+  return { at: rappel - fl.secs * 1000 - 3600e3, secs: fl.secs };
+}
+
+t('« Ramène » en pleine journée : Conseil, avec son échéance', () => {
+  const g = ramene(AH(13));
+  const m = carteRamene(g);
+  assert.ok(m, 'la carte doit rester visible : ' + g.dailyMissions().map(x => x.id).join(' '));
+  assert.equal(m.sev, 'info', 'à 13 h, la carte n\'est pas critique');
+  const e = escaladeDe(g, m, AH(22));
+  const hh = d => { const x = new Date(d); return String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); };
+  assert.match(m.sol, new RegExp('^À faire avant ' + hh(e.at) + ' \\(vol de \\d+m \\d+s, rappel à 22:00\\)$'), m.sol);
+  // le contenu ne change pas : mêmes vaisseaux, Stationner
+  assert.equal(m.mission, 4);
+  assert.match(m.how[0], /Stationner/);
+});
+
+t('« Ramène » passe Critique à rappel − (vol + 1 h)', () => {
+  const avant = ramene(AH(13)), m0 = carteRamene(avant), e = escaladeDe(avant, m0, AH(22));
+  const juste = ramene(e.at - 60e3), apres = ramene(e.at + 5 * 60e3);
+  assert.equal(carteRamene(juste).sev, 'info', 'une minute avant l\'escalade, encore Conseil');
+  const m = carteRamene(apres);
+  assert.equal(m.sev, 'bad', 'cinq minutes après, Critique');
+  assert.ok(!m.sol, 'en Critique, plus d\'échéance à lire : ' + m.sol);
+});
+
+t('un vol long passe Critique plus tôt', () => {
+  const loinC = s => { s.planets[1].coords = '1:330:6'; };
+  const ref = ramene(AH(13), loinC), m0 = carteRamene(ref);
+  assert.ok(m0, 'la carte existe pour un donneur lointain');
+  const e = escaladeDe(ref, m0, AH(22));
+  assert.ok(e.secs > 3 * 3600, 'le vol dure plus de 3 h : ' + e.secs);
+  assert.ok(e.at < AH(18), 'l\'escalade tombe avant 18 h : ' + new Date(e.at));
+  assert.equal(carteRamene(ramene(AH(18, 30), loinC)).sev, 'bad', 'à 18 h 30, Critique');
+  assert.equal(carteRamene(ramene(AH(16), loinC)).sev, 'info', 'à 16 h, encore Conseil');
+});
+
+t('« Ramène » arrivant après le début de la nuit : niveau et texte inchangés', () => {
+  const g = nue();  // 22 h 30, vol de près d'une heure : arrivée après 23 h
+  const m = carteRamene(g);
+  assert.equal(m.sev, 'warn');
+  assert.match(m.how[1], /après le début de la nuit\. Pour cette nuit-là, dépense le stock sur place\./, m.how[1]);
+  assert.ok(!m.sol, 'pas d\'échéance sur une carte trop tardive');
+});
+
+t('sans rappel réglé, l\'escalade se cale sur l\'heure d\'avant-nuit', () => {
+  /* Le réglage a toujours une valeur (22:00 par défaut, un champ vidé est
+     ignoré) : le repli ne joue que pour une valeur illisible. Coucher à 21 h :
+     avant-nuit à 20 h. */
+  const sans = s => { s.day.nightStart = 21; s.settings.secu = { rappel: '22:00' }; };
+  const illisible = s => { sans(s); s.settings.secu = { rappel: 'n/a' }; };
+  const ref = ramene(AH(13), illisible), m0 = carteRamene(ref);
+  assert.ok(m0, 'la carte existe');
+  assert.match(m0.sol, /rappel à 20:00/, m0.sol);
+  const e = escaladeDe(ref, m0, AH(20));
+  assert.equal(carteRamene(ramene(e.at - 60e3, illisible)).sev, 'info');
+  assert.equal(carteRamene(ramene(e.at + 60e3, illisible)).sev, 'bad');
+  // Un rappel réglé après le coucher (22 h pour 21 h) ne repousse pas
+  // l'échéance dans la nuit : il est ramené au début de la nuit.
+  assert.match(carteRamene(ramene(AH(13), sans)).sol, /rappel à 21:00/);
+});
+
+t('après l\'heure du rappel, c\'est le rappel de ce soir qui compte, pas celui de demain', () => {
+  // 22 h 15 : le rappel de 22 h est passé, la nuit n'a pas commencé. Sous un
+  // « prochain rappel » naïf, la carte retomberait en Conseil jusqu'à demain.
+  // Coucher à 23 h 30 : le vol d'une heure arrive encore avant la nuit.
+  const g = ramene(AH(22, 15), s => { s.day.nightStart = 23.5; });
+  const m = carteRamene(g);
+  assert.ok(m, 'la carte existe : ' + g.dailyMissions().map(x => x.id).join(' '));
+  assert.equal(m.sev, 'bad', 'la carte doit rester critique : ' + m.sev);
+});
+
 /* ---------- une planète, une identité ---------- */
 
 t('un état en rangs se convertit au chargement, et la conversion rejouée ne change rien', () => {
