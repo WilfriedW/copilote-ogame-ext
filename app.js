@@ -2036,7 +2036,22 @@ const CARTES = {
       return v.length ? {count:v.length, maxLevel: v.some(t=>t.done || t.end<=now) ? 'imp' : 'info', critiques:[]} : null;
     }},
   ],
+  /* Réglages (ENH-54) : cinq onglets, chacun un groupe de cartes. Toujours en
+     onglets, quel que soit le choix d'Aujourd'hui (voir VUES_ONGLETS). */
+  settings: [
+    {cardId:'jeu', titre:'Mon jeu', fixe:true},
+    {cardId:'defense', titre:'Défense et sécurité', fixe:true},
+    {cardId:'affichage', titre:'Affichage', fixe:true},
+    {cardId:'moteur', titre:'Moteur', fixe:true},
+    {cardId:'donnees', titre:'Données', fixe:true},
+  ],
 };
+/* Les vues toujours rangées en onglets : « Empiler les sections » ne vaut que
+   pour Aujourd'hui. Treize cartes de réglages empilées, c'est la page qu'on
+   ne veut plus. */
+const VUES_ONGLETS = new Set(['settings']);
+/** La vue se range-t-elle en onglets ? */
+function enOnglets(vue){ return cardMode === 'tabs' || VUES_ONGLETS.has(vue); }
 const CPT_TITRE = {crit:'dont au moins un urgent', imp:'dont au moins un important', info:'des conseils'};
 /**
  * La barre d'onglets du panneau, la même partout (Outils, cartes en onglets) :
@@ -2057,7 +2072,7 @@ function segTabs(items, attr, sel){
  * @param {Object<string,string>} html le HTML de chaque carte, par cardId
  */
 function cardLayout(vue, html){
-  const tabs = cardMode === 'tabs';
+  const tabs = enOnglets(vue);
   const corps = CARTES[vue].map(c=>`<div class="carte" data-carte="${c.cardId}">${html[c.cardId] || ''}</div>`).join('');
   return `<section class="panel${tabs ? ' en-onglets' : ''}" data-disposition="${vue}">${tabs ? '<div class="seg" role="tablist" id="carteTabs" aria-label="Sections"></div>' : ''}${corps}</section>`;
 }
@@ -2095,7 +2110,7 @@ function cartesSync(){
   /* Une alerte critique jamais vue fait basculer sur sa carte, une fois. Vue
      en mode empilé, elle est vue aussi : passer en onglets ne la rejoue pas. */
   const bascule = alerteNeuve(presentes, cardCritVus);
-  if(cardMode !== 'tabs'){ delete cardAffiche[vue]; return; }
+  if(!enOnglets(vue)){ delete cardAffiche[vue]; return; }
   if(bascule) cardForce[vue] = bascule;
   const affiche = ongletAffiche(ids, cardForce[vue], cardTabs[vue]);
   cardAffiche[vue] = affiche;
@@ -2165,9 +2180,55 @@ if(typeof window !== 'undefined' && window.addEventListener) window.addEventList
   clearTimeout(cardLueT);
   cardLueT = setTimeout(()=>{
     const sec = cardMode === 'stacked' ? cartesSection() : null;
-    if(sec){ const id = carteEnHaut(sec); if(id) cardLue[sec.dataset.disposition] = id; }
+    if(sec && !VUES_ONGLETS.has(sec.dataset.disposition)){ const id = carteEnHaut(sec); if(id) cardLue[sec.dataset.disposition] = id; }
   }, 800);
 }, {passive:true});
+/* ---------- renvois cliquables (ENH-54) ----------
+   Le texte du panneau renvoie souvent ailleurs : « Outils › Défense dit, planète
+   par planète, ce qui manque », « à changer dans Réglages › Plan du jour ». Le
+   joueur devait trouver l'onglet, puis le sous-onglet. Ces renvois deviennent
+   des liens, posés sur le texte déjà affiché : une phrase écrite demain avec
+   un renvoi sera cliquable sans qu'on y pense. */
+const RENVOI_RE = /(Réglages|Outils) › (Plan du jour|Formes de vie|Page du jeu|[A-ZÀ-Ý][a-zà-ÿ]+)/g;
+/**
+ * La cible d'un renvoi, ou null s'il ne mène nulle part de connu.
+ * @param {string} zone « Réglages » ou « Outils »
+ * @param {string} nom le nom qui suit le ›
+ * @returns {string|null} « settings:jeu », « tools:defense »…
+ */
+function renvoiCible(zone, nom){
+  if(zone === 'Outils'){ const t = TOOLS.find(([, l])=>l === nom); return t ? 'tools:' + t[0] : null; }
+  const g = {'Profil':'jeu', 'Plan du jour':'jeu', 'Formes de vie':'jeu', 'Bonus':'jeu', 'Énergie':'jeu',
+    'Sécurité':'defense', 'Défense':'defense', 'Affichage':'affichage', 'Page du jeu':'affichage',
+    'Règles':'moteur', 'Sauvegarde':'donnees', 'Version':'donnees'}[nom];
+  return zone === 'Réglages' && g ? 'settings:' + g : null;
+}
+/** Pose les liens de renvoi dans le texte affiché sous `root`. */
+function lierRenvois(root){
+  if(!root || typeof document === 'undefined' || typeof document.createTreeWalker !== 'function') return;
+  const w = document.createTreeWalker(root, 4 /* NodeFilter.SHOW_TEXT */);
+  const nodes = [];
+  for(let n = w.nextNode(); n; n = w.nextNode()){
+    RENVOI_RE.lastIndex = 0;
+    // Pas dans ce qui se clique déjà, ni dans un résumé de volet (le clic l'ouvrirait).
+    if(RENVOI_RE.test(n.nodeValue) && !(n.parentElement && n.parentElement.closest('a,button,summary,option,select,textarea'))) nodes.push(n);
+  }
+  for(const n of nodes){
+    const txt = n.nodeValue, frag = document.createDocumentFragment();
+    let last = 0, m;
+    RENVOI_RE.lastIndex = 0;
+    while((m = RENVOI_RE.exec(txt))){
+      const cible = renvoiCible(m[1], m[2]); if(!cible) continue;
+      frag.appendChild(document.createTextNode(txt.slice(last, m.index)));
+      const a = document.createElement('a');
+      a.href = '#'; a.className = 'renvoi'; a.dataset.aller = cible; a.textContent = m[0];
+      frag.appendChild(a); last = m.index + m[0].length;
+    }
+    if(!last) continue;
+    frag.appendChild(document.createTextNode(txt.slice(last)));
+    n.parentNode.replaceChild(frag, n);
+  }
+}
 /** Fait défiler la pile jusqu'à une carte, juste sous la barre collante. */
 function carteDefile(id){
   const w = view.querySelector(`.carte[data-carte="${id}"]`), el = w && w.firstElementChild;
@@ -2184,7 +2245,10 @@ function carteDefile(id){
 function setCardMode(m, distant){
   m = m === 'tabs' ? 'tabs' : 'stacked';
   if(m === cardMode) return;
-  const sec = cartesSection(), vue = sec ? sec.dataset.disposition : null;
+  /* Une vue toujours en onglets (Réglages, d'où se règle ce choix) ne change
+     pas : rien à retenir ni à faire défiler. */
+  const sec = cartesSection(), dv = sec ? sec.dataset.disposition : null;
+  const vue = dv && !VUES_ONGLETS.has(dv) ? dv : null;
   let cible = null;
   if(vue && m === 'tabs'){
     const haut = cardLue[vue] || carteEnHaut(sec);
@@ -2674,7 +2738,7 @@ function garderVue(fn){
 function render(){ prioClean(); ignClean(); garderVue(()=>{ header(); view.innerHTML = enScan() ? VIEWS.scan() : VIEWS[tab](); bind(); refresh(); }); }
 /* Pendant le relevé, les REFRESH écriraient dans des éléments que l'écran du
    relevé n'a pas : ils ne rafraîchissent que ce qui est à l'écran. */
-function refresh(){ garderVue(()=>{ if(!enScan()){ (REFRESH[tab]||(()=>{}))(); cartesSync(); } header(); renderMeteo(); }); }
+function refresh(){ garderVue(()=>{ if(!enScan()){ (REFRESH[tab]||(()=>{}))(); cartesSync(); lierRenvois(view); } header(); renderMeteo(); }); }
 
 /* ---------- advice ---------- */
 const MILESTONES = [
@@ -6481,7 +6545,7 @@ function securiteHtml(acts){
   };
   const w = r[0] ? r[0].wake : null;
   const routine = `<details class="card${on ? ' secu-on' : ''}"${on ? ' open' : fold('secu', false)}><summary data-fold="secu" data-fsvu="1">Plan de la nuit ${on ? '<span class="pill warn">Rappel</span>' : ''}<span class="note">${w ? `réveil ${formatTime(w)}` : ''}</span></summary>
-    <p class="note">Rappel ${esc(secu().rappel)} · réveil ${esc(secu().reveil)} · ${secu().vaults.length ? 'coffres-forts : ' + secu().vaults.map(id => esc((planetById(id)||{}).name || '')).join(', ') : 'aucun coffre-fort déclaré'} <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
+    <p class="note">Rappel ${esc(secu().rappel)} · réveil ${esc(secu().reveil)} · ${secu().vaults.length ? 'coffres-forts : ' + secu().vaults.map(id => esc((planetById(id)||{}).name || '')).join(', ') : 'aucun coffre-fort déclaré'} <button class="btn sm ghost" data-goto="settings:defense">Modifier</button></p>
     ${r.map(ligne).join('')}</details>`;
   const mv = mouvements().filter(v => v.arrivee > now);
   const vol = `<details class="card"${fold('vols', false)}><summary data-fold="vols">Flottes en vol <span class="note">${mv.length}</span></summary>${mv.length ? `<ul class="advice">${mv.map(mouvementLigne).join('')}</ul>` : '<p class="note">Aucune flotte en vol vue. Ouvre l\'encart des événements ou la page Mouvements de flotte : le copilote ne lit que ce que le jeu affiche.</p>'}</details>`;
@@ -9233,7 +9297,7 @@ today(){
       <div id="expoBloc"></div>
     </details>`,
     journee: `<details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
-      <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${heureTxt(d.nightStart)}–${heureTxt(d.nightEnd)} <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
+      <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${heureTxt(d.nightStart)}–${heureTxt(d.nightEnd)} <button class="btn sm ghost" data-goto="settings:jeu">Modifier</button></p>
       <div id="tdDay"></div>
     </details>`,
     minuteurs: `<details class="card"${fold('minuteurs', false)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
@@ -9434,7 +9498,7 @@ defense(){
   const s = S.settings, anc = defAncre(defRatio(s.defModele) || {});
   return `<section class="panel">
     <div class="card"><h2>Modèle de défense</h2>
-      <p class="note"><b>${esc(DEF_MODELES[s.defModele].n)}</b> · ${s.defPalier === 'fill' ? 'compléter l\'existant' : `${s.defPalier} ${esc(DEF[anc].p)}`} <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
+      <p class="note"><b>${esc(DEF_MODELES[s.defModele].n)}</b> · ${s.defPalier === 'fill' ? 'compléter l\'existant' : `${s.defPalier} ${esc(DEF[anc].p)}`} <button class="btn sm ghost" data-goto="settings:defense">Modifier</button></p>
       ${defModeleCarte(s.defModele)}
       <p class="note">Le modèle donne la proportion entre les pièces, le palier la taille. Rien ne se construit ici, et le plan du jour garde son propre budget : la moitié d'une nuit de production, de quoi rendre le pillage non rentable.</p>
     </div>
@@ -9524,7 +9588,11 @@ colony(){
 settings(){
   const s=S.settings, d=S.day;
   const ecart = classeEcart();
-  return `<section class="panel">
+  /* ENH-54 : treize cartes empilées faisaient une page de 5 800 px. Elles se
+     rangent en cinq onglets (CARTES.settings) ; toutes restent dans le DOM,
+     masquées, pour que REFRESH.settings et bind() les trouvent. */
+  return cardLayout('settings', {
+    jeu: `
     <div class="card"><h2>Profil et plan du jour</h2>
       <p class="note">${S.profil.set ? `Ton profil : <b>${esc(profilLigne())}</b>.` : 'Pas encore renseigné : l\'assistant t\'attend en tête d\'Aujourd\'hui.'}</p>
       ${S.profil.set ? `<div class="chips mt-2">${profilFocusHtml()}</div>
@@ -9545,13 +9613,11 @@ settings(){
       <p class="note" id="aideJour"></p>
       <p class="note" id="daySum"></p>
     </div>
-    ${secuCard()}
     <div class="card"><h2>Formes de vie découvertes</h2>
       <div class="chips">${lfSettingsHtml()}</div>
       <p class="note">Copilote s'en sert pour te conseiller la forme de vie de tes colonies.</p>
       ${raceRows()}
     </div>
-    ${reglesCard()}
     <div class="card"><h2>Bonus</h2>
       <div class="bascules">
         ${bascule('sGeo','data-set="geo"','Géologue (+10 % production)', s.geo)}
@@ -9563,6 +9629,13 @@ settings(){
         <label class="f">Ratio d'échange M:C:D<input id="sRatio" data-set="ratio" value="${s.ratio.join(':')}"></label>
       </div>
     </div>
+    <div class="card"><h2>Énergie</h2>
+      <div class="bascules">
+        ${bascule('sSats','data-set="sats"','Autoriser les satellites solaires dans les recommandations', s.sats, 'Moins chers que la centrale sur une planète chaude, mais un satellite part en débris au premier raid, grossit le butin de l\'attaquant, et l\'énergie retombe avec lui. Ceux que tu as déjà posés comptent dans ta production, réglage ou non.')}
+      </div>
+      <p class="note">Sans cette case, le copilote ne propose que la centrale solaire et la centrale de fusion. Planète par planète, le réglage se surcharge dans l'onglet Planètes.</p>
+    </div>`,
+    defense: `
     <div class="card"><h2>Modèle de défense</h2>
       <div class="grid">
         <div class="f"><span>Modèle</span>${defPicker(s.defModele)}</div>
@@ -9579,12 +9652,8 @@ settings(){
         ? `<p class="note">Posé par ton profil (<b>${esc(PROFILS.styles[S.profil.style].n)}</b>). En choisir un autre ici le détache du profil : refaire le questionnaire ne le remettra plus.</p>` : ''}
       <p class="note">Les cartes Défense du plan ne proposent que les pièces de ce modèle, dans ses proportions. Outils › Défense dit, planète par planète, ce qui manque et ce que ça coûte ; une planète peut y prendre un autre modèle que celui-ci.</p>
     </div>
-    <div class="card"><h2>Énergie</h2>
-      <div class="bascules">
-        ${bascule('sSats','data-set="sats"','Autoriser les satellites solaires dans les recommandations', s.sats, 'Moins chers que la centrale sur une planète chaude, mais un satellite part en débris au premier raid, grossit le butin de l\'attaquant, et l\'énergie retombe avec lui. Ceux que tu as déjà posés comptent dans ta production, réglage ou non.')}
-      </div>
-      <p class="note">Sans cette case, le copilote ne propose que la centrale solaire et la centrale de fusion. Planète par planète, le réglage se surcharge dans l'onglet Planètes.</p>
-    </div>
+    ${secuCard()}`,
+    affichage: `
     <div class="card"><h2>Allure du panneau</h2>
       <div class="grid">
         <label class="f">Thème<select id="sSkin" data-set="skin">${Object.entries(HABILLAGES).map(([k,l])=>`<option value="${k}" ${habillage()===k?'selected':''}>${l}</option>`).join('')}</select></label>
@@ -9605,7 +9674,13 @@ settings(){
       </div>
       <div class="row"><button class="btn" type="button" data-masque-tout>${toutMasque() ? 'Tout afficher' : 'Tout masquer'}</button></div>
       <p class="note">Allure seulement : la page du jeu, pas ce panneau, ni les calculs. Masqué, pas supprimé : les éléments restent dans la page et le jeu marche comme avant. La barre de ressources, les planètes, le menu et les alertes du jeu ne se masquent jamais. Chaque choix s'applique tout de suite, dans tous les onglets ouverts, et se retrouve au prochain lancement.</p>
-    </div>
+    </div>`,
+    moteur: `
+    ${reglesCard()}
+    <div class="card"><h2>Fiabilité des calculs</h2>
+      <p class="note">Formules communautaires (wiki OGame, forum officiel). Production, coûts et temps de vol sont stables depuis des années. Moins sûrs : la production de deutérium (formule des univers récents, dépend de la température max), la durée des bâtiments de niveau 1 à 5, et les plafonds d'expédition. Compare une fois avec ton jeu et ajuste les réglages si besoin.</p>
+    </div>`,
+    donnees: `
     <div class="card"><h2>Sauvegarde</h2>
       <p class="note">Tes données restent dans ce navigateur. « Enregistrer » écrit un fichier <code>save.json</code> : mets-le dans le dossier du dépôt et pousse-le, puis « Charger » le relit sur l'autre poste.</p>
       <div class="row"><button class="btn" id="ioSave">Enregistrer dans un fichier</button><button class="btn" id="ioLoad">Charger un fichier…</button><input type="file" id="ioFile" accept="application/json,.json" hidden><button class="btn ghost" id="ioReset">Réinitialiser…</button><span class="note" id="ioMsg"></span></div>
@@ -9613,11 +9688,8 @@ settings(){
       <div class="row"><button class="btn" id="ioImport">Importer le texte collé</button></div>
       ${noListe()}
     </div>
-    ${versionCard()}
-    <div class="card"><h2>Fiabilité des calculs</h2>
-      <p class="note">Formules communautaires (wiki OGame, forum officiel). Production, coûts et temps de vol sont stables depuis des années. Moins sûrs : la production de deutérium (formule des univers récents, dépend de la température max), la durée des bâtiments de niveau 1 à 5, et les plafonds d'expédition. Compare une fois avec ton jeu et ajuste les réglages si besoin.</p>
-    </div>
-  </section>`;
+    ${versionCard()}`,
+  });
 },
 };
 
@@ -10250,6 +10322,9 @@ view.addEventListener('change', e=>{
    ne fait que lever le `hidden`. L'état est noté comme celui d'un volet, donc
    le prochain rafraîchissement, et le prochain démarrage, le retrouvent. */
 view.addEventListener('click', e=>{
+  /* Un renvoi d'abord : posé dans une carte d'action, il ne doit pas ouvrir
+     la page du jeu que la carte ouvre au clic. */
+  const rv = e.target.closest('[data-aller]'); if(rv){ e.preventDefault(); e.stopPropagation(); allerVers(rv.dataset.aller); return; }
   const vp = e.target.closest('[data-voirplus]');
   if(vp){
     const id = vp.dataset.voirplus, ouvert = !voirPlusOuvert(id);
@@ -10386,7 +10461,7 @@ view.addEventListener('click', e=>{
   const ct = e.target.closest('[data-cotarget]'); if(ct){ S.colo.target = ct.dataset.cotarget; save(); render(); toast('Destination de colonie mise à jour'); return; }
   const ar = e.target.closest('[data-apirefresh]'); if(ar){ try{ chrome.runtime.sendMessage({type:'apiRefresh', force:true}); }catch(err){} toast('Actualisation demandée'); return; }
   const tl = e.target.closest('[data-tool]'); if(tl){ S.ui.tool = tl.dataset.tool; save(); render(); return; }
-  const go = e.target.closest('[data-goto]'); if(go){ tab = go.dataset.goto; try{ LS.setItem(KEY+'-tab',tab); }catch(err){} render(); return; }
+  const go = e.target.closest('[data-goto]'); if(go){ allerVers(go.dataset.goto); return; }
   const sent = e.target.closest('[data-sent]'); if(sent){ S.colo.sentAt = Date.now(); S.colo.built = false; save(); refresh(); toast('Colonisation en route'); return; }
   const la = e.target.closest('[data-launch]');
   if(la){
@@ -10563,6 +10638,22 @@ document.getElementById('majBtn').addEventListener('click', boutonMaj);
    qu'au prochain clic du joueur — au moment où il se fie déjà au plan. */
 setInterval(header, 60000);
 function allerOnglet(k){ scanEcran=false; tab=k; try{ LS.setItem(KEY+'-tab',tab); }catch(err){} render(); }
+/**
+ * Ouvre une page et, s'il est donné, son sous-onglet : « settings:affichage »,
+ * « tools:defense ». Le sous-onglet devient le choix retenu du joueur, comme
+ * s'il l'avait cliqué : c'est bien lui qui a cliqué le renvoi.
+ * @param {string} cible « page » ou « page:sous-onglet »
+ */
+function allerVers(cible){
+  const [t, sous] = String(cible || '').split(':');
+  if(!VIEWS[t]) return;
+  if(sous){
+    if(t === 'tools'){ if(TOOLS.some(([k])=>k===sous)){ S.ui.tool = sous; save(); } }
+    else if(CARTES[t] && CARTES[t].some(c=>c.cardId===sous)){ cardTabs[t] = sous; delete cardForce[t]; carteRetiens(); }
+  }
+  allerOnglet(t);
+  if(typeof window !== 'undefined' && typeof window.scrollTo === 'function') window.scrollTo(0, 0);
+}
 document.getElementById('tabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-tab]'); if(!b) return; allerOnglet(b.dataset.tab); });
 /* Les deux boutons de l'en-tête sont posés une fois pour toutes : ils ne sont
    pas refaits à chaque dessin, et `bind()` les doublerait. */
