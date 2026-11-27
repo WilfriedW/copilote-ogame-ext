@@ -483,3 +483,11 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 .cartes-table td{padding:4px 0;border-top:1px solid var(--line)}
 .cartes-table td:last-child{text-align:right}
 .cartes-table select{width:auto}
+
+/* Sécurité : l'attaque en tête, le tableau des transports suggérés. */
+.secu-crit{border:1px solid var(--bad, #e0102b);}
+.secu-crit h3{font-size:12px;margin:10px 0 4px;text-transform:uppercase;letter-spacing:.04em;opacity:.8;}
+.secu-on > summary{color:var(--warn, #ff8c1a);}
+.fs-tab{width:100%;border-collapse:collapse;margin:8px 0 4px;font-size:11px;}
+.fs-tab th,.fs-tab td{text-align:left;vertical-align:top;padding:3px 4px;border-bottom:1px solid rgba(127,127,127,.25);white-space:normal;}
+.fs-tab th{font-size:10px;}

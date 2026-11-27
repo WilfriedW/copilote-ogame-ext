@@ -156,6 +156,42 @@ estimations à calibrer, pas des lois du jeu :
 Le plafond de points, lui, se déduit des points du n°1 de l'univers, lus dans
 le classement public.
 
+## Flottes en vol et sécurité
+
+Le copilote lit les mouvements de flotte que **le jeu t'affiche déjà** —
+l'encart des événements de la vue d'ensemble, quand tu l'ouvres, et la page
+Mouvements de flotte : les tiens (aller et retour, toutes missions) et les
+flottes hostiles (attaques, attaques groupées, espionnages), avec l'heure, les
+vaisseaux et la cargaison. Il n'envoie aucune requête au serveur pour les
+rafraîchir.
+
+**Conseils de construction.** Les ressources d'une planète se projettent avec
+les convois qui arrivent : la production s'arrête au hangar, une livraison
+non. Un conseil en attente dit « Finançable à 07:12 (convoi Tourtierion,
+30 GT) », « Finançable à … (production) » ou « Non finançable sous 24 h ». À
+l'arrivée du convoi, il passe dans les actions de maintenant.
+
+**Attaque entrante.** Une carte critique en tête d'Aujourd'hui, avec compte à
+rebours : ressources exposées à l'impact, constructions finançables pour
+dépenser, transport de la flotte à quai vers un coffre-fort, et les convois à
+toi qui arrivent avant l'impact + 10 min (« à rappeler ou à laisser » : ta
+décision). L'icône affiche « ! ». Un espionnage hostile donne une alerte
+Importante.
+
+**Rappel de mise à l'abri.** Réglages › Sécurité : tes planètes coffres-forts,
+l'heure du rappel (22:00), les jours actifs, l'heure de réveil — la fin de
+nuit du plan du jour, un seul réglage pour les deux (7 h) —, et
+« Préférer Stationner ». À l'heure du rappel l'icône affiche « FS » — aucune
+notification — jusqu'à ce que tu ouvres **Plan de la nuit** dans Aujourd'hui.
+Le plan propose une vitesse, et au besoin une heure de départ, pour que la
+flotte se pose à ton réveil. Heures du rappel en heure locale du navigateur.
+
+Les transports suggérés vont au coffre-fort le plus proche (même galaxie
+d'abord), jamais vers un coffre-fort attaqué, en mission Transport par défaut.
+**Préparer** remplit vaisseaux, cible et mission dans le formulaire du jeu ;
+les ressources se recopient (⧉) et la vitesse se règle à la main. L'envoi
+reste ton clic.
+
 ## À savoir
 
 **Il faut jouer en français.** Le Copilote lit le tableau de production, les

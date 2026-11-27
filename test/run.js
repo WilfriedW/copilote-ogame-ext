@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'dayValue', 'modeNuit', 'finDeNuit', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -8595,7 +8595,7 @@ t('le champ du volet Empire republie le plan après avoir posé', () => {
 t('la minuterie de 30 s republie le plan aussi sur Empire', () => {
   /* setInterval est neutralisé dans le harnais : on épingle la source. */
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
-  assert.match(src, /REFRESH\[tab\]\(\);\s*(?:cartesSync\(\);\s*\}\s*)?publieLePlan\(\);\s*finDeNuit\(\);\s*nightBar\(\);\s*\}, 30000\)/);
+  assert.match(src, /REFRESH\[tab\]\(\);\s*(?:cartesSync\(\);\s*\}\s*)?publieLePlan\(\);\s*finDeNuit\(\);\s*\}, 30000\)/);
 });
 
 t('le changement que provoque l\'effacement lui-même ne rejoue rien', () => {
@@ -10163,23 +10163,6 @@ t('sans heure donnée, la carte dit dans combien de temps elle croit le retour',
   assert.ok(/^Absence de 8 h/.test(w), w);
 });
 
-t('la question se pose une heure avant la nuit, et pas avant', () => {
-  const g = app(null, AVANT);
-  assert.ok(g.nightDue(AVANT), 'à 22 h pour une nuit à 23 h');
-  assert.equal(g.nightDue(AVANT - 3600e3), false, 'à 21 h, trop tôt');
-  assert.equal(g.nightDue(AVANT + 4 * 3600e3), false, 'à 2 h du matin, trop tard');
-});
-
-t('déjà à l\'abri, ou déjà répondu : la question ne revient pas', () => {
-  assert.equal(app(s => { s.day.night = true; }, AVANT).nightDue(AVANT), false);
-  const g = app(null, AVANT);
-  assert.equal(g.nightDue(AVANT), true);
-  g.S.day.askedOn = g.jourCivil(AVANT);
-  assert.equal(g.nightDue(AVANT), false, 'un « non » tient pour la nuit');
-});
-
-/* Le mode nuit reste allumé toute la nuit : dès que le panneau se redessine
-   après le coucher, c'est ce chemin-là qui répond. */
 t('appelée dans la nuit, elle vise le matin qui vient, pas celui d\'après', () => {
   const minuit = new Date(2026, 10, 9, 0, 30, 0).getTime();
   const g = app(s => { s.day.night = true; }, minuit);
@@ -10197,8 +10180,8 @@ t('à 22 h, « oui » veut dire « je vais dormir », pas « je m\'absente 8 h �
 
 t('allumée le soir, la mise à l\'abri se donne la fin de nuit pour terme', () => {
   const g = app(null, AVANT, null, true);
-  g.repondNuit(true);
-  assert.equal(g.saved().day.until, REVEIL, 'elle vaut jusqu\'à sept heures');
+  g.modeNuit(true);
+  assert.equal(g.S.day.until, REVEIL, 'elle vaut jusqu\'à sept heures');
 });
 
 t('allumée le matin sans heure de retour, elle vaut une nuit', () => {
@@ -10254,79 +10237,6 @@ t('un terme truqué par une synchro ne fige pas le plan en veille', () => {
   assert.equal(g.S.day.until, 0);
 });
 
-t('sans nuit réglée, aucune question', () => {
-  const g = app(s => { s.day.nightStart = 7; s.day.nightEnd = 7; }, AVANT);
-  assert.equal(g.nightDue(AVANT), false);
-});
-
-t('le bandeau sort tout seul quand l\'heure vient', () => {
-  const g = app(null, AVANT);
-  assert.equal(g.el('nightAsk').hidden, false, 'armé au chargement du panneau');
-  assert.equal(app(null, MATIN).el('nightAsk').hidden, true, 'et reste caché le matin');
-});
-
-t('« oui » bascule en mode nuit et ouvre la page de flotte prête', () => {
-  const g = app(s => { loin(s); s.host = 's1-fr.ogame.gameforge.com'; s.planets[0].gid = '101';
-    s.planets[0].ships = { lc: 30, sc: 6 }; }, AVANT, null, true);
-  g.repondNuit(true);
-  assert.equal(g.saved().day.night, true, 'le mode nuit est enregistré');
-  assert.equal(g.saved().day.askedOn, g.jourCivil(AVANT), 'et la question ne reviendra pas');
-  const go = g.sent().filter(m => m.type === 'go').pop();
-  assert.ok(go, 'une page du jeu est ouverte');
-  assert.ok(/component=fleetdispatch/.test(go.url), go && go.url);
-  assert.ok(/mission=4/.test(go.url), 'en déploiement, comme le plan le dit');
-  assert.ok(/am20[36]=/.test(go.url), 'avec les transporteurs déjà cochés : ' + go.url);
-});
-
-t('« non » laisse le jour en place et ne rouvre rien', () => {
-  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30 }; }, AVANT, null, true);
-  const avant = g.sent().length;
-  g.repondNuit(false);
-  assert.equal(g.saved().day.night, false, 'on reste en mode jour');
-  assert.equal(g.saved().day.askedOn, g.jourCivil(AVANT));
-  assert.equal(g.sent().length, avant, 'aucune page ouverte');
-});
-
-t('« oui » oublie une heure de retour laissée d\'une absence passée', () => {
-  const g = app(s => { s.day.backHour = 19; }, AVANT, null, true);
-  g.repondNuit(true);
-  assert.equal(g.saved().day.backHour, null, 'une nuit se cale sur la fin de nuit');
-});
-
-t('la réponse donnée sur la notification arrive par le stockage', () => {
-  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30 }; }, AVANT, null, true);
-  g.fire({ nightAnswer: { newValue: { at: AVANT, oui: true } } });
-  assert.equal(g.saved().day.night, true);
-  assert.ok(g.removed().includes('nightAnswer'), 'et elle est consommée une seule fois');
-});
-
-t('une réponse vieille de la veille ne met personne à l\'abri', () => {
-  const g = app(null, AVANT, null, true);
-  g.fire({ nightAnswer: { newValue: { at: AVANT - 12 * 3600e3, oui: true } } });
-  assert.equal(g.S.day.night, false, 'un « oui » d\'hier soir ne décide pas ce matin');
-});
-
-t('le panneau arme l\'alarme une heure avant la nuit, et la répète', () => {
-  const g = app(null, MATIN, null, true);
-  const a = g.alarmes().filter(x => x[0] === 'nuit').pop();
-  assert.ok(a, 'une alarme « nuit » est posée');
-  assert.equal(a[1].when, new Date(2026, 10, 8, 22, 0, 0).getTime());
-  assert.equal(a[1].periodInMinutes, 1440, 'elle revient chaque jour');
-});
-
-t('alarme posée au lendemain quand l\'heure du jour est passée', () => {
-  const g = app(null, new Date(2026, 10, 8, 23, 30, 0).getTime(), null, true);
-  const a = g.alarmes().filter(x => x[0] === 'nuit').pop();
-  assert.equal(a[1].when, new Date(2026, 10, 9, 22, 0, 0).getTime());
-});
-
-t('sans nuit réglée, l\'alarme est effacée au lieu d\'être posée', () => {
-  const g = app(s => { s.day.nightStart = 7; s.day.nightEnd = 7; }, MATIN, null, true);
-  const a = g.alarmes().filter(x => x[0] === 'nuit').pop();
-  assert.ok(a, 'l\'alarme est touchée');
-  assert.equal(a[1], null, 'et effacée');
-});
-
 t('l\'heure de retour n\'accepte qu\'une heure, et le vide vaut « aucune »', () => {
   const g = app();
   assert.equal(g.dayValue('backHour', '19', null), 19);
@@ -10340,10 +10250,9 @@ t('l\'heure de retour n\'accepte qu\'une heure, et le vide vaut « aucune »', (
 
 t('une heure de retour truquée par une synchro est refusée à l\'entrée', () => {
   const g = app();
-  g.S.day.backHour = '"><b>x'; g.S.day.askedOn = { toString() { return 'x'; } };
+  g.S.day.backHour = '"><b>x';
   g.syncApply({ 'sy:day': g.S.day });
   assert.equal(g.S.day.backHour, null);
-  assert.equal(g.S.day.askedOn, '');
 });
 
 /* ---------- la page Empire se lit d'un coup d'œil ---------- */
@@ -12417,6 +12326,324 @@ t('le sélecteur écrit sous chaque nom sa recette et son pack', () => {
   assert.ok(!/data-launch|data-sent/.test(d), 'toujours en lecture seule');
 });
 
+/* ---------- flottes en mouvement et plan de sécurité ---------- */
+const SECU = ['S', 'ogFleetDetail', 'mouvements', 'livraisons', 'projectResources', 'whenAffordable', 'statutFinancement',
+  'attaquesEntrantes', 'espionnagesEntrants', 'coffreFortPour', 'transportSuggere', 'planSecurite', 'securiteHtml',
+  'production', 'formatTime', 'simulateDay', 'wakeTime', 'RESUMES', 'secu', 'secuCard', 'armeRappel', 'fsRappelVu', 'shipCourt', 'VIEWS', 'REFRESH', 'flight', 'shipStats'];
+const H = 3600e3;
+/** Un empire à trois planètes : Tourtierion (source, G1), Poutinia (G1) et Erablis (G2), coffres-forts. */
+function empireSecu(s) {
+  s.planets[0].name = 'Tourtierion';
+  s.planets[0].ships = { lc: 30, sc: 2, pr: 1 };
+  s.planets.push({ id: 'pout', name: 'Poutinia', coords: '1:300:8', tmax: 40, b: { ...s.planets[1].b }, sats: 0, ships: {}, shipsAt: 0, stock: { m: 0, c: 0, d: 0, at: s.planets[0].stock.at } });
+  s.planets.push({ id: 'erab', name: 'Erablis', coords: '2:142:8', tmax: 40, b: { ...s.planets[1].b }, sats: 0, ships: {}, shipsAt: 0, stock: { m: 0, c: 0, d: 0, at: s.planets[0].stock.at } });
+  s.settings.secu = { vaults: ['pout', 'erab'], rappel: '22:00', jours: [0, 1, 2, 3, 4, 5, 6], stationner: false };
+}
+function appSecu(modif, now) {
+  const s = fixtureState();
+  const at = now == null ? SOIR : now;
+  s.planets.forEach(p => { p.stock.at = at; });
+  empireSecu(s);
+  if (modif) modif(s, at);
+  return loadApp(s, at, SECU);
+}
+/** Un convoi qui se pose sur `coords` dans `dans` ms, depuis Colonie. */
+const convoi = (at, dans, coords, cargo, ships) => ({ id: '77', mission: 3, ret: false, arrival: Math.round((at + dans) / 1000), camp: 'own', hostile: false,
+  origin: '1:142:6', dest: coords, originName: 'Colonie', destName: '', ships: ships || { lc: 30 }, cargo });
+const attaque = (at, dans, coords, mission) => ({ id: '99', mission: mission || 1, ret: false, arrival: Math.round((at + dans) / 1000), camp: 'hostile', hostile: true,
+  origin: '5:5:5', dest: coords, originName: 'Méchant', destName: '', ships: {}, cargo: null });
+
+t("le détail d'une flotte se lit dans l'infobulle du jeu : vaisseaux et cargaison", () => {
+  const g = appSecu();
+  const tip = '&lt;table class=&quot;fleetinfo&quot;&gt;&lt;tr&gt;&lt;th colspan=&quot;3&quot;&gt;Vaisseaux :&lt;/th&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;Grand transporteur:&lt;/td&gt;&lt;td class=&quot;value&quot;&gt;30&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;th&gt;Chargement :&lt;/th&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;Métal:&lt;/td&gt;&lt;td class=&quot;value&quot;&gt;1.237.500&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;Cristal:&lt;/td&gt;&lt;td&gt;0&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td&gt;Deutérium:&lt;/td&gt;&lt;td&gt;0&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;';
+  const d = g.ogFleetDetail(tip);
+  assert.deepEqual(JSON.parse(JSON.stringify(d.ships)), { lc: 30 });
+  assert.deepEqual(d.cargo, [1237500, 0, 0]);
+  assert.ok(d.connu);
+  const masque = g.ogFleetDetail('<table><tr><th>Vaisseaux</th></tr><tr><td>Croiseur:</td><td>?</td></tr></table>');
+  assert.equal(masque.connu, false, 'un nombre masqué ne devient pas zéro');
+  assert.equal(masque.ships.cr, undefined);
+});
+
+t('mouvements : aller et retour normalisés, retour rattaché à son aller', () => {
+  const g = appSecu((s, at) => {
+    s.moves = [convoi(at, 2 * H, '1:142:8', [1, 0, 0]),
+      { ...convoi(at, 4 * H, '1:142:8', null), ret: true }];
+  });
+  const mv = g.mouvements();
+  assert.equal(mv.length, 2);
+  assert.equal(mv[0].sens, 'aller');
+  assert.equal(mv[0].retour, mv[1].arrivee);
+  assert.equal(mv[1].pose, '1:142:6', 'un retour se pose sur son origine');
+  assert.equal(mv[0].cible.nom, 'Tourtierion', 'le nom manquant se complète depuis mes planètes');
+});
+
+t('une construction rendue finançable par un convoi affiche « Finançable à HH:MM (convoi …) »', () => {
+  const g = appSecu((s, at) => { s.moves = [convoi(at, 2 * H, '1:142:8', [1237500, 0, 0])]; });
+  const p = g.S.planets[0], arr = SOIR + 2 * H;
+  const f = g.whenAffordable(p, [1000000, 10000, 0]);
+  assert.equal(f.statut, 'convoi');
+  assert.equal(f.at, arr);
+  const txt = g.statutFinancement(f);
+  assert.equal(txt, `Finançable à ${g.formatTime(arr)} (convoi Colonie, 30 GT)`);
+});
+
+t("une livraison qui n'apporte pas ce qui manque n'est pas nommée : c'est la production", () => {
+  const g = appSecu((s, at) => { s.planets[0].stock.m = 0; s.moves = [convoi(at, 1 * H, '1:142:8', [0, 500000, 0])]; });
+  const p = g.S.planets[0], pr = g.production(p);
+  const f = g.whenAffordable(p, [pr.m * 3, 0, 0]);
+  assert.ok(Math.abs(f.at - (SOIR + 3 * H)) < 60e3);
+  assert.equal(f.statut, 'production');
+  assert.ok(/\(production\)$/.test(g.statutFinancement(f)));
+});
+
+t("à l'heure annoncée, le conseil passe en « Finançable maintenant »", () => {
+  const arr = SOIR + 2 * H;
+  const g = appSecu((s) => { s.planets.forEach(p => { p.stock.at = SOIR; }); s.moves = [convoi(SOIR, 2 * H, '1:142:8', [1237500, 0, 0])]; }, arr + 1000);
+  const f = g.whenAffordable(g.S.planets[0], [1000000, 10000, 0]);
+  assert.equal(f.statut, 'maintenant');
+  assert.equal(g.statutFinancement(f), 'Finançable maintenant');
+});
+
+t('une flotte arrivée que le jeu ne montre plus reste créditée tant que le stock date d’avant', () => {
+  const arr = SOIR + 2 * H;
+  const g = appSecu((s) => { s.planets.forEach(p => { p.stock.at = SOIR; }); s.arrived = [convoi(SOIR, 2 * H, '1:142:8', [500000, 0, 0])]; }, arr + 60e3);
+  // applyGame n'a pas tourné : S.arrived vient de l'état sauvegardé
+  assert.ok(g.projectResources(g.S.planets[0], arr + 60e3)[0] > 500000);
+  const g2 = appSecu((s) => { s.planets.forEach(p => { p.stock.at = arr + 30e3; }); s.arrived = [convoi(SOIR, 2 * H, '1:142:8', [500000, 0, 0])]; }, arr + 60e3);
+  assert.ok(g2.projectResources(g2.S.planets[0], arr + 60e3)[0] < 500000, 'un stock relu après l’arrivée la porte déjà');
+});
+
+t('projection : la production s’arrête au hangar, une livraison le dépasse', () => {
+  const g = appSecu((s, at) => { s.planets[0].stock.m = 0; s.moves = [convoi(at, 1 * H, '1:142:8', [3000000, 0, 0])]; });
+  const p = g.S.planets[0], cap = g.production(p).cap[0];
+  const sans = g.projectResources(p, SOIR + 0.5 * H);
+  assert.ok(sans[0] < cap);
+  const apres = g.projectResources(p, SOIR + 1 * H);
+  assert.ok(apres[0] > cap, 'la livraison passe au-dessus du hangar');
+  const plusTard = g.projectResources(p, SOIR + 10 * H);
+  assert.equal(Math.round(plusTard[0]), Math.round(apres[0]), 'et la production reste arrêtée au-dessus');
+  // sans livraison, la production plafonne
+  const g2 = appSecu((s) => { s.planets[0].stock.m = 0; });
+  assert.equal(Math.round(g2.projectResources(g2.S.planets[0], SOIR + 500 * H)[0]), cap);
+});
+
+t('Non finançable sous 24 h', () => {
+  const g = appSecu();
+  const f = g.whenAffordable(g.S.planets[0], [1e12, 0, 0]);
+  assert.equal(f.statut, 'jamais');
+  assert.equal(g.statutFinancement(f), 'Non finançable sous 24 h');
+});
+
+t('le plan du jour annonce le convoi sur ses attentes, et le compte dans ses connexions', () => {
+  const prep = (avec) => appSecu((s, at) => { s.planets[0].stock = { m: 20000, c: 5000, d: 1000, at };
+    if (avec) s.moves = [convoi(at, 2 * H, '1:142:8', [300000, 200000, 50000])]; });
+  const sans = prep(false).simulateDay().sessions[0].waits;
+  assert.ok(sans.every(w => !w.fin || w.fin.statut !== 'convoi'));
+  const g = prep(true), w = g.simulateDay().sessions[0].waits.find(x => x.what.startsWith('Centrale électrique solaire'));
+  assert.ok(w && w.fin, 'la centrale attend');
+  assert.equal(w.fin.statut, 'convoi');
+  assert.equal(g.statutFinancement(w.fin), `Finançable à ${g.formatTime(SOIR + 2 * H)} (convoi Colonie, 30 GT)`);
+  g.REFRESH.today();
+  const h = lu(g.html().tdNow || '');
+  assert.ok(h.includes('(convoi Colonie, 30 GT)'), 'la liste des attentes porte le statut');
+  assert.ok(lu(g.html().tdSecu || '').includes('Plan de la nuit'), 'le bloc Sécurité est dessiné');
+});
+
+t('attaque entrante : alerte critique, compte à rebours, plan complet', () => {
+  const g = appSecu((s, at) => { s.host = 's1-fr.ogame.gameforge.com'; s.planets[0].gid = '101'; s.moves = [attaque(at, 1 * H, '1:142:8')]; });
+  const pl = g.planSecurite('attaque', SOIR, []);
+  assert.equal(pl.length, 1);
+  const a = pl[0];
+  assert.equal(a.p.name, 'Tourtierion');
+  assert.equal(a.impact, SOIR + H);
+  assert.ok(a.expose[0] >= 120000, 'ressources exposées à l’impact, production comprise');
+  assert.ok(a.transport, 'un transport est suggéré');
+  assert.equal(a.transport.dest.name, 'Poutinia', 'coffre-fort de la même galaxie');
+  assert.equal(a.transport.missionNom, 'Transport');
+  assert.ok(a.transport.retour >= SOIR + H + 10 * 60e3, 'en Transport, la flotte ne rentre pas avant l’impact');
+  const h = lu(g.securiteHtml([]).alerte);
+  assert.ok(h.includes('Critique') && h.includes('Attaque sur Tourtierion'));
+  assert.ok(h.includes(`data-impact="${SOIR + H}"`), 'le compte à rebours se met à jour seul');
+  assert.ok(/<th>Source<\/th><th>Vaisseaux<\/th><th>Cible<\/th><th>Mission<\/th><th>M \/ C \/ D<\/th>/.test(h));
+  assert.ok(h.includes('<td>Tourtierion</td><td>30 GT, 2 PT, 1 SE</td><td>Poutinia</td><td>Transport</td>'));
+  assert.ok(/Arrivée .* à \d+ %/.test(h));
+  assert.ok(h.includes('data-prep='), 'Préparer pré-remplit le formulaire');
+  assert.ok(!/data-launch|data-sent/.test(h), 'aucun envoi automatique');
+});
+
+t('les constructions à lancer sont triées par montant dépensé', () => {
+  const g = appSecu((s, at) => { s.planets[0].stock = { m: 5e6, c: 3e6, d: 1e6, at }; s.moves = [attaque(at, 1 * H, '1:142:8')]; });
+  const d = g.planSecurite('attaque', SOIR, [])[0].depenses;
+  assert.ok(d.length >= 2);
+  const tot = c => c[0] + c[1] + c[2];
+  for (let i = 1; i < d.length; i++) assert.ok(tot(d[i - 1].cost) >= tot(d[i].cost));
+});
+
+t('un convoi qui arrive 3 min avant l’impact est « à rappeler ou à laisser »', () => {
+  const g = appSecu((s, at) => { s.moves = [attaque(at, 1 * H, '1:142:8'), convoi(at, 1 * H - 3 * 60e3, '1:142:8', [100, 0, 0]), convoi(at, 3 * H, '1:142:8', [100, 0, 0])]; });
+  const a = g.planSecurite('attaque', SOIR, [])[0];
+  assert.equal(a.aRisque.length, 1, 'seul celui qui arrive avant impact + 10 min');
+  assert.ok(lu(g.securiteHtml([]).alerte).includes('À rappeler ou à laisser'));
+});
+
+t('une attaque sur le coffre-fort principal envoie vers l’autre', () => {
+  const g = appSecu((s, at) => { s.moves = [attaque(at, 1 * H, '1:142:8'), attaque(at, 2 * H, '1:300:8')]; });
+  const a = g.planSecurite('attaque', SOIR, []).find(x => x.p.name === 'Tourtierion');
+  assert.equal(a.transport.dest.name, 'Erablis');
+});
+
+t('aucun coffre-fort utilisable : le plus lointain, pour rester en vol', () => {
+  const g = appSecu((s, at) => { s.moves = [attaque(at, 1 * H, '1:142:8'), attaque(at, 2 * H, '1:300:8'), attaque(at, 2 * H, '2:142:8')]; });
+  const t1 = g.planSecurite('attaque', SOIR, []).find(x => x.p.name === 'Tourtierion').transport;
+  assert.equal(t1.dest.name, 'Erablis');
+  assert.ok(/plus lointain/.test(t1.pourquoi));
+});
+
+t('un espionnage hostile déclenche une alerte Importante', () => {
+  const g = appSecu((s, at) => { s.moves = [attaque(at, 5 * 60e3, '1:142:6', 6)]; });
+  assert.equal(g.espionnagesEntrants(SOIR).length, 1);
+  const h = lu(g.securiteHtml([]).alerte);
+  assert.ok(h.includes('Important') && h.includes('Espionnage en cours sur Colonie, attaque possible'));
+});
+
+t('le plan routine propose une vitesse qui arrive au réveil, à 10 min près', () => {
+  const g = appSecu();
+  const r = g.planSecurite('routine', SOIR, []);
+  const x = r.find(e => e.p.name === 'Tourtierion');
+  const wake = new Date(2026, 10, 9, 7, 0, 0).getTime();
+  assert.equal(x.wake, wake);
+  assert.ok(x.transport);
+  assert.ok(Math.abs(x.transport.arrivee - wake) <= 10 * 60e3, `arrivée ${new Date(x.transport.arrivee)} pour un réveil à 7 h`);
+  assert.ok(r.find(e => e.p.name === 'Poutinia').coffre, 'un coffre-fort ne part pas vers lui-même');
+  assert.equal(r.find(e => e.p.name === 'Poutinia').transport, null);
+});
+
+t('le plan routine liste exposé, à quai, files libres et convois de nuit', () => {
+  const g = appSecu((s, at) => { s.moves = [convoi(at, 3 * H, '1:142:8', [100, 0, 0]), convoi(at, 12 * H, '1:142:8', [100, 0, 0])]; });
+  const x = g.planSecurite('routine', SOIR, []).find(e => e.p.name === 'Tourtierion');
+  assert.ok(x.expose[0] >= 120000);
+  assert.equal(x.aQuai.lc, 30);
+  assert.ok(x.files.some(f => f.file === 'Bâtiments'), 'file de bâtiments vide avant le réveil');
+  assert.equal(x.nuit.length, 1, 'seul le convoi qui arrive entre le rappel et le réveil');
+  const h = lu(g.securiteHtml([]).bloc);
+  assert.ok(h.includes('Plan de la nuit') && h.includes('Convoi de nuit') && h.includes('File libre'));
+});
+
+t('« Préférer Stationner » change la mission suggérée', () => {
+  const g = appSecu(s => { s.settings.secu.stationner = true; });
+  const x = g.planSecurite('routine', SOIR, []).find(e => e.p.name === 'Tourtierion');
+  assert.equal(x.transport.missionNom, 'Stationner');
+  assert.equal(x.transport.mission, 4);
+  assert.equal(x.transport.retour, null);
+});
+
+t('fret : hyperespace et classe comptent, les GT s’arrondissent au-dessus', () => {
+  const g = appSecu(s => { s.tech.hyper = 8; s.planets[0].stock = { m: 1237500, c: 0, d: 0, at: SOIR }; });
+  const t1 = g.transportSuggere(g.S.planets[0], { mode: 'routine', now: SOIR, wake: SOIR + 8 * H, visees: new Set() });
+  const lc = g.shipStats('lc').cargoEff;
+  assert.ok(lc > 25000 * 1.4, 'hyperespace 8 et collecteur grossissent la soute');
+  assert.equal(t1.gt, Math.ceil(t1.charge.reduce((a, b) => a + b, 0) / lc) || Math.ceil((1237500 + g.projectResources(g.S.planets[0], SOIR)[1]) / lc) || t1.gt);
+  assert.ok(t1.gt >= Math.ceil(1237500 / lc));
+});
+
+t('Réglages › Sécurité : coffres-forts, heures, jours et Stationner', () => {
+  const g = appSecu();
+  const h = lu(g.secuCard());
+  assert.ok(h.includes('data-secu-vault="pout" checked'));
+  assert.ok(h.includes('data-secu="rappel" value="22:00"'));
+  assert.ok(h.includes('data-day="nightEnd" value="7"'), 'le réveil se règle sur la fin de nuit');
+  assert.ok(h.includes('data-secu-jour="0" checked'));
+  assert.ok(h.includes('Préférer Stationner'));
+  // une sauvegarde d'avant n'a rien : les défauts
+  const g2 = appSecu(s => { delete s.settings.secu; });
+  assert.deepEqual(JSON.parse(JSON.stringify(g2.secu())), { vaults: [], rappel: '22:00', jours: [0, 1, 2, 3, 4, 5, 6], reveil: '07:00', stationner: false });
+  // le réveil suit la fin de nuit, et rien d'autre : une ancienne clé `reveil` ne compte plus
+  const g3 = appSecu(s => { s.day.nightEnd = 6; s.settings.secu.reveil = '09:30'; });
+  assert.equal(g3.secu().reveil, '06:00');
+  const x = g3.planSecurite('routine', SOIR, []).find(e => e.p.name === 'Tourtierion');
+  assert.equal(x.wake, new Date(2026, 10, 9, 6, 0, 0).getTime());
+  assert.equal(x.wake, g3.wakeTime ? g3.wakeTime(SOIR) : x.wake, 'même réveil que le mode nuit');
+});
+
+t('le rappel est armé par chrome.alarms à l’heure choisie, sans notification', () => {
+  const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; }); empireSecu(s);
+  s.settings.secu.rappel = '23:15';
+  const g = loadApp(s, SOIR, SECU, null, true);
+  const al = g.alarmes().filter(a => a[0] === 'fsRappel');
+  assert.ok(al.length, 'alarme posée');
+  assert.equal(al[al.length - 1][1].when, new Date(2026, 10, 8, 23, 15, 0).getTime());
+  assert.equal(al[al.length - 1][1].periodInMinutes, 1440);
+  assert.deepEqual(g.stored().fsRappelCfg.jours, [0, 1, 2, 3, 4, 5, 6]);
+  const s2 = fixtureState(); s2.planets.forEach(p => { p.stock.at = SOIR; }); empireSecu(s2); s2.settings.secu.jours = [];
+  const g2 = loadApp(s2, SOIR, SECU, null, true);
+  const al2 = g2.alarmes().filter(a => a[0] === 'fsRappel');
+  assert.equal(al2[al2.length - 1][1], null, 'aucun jour actif : pas d’alarme');
+});
+
+/* Le service worker, évalué avec un navigateur factice : seul ce qui compose le badge et fusionne les mouvements nous intéresse. */
+function chargeWorker() {
+  const noop = () => {};
+  const ev = { addListener: noop };
+  const chrome = { runtime: { onMessage: ev, onInstalled: ev, onStartup: ev, getManifest: () => ({ version: '2.9.0' }) },
+    storage: { local: { get: async () => ({}), set: async () => {}, remove: async () => {} }, session: { get: async () => ({}) }, onChanged: ev },
+    alarms: { create: noop, clear: noop, onAlarm: ev }, action: { setBadgeText: noop, setBadgeBackgroundColor: noop, onClicked: ev },
+    notifications: { create: noop, clear: noop, getAll: noop, onClicked: ev, onButtonClicked: ev },
+    tabs: { onUpdated: ev, onActivated: ev, onRemoved: ev, query: noop, update: noop, create: noop }, sidePanel: { setOptions: noop, setPanelBehavior: () => ({ catch: noop }) },
+    scripting: { executeScript: noop }, windows: { update: noop } };
+  const src = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+  const importScripts = () => {};
+  return new Function('chrome', 'importScripts', 'fetch', src + '\nreturn { badgeEtat, fusionneMouvements };')(chrome, importScripts, async () => ({ ok: false }));
+}
+const fs = require('fs'), path = require('path');
+
+t('cartes : une attaque entrante ouvre son onglet, critique', () => {
+  const g = appSecu((s, at) => { s.moves = [attaque(at, 1 * H, '1:142:8')]; });
+  g.REFRESH.today();
+  assert.equal(g.RESUMES.attaque.count, 1);
+  assert.equal(g.RESUMES.attaque.maxLevel, 'crit', 'une alerte critique fait basculer sur sa carte');
+});
+
+t('l’ancienne question du coucher a disparu : seul le rappel est armé', () => {
+  const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; }); empireSecu(s);
+  const g = loadApp(s, SOIR - 2 * H, SECU, null, true);
+  assert.ok(!g.alarmes().some(a => a[0] === 'nuit' && a[1]), 'aucune alarme « nuit » posée');
+  assert.ok(g.alarmes().some(a => a[0] === 'fsRappel' && a[1]));
+  const html = fs.readFileSync(path.join(__dirname, '..', 'sidepanel.html'), 'utf8');
+  assert.ok(!/nightAsk/.test(html), 'plus de bandeau « On passe en mode sauvegarde ? »');
+  const bg = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+  assert.ok(/chrome\.alarms\.clear\('nuit'\)/.test(bg), 'le worker efface l’alarme laissée par une version d’avant');
+  assert.ok(!/notifications\.create\('nuit'/.test(bg));
+});
+
+t('badge : attaque > instable > critiques > rappel > mise à jour', () => {
+  const w = chargeWorker(), now = SOIR;
+  const att = { game: { moves: [{ hostile: true, mission: 1, ret: false, arrival: now / 1000 + 600 }] } };
+  const tout = { ...att, versionInstable: true, critiques: { n: 3 }, fsRappelOn: { at: now }, majVer: '9.0.0' };
+  assert.equal(w.badgeEtat(tout, now, '2.9.0').quoi, 'attaque');
+  assert.equal(w.badgeEtat({ ...tout, game: {} }, now, '2.9.0').quoi, 'instable');
+  assert.equal(w.badgeEtat({ ...tout, game: {}, versionInstable: false }, now, '2.9.0').quoi, 'critiques');
+  assert.equal(w.badgeEtat({ fsRappelOn: { at: now }, majVer: '9.0.0' }, now, '2.9.0').text, 'FS');
+  assert.equal(w.badgeEtat({ majVer: '9.0.0' }, now, '2.9.0').quoi, 'maj');
+  assert.equal(w.badgeEtat({ majVer: '2.9.0' }, now, '2.9.0').text, '');
+  assert.equal(w.badgeEtat({ game: { moves: [{ hostile: true, mission: 1, arrival: now / 1000 - 5 }] } }, now, '2.9.0').text, '', 'une attaque passée n’alerte plus');
+});
+
+t('fusion des mouvements : l’encart remplace, la page Mouvements garde les hostiles, le témoin éteint efface', () => {
+  const w = chargeWorker(), now = Date.now();
+  const futur = now / 1000 + 3600;
+  const mien = { mission: 3, arrival: futur, ret: false, origin: '1:1:1', dest: '1:1:2', camp: 'own', cargo: [1, 0, 0] };
+  const hostile = { mission: 1, arrival: futur, ret: false, origin: '5:5:5', dest: '1:1:2', camp: 'hostile', hostile: true };
+  const g = { moves: [mien, hostile] };
+  assert.equal(w.fusionneMouvements({ ...g }, { moves: [], eventList: true }, now).length, 0, 'l’encart dit tout ce qui vole');
+  assert.deepEqual(w.fusionneMouvements({ ...g }, { moves: [], movePage: true }, now).map(m => m.camp), ['hostile']);
+  assert.equal(w.fusionneMouvements({ ...g }, { moves: [] }, now).length, 2, 'une autre page n’efface rien');
+  assert.deepEqual(w.fusionneMouvements({ ...g }, { moves: [], alerteJeu: false }, now).map(m => m.camp), ['own']);
+  const vieux = { moves: [{ ...mien, arrival: now / 1000 - 60 }] };
+  w.fusionneMouvements(vieux, { moves: [] }, now);
+  assert.equal(vieux.arrived.length, 1, 'une flotte arrivée passe dans `arrived`, sa cargaison se crédite encore');
+});
+
 /* ---------- la météo de l'empire ---------- */
 
 const METEO_WANT = ['S', 'domainColor', 'planetWeather', 'empireWeather', 'meteoElements', 'meteoCauses', 'meteoHtml',
@@ -12633,7 +12860,7 @@ t('cartes : le mode empilé reste le défaut, sans barre ni masquage', () => {
   const h = g.VIEWS.today();
   assert.ok(!/en-onglets|carteTabs/.test(h), 'rien du mode onglets');
   assert.ok(!/<div class="carte"[^>]* hidden/.test(h), 'aucune carte masquée');
-  assert.deepEqual(ordreCartes(h), ['profil', 'maintenant', 'alertes', 'expeditions', 'journee', 'minuteurs']);
+  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'alertes', 'securite', 'expeditions', 'journee', 'minuteurs']);
   for (const id of ['tdNow', 'tdAlerts', 'expoBloc', 'tdDay', 'tmList']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là');
 });
 t('cartes : un mode inconnu retombe sur l\'empilé', () => {
@@ -12642,7 +12869,7 @@ t('cartes : un mode inconnu retombe sur l\'empilé', () => {
 t('cartes : en onglets, une barre .seg en tête, les cartes dans le même ordre', () => {
   const h = appCartes('tabs').VIEWS.today();
   assert.ok(/<section class="panel en-onglets" data-disposition="today"><div class="seg" role="tablist" id="carteTabs"/.test(h));
-  assert.deepEqual(ordreCartes(h), ['profil', 'maintenant', 'alertes', 'expeditions', 'journee', 'minuteurs']);
+  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'alertes', 'securite', 'expeditions', 'journee', 'minuteurs']);
 });
 t('cartes : une carte ne sait pas dans quel mode elle est montrée', () => {
   const pile = appCartes().VIEWS.today();
@@ -12684,7 +12911,7 @@ t('cartes : une carte dynamique vide n\'a pas d\'onglet, une fixe toujours', () 
   g.RESUMES.maintenant = g.resumeDe([], 'maintenant');
   let ids = g.cartesPresentes('today').map(x => x.c.cardId);
   assert.ok(!ids.includes('alertes'), 'pas d\'alerte, pas d\'onglet');
-  assert.deepEqual(ids, ['profil', 'maintenant', 'expeditions', 'journee', 'minuteurs']);
+  assert.deepEqual(ids, ['profil', 'maintenant', 'securite', 'expeditions', 'journee', 'minuteurs'], 'pas d\'attaque, pas d\'onglet Attaque');
   g.RESUMES.alertes = g.resumeDe([{sev: 'warn'}], 'alertes');
   ids = g.cartesPresentes('today').map(x => x.c.cardId);
   assert.equal(ids[2], 'alertes', 'à sa place dans l\'ordre de la pile');
