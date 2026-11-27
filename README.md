@@ -222,8 +222,13 @@ Le plan propose une vitesse, et au besoin une heure de départ, pour que la
 flotte se pose à ton réveil. Heures du rappel en heure locale du navigateur.
 
 Les transports suggérés vont au coffre-fort le plus proche (même galaxie
-d'abord), jamais vers un coffre-fort attaqué, toujours en mission Transport :
-seules les cartes Rééquilibrer partent en Stationner, et elles le disent.
+d'abord), jamais vers un coffre-fort attaqué, toujours en mission Transport.
+La carte du soir aussi : vers un coffre-fort, la flotte rentre après ton
+réveil ; vers une autre planète, la cargaison ne s'y pose qu'après ton réveil.
+Un Transport se voit à la phalange et ne se rappelle plus une fois le retour
+commencé : la carte le rappelle. Stationner ne sert qu'aux cartes qui déplacent
+durablement des vaisseaux (Rééquilibrer, « Ramène… », trajet à vide d'un
+rapatriement), et elles le disent.
 **Préparer** remplit vaisseaux, cible et mission dans le formulaire du jeu ;
 les ressources se recopient (⧉) et la vitesse se règle à la main. L'envoi
 reste ton clic.
@@ -255,8 +260,8 @@ type de vaisseau.
 **Rééquilibrer.** Quand une planète n'a pas son kit noyau, ou que sa soute
 tombe sous 80 % de sa cible (réglable dans le même tableau), une carte propose
 les vaisseaux à y envoyer depuis la planète qui en a le plus en trop, en
-mission **Stationner** : les vaisseaux restent sur la planète cible. C'est la
-seule carte en Stationner ; elle ne sort jamais entre le rappel du soir et le
+mission **Stationner** : les vaisseaux restent sur la planète cible. Elle ne
+sort jamais entre le rappel du soir et le
 réveil, ni pendant une attaque entrante. Un rapatriement proposé dit aussi quels
 vaisseaux faire suivre (un second envoi en Stationner sur le même trajet), le
 rapatriement lui-même restant en Transport.

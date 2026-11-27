@@ -372,13 +372,11 @@ t('avec des transporteurs, la flotte, la destination et l\'arrivée sont nommée
   assert.ok(fs, 'un plan est proposé');
   assert.ok(fs.ships.lc > 0, 'des grands transporteurs sont choisis');
   assert.equal(fs.dest, '1:260:6', 'vers l\'autre planète');
-  // Le wiki : sans lune, le déploiement est la seule mise à l'abri sûre, parce
-  // qu'un déploiement rappelé est invisible à la phalange. Un Transporter se
-  // voit, et une fois le retour commencé il n'y a plus rien à faire.
-  assert.equal(fs.mission, 'deployment');
-  assert.ok(fs.oneWay, 'un déploiement ne vole qu\'à l\'aller');
-  assert.ok(fs.arrive === fs.back, 'il n\'y a pas de retour à attendre');
-  assert.ok(fs.arrive > REVEIL, 'la flotte se pose après le réveil, pour pouvoir être rappelée');
+  // La préférence du joueur : Transport, la flotte revient seule. Sans
+  // coffre-fort, la cargaison ne se pose qu'après le réveil.
+  assert.equal(fs.mission, 'transport');
+  assert.ok(!fs.oneWay && fs.back > fs.arrive, 'aller-retour : la flotte revient');
+  assert.ok(fs.arrive > REVEIL, 'la cargaison se pose après le réveil');
 });
 
 t('la soute embarque tout le stock quand elle le peut', () => {
@@ -3381,7 +3379,7 @@ t('la mise à l\'abri du soir ouvre aussi un formulaire préparé', () => {
   assert.ok(n, 'le rappel du soir existe');
   const u = g.missionGo(n);
   assert.ok(/component=fleetdispatch/.test(u) && /am203=/.test(u), 'avec la flotte : ' + u);
-  assert.ok(/mission=4(&|$)/.test(u), 'en Stationner — le déploiement, seule mise à l\'abri sûre sans lune : ' + u);
+  assert.ok(/mission=3(&|$)/.test(u), 'en Transport, la préférence du joueur : ' + u);
   assert.ok(/position=6(&|$)/.test(u), 'vers la colonie : ' + u);
 });
 
@@ -10241,10 +10239,21 @@ t('une heure de retour déjà passée vise le lendemain', () => {
 
 /* C'est le trou que l'absence de jour vient boucher : à 10 h, `wake` tombait au
    lendemain 7 h, et fsFor() ne gardait que des vols de vingt-deux heures. */
+t('sans coffre-fort, un Transport de nuit ne pose sa cargaison qu\'après le réveil', () => {
+  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30 }; });
+  const fs = g.fleetsavePlan(SOIR);
+  assert.equal(fs.mission, 'transport');
+  assert.ok(fs.arrive > REVEIL && fs.back > fs.arrive);
+  const n = g.dailyMissions().find(m => m.id === 'night');
+  assert.ok(n.how.some(x => /Mission <b>Transport<\/b>/.test(x) && /phalange/.test(x)), 'la carte dit Transport et sa limite');
+});
+
 t('une absence de jour propose une mise à l\'abri qui rentre dans la journée', () => {
-  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30, sc: 6 }; s.day.night = true; s.day.backHour = 19; }, MATIN);
+  // vers un coffre-fort, seul le retour de la flotte doit suivre celui du joueur
+  const g = app(s => { loin(s); s.planets[0].ships = { lc: 30, sc: 6 }; s.day.night = true; s.day.backHour = 19; s.settings.secu = { vaults: ['colo'] }; }, MATIN);
   const fs = g.fleetsavePlan(MATIN);
   assert.ok(fs, 'un plan est proposé');
+  assert.equal(fs.mission, 'transport');
   assert.ok(fs.back > g.wakeTime(MATIN), 'la flotte rentre après le retour du joueur');
   assert.ok(fs.back < MATIN + 15 * 3600e3, 'et pas le lendemain matin');
 });

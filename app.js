@@ -5614,8 +5614,8 @@ function pickCargo(p, amount){
 }
 
 /* Codes de mission du jeu, et leur nom dans le client français. */
-const FS_MISSION = {deployment:4, expedition:15};
-const FS_MISSION_N = {deployment:'Stationner', expedition:'Expédition'};
+const FS_MISSION = {transport:3, deployment:4, expedition:15};
+const FS_MISSION_N = {transport:'Transport', deployment:'Stationner', expedition:'Expédition'};
 
 /**
  * Ce qu'on charge de chaque ressource quand la soute ne prend pas tout.
@@ -5639,19 +5639,18 @@ function partAbri(st, cap, fuel){
 /**
  * La mise à l'abri d'une seule planète, avec ce qu'elle a sur place.
  *
- * Le wiki OGame ne laisse pas le choix sur le seul cas que l'extension
- * connaisse, celui du joueur sans lune : la seule mise à l'abri sûre est un
- * DÉPLOIEMENT d'une de tes planètes vers une autre. Transport, recyclage et
- * attaque se voient à la phalange, et dès que le retour commence il n'y a plus
- * rien à faire ; un déploiement rappelé est la seule mission vers une planète
- * qu'une phalange ne voie pas. L'extension proposait un Transporter, que le
- * wiki range parmi les suicides.
+ * Mission TRANSPORT, la préférence du joueur : la flotte revient d'elle-même à
+ * sa planète, et rien ne reste stationné ailleurs. Le wiki préfère le
+ * déploiement — un Transport se voit à la phalange et, une fois le retour
+ * commencé, ne se rappelle plus — et la carte le dit, mais le choix est fait.
  *
- * Un déploiement ne vole qu'à l'aller : la vitesse se cale donc pour qu'il
- * ARRIVE après le réveil, et non pour qu'il revienne. Les ressources passent
- * la nuit en vol et se posent quand le joueur est là pour les dépenser.
+ * Un Transport décharge à l'arrivée : la vitesse se cale donc pour qu'il
+ * ARRIVE après le réveil quand il vise une planète ordinaire : les ressources
+ * passent la nuit en vol et se posent quand le joueur est là. Vers un
+ * coffre-fort, fait pour garder un stock, il suffit que la flotte rentre après
+ * le réveil. Coffre-fort d'abord, sinon une autre de tes planètes.
  *
- * Sans déploiement qui tienne : un aller-retour vers la position 16, d'où les
+ * Sans Transport qui tienne : un aller-retour vers la position 16, d'où les
  * ressources reviennent avec la flotte. La 16 n'accepte que l'EXPÉDITION. Un
  * Espionner vers elle, que l'extension proposait dès qu'une sonde traînait au
  * sol, n'est pas un ordre que le jeu prend : la carte envoyait le joueur se
@@ -5670,14 +5669,15 @@ function fsFor(p, now, wake){
   if(!Object.keys(ships).length) return null;
   const c = parseC(p.coords); if(!c) return null;
 
-  /* Les candidats, dans l'ordre de préférence du wiki : un déploiement vers une
-     de tes planètes d'abord, puis la position 16 d'un système choisi pour son
+  /* Les candidats : un Transport vers un coffre-fort (à défaut, une autre de
+     tes planètes) d'abord, puis la position 16 d'un système choisi pour son
      temps de vol — « choose the system according to flight time ». Le système
      d'à côté ne suffit pas : entre deux planètes voisines, même à 10 %, un
-     déploiement se pose avant le réveil, et un aller-retour sur place garde la
+     Transport se pose avant le réveil, et un aller-retour sur place garde la
      flotte en l'air jusqu'au milieu de la matinée. */
   const essais = [];
-  for(const q of S.planets) if(q !== p && q.coords) essais.push({mode:'deployment', dest:q.coords});
+  const coffres = secu().vaults.map(planetById).filter(q => q && q !== p && q.coords);
+  for(const q of (coffres.length ? coffres : S.planets)) if(q !== p && q.coords) essais.push({mode:'transport', dest:q.coords});
   for(const d of [0, 20, 50, 100, 200, 300]) essais.push({mode:'expedition', dest:`${c[0]}:${((c[1] - 1 + d) % 499) + 1}:16`});
 
   /* Pour une destination donnée, plus lent veut dire plus tard : les crans qui
@@ -5688,14 +5688,19 @@ function fsFor(p, now, wake){
     /* La flotte est en l'air de toute façon : une sonde à bord double ce que
        l'expédition rapporte, et ne coûte qu'elle-même si l'événement tourne mal. */
     const flotte = e.mode === 'expedition' && (p.ships||{}).pr > 0 ? Object.assign({pr:1}, ships) : ships;
-    const trajets = e.mode === 'deployment' ? 1 : 2;
     const hold = e.mode === 'expedition' ? 3600e3 : 0;
     let pris = 0;
     for(const pct of FS_SPEEDS){
       if(pct === 100 || pris >= 3) continue;   // 100 % : le vol le plus court, donc le plus facile à chronométrer
       const fl = flight(p.coords, e.dest, flotte, pct); if(!fl) continue;
-      const fin = now + trajets*fl.secs*1000 + hold;
-      if(fin > wake){ bons.push({mode:e.mode, dest:e.dest, ships:flotte, pct, fl, fin, oneWay:trajets===1}); pris++; }
+      /* Ce qui doit tomber après le réveil. Un Transport décharge à
+         l'arrivée : vers un coffre-fort, fait pour garder un stock, il suffit
+         que la flotte rentre après le réveil ; vers une planète ordinaire, la
+         cargaison ne doit s'y poser qu'une fois le joueur là. Une expédition
+         rapporte tout au retour. */
+      const back = now + 2*fl.secs*1000 + hold;
+      const fin = e.mode === 'transport' && !coffres.length ? now + fl.secs*1000 : back;
+      if(fin > wake){ bons.push({mode:e.mode, dest:e.dest, ships:flotte, pct, fl, fin, back, oneWay:false}); pris++; }
     }
   }
   if(!bons.length) return null;
@@ -5707,19 +5712,17 @@ function fsFor(p, now, wake){
   const tot = x => x.fin;
   const serre = bons.filter(x=>x.fin < wake + 6*3600e3);
   const pool = serre.length ? serre : bons;
-  const dep = pool.filter(x=>x.mode==='deployment').sort((a,b)=>tot(a)-tot(b));
-  const alt = pool.filter(x=>x.mode!=='deployment').sort((a,b)=>tot(a)-tot(b));
-  /* Le déploiement d'abord dès qu'il tient : c'est le seul qui se rappelle, et
-     un déploiement rappelé est la seule mission vers une planète qu'une
-     phalange ne voie pas. Les autres, une fois le retour commencé, ne laissent
-     plus rien à faire. */
+  const dep = pool.filter(x=>x.mode==='transport').sort((a,b)=>tot(a)-tot(b));
+  const alt = pool.filter(x=>x.mode!=='transport').sort((a,b)=>tot(a)-tot(b));
+  /* Le Transport d'abord dès qu'il tient : la ressource se pose chez toi, la
+     flotte rentre seule. L'expédition n'est qu'un pis-aller. */
   const choix = dep.length ? dep : alt;
   // « Avoid using the same speed each time you fleetsave » : le cran change avec
   // le jour, pas à chaque rafraîchissement, sinon le plan se contredirait.
   const ch = choix[new Date(now).getDate() % Math.min(3, choix.length)];
   return {from:p, ships:ch.ships, dest:ch.dest, mission:ch.mode, oneWay:ch.oneWay, pct:ch.pct,
-          arrive: now + ch.fl.secs*1000, back: ch.fin, fuel:ch.fl.fuel,
-          load:need, cargo:souteUtile(cargo, ch.fl.fuel*(ch.oneWay?1:2))};
+          arrive: now + ch.fl.secs*1000, back: ch.back, fuel:ch.fl.fuel*2,
+          load:need, cargo:souteUtile(cargo, ch.fl.fuel*2)};
 }
 
 /**
@@ -7025,14 +7028,14 @@ function dailyMissions(){
         how:(tete ? ['Dépense d\'abord ce que tu peux : lance une construction longue et une recherche.'] : []).concat([
           `Charge ${porte < r.load ? `${fmt(porte)} sur ${fmt(r.load)}` : `<b>tout</b> le stock`} dans ${shipList(r.ships)} sur ${esc(r.from.name)}, destination ${esc(r.dest)}, mission ${FS_MISSION_N[r.mission]}. ${porte < r.load ? 'La soute ne lève pas le reste : il passe la nuit au sol. Les pastilles disent quoi charger — le deutérium d\'abord, il vaut trois métaux.' : 'Ne laisse rien de valeur au sol.'}`
         ].concat(manque > 0 ? [`${fmt(manque)} restent au sol faute de soute${don ? ` : ${fmt(don.dispo)} de soute libre dorment sur ${esc(planetRef(don.p))}, et la carte « Ramène… » plus haut l'amène ici. Fais-la avant de charger.` : `, et toute la soute libre de l'empire est déjà promise ailleurs : il faut en construire ici.`}`] : []).concat([
-          `Règle la vitesse sur ${r.pct} % — c'est la seule chose que le lien ne prépare pas, et elle change d'un jour à l'autre exprès : une routine se chronomètre. ${r.oneWay ? `La flotte se pose vers ${formatTime(r.arrive)}` : `La flotte rentre vers ${formatTime(r.back)}`}, après ton réveil. Coût : ${fmt(r.fuel)} deutérium.`,
+          `Règle la vitesse sur ${r.pct} % — c'est la seule chose que le lien ne prépare pas, et elle change d'un jour à l'autre exprès : une routine se chronomètre. ${r.mission === 'transport' ? `Les ressources se posent sur ${esc(r.dest)} vers ${formatTime(r.arrive)}${r.arrive > wakeTime(now) ? ', après ton réveil' : ' (coffre-fort)'}, et la flotte rentre vers ${formatTime(r.back)}.` : `La flotte rentre vers ${formatTime(r.back)}, après ton réveil.`} Coût : ${fmt(r.fuel)} deutérium.`,
           /* Le pourquoi de la méthode, et pas seulement le quoi : c'est lui qui
              évite au joueur de « simplifier » en Transporter le soir où il est
              pressé. Il reste sur chaque carte parce que la mission, elle, change
              d'un lot à l'autre. */
-          r.mission === 'deployment'
-            ? `Sois en ligne <b>avant l'arrivée</b> : si une attaque se présente, <b>rappelle</b> le déploiement. Un déploiement rappelé est la seule mission vers une planète qu'une phalange ne voie pas — c'est ce qui en fait la seule mise à l'abri sûre tant que tu n'as pas de lune. Un Transporter, lui, se voit, et une fois le retour commencé tu ne peux plus rien.`
-            : `La position 16 n'accepte que l'Expédition : la flotte revient chargée, rien ne se pose ailleurs. C'est un pis-aller — le wiki ne la compte pas parmi les mises à l'abri, et un mauvais événement peut te coûter les vaisseaux et ce qu'ils portent. ${r.ships.pr ? 'La sonde à bord double ce qu\'elle rapporte.' : 'Une sonde à bord doublerait ce qu\'elle rapporte.'} Le déploiement ne vaudra mieux que vers une planète assez loin pour se poser après ton réveil.`]))};
+          r.mission === 'transport'
+            ? `Mission <b>Transport</b> : la flotte décharge à l'arrivée puis revient seule, rien ne reste stationné ailleurs. Sois en ligne <b>avant l'arrivée</b> pour dépenser ce qui se pose. Une limite : un Transport se voit à la phalange, et une fois le retour commencé il ne se rappelle plus.`
+            : `La position 16 n'accepte que l'Expédition : la flotte revient chargée, rien ne se pose ailleurs. C'est un pis-aller — le wiki ne la compte pas parmi les mises à l'abri, et un mauvais événement peut te coûter les vaisseaux et ce qu'ils portent. ${r.ships.pr ? 'La sonde à bord double ce qu\'elle rapporte.' : 'Une sonde à bord doublerait ce qu\'elle rapporte.'} Le Transport ne vaudra mieux que vers une planète assez loin pour se poser après ton réveil.`]))};
     };
     const m = fs ? carteLot(fs, true) : {id:'night', q:'Sécurité', at:S.day.night ? now : nightAt, every:24, sev:'warn',
       what:`${quand} : mettre tes ressources à l'abri`,
