@@ -8592,7 +8592,7 @@ t('le champ du volet Empire republie le plan après avoir posé', () => {
 t('la minuterie de 30 s republie le plan aussi sur Empire', () => {
   /* setInterval est neutralisé dans le harnais : on épingle la source. */
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
-  assert.match(src, /REFRESH\[tab\]\(\);\s*(?:cartesSync\(\);\s*\}\s*)?publieLePlan\(\);\s*finDeNuit\(\);\s*nightBar\(\);\s*\}, 30000\)/);
+  assert.match(src, /rafraichitVue\(\);\s*publieLePlan\(\);\s*finDeNuit\(\);\s*nightBar\(\);\s*\}, 30000\)/);
 });
 
 t('le changement que provoque l\'effacement lui-même ne rejoue rien', () => {
@@ -12603,6 +12603,88 @@ t('Maintenant : le compteur compte tout, la liste coupe à la limite', () => {
   assert.ok(!/data-voirplus/.test(tout.tdNow || ''), '« Toutes » : pas de lien');
   assert.equal(lu(un.tdNow).replace(/<ul[^>]*>|<\/ul>|<button[^>]*data-voirplus[\s\S]*?<\/button>/g, '').length,
     lu(tout.tdNow).replace(/<ul[^>]*>|<\/ul>/g, '').length, 'les mêmes cartes, masquées comprises');
+});
+
+/* ---------- état des volets : il tient quand la liste change (#19) ---------- */
+
+const VOLETS_W = ['S', 'render', 'VIEWS', 'REFRESH', 'dailyMissions', 'missionKey', 'fold', 'foldDyn', 'foldPurge', 'rafraichitVue'];
+function appVolets(modifier, now) {
+  const s = fixtureState();
+  s.planets.forEach(p => { p.stock.at = now || SOIR; });
+  if (modifier) modifier(s);
+  return loadApp(s, now || SOIR, VOLETS_W);
+}
+const FS = 'securite:fleetsave-nuit:mere.comment-faire';
+const ouvertDans = (h, k) => new RegExp(`<details class="how" open><summary data-fold="${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}">`).test(h);
+
+t('volets : chaque « Comment faire » porte la clé de sa recommandation', () => {
+  const g = appVolets(); g.render();
+  const cles = [...g.html().tdNow.matchAll(/<details class="how"[^>]*><summary data-fold="([^"]+)">/g)].map(m => m[1]);
+  assert.ok(cles.length >= 2, JSON.stringify(cles));
+  assert.ok(cles.includes(FS), 'la mise à l\'abri par sa planète : ' + JSON.stringify(cles));
+  assert.ok(cles.every(k => k.endsWith('.comment-faire')));
+  assert.ok(!cles.some(k => /\d{3}/.test(k)), 'ni montant ni heure dans une clé');
+});
+t('volets : un « Comment faire » ouvert le reste au rafraîchissement, montants changés', () => {
+  const g = appVolets(); g.render();
+  assert.ok(!ouvertDans(g.html().tdNow, FS), 'fermé par défaut');
+  g.S.ui.fold[FS] = true;                         // ce que note le clic du joueur
+  g.S.planets[0].stock.m += 750000;               // les montants à recopier changent
+  g.rafraichitVue();
+  assert.ok(ouvertDans(g.html().tdNow, FS), 'toujours ouvert');
+});
+t('volets : une recommandation qui apparaît ou disparaît ne touche pas les autres', () => {
+  const g = appVolets(); g.S.ui.fold[FS] = true; g.render();
+  assert.ok(ouvertDans(g.html().tdNow, FS));
+  g.S.daily.done = Object.assign(g.S.daily.done || {}, {defseen: SOIR});   // une autre carte part
+  g.render();
+  assert.ok(!/m:defseen\.comment-faire/.test(g.html().tdNow), 'préalable : elle est partie');
+  assert.ok(ouvertDans(g.html().tdNow, FS), 'celle-ci reste ouverte');
+  delete g.S.daily.done.defseen;                   // et revient au-dessus
+  g.render();
+  assert.ok(ouvertDans(g.html().tdNow, FS));
+});
+t('volets : la tête des lots de mise à l\'abri garde son volet par planète', () => {
+  const g = appVolets();
+  const m = g.dailyMissions().find(x => x.id === 'night');
+  assert.ok(m, 'préalable : la carte du soir');
+  assert.equal(g.missionKey(m), 'securite:fleetsave-nuit:mere');
+  assert.equal(g.missionKey({id: 'raid'}), 'm:raid');
+});
+t('volets : la dernière apparition se note, et sept jours sans elle effacent l\'état', () => {
+  const g = appVolets();
+  g.S.ui.fold['m:vieux.comment-faire'] = true; g.S.ui.fold['m:recent.comment-faire'] = true; g.S.ui.fold.defense = true;
+  g.foldDyn('m:recent.comment-faire', false);
+  assert.equal(g.S.ui.foldVu['m:recent.comment-faire'], SOIR);
+  g.S.ui.foldVu['m:vieux.comment-faire'] = SOIR - 8 * 864e5;
+  g.S.ui.foldVu['m:hier.comment-faire'] = SOIR - 864e5; g.S.ui.fold['m:hier.comment-faire'] = true;
+  assert.equal(g.foldPurge(SOIR), 1);
+  assert.equal(g.S.ui.fold['m:vieux.comment-faire'], undefined, 'purgé');
+  assert.equal(g.S.ui.fold['m:hier.comment-faire'], true, 'revenue dans les 24 h : retrouvée');
+  assert.equal(g.S.ui.fold.defense, true, 'une carte fixe ne se purge jamais');
+});
+t('volets : la purge passe au démarrage, avant le premier rendu', () => {
+  const g = appVolets(s => { s.ui = {tool: 'colony', fold: {'m:x.comment-faire': true}, foldVu: {'m:x.comment-faire': SOIR - 9 * 864e5}}; });
+  assert.equal(g.S.ui.fold['m:x.comment-faire'], undefined);
+});
+t('volets : une alerte urgente ouvre la planète sans toucher au choix enregistré', () => {
+  const g = appVolets(s => { s.planets[0].cases = {max: 163, pris: 163}; s.ui = {tool: 'colony', fold: {'pl:mere': false}}; });
+  const h = g.VIEWS.planets();
+  assert.ok(/data-pi="0" open>/.test(h), 'ouverte par l\'alerte');
+  assert.ok(/data-pi="1">/.test(h), 'l\'autre suit son état');
+  assert.equal(g.S.ui.fold['pl:mere'], false, 'le choix reste écrit');
+  assert.equal(g.fold('x', false, true), ' open');
+  assert.equal(g.S.ui.fold.x, undefined);
+});
+t('volets : plus aucun volet repliable sans clé', () => {
+  const g = appVolets(s => { s.timers = []; }); g.render();
+  const h = g.VIEWS.today() + g.html().tdNow + g.html().tdDay + g.VIEWS.planets() + g.VIEWS.research();
+  const sans = [...h.matchAll(/<details(?![^>]*class="defpick")[^>]*>\s*<summary(?![^>]*data-fold)[^>]*>([^<]*)/g)].map(m => m[1]);
+  assert.deepEqual(sans, []);
+});
+t('volets : Réglages propose de tout remettre par défaut', () => {
+  const g = appVolets();
+  assert.ok(/data-foldreset="1">Réinitialiser l'affichage des cartes</.test(lu(g.VIEWS.settings())));
 });
 
 if (failures.length) {

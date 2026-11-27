@@ -52,6 +52,21 @@ et l'infobulle dit « décalage non vérifié ». Le choix est retenu d'une sess
 à l'autre, et `save.json` porte toujours les deux heures (`serverTime`,
 `localTime`, `localTimeZone`, `serverOffsetMinutes`).
 
+## Cartes ouvertes ou fermées
+
+Une carte ou un « Comment faire » que tu ouvres reste ouvert, et une carte que
+tu fermes reste fermée : au rafraîchissement du panneau, quand une
+recommandation apparaît ou disparaît, quand ses montants ou son heure changent,
+au changement de page ou de planète, et après redémarrage. Les blocs fixes
+(Expéditions, Ta journée, une planète d'Empire…) gardent un état pour toutes
+les planètes ; chaque recommandation garde le sien, et le retrouve si elle
+revient dans la semaine — au-delà, il est oublié. Une planète qui porte une
+alerte urgente s'ouvre d'elle-même, sans effacer ton choix : l'alerte finie,
+elle revient comme tu l'avais laissée. Quand une carte apparaît au-dessus de
+celle que tu lis, le panneau compense le défilement : ta carte ne bouge pas.
+**Réglages › Allure du panneau › Réinitialiser l'affichage des cartes** remet
+tout par défaut.
+
 ## Les cartes en onglets
 
 Le bouton 🗂️ de l'en-tête — ou **Réglages › Allure du panneau › Organiser les

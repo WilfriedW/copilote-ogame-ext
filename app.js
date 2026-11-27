@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.10.0';
+const APP_VERSION = '2.10.1';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -1960,10 +1960,78 @@ let tab = 'today';
    replient donc, et se souviennent : le panneau se redessine à chaque plan, et
    une section rouverte à chaque dessin ne resterait jamais fermée. L'état vit
    dans S.ui.fold, par nom, pas par rang — l'ordre des sections change. */
-function fold(name, def){
+/**
+ * L'attribut `open` d'un volet, d'après ce que le joueur a choisi.
+ * @param {string} name clé stable : `cardId` d'une carte fixe, clé de
+ *   recommandation pour une carte dynamique, `{clé}.{section}` pour une section
+ * @param {boolean} def état par défaut, tant que le joueur n'a rien choisi
+ * @param {boolean} [force] ouvert quoi qu'il ait choisi — une alerte urgente.
+ *   Rien n'est écrit : l'alerte finie, le volet revient à son état choisi.
+ */
+function fold(name, def, force){
+  if(force) return ' open';
   const v = (S.ui.fold||{})[name];
   return (v==null ? def : v) ? ' open' : '';
 }
+/* Les volets des cartes dynamiques — un « Comment faire » par recommandation —
+   naissent et meurent avec elles. Leur clé note sa dernière apparition : une
+   recommandation qui revient dans la semaine retrouve son état, et au-delà
+   l'état part du stockage, sans quoi chaque nuit de mise à l'abri y laisserait
+   une clé pour toujours. La date ne s'écrit qu'une fois par heure et par clé,
+   regroupée : un rafraîchissement toutes les 30 s n'a pas à réécrire l'état. */
+const FOLD_GARDE = 7*864e5;
+let foldVuT = 0;
+/** fold() pour une carte ou une section dynamique : retient sa dernière apparition. */
+function foldDyn(name, def){
+  const vu = S.ui.foldVu || (S.ui.foldVu = {}), now = Date.now();
+  if(!(now - (vu[name] || 0) < 3600e3)){
+    vu[name] = now;
+    clearTimeout(foldVuT); foldVuT = setTimeout(save, 300);
+  }
+  return fold(name, def);
+}
+/** Oublie les volets dynamiques absents depuis plus de sept jours. @returns {number} combien */
+function foldPurge(now){
+  const vu = S.ui.foldVu || {}, f = S.ui.fold || {};
+  let n = 0;
+  for(const k of Object.keys(vu)) if(!(now - vu[k] <= FOLD_GARDE)){ delete vu[k]; delete f[k]; n++; }
+  return n;
+}
+// au démarrage : l'état chargé, avant le premier rendu
+foldPurge(Date.now());
+/** La clé d'une mission : ce qui la définit, jamais ses montants ni ses heures. */
+function missionKey(m){ return m.key || 'm:' + m.id; }
+
+/* ---------- la vue ne saute pas ---------- */
+/* Une carte qui apparaît au-dessus de celle que le joueur lit la pousse vers
+   le bas : le panneau se redessine par innerHTML, et le navigateur n'a plus de
+   nœud auquel ancrer le défilement. On note donc, avant, le premier élément
+   repérable sous la barre et sa position, et on le remet au même endroit après. */
+function ancreNote(){
+  if(typeof window === 'undefined' || !(window.scrollY > 0)) return null;
+  /* Plusieurs repères, du haut de l'écran vers le bas : celui du haut peut
+     être justement la carte que le nouveau plan retire. */
+  const seuil = carteSeuil(), bas = (window.innerHeight || 0) + seuil, out = [];
+  for(const el of view.querySelectorAll('[data-ancre],summary[data-fold]')){
+    const r = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    if(!r || !(r.height > 0) || r.bottom <= seuil) continue;
+    if(r.top > bas || out.length >= 12) break;
+    out.push(el.dataset.ancre != null ? {a:'data-ancre', v:el.dataset.ancre, top:r.top} : {a:'data-fold', v:el.dataset.fold, top:r.top});
+  }
+  return out.length ? out : null;
+}
+function ancreRetablit(liste){
+  if(!liste || typeof CSS === 'undefined' || !CSS.escape) return;
+  for(const n of liste){
+    const el = view.querySelector(`[${n.a}="${CSS.escape(n.v)}"]`);
+    const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    if(!r || !(r.height > 0)) continue;
+    if(Math.abs(r.top - n.top) >= 1) window.scrollBy(0, r.top - n.top);
+    return;
+  }
+}
+/** Rafraîchit la vue en place : contenu, onglets de cartes, position de lecture. */
+function rafraichitVue(){ const a = ancreNote(); (REFRESH[tab]||(()=>{}))(); cartesSync(); ancreRetablit(a); }
 
 /* ---------- disposition des cartes : empilées ou en onglets ---------- */
 /* Aujourd'hui empile ses cartes, et il faut défiler pour retrouver la bonne.
@@ -2602,10 +2670,18 @@ function header(){
 }
 /** Vrai tant que l'écran du relevé tient la place du contenu. */
 function enScan(){ return !!(scanEcran && releveEnCours); }
-function render(){ prioClean(); header(); view.innerHTML = enScan() ? VIEWS.scan() : VIEWS[tab](); bind(); refresh(); }
+/* La vue dessinée au rendu précédent : redessiner la même garde la lecture en place. */
+let renduDe = null;
+function render(){
+  prioClean(); header();
+  const a = renduDe === tab && !enScan() ? ancreNote() : null;
+  view.innerHTML = enScan() ? VIEWS.scan() : VIEWS[tab]();
+  bind(); refresh(); ancreRetablit(a);
+  renduDe = enScan() ? 'scan' : tab;
+}
 /* Pendant le relevé, les REFRESH écriraient dans des éléments que l'écran du
    relevé n'a pas : ils ne rafraîchissent que ce qui est à l'écran. */
-function refresh(){ if(!enScan()){ (REFRESH[tab]||(()=>{}))(); cartesSync(); } header(); }
+function refresh(){ if(!enScan()) rafraichitVue(); header(); }
 
 /* ---------- advice ---------- */
 const MILESTONES = [
@@ -3059,7 +3135,7 @@ function tickTimers(){
     if(changed || list.dataset.count !== String(visibleTimers().length)) renderTimers();
     else S.timers.forEach(tm=>{ const el=document.getElementById('cd-'+tm.id); if(el && !tm.done) el.textContent = clock((tm.end-now)/1000); });
   }
-  if(changed && tab==='today'){ REFRESH.today(); cartesSync(); }
+  if(changed && tab==='today') rafraichitVue();
 }
 function clock(sec){ sec=Math.max(0,Math.round(sec)); const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60), s=sec%60; return (d?d+'j ':'') + `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
 /** Timers still worth showing: running, or finished but not yet acknowledged. */
@@ -4778,7 +4854,7 @@ function actHtml(a, withBtn){
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,pid:(S.planets[a.p]||{}).id,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
   if(withBtn && NO_KINDS[a.kind]) btn = `<span class="btns">${btn}${noBtn(actKey(a))}</span>`;
-  return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div>${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
+  return `<li data-ancre="${esc(actKey(a))}"${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div>${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
 }
 
 /* ---------- mise à l'abri ---------- */
@@ -5802,7 +5878,11 @@ function dailyMissions(){
          la carte de la planète concernée, avec l'endroit où la soute dort. */
       const manque = r.load - porte, trou = manque > 0 ? trous.find(x=>x.p === r.from) : null;
       const don = trou && trou.ailleurs[0];
-      return {id: tete ? 'night' : 'night:' + r.from.id, q:'Sécurité', at:S.day.night ? now : nightAt,
+      return {id: tete ? 'night' : 'night:' + r.from.id,
+        /* La tête de liste s'appelle « night » quelle que soit sa planète ;
+           son volet, lui, suit la planète : sans ça, l'ordre des lots qui
+           change donnait au « Comment faire » d'Erablis l'état de Gaspesion. */
+        key:'securite:fleetsave-nuit:' + r.from.id, q:'Sécurité', at:S.day.night ? now : nightAt,
         every:24, sev:'warn', tags:[planetRef(r.from)],
         what:`${quand} : envoie ${shipList(r.ships)} de ${planetRef(r.from)} en mission ${FS_MISSION_N[r.mission]} vers ${r.dest}`,
         ships:r.ships, dest:r.dest, p:S.planets.indexOf(r.from), mission:FS_MISSION[r.mission],
@@ -7502,7 +7582,7 @@ today(){
     </details>`,
     minuteurs: `<details class="card"${fold('minuteurs', true)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
       <ul class="timers" id="tmList"></ul>
-      <details><summary class="note">Ajouter un minuteur à la main</summary>
+      <details${fold('minuteurs.ajout', false)}><summary class="note" data-fold="minuteurs.ajout">Ajouter un minuteur à la main</summary>
         <div class="timer-form" style="margin-top:8px">
           <label class="f">Quoi<select id="tmWhat">${timerOptions()}</select></label>
           <label class="f">Temps restant (copié du jeu)<input id="tmLeft" placeholder="2h 13m 05s"></label>
@@ -7613,7 +7693,7 @@ planets(){
     <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><details class="volet"${fold('mix', false)}><summary data-fold="mix">Pourquoi ce classement</summary><p class="note" id="empireMix" style="margin-top:8px"></p></details></div>
     ${poseBloc()}
     ${(()=>{ const voc = vocations(), ci = centreIndex(), auto = centreIndex(true); return S.planets.map((p,i)=>`
-    <details class="card volet" data-pi="${i}"${fold('pl:' + p.id, false)}>
+    <details class="card volet" data-pi="${i}"${fold('pl:' + p.id, false, planetAlerts(p).some(a=>a.sev==='bad'))}>
       <summary data-fold="pl:${p.id}" class="plsum"><b>${esc(p.name)}</b> <span class="note">${esc(p.coords)}</span><span class="mono" id="psum-${i}"></span></summary>
       <div class="planet-head">
         <input id="pn-${p.id}" data-p="name" value="${esc(p.name)}" aria-label="Nom de la planète">
@@ -7658,7 +7738,7 @@ planets(){
   </section>`;
 },
 research(){
-  return `<details class="card"><summary>Recherches et niveaux visés <span class="note">labo niveau <b id="labLv"></b></span></summary>
+  return `<details class="card"${fold('recherches', false)}><summary data-fold="recherches">Recherches et niveaux visés <span class="note">labo niveau <b id="labLv"></b></span></summary>
     <div class="tbl-wrap"><table class="tech"><thead><tr><th>Technologie</th><th class="n">Niv.</th><th class="n">Visé</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th></tr></thead><tbody>
     ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${num(S.tech[k])}"></td><td class="n"><input class="prio" type="number" min="${num(S.tech[k])+1}" data-prio="${k}" value="${prioLvl('t', null, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${T[k].n} : niveau visé"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
     </tbody></table></div>
@@ -7858,6 +7938,7 @@ settings(){
         ${bascule('sMuet','data-set="muet"','Couper le son', s.muet, 'Plus de carillon à la fin d\'un minuteur, et les notifications du navigateur arrivent sans bruit.')}
         ${bascule('sOnglets','data-onglets-mode="1"','Organiser les sections en onglets', cardMode === 'tabs', 'Les cartes d\'Aujourd\'hui se rangent en onglets, une seule affichée à la fois, au lieu de s\'empiler. Le même interrupteur est dans l\'en-tête (🗂️).')}
       </div>
+      <div class="row" style="margin-top:8px"><button class="btn sm ghost" data-foldreset="1">Réinitialiser l'affichage des cartes</button><span class="note">Chaque carte et chaque « Comment faire » retrouve son état par défaut, ouvert ou fermé, et chaque « Voir plus » se replie.</span></div>
     </div>
     ${affichageCard()}
     <div class="card"><h2>Page du jeu</h2>
@@ -7958,7 +8039,8 @@ today(){
           ? `<button class="btn sm primary" data-lune-do="oui">Lune !</button><button class="btn sm" data-lune-do="non">Pas cette fois</button>`
           : m.id === 'lune-rend' ? `<button class="btn sm primary" data-lune-do="env">Envoyé</button>` : '')
       : `<button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${noBtn('m:'+m.id)}`;
-    return `<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns">${btns}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
+    const k = missionKey(m);
+    return `<li class="task" data-ancre="${esc(k)}"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns">${btns}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"${foldDyn(k + '.comment-faire', false)}><summary data-fold="${esc(k)}.comment-faire">Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   };
   /* Les cartes Lune mènent les missions ; dans l'heure qui précède l'impact
      elles passent aussi devant les chantiers. Trier la liste des missions ne
@@ -8017,7 +8099,7 @@ today(){
   const mMiss = mNext ? milestoneMissing(mNext) : [];
   const debut = mNext ? `<ul class="advice" style="margin-bottom:14px"><li><span class="pill info">Début de partie · ${mDone} / ${MILESTONES.length}</span><span class="what">Prochaine étape : ${esc(milestoneLabel(mNext))}</span><span class="why">${mMiss.length?`Il manque : ${esc(mMiss.join(', '))}. `:''}${esc(mNext.why)}</span></li></ul>` : '';
   document.getElementById('tdDay').innerHTML = night ? `<p class="note">Mode nuit : seule la mise à l'abri compte. Le plan du jour revient dès que tu repasses en mode jour.</p>` : debut + strategy + (later.length
-    ? `<div class="tl">${later.slice(0,6).map(slot).join('')}</div>${later.length>6?`<details style="margin-top:12px"><summary class="note">Voir les ${later.length-6} connexions suivantes</summary><div class="tl" style="margin-top:12px">${later.slice(6).map(slot).join('')}</div></details>`:''}`
+    ? `<div class="tl">${later.slice(0,6).map(slot).join('')}</div>${later.length>6?`<details style="margin-top:12px"${fold('journee.suite', false)}><summary class="note" data-fold="journee.suite">Voir les ${later.length-6} connexions suivantes</summary><div class="tl" style="margin-top:12px">${later.slice(6).map(slot).join('')}</div></details>`:''}`
     : `<p class="note">Aucune action prévue sur la période : tes files sont occupées ou tes ressources trop faibles.</p>`)
     + `<div class="sumline" style="margin-top:14px"><span class="pill good">Production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} %</span><span class="note">en ${S.day.horizon} h, de ${fmt(plan.startV)} à ${fmt(plan.endV)} éq. métal/h</span></div>`
     + (plan.ups.length ? `<p class="note" style="margin-top:6px">${esc(plan.ups.join(' · '))}</p>` : '')
@@ -8499,6 +8581,7 @@ view.addEventListener('click', e=>{
     vp.setAttribute('aria-expanded', String(ouvert));
     return;
   }
+  if(e.target.closest('[data-foldreset]')){ S.ui.fold = {}; S.ui.foldVu = {}; save(); render(); toast('Affichage des cartes réinitialisé'); return; }
   if(e.target.closest('[data-cartesreset]')){
     S.settings.cartesListe = {};
     save(); render(); toast('Toutes les listes suivent la valeur globale');
@@ -8782,7 +8865,7 @@ view.addEventListener('click', e=>{
 setInterval(tickTimers, 1000);
 /* publieLePlan est sans effet sur Aujourd'hui, qui se publie en se dessinant ;
    sur Empire, REFRESH.empire ne publie rien : sans cet appel la tuile resterait muette. */
-setInterval(()=>{ if(tab==='today'||tab==='empire'){ REFRESH[tab](); cartesSync(); } publieLePlan(); finDeNuit(); nightBar(); }, 30000);
+setInterval(()=>{ if(tab==='today'||tab==='empire') rafraichitVue(); publieLePlan(); finDeNuit(); nightBar(); }, 30000);
 /** Recalcule le plan du jour pour la page du jeu, sans rien afficher.
     `today` le publie en se dessinant ; ailleurs, c'est à nous de le faire.
     Le dessin qui suit la publication écrit dans des éléments de l'onglet
