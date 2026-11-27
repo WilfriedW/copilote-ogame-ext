@@ -270,6 +270,19 @@ Une carte se coupe à ce que la planète peut payer, et à la durée de chantier
 réglée (4 h par défaut) ; un lot partiel vaut au moins la moitié de ce qu'un
 hangar plein paierait, pour ne pas sortir une pièce à la fois.
 
+**Palier tenu** (toutes les pièces du modèle à manque nul) : plus aucune carte
+Défense, sauf pour ne pas perdre de production. Quand une ressource est au
+plafond ou va l'atteindre (règles *Stockage plein* / *Stockage bientôt plein*,
+actives sur la planète) et qu'aucun chantier, recherche ou case de forme de vie
+de la session ne la dépense sur cette planète, le plan propose des **packs du
+modèle** — la recette à son ancre (Framework mineur : 40 LM, 25 LL, 10 LLo,
+4 Gauss, 1 PL). Le nombre de packs est le plus petit entre ce qui ramène la
+ressource sous 90 % du hangar et ce que paient les autres ressources, réserves
+du plan déduites. Moins d'un pack payable : la pièce de la recette qui mange le
+plus la ressource en trop (les lanceurs pour le métal). Cette carte passe après
+toutes les constructions et recherches ; un « Non » la met de côté comme les
+autres (« Packs du modèle (surplus) »).
+
 ### 2.9 Il faut jouer en français
 
 Le copilote lit le texte des pages. Le tableau de production, les slots de
@@ -883,7 +896,7 @@ prendre un autre que le réglage global.
 | Réglage | Clé | Valeurs | Défaut | Effet |
 |---|---|---|---|---|
 | Modèle | `settings.defModele` | Framework mineur · Balanced Defense · Ryan A. Vetter · Late Game Turtle · Fodder build-up · Plasma pur et chair à canon · Personnalisé | **Framework mineur** | La proportion entre les pièces |
-| Palier visé | `settings.defPalier` | 10 · 20 · 40 · 60 · *compléter l'existant* | **20** | La taille, en lanceurs de plasma. « Compléter » prend ceux qui sont déjà au sol et remet le reste du modèle à niveau autour |
+| Palier visé | `settings.defPalier` | 10 · 20 · 40 · 60 · *compléter l'existant* | **20** | La taille, en lanceurs de plasma. « Compléter » prend ceux qui sont déjà au sol et remet le reste du modèle à niveau autour ; sans aucun au sol, le plus petit palier (10) sert de cible |
 | Ratio personnalisé | `settings.defPerso` | un entier ≥ 0 par pièce | *(celui du Framework mineur)* | Visible seulement quand le modèle « Personnalisé » est choisi |
 | Modèle de cette planète | `defModele` sur la planète | les mêmes, ou vide | *(celui des réglages)* | **Passe devant le réglage global** |
 | Palier de cette planète | `defPalier` sur la planète | les mêmes, ou vide | *(celui des réglages)* | Idem |
@@ -1069,7 +1082,7 @@ Armes, Bouclier, Protection des vaisseaux.
 |---|---|---|
 | Feuilles de route | 4 listes figées | § 4, tableau des priorités |
 | Jalons de début de partie | 11, de Labo 1 à Astro 1 | Bloc « Début de partie » |
-| Ordre des cartes Défense | types du modèle débloqués, le moins complet d'abord, puis le moins cher à l'unité ; plancher du profil avant le palier | Une seule source : le modèle actif |
+| Ordre des cartes Défense | types du modèle débloqués, le moins complet d'abord, puis le moins cher à l'unité ; plancher du profil avant le palier ; palier tenu, packs du modèle seulement sur un hangar plein ou bientôt plein (ramené sous 90 %) | Une seule source : le modèle actif |
 | Fraîcheur du relevé | 10 min | Au-delà, le bouton « Actualiser » apparaît |
 | Attente d'une demande orpheline | 24 h | Priorité posée sur une planète pas encore relevée |
 | Horizon d'amortissement d'une colonie | 7 jours | Verdict « ça valait le coup » |

@@ -20,6 +20,9 @@ chrome.storage.local.get(null, d => {
      chaque carte s'ouvrirait fermée puis se rouvrirait sous les yeux. */
   window.__uiState = d.uiState || null;
   window.__uiSeen = d.uiSeen || null;
+  /* L'historique des débordements de hangar (sept jours) : il dit si monter
+     le hangar se justifie. Propre à cette machine, comme l'état des volets. */
+  window.__surplusLog = d.surplusLog || null;
   // l'onglet de carte choisi par vue (mode onglets), propre à cette machine
   window.__cardTab = d.cardTab || null;
   /* Le mode des heures (serveur ou locale) se lit avant le premier dessin :
