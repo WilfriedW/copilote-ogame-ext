@@ -15,7 +15,7 @@ import {
   clockText, timeSeen, formatTime, timeTitle, dur, poseModeHeure
 } from './src/core/temps.js';
 
-const APP_VERSION = '2.19.1';
+const APP_VERSION = '2.20.0';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
 /** La version du dépôt, quand on a pu la lire. */
