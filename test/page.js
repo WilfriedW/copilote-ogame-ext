@@ -90,13 +90,14 @@ function el(tag, attrs = {}) {
  * @param {string} opts.prodHref href du lien du jeu vers « Paramétrage de la production », absent par défaut
  * @param {boolean} opts.menuLf le menu du jeu offre les pages de forme de vie (univers qui en a)
  * @param {string} opts.heuresMode le mode des heures choisi au panneau ('server' ou 'local'), absent par défaut
+ * @param {object[]} opts.msgsJeu messages de la messagerie : `{ id, titre, date, texte }`, la date en heure serveur
  * @returns {object} { html, eta, dataset }
  */
 function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], details = true,
   search = '?page=ingame&component=research', tiles = [], vieuxStyle = null, intruse = false,
   casesIntruses = false, planetList = true, menuMuet = false, champsFlotte = false,
   enChantier = null, heures = null, niveaux = {}, noms = {}, stockageCasse = null, getDiffere = false, askAvant,
-  prodHref = null, menuLf = false, heuresMode }) {
+  prodHref = null, menuLf = false, heuresMode, msgsJeu = [] }) {
   const html = el('html');
   const head = el('head');
   const body = el('body');
@@ -115,6 +116,19 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     ligne.getAttribute = n => (n === 'data-arrival-time' ? String(a.epoch) : null);
     ligne.querySelectorAll = sel => (sel === '*' ? [cellule] : []);
     return cellule;
+  });
+  /* Les messages : un bloc par message, son titre, sa date, son corps —
+     les trois classes que content.js cherche, sous le même attribut. */
+  const msgs = msgsJeu.map(m => {
+    const titre = el('span', { className: 'msgTitle', textContent: m.titre });
+    const date = el('span', { className: 'msgDate', textContent: m.date });
+    const corps = el('span', { className: 'msgContent', textContent: m.texte });
+    const b = el('div', { className: 'msg', textContent: [m.titre, m.date, m.texte].join(' ') });
+    [titre, date, corps].forEach(c => b.appendChild(c));
+    b.getAttribute = n => (n === 'data-msg-id' ? String(m.id) : null);
+    b.querySelector = sel => (sel === '.msgTitle, .msg_title' ? titre : sel === '.msgContent, .msg_content' ? corps : null);
+    b.querySelectorAll = sel => (sel === '*' ? [titre, date, corps] : []);
+    return b;
   });
   const det = details ? el('div', { id: 'technologydetails' }) : null;
   const costsBox = det ? el('div', { className: 'costs' }) : null;
@@ -301,6 +315,7 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     'li.technology[data-technology] > input': () => champs,
     // comme un vrai navigateur : la première du document, intruse comprise
     '.copilote-bande': () => page.children.find(estBande) || principal.children.find(estBande) || null,
+    '[data-msg-id]': () => msgs,
     '[data-end]': () => [],
     '[data-technology]': () => [],
     '[data-mission-type][data-arrival-time]': () => [],

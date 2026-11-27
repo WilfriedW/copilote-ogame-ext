@@ -128,7 +128,10 @@ function fusionneMouvements(game, s, now) {
   else base = avant.filter(vivant);
   const par = new Map(base.map(m => [cleMouvement(m), m]));
   // la lecture neuve l'emporte : elle peut porter le détail que l'ancienne n'avait pas
-  for (const m of lus) par.set(cleMouvement(m), m);
+  /* L'heure de lecture voyage avec le vol : une expédition ne se juge que sur
+     un retour lu APRÈS son événement, et un vol gardé d'une lecture plus
+     ancienne ne doit pas passer pour neuf. */
+  for (const m of lus) par.set(cleMouvement(m), { ...m, lu: s.at || now });
   let out = [...par.values()];
   if (s.alerteJeu === false) out = out.filter(m => !m.hostile);
   return out.slice(0, 300);
@@ -196,8 +199,13 @@ async function merge(s) {
 
   const now = Date.now();
   game.moves = fusionneMouvements(game, s, now);
+  /* L'heure de la dernière lecture de TOUS les vols : un retour d'expédition
+     qu'elle ne montre plus ne reviendra pas. */
+  if (s.eventList || s.movePage) game.listeVue = s.at || now;
   if (s.slots) game.slots = { ...s.slots, at: s.at };
   if (s.artefacts != null) game.artefacts = s.artefacts;
+  // Les rapports d'expédition lus dans la messagerie : la dernière page ouverte suffit, le panneau les garde.
+  if (Array.isArray(s.expoMsgs)) game.expoMsgs = s.expoMsgs.slice(0, 50);
   if (s.prodPanel && s.planetId) game.prod = { ...(game.prod || {}), [s.planetId]: { text: s.prodPanel, at: s.at } };
   // L'adresse du paramétrage de la production, telle que le jeu l'écrit : le relevé la réutilise.
   if (s.prodUrl) game.prodUrl = s.prodUrl;

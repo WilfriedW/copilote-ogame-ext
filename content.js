@@ -270,6 +270,37 @@
       else if (!prodWarned) { prodWarned = true; console.debug('[copilote] panneau de production sans tableau reconnu'); }
     } else prodWarned = false;
 
+    /* Les rapports d'expédition, quand le joueur ouvre lui-même sa messagerie.
+       Rien d'autre n'y est lu : un message dont le titre ne parle pas
+       d'expédition, ou qui ne porte pas de coordonnées en position 16, est
+       ignoré. Le texte est borné et ne sert qu'à une comparaison de mots dans
+       le panneau — jamais réinjecté tel quel dans une page. La date se lit
+       sur son écriture serveur, celle que `poseHeure` garde quand elle a déjà
+       traduit l'heure. */
+    let expoMsgs = null;
+    if (component === 'messages') {
+      const dec = decalageServeur();
+      expoMsgs = [];
+      document.querySelectorAll('[data-msg-id]').forEach(el => {
+        if (expoMsgs.length >= 50) return;
+        const id = String(el.getAttribute('data-msg-id') || '').replace(/\D/g, '').slice(0, 20);
+        const titre = clean(el.querySelector('.msgTitle, .msg_title')?.textContent);
+        if (!id || !/exp[ée]dition/i.test(titre)) return;
+        const coords = ((titre + ' ' + clean(el.textContent).slice(0, 300)).match(/\[(\d+:\d+:16)\]/) || [])[1];
+        if (!coords) return;
+        let at = null;
+        for (const n of el.querySelectorAll('*')) {
+          if (n.children.length) continue;
+          const txt = (n.dataset && n.dataset.cpSrv) || (n.textContent || '').trim();
+          const m = DATE_JEU.exec(txt);
+          if (m && dec != null) { at = epochDeDate(m, dec) * 1000; break; }
+        }
+        const corps = el.querySelector('.msgContent, .msg_content');
+        const texte = clean((corps || el).textContent).slice(0, 800);
+        if (at && texte) expoMsgs.push({ id, at, coords, texte });
+      });
+    }
+
     const unique = [];
     for (const t of timers) {
       const i = unique.findIndex(u => u.type === t.type && Math.abs(u.end - t.end) <= 5);
@@ -312,6 +343,7 @@
       alerteJeu,
       artefacts,
       prodPanel,
+      expoMsgs,
       /* Le lien que le jeu affiche vers « Paramétrage de la production ». Le
          relevé ne devine pas cette adresse — selon la version elle s'ouvre par
          `component=` ou par `page=` — il reprend celle du jeu. Mais le DOM

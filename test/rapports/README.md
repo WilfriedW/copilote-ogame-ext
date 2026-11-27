@@ -16,3 +16,12 @@ C'est pourquoi l'analyseur se replie toujours sur « inconnu ». Un libellé mal
 orthographié ne peut pas produire un « sans défense » : « nue » exige une
 section vide, qu'aucune faute de vocabulaire ne fabrique. Le jour où un vrai
 rapport complet arrive, il remplace `complet.txt` et corrige la table d'un mot.
+
+## Rapports d'expédition
+
+Aucun vrai rapport d'expédition n'a encore été relevé. Le vocabulaire de
+`EXPO_MOTS` (app.js) est **construit** : des mots-clés (pirates, trou noir,
+marchand, retard…) et non des phrases du jeu. La règle est la même que pour
+l'espionnage : un texte qui ne contient aucun mot connu donne « autre », jamais
+une supposition. Le jour où de vrais rapports arrivent, ils s'ajoutent ici et
+les tests les lisent.

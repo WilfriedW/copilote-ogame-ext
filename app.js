@@ -150,11 +150,44 @@ const EXPO_FRET = 200;
    jamais relues dans le jeu — un serveur qui en propose d'autres se rattrape
    par le réglage de la durée par défaut. */
 const EXPO_DUREES = [1,2,3,4];
-/* Ce qu'on garde d'historique. Le malus de système ne regarde que vingt-quatre
-   heures et la calibration du fret quelques jours : au-delà, c'est du poids
-   dans une sauvegarde qui passe d'un poste à l'autre. */
+/* Ce qu'on garde d'historique : les deux cents dernières expéditions, une à
+   trois semaines de jeu selon le rythme. Le malus de système ne regarde que
+   vingt-quatre heures, les statistiques et la calibration les cinquante
+   dernières ; l'âge maximal ne sert qu'à vider un historique abandonné. Il
+   reste local au poste : il ne passe pas par la synchro. */
 const EXPO_LOG_MAX = 200;
-const EXPO_LOG_TTL = 7*86400e3;
+const EXPO_LOG_TTL = 45*86400e3;
+/* Les statistiques et le calibrage ne regardent que les plus récentes : une
+   flotte, une classe ou un univers changent, et ce qu'ils rapportaient avec. */
+const EXPO_STATS_N = 50;
+/* En dessous, une médiane ne dit rien : le calibrage se tait. */
+const EXPO_CALIB_MIN = 10;
+/* Au-delà de dix pour cent d'écart, la proposition vaut un clic. */
+const EXPO_CALIB_ECART = 0.1;
+/* Une flotte qui n'est pas rentrée une heure après l'heure prévue. */
+const EXPO_PERDUE_MS = 3600e3;
+/* Les compositions préparées gardées pour combler un aller manqué. */
+const EXPO_PREP_MAX = 20, EXPO_PREP_TTL = 24*3600e3;
+
+const EXPO_EVTS = {ressources:'Ressources', vaisseaux:'Vaisseaux', pirates:'Pirates', aliens:'Aliens',
+  trounoir:'Trou noir', rien:'Rien', retard:'Retard', avance:'Avance', marchand:'Marchand', objet:'Objet',
+  pertes:'Pertes', perdue:'Flotte perdue', autre:'Autre'};
+/* Les mots d'un rapport d'expédition, dans l'ordre où ils tranchent : un trou
+   noir l'emporte sur tout, un combat sur une trouvaille. Vocabulaire construit,
+   pas relevé sur un vrai rapport (test/rapports/README.md) : ce qui ne se
+   reconnaît pas devient « autre », jamais une supposition. */
+const EXPO_MOTS = [
+  ['trounoir', /trou noir/],
+  ['pirates', /pirate|boucanier|flibustier/],
+  ['aliens', /alien|extra-?terrestre/],
+  ['marchand', /marchand/],
+  ['objet', /\bobjet\b/],
+  ['retard', /\bretard/],
+  ['avance', /\ben avance\b|\bplus tot\b|\bavance\b/],
+  ['vaisseaux', /vaisseaux?\b.{0,80}\b(rejoint|joint|abandonne|trouve|recupere)|(rejoint|rejoindre)\b.{0,40}\bflotte/],
+  ['ressources', /(metal|cristal|deuterium)\b.{0,60}\b(collecte|recolte|trouve|recupere|ramasse)|(collecte|recolte|trouve|recupere|ramasse)\w*\b.{0,60}\b(metal|cristal|deuterium)/],
+  ['rien', /\brien\b|\bvide\b|sans resultat|bredouille/]
+];
 
 /**
  * Tranche de plafond d'expédition. Elle dépend des points du n°1 de l'univers :
@@ -6921,6 +6954,320 @@ function expoVus(sys, now, deja){
   const n = (S.expoLog||[]).filter(e=>e.sys===sys && now - e.at < 86400e3).length;
   return n + ((deja && deja[sys]) || 0);
 }
+
+/* ---------- le journal des expéditions ----------
+   Ce que rapporte chaque expédition, lu sur les mouvements du jeu : l'aller
+   dit ce qui part, le retour ce qui revient, et la différence ce qui a été
+   trouvé ou perdu. Le même historique `S.expoLog` sert toujours au malus de
+   système : ses champs `cle`, `at`, `sys` et `de` gardent leur sens, `at`
+   restant l'heure du retour. Rien ici ne déclenche quoi que ce soit dans le
+   jeu : tout se lit sur ce que le joueur a déjà ouvert. */
+
+/** Le type d'événement que dit un rapport d'expédition, ou « autre ». */
+function expoEvtDe(texte){
+  const t = String(texte || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’`]/g, "'");
+  for(const [k, re] of EXPO_MOTS) if(re.test(t)) return k;
+  return 'autre';
+}
+
+const expoSomme = c => Array.isArray(c) ? (+c[0]||0) + (+c[1]||0) + (+c[2]||0) : 0;
+/** Soute d'une flotte, avec les technologies du joueur. */
+function expoSoute(ships){ return Object.entries(ships||{}).reduce((a,[k,n])=>a + (SHIPS[k] ? shipStats(k).cargoEff*(n||0) : 0), 0); }
+/** Coût de construction d'une flotte, [m, c, d]. */
+function expoValeur(ships){
+  const v = [0,0,0];
+  for(const [k,n] of Object.entries(ships||{})){ const c = SHIP_COST[k]; if(c && n > 0) for(let j=0;j<3;j++) v[j] += c[j]*n; }
+  return v;
+}
+/** Équivalent métal au ratio du joueur. */
+function metalEq(v){
+  const r = (S.settings && S.settings.ratio) || [3,2,1];
+  return (+v[0]||0) + (+v[1]||0)*r[0]/r[1] + (+v[2]||0)*r[0]/r[2];
+}
+/** Vol simple, en secondes, à pleine vitesse : la seule que le copilote sait. */
+function expoAller(e, ships){ const f = flight(e.de, e.dest, ships || {}, 100); return f ? f.secs : 0; }
+const expoDest = e => e.dest || (String(e.cle||'').match(/(\d+:\d+:\d+)@/) || [])[1] || '';
+const expoShips = e => (e.envoi && e.envoi.ships) || (e.retour && e.retour.ships) || {};
+const expoHoldMs = () => Math.max(1, Math.round(num(S.settings.expoHold, 1)))*3600e3;
+/** L'heure où l'événement a lieu : fin de l'exploration, avant le vol retour. */
+function expoEvtAt(e){
+  const ow = expoAller(e, expoShips(e))*1000;
+  if(e.retour && e.retour.at) return e.retour.at - ow;
+  return e.aller ? e.aller + expoHoldMs() : e.at;
+}
+/** Le retour attendu, lu ou estimé. */
+function expoPrevu(e){
+  if(e.retour && e.retour.at) return e.retour.at;
+  return (e.aller || e.at) + expoHoldMs() + expoAller(e, expoShips(e))*1000;
+}
+/** Une expédition dont le résultat est su : retour lu après l'événement, ou flotte perdue. */
+const expoConnue = e => !!(e && (e.perdue || (e.retour && e.retour.final && e.retour.ships)));
+
+/** La composition que « Préparer » a proposée pour ce départ, faute d'aller vu. */
+function expoPrepPour(e, avant){
+  const l = (S.expoPrep||[]).filter(x => x.de === e.de && x.dest === expoDest(e) && x.at <= avant && avant - x.at < EXPO_PREP_TTL);
+  return l.length ? l[l.length-1] : null;
+}
+
+/**
+ * Recalcule ce qui se déduit d'une entrée : trouvés, pertes, carburant,
+ * durée et type d'événement. Appelée à chaque changement, jamais devinée :
+ * sans envoi connu, trouvés et pertes restent vides.
+ */
+function expoFinalise(e){
+  if(!e.envoi){
+    const p = expoPrepPour(e, e.aller || expoEvtAt(e));
+    if(p) e.envoi = {ships: Object.assign({}, p.ships), at: p.at, src: 'prep'};
+  }
+  const env = e.envoi && e.envoi.ships, ret = e.retour && e.retour.ships;
+  e.trouves = null; e.pertes = null;
+  if(e.perdue){
+    e.cargaison = [0,0,0];
+    e.pertes = env ? Object.assign({}, env) : null;
+  } else if(ret){
+    e.cargaison = e.retour.cargo || null;
+    if(env){
+      e.trouves = {}; e.pertes = {};
+      for(const k of new Set(Object.keys(env).concat(Object.keys(ret)))){
+        const d = (ret[k]||0) - (env[k]||0);
+        if(d > 0) e.trouves[k] = d; else if(d < 0) e.pertes[k] = -d;
+      }
+    }
+  }
+  const ships = env || ret;
+  const f = ships && flight(e.de, expoDest(e), ships, 100);
+  e.carburant = f ? Math.round(f.fuel*(e.perdue ? 1 : 2)) : null;
+  const ow = f ? f.secs*1000 : 0;
+  const depart = e.aller ? e.aller - ow : null;
+  const fin = e.retour && e.retour.at ? e.retour.at : e.perdue ? expoPrevu(e) : null;
+  e.duree = fin ? (depart ? fin - depart : 2*ow + expoHoldMs()) : null;
+  e.dureeEst = !depart;
+  if(e.evSrc !== 'msg'){
+    e.evenement = e.perdue ? 'perdue'
+      : !expoConnue(e) ? null
+      : e.pertes && Object.keys(e.pertes).length ? 'pertes'
+      : e.trouves && Object.keys(e.trouves).length ? 'vaisseaux'
+      : expoSomme(e.cargaison) > 0 ? 'ressources' : 'rien';
+  }
+  e.at = expoPrevu(e);
+  return e;
+}
+
+/**
+ * Le journal se nourrit des mouvements lus. L'aller ouvre une entrée, le
+ * retour la complète, et un retour lu AVANT l'événement — il porte encore la
+ * flotte envoyée et une soute vide — ne compte pas comme résultat : il est
+ * remplacé dès qu'une lecture plus tardive arrive.
+ *
+ * @param {object[]} moves les mouvements du jeu (S.moves), lus avec leur heure `lu`
+ * @param {number} now
+ * @param {number} [listeVue] heure de la dernière lecture de la liste complète
+ *   des vols (encart des événements ou page Mouvements) : un retour absent de
+ *   cette lecture, après l'événement, est un retour qui ne viendra pas.
+ */
+function expoJournal(moves, now, listeVue){
+  if(!Array.isArray(S.expoLog)) S.expoLog = [];
+  const log = S.expoLog;
+  const expos = (moves||[]).filter(m => m && +m.mission === 15 && m.dest && m.origin && (m.camp||'own') === 'own' && parseC(m.dest));
+  const sysDe = d => { const c = parseC(d); return `${c[0]}:${c[1]}`; };
+  const touche = new Set();
+  // L'aller d'abord : il ouvre l'entrée que le retour viendra compléter.
+  for(const m of expos.filter(m => !m.ret).sort((a,b)=>a.arrival-b.arrival)){
+    const a = m.arrival*1000;
+    let e = log.find(x => x.de === m.origin && expoDest(x) === m.dest && x.aller === a);
+    /* Une même expédition peut se montrer en deux rangées avant son retour
+       (arrivée, fin d'exploration) : la seconde rejoint la première. */
+    if(!e) e = log.find(x => x.de === m.origin && expoDest(x) === m.dest && x.aller && !expoConnue(x) && Math.abs(x.aller - a) < 25*3600e3 && (!x.retour || x.retour.at > a));
+    if(!e){ e = {cle:`${m.origin}>${m.dest}@${m.arrival}`, at:a, sys:sysDe(m.dest), de:m.origin, dest:m.dest, aller:a, envoi:null}; log.push(e); }
+    if(!e.aller || a < e.aller) e.aller = a;
+    const ships = m.ships && Object.keys(m.ships).length && m.detailConnu !== false ? m.ships : null;
+    if(ships && (!e.envoi || e.envoi.src !== 'aller')) e.envoi = {ships: Object.assign({}, ships), at: a, src: 'aller'};
+    touche.add(e);
+  }
+  for(const m of expos.filter(m => m.ret)){
+    const r = m.arrival*1000;
+    let e = log.find(x => x.de === m.origin && expoDest(x) === m.dest && x.retour && x.retour.at === r)
+      || log.find(x => x.cle === `${m.dest}@${m.arrival}`);
+    if(!e){
+      /* Un retard ou une avance déplace l'heure du retour : l'entrée en vol
+         vers ce système, partie avant, est la même expédition. */
+      const enVol = log.filter(x => x.de === m.origin && expoDest(x) === m.dest && !x.perdue && !expoConnue(x)
+        && (x.aller || 0) < r && (!x.retour || Math.abs(x.retour.at - r) < 24*3600e3));
+      e = enVol.sort((x,y)=>(y.aller||0)-(x.aller||0))[0];
+    }
+    if(!e){ e = {cle:`${m.dest}@${m.arrival}`, at:r, sys:sysDe(m.dest), de:m.origin, dest:m.dest, envoi:null}; log.push(e); }
+    if(!e.dest) e.dest = m.dest;
+    e.retourVu = Math.max(e.retourVu || 0, +m.lu || 0);
+    const connu = m.detailConnu !== false && m.ships && Object.keys(m.ships).length;
+    const ships = connu ? Object.assign({}, m.ships) : null;
+    const cargo = connu && Array.isArray(m.cargo) ? m.cargo.map(x => +x || 0) : null;
+    /* Résolu : lu après l'heure de l'événement, ou portant déjà ce que
+       l'expédition a changé — une soute pleine, une flotte différente. */
+    const seuil = r - expoAller(e, ships || expoShips(e))*1000;
+    // seule une flotte vue partir prouve un changement : une composition préparée a pu ne pas partir telle quelle
+    const env = e.envoi && e.envoi.src === 'aller' && e.envoi.ships;
+    const change = expoSomme(cargo) > 0 || (env && ships && JSON.stringify(Object.entries(env).filter(([,n])=>n>0).sort()) !== JSON.stringify(Object.entries(ships).filter(([,n])=>n>0).sort()));
+    const final = !!ships && ((+m.lu || 0) >= seuil || !!change);
+    if(e.retour && e.retour.final && !final) { touche.add(e); continue; }
+    e.retour = {at:r, ships, cargo, lu:+m.lu || 0, final};
+    if(e.perdue){ e.perdue = false; }
+    touche.add(e);
+  }
+  // Les flottes qui ne reviendront pas.
+  for(const e of log){
+    if(!e.aller || e.perdue || expoConnue(e)) continue;
+    const prevu = expoPrevu(e);
+    if(listeVue && listeVue > expoEvtAt(e) && listeVue < prevu && (e.retourVu || 0) < listeVue - 60e3) e.manque = listeVue;
+    if(now > prevu + EXPO_PERDUE_MS && (!e.retour || e.manque)){ e.perdue = true; touche.add(e); }
+  }
+  for(const e of touche) expoFinalise(e);
+  expoTaille();
+}
+/** L'historique borné : les plus anciennes partent d'abord. */
+function expoTaille(){
+  if(!Array.isArray(S.expoLog)) return;
+  const now = Date.now();
+  S.expoLog = S.expoLog.filter(x => now - x.at < EXPO_LOG_TTL).sort((a,b)=>a.at-b.at).slice(-EXPO_LOG_MAX);
+}
+
+/**
+ * Les rapports d'expédition lus dans la messagerie : chacun donne son type
+ * d'événement à l'expédition du même système dont l'événement tombe le plus
+ * près de son heure.
+ */
+function expoMessages(msgs){
+  if(!Array.isArray(msgs) || !Array.isArray(S.expoLog)) return 0;
+  let n = 0;
+  for(const m of msgs){
+    if(!m || !m.id || !Number.isFinite(+m.at) || !parseC(m.coords)) continue;
+    if(S.expoLog.some(e => e.msg === String(m.id))) continue;
+    const c = parseC(m.coords), sys = `${c[0]}:${c[1]}`;
+    const cands = S.expoLog.filter(e => e.sys === sys && !e.msg && Math.abs(expoEvtAt(e) - m.at) < 2*3600e3);
+    if(!cands.length) continue;
+    const e = cands.sort((a,b)=>Math.abs(expoEvtAt(a)-m.at) - Math.abs(expoEvtAt(b)-m.at))[0];
+    e.msg = String(m.id); e.evSrc = 'msg'; e.evenement = expoEvtDe(m.texte);
+    n++;
+  }
+  return n;
+}
+
+/** Les expéditions connues, leurs déductions faites : une entrée relue d'une
+    sauvegarde ancienne peut porter un retour sans ses champs déduits. */
+function expoPretes(log){
+  return (log||[]).filter(expoConnue).map(e => e.cargaison === undefined ? expoFinalise(e) : e);
+}
+/** Ce que rapporte une expédition connue, en équivalent métal : ressources et
+    vaisseaux trouvés, moins carburant et pertes. */
+function expoGain(e){
+  return metalEq(e.cargaison || [0,0,0]) + metalEq(expoValeur(e.trouves)) - metalEq([0,0,e.carburant||0]) - metalEq(expoValeur(e.pertes));
+}
+/** Agrège une liste d'expéditions connues. */
+function expoAgrege(L){
+  const avecCargo = L.filter(e => Array.isArray(e.cargaison));
+  const res = [0,1,2].map(j => avecCargo.length ? avecCargo.reduce((a,e)=>a+(+e.cargaison[j]||0),0)/avecCargo.length : 0);
+  const soutes = L.filter(e => e.envoi && Array.isArray(e.cargaison) && expoSoute(e.envoi.ships) > 0);
+  const soute = soutes.length ? soutes.reduce((a,e)=>a+Math.min(1, expoSomme(e.cargaison)/expoSoute(e.envoi.ships)),0)/soutes.length : null;
+  const evts = {};
+  for(const e of L){ const k = e.evenement || 'autre'; evts[k] = (evts[k]||0) + 1; }
+  const sus = L.filter(e => e.trouves);
+  const trouves = sus.length ? sus.reduce((a,e)=>a+expoSomme(expoValeur(e.trouves)),0)/sus.length : null;
+  const perd = L.filter(e => e.pertes);
+  const pertes = perd.length ? perd.reduce((a,e)=>a+expoSomme(expoValeur(e.pertes)),0)/perd.length : null;
+  const heures = L.reduce((a,e)=>a + (e.duree||0)/36e5, 0);
+  const gain = L.reduce((a,e)=>a + expoGain(e), 0);
+  return {n:L.length, res, soute, nSoute:soutes.length, evts, trouves, nSus:sus.length, pertes, nPerd:perd.length,
+    rendement: heures > 0 ? gain/heures : null, heures};
+}
+/**
+ * Statistiques des n dernières expéditions au résultat connu. Fonction pure
+ * de l'historique (et des technologies, pour les soutes).
+ * @returns {object} agrégat global, par planète de départ, et par nombre
+ *   d'expéditions vers le même système dans les 24 h qui précèdent
+ */
+function expoStats(log, n){
+  n = n || EXPO_STATS_N;
+  const tout = expoPretes(log).sort((a,b)=>a.at-b.at);
+  const L = tout.slice(-n);
+  const parPlanete = {};
+  for(const e of L) (parPlanete[e.de || '?'] = parPlanete[e.de || '?'] || []).push(e);
+  const parSollicitation = {};
+  for(const e of L){
+    const k = Math.min(3, (log||[]).filter(x => x !== e && x.sys === e.sys && x.at < e.at && e.at - x.at < 86400e3).length);
+    (parSollicitation[k] = parSollicitation[k] || []).push(e);
+  }
+  const map = o => Object.fromEntries(Object.entries(o).map(([k,v])=>[k, expoAgrege(v)]));
+  return Object.assign(expoAgrege(L), {parPlanete: map(parPlanete), parSollicitation: map(parSollicitation)});
+}
+const mediane = v => { const s = v.slice().sort((a,b)=>a-b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m-1]+s[m])/2; };
+/**
+ * Le facteur de fret que les retours réels suggèrent.
+ *
+ * Seules les expéditions qui ont ramené des ressources comptent : une
+ * rencontre de pirates ou un retour à vide ne dit rien de la soute qu'il
+ * fallait — les mêler mettrait la médiane à zéro dès qu'une expédition sur
+ * deux ne trouve pas de ressources. Médiane et pas moyenne : une trouvaille
+ * exceptionnelle ne déplace pas le réglage.
+ *
+ * @param {object[]} log l'historique
+ * @param {number} cur le réglage actuel
+ * @returns {{n:number, prop:number|null, cur:number, ecart:number|null,
+ *   montre:boolean, pleines:boolean}}
+ */
+function expoFretPropose(log, cur){
+  cur = Math.max(1, num(cur, EXPO_FRET));
+  const L = expoPretes(log).filter(e => !e.perdue && e.envoi && Array.isArray(e.cargaison) && expoSomme(e.cargaison) > 0 && expoPoints(e.envoi.ships) > 0)
+    .sort((a,b)=>a.at-b.at).slice(-EXPO_STATS_N);
+  const out = {n:L.length, prop:null, cur, ecart:null, montre:false, pleines:false};
+  if(L.length < EXPO_CALIB_MIN) return out;
+  const f = L.map(e => expoSomme(e.cargaison)/expoPoints(e.envoi.ships)/ecoSpeed()).filter(x => Number.isFinite(x) && x > 0);
+  if(f.length < EXPO_CALIB_MIN) return out;
+  out.prop = Math.max(10, Math.round(mediane(f)/10)*10);
+  out.ecart = Math.abs(out.prop - cur)/cur;
+  /* Une soute revenue pleine dit seulement qu'il y avait au moins ça : si
+     c'est le cas le plus souvent, la médiane est une borne basse. */
+  const pleines = L.filter(e => { const s = expoSoute(e.envoi.ships); return s > 0 && expoSomme(e.cargaison) >= 0.98*s; }).length;
+  out.pleines = pleines > L.length/2;
+  const ign = num(S.expo && S.expo.fretIgnore, 0);
+  out.ignoree = ign > 0 && Math.abs(out.prop - ign)/ign <= EXPO_CALIB_ECART;
+  out.montre = out.ecart > EXPO_CALIB_ECART && !out.ignoree;
+  return out;
+}
+/** La carte de calibrage, ou rien. */
+function expoCalibHtml(){
+  const p = expoFretPropose(S.expoLog, S.settings.expoFret);
+  if(!p.montre) return '';
+  return `<div class="card" data-ck="expo-calib"><h2>Facteur de fret calibré</h2>
+    <p>Tes ${p.n} dernières expéditions à ressources suggèrent un facteur de <b>${fmt(p.prop)}</b> (réglage actuel : ${fmt(p.cur)}).</p>
+    ${p.pleines ? `<p class="note">⚠ Plus de la moitié de ces soutes sont revenues pleines : ${fmt(p.prop)} est une <b>borne basse</b>, le vrai gain est peut-être plus haut.</p>` : ''}
+    <p class="note">Médiane de (ressources ramenées ÷ points envoyés ÷ vitesse éco), sur les ${EXPO_STATS_N} dernières au plus. Rien ne change sans ton clic.</p>
+    <span class="btns"><button class="btn sm primary" data-fretapply="${p.prop}">Appliquer</button><button class="btn sm" data-fretignore="${p.prop}">Ignorer</button></span>
+  </div>`;
+}
+/** Le bloc « Expéditions : résultats ». */
+function expoStatsHtml(){
+  const st = expoStats(S.expoLog);
+  if(!st.n) return `<div class="card"><h2>Expéditions : résultats</h2><p class="note">Aucun retour d'expédition lu pour l'instant. Le copilote les enregistre quand tu ouvres la vue d'ensemble ou les mouvements de flotte pendant le vol retour, et lit le type d'événement des rapports que tu ouvres dans ta messagerie.</p></div>`;
+  const r = (S.settings.ratio || [3,2,1]).join(' / ');
+  const rend = x => x == null ? '–' : `${fmt(x)}/h`;
+  const evts = Object.entries(st.evts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(EXPO_EVTS[k]||k)} ${Math.round(100*v/st.n)} %`).join(' · ');
+  const ligne = (nom, a) => `<tr><td>${nom}</td><td class="n">${a.n}</td><td class="n">${fmt(a.res[0])} / ${fmt(a.res[1])} / ${fmt(a.res[2])}</td><td class="n">${rend(a.rendement)}</td></tr>`;
+  const pl = Object.entries(st.parPlanete).map(([c,a]) => { const p = planeteEn(c); return ligne(p ? esc(planetRef(p)) : `<span class="mono">${esc(c)}</span>`, a); }).join('');
+  const so = Object.entries(st.parSollicitation).sort((a,b)=>a[0]-b[0]).map(([k,a]) => ligne(+k >= 3 ? '3 ou plus' : +k === 0 ? 'aucune' : `${k}`, a)).join('');
+  const tete = `<thead><tr><th></th><th class="n">Exp.</th><th class="n">M / C / D moyens</th><th class="n">Rendement</th></tr></thead>`;
+  return `<div class="card"><h2>Expéditions : résultats</h2>
+    <p class="note">Sur <b>${st.n} expédition${st.n>1?'s':''}</b> au résultat connu (les ${EXPO_STATS_N} dernières au plus).</p>
+    <div class="res">
+      ${gauge('m','m','Métal moyen',fmt(st.res[0]))}${gauge('c','c','Cristal moyen',fmt(st.res[1]))}${gauge('d','d','Deut. moyen',fmt(st.res[2]))}
+      ${gauge('e','e','Soute utilisée', st.soute == null ? '–' : `${Math.round(st.soute*100)} %`, st.nSoute ? `sur ${st.nSoute} envois connus` : 'envoi inconnu')}
+    </div>
+    <p>Événements : ${evts}</p>
+    <p>Vaisseaux trouvés : <b>${st.trouves == null ? '–' : fmt(st.trouves)}</b> en moyenne · pertes : <b>${st.pertes == null ? '–' : fmt(st.pertes)}</b> en moyenne <span class="note">(coût de construction M+C+D, sur ${st.nSus} expédition${st.nSus>1?'s':''} à l'envoi connu)</span></p>
+    <p>Rendement : <b>${rend(st.rendement)}</b> en équivalent métal (ratio ${esc(r)}), ressources et vaisseaux trouvés moins carburant et pertes, par heure de mission.</p>
+    <h3>Par planète de départ</h3><div class="tbl-wrap"><table>${tete}<tbody>${pl}</tbody></table></div>
+    <h3>Selon les expéditions vers le même système dans les 24 h précédentes</h3><div class="tbl-wrap"><table>${tete}<tbody>${so}</tbody></table></div>
+    <p class="note"><b>Estimation.</b> Carburant et durée supposent un vol à 100 % de vitesse. Sans aller vu ni composition préparée, les vaisseaux trouvés et perdus restent inconnus. Le type d'événement vient du rapport quand tu l'as ouvert, sinon des mouvements.</p>
+  </div>`;
+}
 /**
  * Heures de retour des expéditions en vol, la plus proche d'abord.
  *
@@ -7123,7 +7470,7 @@ function expoHtml(){
         <div class="q">${qHtml('Expédition · '+planetRef(x.p))}</div>
         <div class="w">${esc(shipList(x.f.ships))}</div>
       </div>
-      <span class="btns">${url ? `<button class="btn sm primary" data-prep="${esc(url)}">Préparer</button>` : ''}<button class="btn sm" data-launch='${esc(JSON.stringify(lance))}'>Lancé</button></span>
+      <span class="btns">${url ? `<button class="btn sm primary" data-prep="${esc(url)}" data-expoprep="${esc(JSON.stringify({de:x.p.coords, dest:x.tgt, ships:x.f.ships}))}">Préparer</button>` : ''}<button class="btn sm" data-launch='${esc(JSON.stringify(lance))}'>Lancé</button></span>
       <div class="m"><span>vers ${coordLink(x.tgt)}</span><span>exploration visée ${x.heures} h</span><span>retour vers ${formatTime(x.retour)}</span></div>
       <div class="m"><span>${fmt(x.f.pts)} / ${fmt(x.f.ptsCap)} points</span><span>fret ${fmt(x.f.cargo)} pour ${fmt(x.f.fret)} visés</span><span>carburant ${fmt(x.fuel)} deutérium</span></div>
       ${ennuis.length ? `<div class="m">⚠ ${esc(ennuis.join(' · '))}</div>` : ''}
@@ -9262,7 +9609,7 @@ fleet(){
         <label class="f">Points du n°1 de l'univers<select id="top1" data-set="top1">${EXPO_LABELS.map((l,i)=>`<option value="${i}" ${S.settings.top1==i?'selected':''}>${l}</option>`).join('')}</select>${API && API.scores ? `<span class="note">Lu dans le classement public : ${EXPO_LABELS[top1Tier()]}. Ce réglage ne sert plus.</span>` : '<span class="note">Sera lu dans le classement public dès que l\'extension aura joint l\'API du serveur.</span>'}</label>
       </div>
       <div class="grid">
-        <label class="f">Facteur de fret<input id="expoFret" type="number" min="1" step="10" data-set="expoFret" value="${num(S.settings.expoFret, EXPO_FRET)}"><span class="note">Ressources ramenées par point de flotte. Le fret visé en découle : ${fmt(expoPts())} points × ce facteur × éco x${ecoSpeed()} = <b>${fmt(expoFret())}</b>. À calibrer sur tes retours réels.</span></label>
+        <label class="f">Facteur de fret<input id="expoFret" type="number" min="1" step="10" data-set="expoFret" value="${num(S.settings.expoFret, EXPO_FRET)}"><span class="note">Ressources ramenées par point de flotte. Le fret visé en découle : ${fmt(expoPts())} points × ce facteur × éco x${ecoSpeed()} = <b>${fmt(expoFret())}</b>. ${(p=>p.prop ? `Tes ${p.n} dernières expéditions à ressources suggèrent ${fmt(p.prop)}${p.pleines ? ' (borne basse : soutes souvent pleines)' : ''}.` : `Calibré sur tes retours réels à partir de ${EXPO_CALIB_MIN} expéditions à ressources (${p.n} pour l'instant).`)(expoFretPropose(S.expoLog, S.settings.expoFret))}</span></label>
         <label class="f">Réserve de grands transporteurs<input id="expoRes" type="number" min="0" data-set="expoRes" value="${expoRes(null)}"><span class="note">Par planète, jamais pris par une expédition : ce sont ceux des convois et de la mise à l'abri du soir.</span></label>
         <label class="f">Durée d'exploration par défaut (h)<input id="expoHold" type="number" min="1" max="24" data-set="expoHold" value="${Math.max(1, Math.round(num(S.settings.expoHold,1)))}"><span class="note">Une heure rapporte le plus à l'heure passée en l'air. En mode nuit, le plan allonge de lui-même pour que la flotte rentre à ton retour.</span></label>
       </div>
@@ -9272,6 +9619,8 @@ fleet(){
       <div class="res" id="expoOut"></div>
       <p class="note" id="expoNote"></p>
     </div>
+    ${expoCalibHtml()}
+    ${expoStatsHtml()}
     <div class="card"><h2>Temps de vol et carburant</h2>
       <div class="grid">
         <label class="f">Départ<input id="fFrom" data-fc="from" value="${esc(fc.from)}" placeholder="1:1:8"></label>
@@ -10115,10 +10464,29 @@ view.addEventListener('click', e=>{
   const pr = e.target.closest('[data-prep]');
   if(pr){
     const url = pr.dataset.prep;
+    /* Une expédition préparée garde sa composition : si l'aller n'est jamais
+       vu, c'est elle qui dira ce qui est parti. */
+    if(pr.dataset.expoprep){
+      try{
+        const x = JSON.parse(pr.dataset.expoprep);
+        if(x && typeof x.de === 'string' && typeof x.dest === 'string' && x.ships && typeof x.ships === 'object'){
+          const now = Date.now();
+          S.expoPrep = (S.expoPrep||[]).filter(y => now - y.at < EXPO_PREP_TTL).concat([{de:x.de, dest:x.dest, ships:x.ships, at:now}]).slice(-EXPO_PREP_MAX);
+          save();
+        }
+      }catch(err){}
+    }
     if(IS_EXT) chrome.runtime.sendMessage({type:'go', url});
     else window.open(url, '_blank', 'noopener');
     return;
   }
+  /* Le calibrage du fret ne s'applique que sur ce clic. Ignorer retient la
+     valeur proposée : la carte revient quand la proposition s'en écarte de
+     plus de dix pour cent. */
+  const fa = e.target.closest('[data-fretapply]');
+  if(fa){ const v = Math.round(+fa.dataset.fretapply); if(v >= 1 && v <= 1e5){ S.settings.expoFret = v; S.expo.fretIgnore = null; save(); render(); toast(`Facteur de fret : ${fmt(v)}`); } return; }
+  const fi = e.target.closest('[data-fretignore]');
+  if(fi){ const v = +fi.dataset.fretignore; if(v > 0){ S.expo.fretIgnore = v; save(); render(); } return; }
   const cp = e.target.closest('[data-copos]');
   if(cp){ const pos = +cp.dataset.copos, libre = (API && API.planets ? colonyCandidates() : []).find(c=>c.pos===pos), [g,sy] = coloSystem();
     S.colo.target = libre ? libre.coords : `${g}:${sy}:${pos}`; save(); render(); return; }
@@ -10270,8 +10638,27 @@ function expoSain(){
   /* L'historique vient aussi d'une sauvegarde et de l'autre poste : il sert de
      compteur, donc ce doit être une liste de dates, bornée. */
   S.expoLog = Array.isArray(S.expoLog)
-    ? S.expoLog.filter(e=>e && typeof e.sys === 'string' && Number.isFinite(+e.at)).slice(-EXPO_LOG_MAX)
+    ? S.expoLog.filter(e=>e && typeof e === 'object' && typeof e.sys === 'string' && Number.isFinite(+e.at)).map(expoEntreeSaine).slice(-EXPO_LOG_MAX)
     : [];
+  S.expoPrep = Array.isArray(S.expoPrep)
+    ? S.expoPrep.filter(x=>x && typeof x.de === 'string' && typeof x.dest === 'string' && Number.isFinite(+x.at) && x.ships && typeof x.ships === 'object').slice(-EXPO_PREP_MAX)
+    : [];
+}
+/** Une entrée du journal relue d'une sauvegarde : ce qui n'a pas la forme
+    attendue tombe, pour qu'un champ corrompu ne casse pas les statistiques. */
+function expoEntreeSaine(e){
+  const flotte = o => o && typeof o === 'object' && !Array.isArray(o)
+    ? Object.fromEntries(Object.entries(o).filter(([k,n])=>SHIPS[k] && Number.isFinite(+n) && +n > 0).map(([k,n])=>[k, +n])) : null;
+  const res = c => Array.isArray(c) && c.length === 3 ? c.map(x => Math.max(0, +x || 0)) : null;
+  e.at = +e.at;
+  if(e.envoi != null) e.envoi = e.envoi && typeof e.envoi === 'object' && flotte(e.envoi.ships) ? {ships:flotte(e.envoi.ships), at:+e.envoi.at||0, src:e.envoi.src === 'aller' ? 'aller' : 'prep'} : null;
+  if(e.retour != null) e.retour = e.retour && typeof e.retour === 'object' && Number.isFinite(+e.retour.at)
+    ? {at:+e.retour.at, ships:flotte(e.retour.ships), cargo:res(e.retour.cargo), lu:+e.retour.lu||0, final:!!e.retour.final} : null;
+  for(const k of ['trouves','pertes']) if(e[k] != null) e[k] = flotte(e[k]);
+  if(e.cargaison != null) e.cargaison = res(e.cargaison);
+  for(const k of ['carburant','duree','aller']) if(e[k] != null && !Number.isFinite(+e[k])) e[k] = null;
+  if(e.evenement != null && !EXPO_EVTS[e.evenement]) e.evenement = 'autre';
+  return e;
 }
 function sainEtat(){
   const def = sample();
@@ -10507,20 +10894,16 @@ function applyGame(g){
   for(const m of S.moves) if(m.mission===6 && !m.ret && m.dest) S.raids[m.dest] = {at:Date.now(), probe:true};
   /* L'historique des expéditions, pris sur les mouvements du jeu plutôt que
      sur un clic : le joueur envoie depuis l'écran Flotte, et le copilote ne le
-     voit pas partir. C'est le trajet de RETOUR qu'on enregistre, pas l'aller :
-     l'aller n'est visible que le temps du vol vers la 16, quelques minutes, et
-     une expédition manquée là ne serait jamais comptée. Son heure d'arrivée
-     dédoublonne, et sert de date : un système reste « sollicité » tant que la
-     flotte y est. */
-  for(const m of S.moves){
-    if(m.mission !== 15 || !m.ret || !m.dest) continue;
-    const c = parseC(m.dest); if(!c) continue;
-    const cle = `${m.dest}@${m.arrival}`;
-    if(!Array.isArray(S.expoLog)) S.expoLog = [];
-    if(S.expoLog.some(x=>x.cle === cle)) continue;
-    S.expoLog.push({cle, at:m.arrival*1000, sys:`${c[0]}:${c[1]}`, de:m.origin || ''});
-  }
-  if(Array.isArray(S.expoLog)) S.expoLog = S.expoLog.filter(x=>Date.now()-x.at < EXPO_LOG_TTL).slice(-EXPO_LOG_MAX);
+     voit pas partir. L'aller ouvre l'entrée quand il est vu ; le retour la
+     complète — c'est lui qui dit ce que l'expédition a ramené, et lui seul est
+     sûr d'être vu : l'aller ne vole que quelques minutes. L'heure du retour
+     date l'entrée : un système reste « sollicité » tant que la flotte y est.
+     Les rapports de la messagerie, quand le joueur l'a ouverte, disent le
+     type d'événement. */
+  try {
+    expoJournal(S.moves, Date.now(), +g.listeVue || 0);
+    expoMessages(g.expoMsgs);
+  } catch(e){ console.error('Copilote : journal des expéditions', e); }
   if(g.artefacts != null) S.artefacts = g.artefacts;
   if(g.slots) S.slots = g.slots;
   if(g.prod && typeof g.prod === 'object'){
