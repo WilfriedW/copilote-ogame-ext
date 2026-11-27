@@ -6946,7 +6946,14 @@ function dailyMissions(){
      toute la soute dort sur les colonies et la planète la plus riche passe la
      nuit pleine, sans un vaisseau pour lever quoi que ce soit. L'inventaire le
      dit, cette carte le répare. */
+  /* La flotte cible : une carte Rééquilibrer par paire source → cible quand
+     une planète est loin de la sienne (Outils › Flotte). Elle couvre ce que
+     la carte « Ramène » disait pour la même planète : on n'en garde qu'une. */
+  const fcR = flotteCible(now), reeq = reequilibreCartes(now, fcR);
+  out.push(...reeq);
+  const reeqVers = new Set(reeq.map(m => m.dstId));
   for(const g of cargoGaps()){
+    if(reeqVers.has(g.p.id)) continue;
     const don = g.ailleurs[0]; if(!don) continue;
     const {ships, cargo} = pickCargo(don.p, Math.min(g.manque, don.dispo));
     if(!Object.keys(ships).length) continue;
@@ -6962,7 +6969,8 @@ function dailyMissions(){
          la page du jeu s'échappe donc ici à la main. */
       how:['Mission <b>Stationner</b>, pas Transporter : un Transporter repartirait seul et les vaisseaux ne seraient plus là au coucher.',
         `${dur(fl.secs)} de vol, ${fmt(fl.fuel)} deutérium${tard ? ` — arrivée vers ${formatTime(arrive)}, après le début de la nuit. Pour cette nuit-là, dépense le stock sur place.` : `, arrivée vers ${formatTime(arrive)}, avant la nuit.`}`,
-        `Il te restera ${fmt(cargo)} de soute à demeure sur ${esc(planetRef(g.p))} : garde-la là, c'est elle qui part chaque soir.`]});
+        `Il te restera ${fmt(cargo)} de soute à demeure sur ${esc(planetRef(g.p))} : garde-la là, c'est elle qui part chaque soir.`]
+        .concat(flotteAjout(fcR, don.p, g.p) ? [esc(flotteAjout(fcR, don.p, g.p))] : [])});
   }
   if(S.day.night || (!isNight(now) && nightAt - now <= (+S.day.horizon||24)*3600e3)){
     const fs = fleetsavePlan(now);
@@ -8747,6 +8755,7 @@ defense(){
 fleet(){
   const ex=S.expo, fc=S.fleetCalc;
   return `<section class="panel">
+    ${flotteCibleHtml()}
     <div class="card"><h2>Taille d'expédition</h2>
       <div class="grid">
         <label class="f">Points du n°1 de l'univers<select id="top1" data-set="top1">${EXPO_LABELS.map((l,i)=>`<option value="${i}" ${S.settings.top1==i?'selected':''}>${l}</option>`).join('')}</select>${API && API.scores ? `<span class="note">Lu dans le classement public : ${EXPO_LABELS[top1Tier()]}. Ce réglage ne sert plus.</span>` : '<span class="note">Sera lu dans le classement public dès que l\'extension aura joint l\'API du serveur.</span>'}</label>
@@ -8959,6 +8968,14 @@ today(){
      le vider ici ne perd rien. */
   if(night) for(const x of plan.sessions){ x.acts = []; x.waits = []; }
   const nowParts = [], a0 = actsVus(s0);
+  /* Un rapatriement proposé dit aussi quels vaisseaux faire suivre pour
+     rapprocher l'arrivée de sa flotte cible. Copie de l'acte : le plan le garde tel quel. */
+  if(!night && a0.some(a=>a.kind==='transfer')){
+    const fcR = flotteCible(plan.now);
+    a0.forEach((a, i) => { if(a.kind !== 'transfer') return;
+      const dst = S.planets.find(p => p.coords === a.dest), aj = flotteAjout(fcR, S.planets[a.p], dst);
+      if(aj) a0[i] = Object.assign({}, a, {why: [a.why, aj].filter(Boolean).join(' ')}); });
+  }
   const missions = dailyMissions().filter(m=>!missionDone(m) && !refused('m:'+m.id));
   /* La page du jeu surligne ce que le plan recommande et pose la bande du bas.
      Elle n'en fait rien d'autre : aucun clic, aucun envoi, ce sont des repères.

@@ -7,7 +7,7 @@
 # le manifeste, par sidepanel.html ou par panel.css manque ici.
 set -e
 cd "$(dirname "$0")"
-FICHIERS="README.md manifest.json background.js boot.js ids.js profils.js meteo.js rules.json content.js masque.css masque-conf.js masque.js app.js sidepanel.html panel.css icon32.png icon128.png oxanium.woff2 plex-sans.woff2 jetbrains-mono.woff2"
+FICHIERS="README.md manifest.json background.js boot.js ids.js profils.js meteo.js flotte.js rules.json content.js masque.css masque-conf.js masque.js app.js sidepanel.html panel.css icon32.png icon128.png oxanium.woff2 plex-sans.woff2 jetbrains-mono.woff2"
 # La feuille du masquage et sa configuration se tirent du JSON des sélecteurs :
 # un sélecteur corrigé dans config/hide-selectors.json part au prochain paquet.
 node config/masque-css.js

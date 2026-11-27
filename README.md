@@ -227,6 +227,39 @@ d'abord), jamais vers un coffre-fort attaqué, en mission Transport par défaut.
 les ressources se recopient (⧉) et la vitesse se règle à la main. L'envoi
 reste ton clic.
 
+## La flotte cible
+
+**Outils › Flotte › Flotte cible** dit, planète par planète, la flotte qui lui
+permet de lancer une expédition et de lever son stock seule le soir, puis
+l'écart avec ce qu'elle a (vaisseaux en vol comptés là où ils se poseront).
+L'ordre de calcul arbitre les manques :
+
+1. **Kit noyau** partout : une sonde, un Éclaireur, le gros vaisseau le plus
+   avancé de l'empire. S'il en manque, les planètes les plus productives sont
+   servies d'abord. Hors Explorateur, l'Éclaireur ne se construit pas : le kit
+   part avec le gros vaisseau seul, et le tableau le dit.
+2. **Kits complets** : un par emplacement d'expédition (il suit l'Astrophysique
+   et la classe), composés par le même calcul que le bloc Expéditions, sur les
+   planètes qui en sont le plus près.
+3. **Soute** : le stock prévu à l'heure du rappel de mise à l'abri, et au moins
+   la réserve de grands transporteurs. Les GT du kit n'y comptent pas, ils sont
+   en expédition. Si les transporteurs manquent, ils se répartissent au prorata
+   des besoins, et le tableau chiffre le manque.
+4. **Combat** restant : à parts égales, le reste aux plus productives.
+
+La colonne **Carburant** vérifie que la planète aura le deutérium pour envoyer
+sa flotte du soir vers son coffre-fort. Survole une case pour le détail par
+type de vaisseau.
+
+**Rééquilibrer.** Quand une planète n'a pas son kit noyau, ou que sa soute
+tombe sous 80 % de sa cible (réglable dans le même tableau), une carte propose
+les vaisseaux à y envoyer depuis la planète qui en a le plus en trop, en
+mission **Stationner** : les vaisseaux restent sur la planète cible. C'est la
+seule carte en Stationner ; elle ne sort jamais entre le rappel du soir et le
+réveil, ni pendant une attaque entrante. Un rapatriement proposé dit aussi quels
+vaisseaux faire suivre (un second envoi en Stationner sur le même trajet), le
+rapatriement lui-même restant en Transport.
+
 ## À savoir
 
 **Il faut jouer en français.** Le Copilote lit le tableau de production, les

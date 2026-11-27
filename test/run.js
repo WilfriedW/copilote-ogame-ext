@@ -13868,6 +13868,157 @@ t('cartes : la bascule passe devant le choix du joueur, qui reprend la main ensu
   assert.equal(g.ongletAffiche(ids, undefined, 'disparu'), 'maintenant', 'un onglet qui n\'existe plus : le premier');
 });
 
+/* ---------- flotte cible ---------- */
+/* 14 h : loin de la mise à l'abri (rappel 22:00 par défaut, réveil 7 h). */
+const MIDI = new Date(2026, 10, 8, 14, 0, 0).getTime();
+const FC_WANT = ['fleetTarget', 'fleetGap', 'suggestMoves', 'flotteCible', 'flotteCibleHtml', 'reequilibreCartes', 'flotteAjout', 'fcFenetre', 'dailyMissions', 'expoFleet', 'expoCap', 'shipStats', 'S', 'VIEWS'];
+/** Trois planètes, Hyperespace 0 : un GT vaut 25 000 × 1,25 (collecteur), un PT 6 250. */
+function fcEmpire(s) {
+  s.tech.astro = 9; s.tech.hyperdrive = 6; s.tech.impulse = 6;
+  const base = s.planets[0];
+  s.planets[0] = Object.assign({}, base, { id: 'pout', name: 'Poutinia', coords: '1:142:8',
+    ships: { lc: 287, sc: 0, pr: 3, pf: 0, rp: 18, bs: 30 }, stock: { m: 200000, c: 100000, d: 900000, at: 0 } });
+  s.planets[1] = Object.assign({}, base, { id: 'gasp', name: 'Gaspesion', coords: '1:150:8',
+    ships: { lc: 25, bs: 10 }, stock: { m: 2000000, c: 600000, d: 200000, at: 0 } });
+  s.planets.push(Object.assign({}, base, { id: 'erab', name: 'Erablis', coords: '1:160:8',
+    b: Object.assign({}, base.b, { metal: 4, crystal: 3, deut: 2 }),
+    ships: { lc: 10 }, stock: { m: 100000, c: 50000, d: 300000, at: 0 } }));
+}
+function fc(modifier, now) {
+  const s = fixtureState(); const at = now == null ? MIDI : now;
+  fcEmpire(s);
+  if (modifier) modifier(s);
+  s.planets.forEach(p => { p.stock.at = at; });
+  return loadApp(s, at, FC_WANT);
+}
+
+t('flotte cible : 3 emplacements, 3 kits complets placés, un noyau partout', () => {
+  const g = fc();
+  assert.equal(g.expoCap(), 3);
+  const r = g.flotteCible(MIDI);
+  const kits = Object.values(r.par).reduce((a, t) => a + t.kits.length, 0);
+  assert.equal(kits, 3);
+  for (const id of ['pout', 'gasp', 'erab']) {
+    const t = r.par[id];
+    assert.ok(t.kits.length === 1, id + ' porte un kit');
+    // collecteur sans Éclaireur dans l'empire : le manque est dit, gros vaisseau seul
+    assert.ok(t.noyau.manque.includes('1 Éclaireur') && t.noyau.pfImpossible, id + ' signale l\'Éclaireur');
+    assert.equal(t.kits[0].ships.rp, 1, 'gros vaisseau = Faucheur, le plus avancé de l\'empire');
+  }
+});
+
+t('flotte cible : l\'Astrophysique 16 donne 4 kits', () => {
+  const g = fc(s => { s.tech.astro = 16; });
+  assert.equal(g.expoCap(), 4);
+  const r = g.flotteCible(MIDI);
+  assert.equal(Object.values(r.par).reduce((a, t) => a + t.kits.length, 0), 4);
+});
+
+t('flotte cible : le kit vient de expoFleet, sans seconde composition', () => {
+  const g = fc();
+  const r = g.flotteCible(MIDI), pout = r.par.pout;
+  // le premier kit placé est composé sur tout l'empire, noyaux des autres retenus
+  const k = pout.kits[0];
+  assert.ok(k.ships.lc > 0 && k.pts <= k.ptsCap * 1.05);
+  assert.deepEqual(Object.keys(k).sort(), Object.keys(g.expoFleet({ lc: 50, pr: 1 }, { expoRes: 0 })).sort());
+});
+
+t('flotte cible : les kits vont là où ils demandent le moins de mouvements', () => {
+  // un seul emplacement : Poutinia, qui a déjà presque tout, le prend
+  const g = fc(s => { s.tech.astro = 1; });
+  const r = g.flotteCible(MIDI);
+  assert.equal(r.par.pout.kits.length, 1);
+  assert.equal(r.par.gasp.kits.length + r.par.erab.kits.length, 0);
+});
+
+t('flotte cible : la soute vise le stock prévu à l\'heure du fleet save, réserve incluse', () => {
+  const g = fc(s => { s.settings.expoRes = 200; });
+  const r = g.flotteCible(MIDI), t1 = r.par.gasp, gt = g.shipStats('lc').cargoEff;
+  assert.ok(t1.soute.besoin >= 2800000, 'stock du soir ≥ 2,8 M');
+  assert.equal(t1.soute.cible, Math.round(Math.max(t1.soute.besoin, 200 * gt)));
+  const e = r.par.erab;
+  assert.equal(e.soute.cible, 200 * gt, 'la réserve fait plancher sur une petite planète');
+});
+
+t('flotte cible : transporteurs insuffisants, prorata des besoins et manque chiffré', () => {
+  const g = fc(s => { s.planets[0].ships.lc = 40; s.planets[1].ships.lc = 0; s.planets[2].ships.lc = 0; s.tech.astro = 0; });
+  const r = g.flotteCible(MIDI);
+  assert.ok(r.manqueGT > 0, 'il manque des GT');
+  const c = ['pout', 'gasp', 'erab'].map(id => r.par[id].soute);
+  const ratio = c.map(x => x.couverte / x.cible);
+  assert.ok(Math.max(...ratio) - Math.min(...ratio) < 0.15, 'même part du besoin couverte partout : ' + ratio.join(', '));
+  assert.ok(/il manque <b>\d[\d\s ]* GT<\/b>/i.test(g.flotteCibleHtml(MIDI).replace(/ | /g, ' ')));
+});
+
+t('flotte cible : le combat restant se répartit à parts égales, le reste aux plus productives', () => {
+  const g = fc(s => { s.tech.astro = 0; s.planets[0].ships.bs = 10; s.planets[1].ships.bs = 0; });
+  const r = g.flotteCible(MIDI);
+  const n = ['pout', 'gasp', 'erab'].map(id => r.par[id].combat.bs || 0);
+  assert.equal(n.reduce((a, x) => a + x, 0), 10);
+  assert.ok(Math.max(...n) - Math.min(...n) <= 1);
+  assert.equal(r.par.erab.combat.bs, 3, 'la moins productive n\'a pas le reste');
+});
+
+t('flotte cible : carburant insuffisant pour le fleet save signalé', () => {
+  const g = fc(s => { s.planets[1].stock.d = 50; s.planets[1].b.deut = 0; s.settings.secu = { vaults: ['erab'] }; });
+  const r = g.flotteCible(MIDI), c = r.par.gasp.carburant;
+  assert.ok(!c.ok && c.fuel > c.dispo, JSON.stringify(c));
+  assert.ok(r.par.erab.carburant.coffre);
+  assert.ok(/Carburant/.test(g.flotteCibleHtml(MIDI)));
+});
+
+t('flotte cible : la vue Outils › Flotte affiche cible, actuel et écart', () => {
+  const g = fc();
+  const h = g.VIEWS.fleet();
+  assert.ok(/Flotte cible/.test(h));
+  for (const n of ['Poutinia', 'Gaspesion', 'Erablis']) assert.ok(h.includes(n));
+  assert.ok(/ne construit pas d'Éclaireur/.test(h.replace(/&#39;/g, "'")), 'le collecteur est prévenu, gros vaisseau seul');
+  assert.ok(/Soute \(cible \/ actuelle\)/.test(h) && /Combat \(écart\)/.test(h) && /Carburant/.test(h));
+});
+
+t('rééquilibrer : carte en Stationner depuis la planète la plus excédentaire', () => {
+  const g = fc();
+  const cartes = g.reequilibreCartes(MIDI);
+  const vers = cartes.find(m => m.dstId === 'gasp');
+  assert.ok(vers, 'Gaspesion, soute 25 GT pour 2,8 M, a sa carte');
+  assert.equal(vers.mission, 4);
+  assert.equal(g.S.planets[vers.p].id, 'pout', 'depuis Poutinia, la plus excédentaire');
+  assert.ok(/Stationner/.test(vers.how[0]) && /restent sur la planète cible/.test(vers.how[0]));
+  assert.ok(/<th>Mission<\/th>/.test(vers.whatHtml) && /<td>Stationner<\/td>/.test(vers.whatHtml));
+  assert.ok(g.dailyMissions().some(m => m.id === vers.id), 'la carte sort dans les missions du jour');
+});
+
+t('rééquilibrer : rien sous le seuil, rien pendant la fenêtre de fleet save ni sous attaque', () => {
+  assert.equal(fc(s => { s.planets[1].ships.lc = 5000; s.planets[2].ships.lc = 5000; s.planets[0].ships.lc = 5000; s.planets.forEach(p => { p.ships.pr = 2; p.ships.rp = 2; }); }).reequilibreCartes(MIDI).length, 0, 'tout le monde est au-dessus');
+  const soir = new Date(2026, 10, 8, 22, 30, 0).getTime();
+  const g = fc(null, soir);
+  assert.ok(g.fcFenetre(soir).dedans);
+  assert.equal(g.reequilibreCartes(soir).length, 0);
+  assert.ok(!g.dailyMissions().some(m => /^reequilibre/.test(m.id)));
+  const att = fc(s => { s.moves = [{ mission: 1, hostile: true, origin: '2:1:1', dest: '1:150:8', arrival: (MIDI + 3600e3) / 1000 }]; });
+  assert.equal(att.reequilibreCartes(MIDI).length, 0);
+});
+
+t('flotte cible : un vol proposé indique les vaisseaux à faire suivre', () => {
+  const g = fc();
+  const r = g.flotteCible(MIDI);
+  const txt = g.flotteAjout(r, g.S.planets[0], g.S.planets[1]);
+  assert.ok(/Stationner vers .*Gaspesion/.test(txt) && /grands transporteurs/.test(txt), txt);
+  assert.equal(g.flotteAjout(r, g.S.planets[1], g.S.planets[1]), '');
+});
+
+t('flotte cible : une flotte en vol se compte là où elle se posera', () => {
+  const g = fc(s => { s.moves = [{ mission: 15, ret: true, origin: '1:150:8', dest: '1:150:16', arrival: (MIDI + 3600e3) / 1000, ships: { lc: 100 } }]; });
+  assert.equal(g.flotteCible(MIDI).par.gasp.actuel.lc, 125);
+});
+
+t('flotte cible : fonctions pures, écart et mouvements groupés par paire', () => {
+  const g = fc();
+  assert.deepEqual(g.fleetGap({ lc: 10, bs: 2 }, { lc: 4, bs: 5 }), { plus: { lc: 6 }, moins: { bs: 3 } });
+  const m = g.suggestMoves([{ id: 'a', plus: {}, moins: { lc: 5, bs: 3 } }, { id: 'b', plus: { lc: 4, bs: 1 }, moins: {} }]);
+  assert.deepEqual(m, [{ de: 'a', vers: 'b', ships: { lc: 4, bs: 1 } }]);
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

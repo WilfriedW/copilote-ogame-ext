@@ -108,7 +108,7 @@ function loadApp(state, nowMs, want, api, ext, prioAsk, rules) {
     __uiState: ui.etats || null, __uiSeen: ui.vus || null, ...win };
 
   // même ordre que boot.js
-  const src = ['ids.js', 'profils.js', 'meteo.js', 'app.js']
+  const src = ['ids.js', 'profils.js', 'meteo.js', 'flotte.js', 'app.js']
     .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
 
   // l'envoi aux autres postes est différé : sans ces bouchons, le test
