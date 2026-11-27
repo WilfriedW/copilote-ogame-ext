@@ -22,7 +22,7 @@ Quatre onglets :
 
 | Onglet | Ce qu'on y trouve |
 |---|---|
-| **Aujourd'hui** | La ou les actions à lancer maintenant, les alertes, la journée à venir heure par heure, les minuteurs |
+| **Aujourd'hui** | La ou les actions à lancer maintenant, les conseils (§ 2.11), la journée à venir heure par heure, les minuteurs |
 | **Empire** | Production par planète, niveaux de tous les bâtiments, niveaux visés — un par un ou posés sur toutes les planètes d'un coup —, recherches, le centre |
 | **Outils** | Cibles (inactifs à piller, positions libres, systèmes à explorer) · Colonie · Flotte (calculatrice) |
 | **Réglages** | Plan du jour, formes de vie, univers, bonus, page du jeu, sauvegarde |
@@ -276,6 +276,103 @@ Un fil rouge dans tout le code. Exemples :
   proposition de défense — ce serait doubler ce qui existe déjà.
 - Les satellites sont écartés sur une planète sans défense vue, avec
   l'explication (« un satellite part en débris au premier raid »).
+
+### 2.11 Les règles du moteur (2.9 à 2.11)
+
+Beaucoup d'erreurs coûteuses viennent d'oublis simples : une file vide, un
+labo à l'arrêt, un hangar plein, une mine que le hangar ne peut pas contenir.
+Le copilote les surveille par des **règles**, décrites dans `rules.json`, à côté
+de `profils.js` : leur niveau, leurs seuils, leurs textes, leur source. Changer
+un seuil ou un texte se fait dans ce fichier, sans toucher au code. Ajouter une
+règle aussi, tant qu'elle reprend un type de condition qui existe — un type
+neuf demande sa fonction d'évaluation.
+
+**Une règle ne se contente pas d'écrire une phrase à côté du plan.** C'est la
+décision qui compte, et la raison est § 2.2 : il n'y a qu'une file. Ce qu'une
+règle trouve sur une planète — un **constat** — n'a que quatre effets :
+
+| Effet | Ce que ça fait | Exemple |
+|---|---|---|
+| **pousser** | une construction que la simulation paie comme les autres | mine en retard sur l'équilibre métal-cristal, nanites en retard, Terraformeur |
+| **marquer** | donne son niveau à une carte que le plan sort déjà | « Critique » sur la carte d'une planète dont la file est vide |
+| **suspendre** | retire ce qui dépend d'une donnée manquante | une planète dont on ne connaît pas la race ne reçoit aucun conseil de forme de vie |
+| **signaler** | une ligne du bloc des conseils | seulement quand le plan n'a rien qui y réponde |
+
+Un constat auquel une carte de la connexion en cours répond **ne se répète pas**
+dans le bloc des conseils : la carte est sa réponse. Le hangar plein ne se dit
+donc plus deux fois.
+
+**Le niveau** — Critique, Important, Conseil — est le seul vocabulaire du
+panneau (fini « Urgent » et « Attention »). Il se lit sur la carte, il ne la
+déplace pas : l'ordre d'une connexion dit déjà « recherche avant les
+bâtiments » ou « formes de vie avant tout », et une file vide, critique sur
+presque chaque carte de bâtiment, renverserait ces deux réglages.
+
+**Le bloc des conseils**, en haut d'Aujourd'hui, remplace l'ancien bloc
+Alertes : trois lignes pour la planète ouverte dans le jeu, puis « Voir tout »,
+l'empire entier, filtrable par domaine, niveau, planète et « Données
+manquantes ». Chaque ligne dit son action, son coût et si elle est payable
+maintenant, sa raison et sa source.
+
+**« Ignorer »** masque une ligne jusqu'à ce que la situation change, ou pendant
+24 h. Ce n'est pas « Non » : « Non » met une carte du plan de côté pour
+toujours, « Ignorer » ne fait qu'oublier cette fois-ci. Ignorer ne change rien
+au plan — un constat ignoré pousse et suspend comme avant, il ne s'affiche
+simplement plus et ne compte plus sur l'icône.
+
+**Le badge de l'icône** compte les critiques. Le panneau les compte à chaque
+rendu et à chaque instantané du jeu ; le service worker compose le badge dans
+cet ordre : version instable (à venir), critiques, files finies, mise à jour (à
+venir). Les files finies restent parce qu'elles seules sont justes panneau
+fermé : un compte de critiques plus vieux que la dernière fin de file lui cède
+la place.
+
+**Un poids 0 du profil coupe la règle avant la simulation.** Une catégorie à 0
+ne pousse rien, donc la simulation ne paie rien pour elle : le copilote ne
+cache jamais une carte qu'il a payée.
+
+**Deux règles ne se coupent pas**, et Réglages le dit : la mine bloquée par le
+hangar (sans elle, le plan attendrait sans fin une mine trop grosse pour le
+hangar) et la centrale avant la prochaine mine (sans elle, une mine ferait
+passer l'énergie en négatif).
+
+Les vingt et une règles, par domaine :
+
+| Domaine | Règles |
+|---|---|
+| Ressources | stockage plein, bientôt plein, énergie négative, centrale avant la prochaine mine, mine bloquée par le hangar, équilibre métal-cristal |
+| Installations | file de construction vide, cases libres sous 10, nanites en retard, nanites plutôt que robots, labo en retard dans le Réseau |
+| Recherche | labo à l'arrêt, recherche financée depuis une autre planète, colonie disponible, Plasma pour un mineur, Hyperespace pour un explorateur |
+| Formes de vie | données manquantes, file de bâtiments vide, recherche à l'arrêt, population trop faible, la base avant les bâtiments avancés |
+
+**L'équilibre métal-cristal** vise un écart entre les deux mines : +2 pour un
+Mineur ou un Turtle, +1 pour les autres styles, ajusté par la position (−1 en 1
+à 3, où le cristal est bonifié ; +1 en 6 à 10, où c'est le métal). Un Mineur
+en position 8 vise +3. La cible vit dans `rules.json`, pas dans Réglages. La
+mine en retard entre dans le plan comme les robots : un candidat forcé, mais
+seulement s'il ne coûte pas plus de deux fois le meilleur pas du classement —
+sans cette borne, un conseil réécrirait l'amortissement.
+
+**La recherche financée ailleurs** part d'une autre planète quand le centre ne
+peut pas la payer, à condition que le labo de cette planète-là remplisse le
+prérequis (§ 2.7). La durée affichée reste celle du centre, faute de mieux, et
+la carte le dit.
+
+**Les formes de vie suivent la race de chaque planète.** Elle se lit dans
+l'ordre : posée à la main (Réglages › Formes de vie), sinon déduite de la série
+de ses cases — le chiffre des milliers est la race : 111xx et 112xx les
+Humains, 121xx/122xx les Rock'tal, 131xx/132xx les Mécas, 141xx/142xx les
+Kaelesh —, sinon du nom d'un bâtiment du tableau de production. Identifiants et
+nom qui se contredisent ne font pas une race. L'habitat et la nourriture sont
+les cases `01` et `02` de la série.
+
+Les noms sont ceux que le jeu affiche, mis en cache pour toutes les planètes
+dès qu'une page les montre ; à défaut, ceux de `rules.json`. Quand une race,
+un nom ou un niveau manque, la ligne « Données manquantes » dit lequel (« Noms
+des bâtiments Roctas inconnus (1) ») et **suspend** ce qui en dépend, pour ne
+pas conseiller à l'aveugle. Son bouton **Scanner** ouvre la page à relire — sur
+ton clic, comme toutes les cartes : le copilote ne navigue jamais seul. La page
+se lit à son chargement, et la ligne tombe d'elle-même.
 
 ---
 
@@ -619,6 +716,33 @@ dès qu'une espèce y habite, donc aucune ne sort quand il n'y en a pas encore.
 Tant qu'aucune case de bâtiment n'est lue sur une planète, la page des
 *recherches* n'est plus réclamée : cette file n'existe pas avant l'espèce.
 
+Sous les cases, **la race de chaque planète** qui en a une : la race lue, d'où
+elle vient (« déduite des identifiants », « lue dans le tableau de
+production », « posée à la main »), et une liste pour la corriger. La valeur
+posée à la main (`race` sur la planète, **sur ce poste**) l'emporte sur la
+lecture ; « Lire dans le jeu » rend la main à la lecture. **Rescanner** oublie
+les noms de forme de vie lus — utile après une mise à jour du jeu — et garde
+les races posées à la main.
+
+### 6.2 bis Réglages › Règles du moteur
+
+Une carte repliée, une ligne par règle, groupées par domaine (§ 2.11) : la case
+qui l'allume ou l'éteint, son niveau, ses seuils, la mention « à valider »
+quand ses valeurs restent à calibrer. N'est écrit dans `settings.regles` que ce
+qui s'écarte de `rules.json` — un fichier mis à jour change donc les seuils de
+qui ne les a pas touchés. Ces réglages **suivent sur ton autre poste**.
+
+| Seuil | Règle | Défaut |
+|---|---|---|
+| `seuil` | Stockage plein | 0,98 du hangar |
+| `heures` | Stockage bientôt plein | 8 h (ou la durée de montée du hangar si elle est plus longue) |
+| `facteurCout`, `tolerance` | Équilibre métal-cristal | 2 fois le meilleur pas ; 1 niveau |
+| `seuil` | Cases libres | 10 |
+| `ecart`, `facteurCout` | Nanites en retard | 2 niveaux sous le maximum de l'empire ; 5 fois le meilleur pas |
+| `ecart` | Labo en retard dans le Réseau | 3 niveaux sous le centre |
+| `niveauCible` | Plasma pour un mineur, Hyperespace pour un explorateur | 8 ; 5 |
+| `nourriture`, `habitat` | La base avant les bâtiments avancés | 21 ; 21 |
+
 ### 6.3 L'univers et la classe — **lus, jamais saisis**
 
 | Fait | Clé | Valeurs | Défaut | Effet |
@@ -831,6 +955,7 @@ cohabitent, et la carte le dit.
 | **17 niveaux visés** (champ « → ») | entier ≥ 1, ou vide pour retirer | **Priorité** : le plan épargne pour l'atteindre (§ 2.5) |
 | Satellites | entier ≥ 0 | Énergie |
 | Stock Métal / Cristal / Deutérium | entiers | Avance tout seul avec la production ; à recaler quand tu dépenses hors du plan |
+| Règles du moteur (cases) | cochées par défaut | Une règle décochée ne vaut plus pour cette planète — « pas de Terraformeur sur mon coffre-fort ». Sur ce poste seulement (`regOff`) |
 
 Dépôt de ravitaillement, Silo, Terraformeur et Dock ne produisent ni ne
 stockent : **le classement par amortissement ne les propose jamais de
@@ -955,6 +1080,9 @@ Armes, Bouclier, Protection des vaisseaux.
 |---|---|---|
 | **Non** sur une carte | Aujourd'hui | Met cette carte de côté indéfiniment (`daily.no`). Sur tout ce que le plan propose de lui-même : chantier, recherche, case de forme de vie, satellites, vaisseaux, défense, rapatriement, flotte. Le refus est posé **avant** le choix du plan, pas sur la carte dessinée : la planète reçoit donc le pas suivant au lieu d'un trou — c'est ce qui permet de monter son usine quand le classement, lui, veut un hangar. Rien sur les cartes Lune, ni sur un raid ou un vaisseau de colonisation, que tu as demandés toi-même dans Outils |
 | **Fait** sur une carte | Aujourd'hui | Marque la mission faite pour sa période (1 h à 24 h selon la mission) |
+| **Ignorer** sur un conseil | Aujourd'hui | Masque la ligne jusqu'à ce que la situation change, ou 24 h (`daily.ign`). Ne change rien au plan |
+| **Scanner** sur « Données manquantes » | Aujourd'hui | Ouvre la page Formes de vie à relire ; le copilote la lit à son chargement |
+| Filtres de « Voir tout » | Aujourd'hui | Mémorisés sur ce poste (`ui.cf`) |
 | Flotte partie dans le jeu | mouvements de flotte | Marque **Fait** la carte qui demandait ce mouvement (partie d'une de tes planètes, même destination, même mission ; Transporter et Stationner se valent, l'expédition est exclue) |
 | **Lancé** sur une action | Aujourd'hui | Crée un minuteur et débite le stock de la planète |
 | Clic droit sur une tuile | page du jeu | Pose ou retire une priorité. Attend sa planète jusqu'à 24 h si elle n'a pas encore été relevée |

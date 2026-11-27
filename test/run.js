@@ -13022,6 +13022,28 @@ t('une règle propre à une race ne s\'évalue que sur ses planètes', () => {
   assert.deepEqual(g.constats().filter(x => x.regle === 'H').map(x => x.pid), ['colo']);
 });
 
+/* ---------- les règles du moteur : tenue ---------- */
+
+t('constats() sur dix planètes de dix-huit cases chacune : moins de 50 ms', () => {
+  const g = app(s => {
+    const base = s.planets[0];
+    s.profil = { style: 'mineur', classe: '', activite: 'regulier', focus: [], set: true }; s.tech.irn = 3;
+    s.planets = Array.from({ length: 10 }, (_, i) => Object.assign(JSON.parse(JSON.stringify(base)),
+      { id: 'p' + i, gid: String(200 + i), coords: `1:${100 + i}:8`, stock: { m: 0, c: 0, d: 0, at: SOIR },
+        lf: Object.fromEntries(Array.from({ length: 12 }, (_, k) => [11101 + k, { lvl: 5, cost: [1000, 1000, 0], next: 6, secs: 60 }])
+          .concat(Array.from({ length: 6 }, (_, k) => [11201 + k, { lvl: 2 }]))) }));
+  });
+  g.constats();
+  // Date est figé par le harnais : la mesure passe par l'horloge du processus
+  const t0 = process.hrtime.bigint(); g.constats(); const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+  assert.ok(ms < 50, ms.toFixed(1) + ' ms');
+});
+
+t('la carte du jour ne dit plus « Hors plan : formes de vie »', () => {
+  const g = app(); g.REFRESH.today();
+  assert.ok(!/Hors plan/.test(g.el('tdDay').innerHTML));
+});
+
 if (failures.length) {
   for (const [name, e] of failures) console.error('ÉCHEC  ' + name + '\n       ' + e.message);
   console.error('\n' + failures.length + ' échec(s), ' + passed + ' réussite(s)');

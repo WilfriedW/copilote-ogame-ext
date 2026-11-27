@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.11.0';
+const APP_VERSION = '2.11.1';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -8162,7 +8162,7 @@ today(){
     : `<p class="note">Aucune action prévue sur la période : tes files sont occupées ou tes ressources trop faibles.</p>`)
     + `<div class="sumline" style="margin-top:14px"><span class="pill good">Production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} %</span><span class="note">en ${S.day.horizon} h, de ${fmt(plan.startV)} à ${fmt(plan.endV)} éq. métal/h</span></div>`
     + (plan.ups.length ? `<p class="note" style="margin-top:6px">${esc(plan.ups.join(' · '))}</p>` : '')
-    + `<p class="note" style="margin-top:6px">Connexions sans action masquées. Hors plan : formes de vie, flotte, défense. Avant une longue absence, dépense ou mets tes ressources à l'abri.</p>`;
+    + `<p class="note" style="margin-top:6px">Connexions sans action masquées. Avant une longue absence, dépense ou mets tes ressources à l'abri.</p>`;
   renderTimers();
   document.getElementById('tdDaySum').textContent = night ? 'mode nuit'
     : `${later.length} connexion${later.length>1?'s':''} à venir · production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${S.day.horizon} h`;
