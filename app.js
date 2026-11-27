@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.12.1';
+const APP_VERSION = '2.13.0';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -3622,6 +3622,13 @@ function dayValue(k, v, prev){
   /* Vide veut dire « je n'ai pas d'heure de retour » : le plan retombe alors
      sur la longueur de la nuit. Zéro est une heure, pas une absence. */
   if(k === 'backHour'){ const x = parseInt(v); return Number.isFinite(x) && x >= 0 && x <= 23 ? x : null; }
+  /* Le réveil, à la minute : « 07:30 » d'un champ horaire, ou un nombre
+     d'heures. Rien d'autre ne passe — l'ancienne valeur reste. */
+  if(k === 'nightEnd'){
+    const m = String(v).trim().match(/^(\d{1,2}):(\d{2})$/);
+    const x = m ? +m[1] + +m[2] / 60 : String(v).trim() === '' ? NaN : Number(v);
+    return Number.isFinite(x) && x >= 0 && x < 24 && (!m || +m[2] < 60) ? Math.round(x * 60) / 60 : prev;
+  }
   const t = {focus:FOCUS, lf:LF_MODE, research:RESEARCH_MODE}[k];
   return t ? (t[v] ? v : prev) : Math.max(0, parseInt(v) || 0);
 }
@@ -3742,6 +3749,18 @@ function timeExport(ms){
     serverOffsetMinutes: off == null ? null : Math.round((off/60 + loc.getTimezoneOffset()) / 15) * 15
   };
 }
+/* La fin de nuit — l'heure de réveil — se règle à la minute. Elle reste un
+   nombre d'heures, décimal (7,5 pour 7 h 30) : une sauvegarde ou une synchro
+   d'avant, qui porte 7, se lit telle quelle. Arrondie à la minute partout où
+   elle devient un instant. */
+/** [heures, minutes] d'une heure décimale. */
+function heureMin(h){ const m = Math.round((+h || 0) * 60); return [Math.floor(m / 60) % 24, m % 60]; }
+/** Pose l'heure décimale `h` sur la date `d`, secondes à zéro. */
+function poseHeure(d, h){ const [H, M] = heureMin(h); d.setHours(H, M, 0, 0); return d; }
+/** « 07:30 » : la valeur d'un champ `type=time`. */
+function hhmmDe(h){ const [H, M] = heureMin(h); return `${p2(H)}:${p2(M)}`; }
+/** « 7h », « 7h30 » : l'heure dans une phrase. */
+function heureTxt(h){ const [H, M] = heureMin(h); return M ? `${H}h${p2(M)}` : `${H}h`; }
 function isNight(ms){ const d=new Date(ms), h=d.getHours()+d.getMinutes()/60, a=+S.day.nightStart, b=+S.day.nightEnd; if(a===b) return false; return a>b ? (h>=a || h<b) : (h>=a && h<b); }
 /** Connection times over the planning horizon, skipping the night window. */
 function sessionTimes(now){
@@ -3749,7 +3768,10 @@ function sessionTimes(now){
   let t=now;
   while(out.length<80){
     t+=step;
-    if(isNight(t)){ const d=new Date(t); d.setMinutes(0,0,0); let g=0; while(isNight(d.getTime()) && g<30){ d.setHours(d.getHours()+1); g++; } t=d.getTime(); }
+    /* En pleine nuit, la connexion suivante est le réveil lui-même, à la
+       minute : avancer d'heure en heure faisait d'un réveil à 7 h 30 une
+       première connexion à 8 h. */
+    if(isNight(t)){ const d = poseHeure(new Date(t), +S.day.nightEnd); if(d.getTime() <= t) d.setDate(d.getDate()+1); t = d.getTime(); }
     if(t>end) break;
     out.push(t);
   }
@@ -4998,12 +5020,12 @@ function wakeTime(now){
      nuit qui finissait dans six. Le mode nuit restant allumé toute la nuit,
      c'est le cas ordinaire dès que le panneau se redessine après le coucher. */
   if(isNight(now)){
-    const e = new Date(now); e.setHours(b, 0, 0, 0);
+    const e = poseHeure(new Date(now), b);
     if(e.getTime() <= now) e.setDate(e.getDate()+1);
     return e.getTime();
   }
   const s = new Date(now); s.setHours(a,0,0,0); if(s.getTime() <= now) s.setDate(s.getDate()+1);
-  const e = new Date(s); e.setHours(b,0,0,0); if(e.getTime() <= s.getTime()) e.setDate(e.getDate()+1);
+  const e = poseHeure(new Date(s), b); if(e.getTime() <= s.getTime()) e.setDate(e.getDate()+1);
   return e.getTime();
 }
 
@@ -5223,7 +5245,7 @@ function secuCard(){
     <div class="chips">${S.planets.map(p=>`<label class="chip"><input type="checkbox" data-secu-vault="${esc(p.id)}" ${c.vaults.includes(p.id)?'checked':''}> ${esc(p.name)} <span class="note">${esc(p.coords||'')}</span></label>`).join('')}</div>
     <div class="grid" style="margin-top:8px">
       <label class="f">Heure du rappel<input type="time" data-secu="rappel" value="${esc(c.rappel)}"></label>
-      <label class="f">Réveil = fin de nuit (heure)<input type="number" min="0" max="23" data-day="nightEnd" value="${+S.day.nightEnd}"><span class="note">La même que « Nuit : à » du plan du jour.</span></label>
+      <label class="f">Réveil = fin de nuit (heure)<input type="time" data-day="nightEnd" value="${hhmmDe(S.day.nightEnd)}"><span class="note">La même que « Nuit : à » du plan du jour.</span></label>
     </div>
     <div class="chips" style="margin-top:8px">${[1,2,3,4,5,6,0].map(j=>`<label class="chip"><input type="checkbox" data-secu-jour="${j}" ${c.jours.includes(j)?'checked':''}> ${J[j]}</label>`).join('')}</div>
     <div class="bascules">${bascule('sStat','data-secu="stationner"','Préférer Stationner', c.stationner, 'Les transports suggérés partent en Stationner au lieu de Transport : la flotte reste au coffre-fort au lieu de revenir.')}</div>
@@ -5242,9 +5264,8 @@ function secu(){
     jours: Array.isArray(s.jours) ? s.jours.filter(j => Number.isInteger(j) && j >= 0 && j <= 6) : d.jours,
     /* Le réveil n'a qu'une source : la fin de nuit du plan du jour. Deux
        champs pour la même heure finissent par se contredire — le plan de la
-       nuit visait 7 h pendant que le mode nuit visait 6 h. Heure pleine, comme
-       elle : `nightEnd` ne porte pas de minutes. */
-    reveil: `${p2(Math.max(0, Math.min(23, Math.round(+S.day.nightEnd) || 0)))}:00`,
+       nuit visait 7 h pendant que le mode nuit visait 6 h. À la minute près. */
+    reveil: hhmmDe(S.day.nightEnd),
     stationner: !!s.stationner
   };
 }
@@ -8142,7 +8163,7 @@ today(){
       <div id="expoBloc"></div>
     </details>`,
     journee: `<details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
-      <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${d.nightStart}h–${d.nightEnd}h <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
+      <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${d.nightStart}h–${heureTxt(d.nightEnd)} <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
       <div id="tdDay"></div>
     </details>`,
     minuteurs: `<details class="card"${fold('minuteurs', false)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
@@ -8454,7 +8475,7 @@ settings(){
         <label class="f">Je me connecte toutes les<select id="dInt" data-day="interval">${[30,60,90,120,180].map(v=>`<option value="${v}" ${+d.interval===v?'selected':''}>${v} min</option>`).join('')}</select></label>
         <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
         <label class="f">Nuit : de (heure)<input id="dNs" type="number" min="0" max="23" data-day="nightStart" value="${d.nightStart}"></label>
-        <label class="f">à (heure) — réveil<input id="dNe" type="number" min="0" max="23" data-day="nightEnd" value="${d.nightEnd}"></label>
+        <label class="f">à (heure) — réveil<input id="dNe" type="time" data-day="nightEnd" value="${hhmmDe(d.nightEnd)}"></label>
         <label class="f">Mise à l'abri (nuit, absence)<select id="dNight" data-day="night"><option value="0" ${d.night?'':'selected'}>non</option><option value="1" ${d.night?'selected':''}>oui</option></select></label>
         <label class="f">Retour vers (heure)<input id="dBack" type="number" min="0" max="23" data-day="backHour" value="${d.backHour==null?'':d.backHour}" placeholder="dans ${nightLen()} h"></label>
       </div>
@@ -8727,7 +8748,7 @@ settings(){
   const n = plan.sessions.slice(1).filter(x=>actsVus(x).length).length;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
   // Deux heures égales ne font pas une nuit de zéro heure : elles n'en font aucune.
-  const nuit = +d.nightStart === +d.nightEnd ? 'aucune nuit' : `nuit ${d.nightStart}h–${d.nightEnd}h`;
+  const nuit = +d.nightStart === +d.nightEnd ? 'aucune nuit' : `nuit ${d.nightStart}h–${heureTxt(d.nightEnd)}`;
   el.textContent = `${FOCUS[d.focus]||''} · toutes les ${d.interval} min · ${nuit} · `
     + `${n} connexion${n>1?'s':''} avec quelque chose à lancer · `
     + `production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${d.horizon} h`;
@@ -9398,7 +9419,7 @@ function sainEtat(){
   S.day.interval   = nb(S.day.interval,   def.day.interval,   1, 24*60);
   S.day.horizon    = nb(S.day.horizon,    def.day.horizon,    1, 24*30);
   S.day.nightStart = nb(S.day.nightStart, def.day.nightStart, 0, 23);
-  S.day.nightEnd   = nb(S.day.nightEnd,   def.day.nightEnd,   0, 23);
+  S.day.nightEnd   = Math.round(nb(S.day.nightEnd, def.day.nightEnd, 0, 24 - 1/60) * 60) / 60;
   if(!(S.day.focus in FOCUS)) S.day.focus = def.day.focus;
   S.day.night = !!S.day.night;
   S.day.focusSet = !!S.day.focusSet;
