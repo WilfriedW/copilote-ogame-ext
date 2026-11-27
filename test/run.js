@@ -3750,8 +3750,11 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
      `ids.js` par un `importScripts`. On relit donc chaque fichier emporté et on
      prend tout nom de fichier local qu'il cite — un nom qu'on lit dans du code
      qui part est un fichier qui doit partir avec lui. */
+  /* Un nom donné à un téléchargement (`filename:'save.json'`, `a.download=…`)
+     est un fichier que l'extension ÉCRIT chez le joueur, pas un fichier qu'elle
+     charge : il ne part pas dans le zip. */
   const cites = liste.filter(f => /\.(js|html|css)$/.test(f))
-    .flatMap(f => [...lu(f).matchAll(/['"]([\w-]+\.(?:js|css|html|png|woff2|json))['"]/g)].map(x => x[1]));
+    .flatMap(f => [...lu(f).matchAll(/(?<!(?:filename\s*:|download\s*=)\s*)['"]([\w-]+\.(?:js|css|html|png|woff2|json))['"]/g)].map(x => x[1]));
   const voulus = new Set(['manifest.json', m.background.service_worker,
     ...m.content_scripts.flatMap(c => c.js),
     ...Object.values(m.icons),
@@ -8635,9 +8638,13 @@ t('un changement d\'une autre clé ne touche pas aux priorités', () => {
 t('boot.js transmet prioAsk à app.js, clé sans préfixe ls:', () => {
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'boot.js'), 'utf8');
   const win = {}, ask = [D()];
-  const chrome = {storage: {local: {get(k, cb) { cb({'ls:x': '1', prioAsk: ask, game: null}); }, set() { return Promise.resolve(); }}}};
+  /* Le chrome que boot.js voit dans le panneau : il lit aussi rules.json par
+     l'URL de l'extension, et le mode des heures dans le stockage synchronisé. */
+  const chrome = {storage: {local: {get(k, cb) { cb({'ls:x': '1', prioAsk: ask, game: null}); }, set() { return Promise.resolve(); }},
+    sync: {get(k, cb) { cb({}); }}}, runtime: {getURL: f => 'chrome-extension://test/' + f}};
   const document = {createElement: () => ({}), body: {appendChild() {}}};
-  new Function('window', 'chrome', 'document', src)(win, chrome, document);
+  const fetch = () => Promise.resolve({ok: true, json: () => Promise.resolve({version: 1, regles: []})});
+  new Function('window', 'chrome', 'document', 'fetch', src)(win, chrome, document, fetch);
   assert.deepEqual(win.__prioAsk, ask);
   assert.equal(win.__mem.x, '1');
 });
