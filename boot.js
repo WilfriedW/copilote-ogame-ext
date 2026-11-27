@@ -39,7 +39,7 @@ chrome.storage.local.get(null, d => {
   const heures = new Promise(ok => {
     /* Et la disposition des cartes (empilées ou en onglets), pour la même
        raison : lue après, le panneau s'ouvrirait empilé puis sauterait. */
-    try { chrome.storage.sync.get(['timeMode', 'cardLayout'], v => { window.__timeMode = (v && v.timeMode) || null; window.__cardLayout = (v && v.cardLayout) || null; ok(); }); }
+    try { chrome.storage.sync.get(['timeMode', 'cardLayout', 'masque'], v => { window.__timeMode = (v && v.timeMode) || null; window.__cardLayout = (v && v.cardLayout) || null; window.__masque = (v && v.masque) || null; ok(); }); }
     catch (e) { ok(); }
   });
   Promise.all([regles, heures]).then(go, go);

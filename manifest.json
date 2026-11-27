@@ -24,6 +24,19 @@
       "matches": [
         "https://*.ogame.gameforge.com/game/index.php*"
       ],
+      "css": [
+        "masque.css"
+      ],
+      "js": [
+        "masque-conf.js",
+        "masque.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://*.ogame.gameforge.com/game/index.php*"
+      ],
       "js": [
         "ids.js",
         "content.js"
