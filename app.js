@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.7.8';
+const APP_VERSION = '2.7.9';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -6545,6 +6545,15 @@ function styleRepose(avant, apres){
   if(S.settings.defModele === (vieux ? vieux.defense : def.settings.defModele))
     S.settings.defModele = neuf.defense;
 }
+/* Le réglage « Ce que le plan vise » est posé par le style, mais le joueur peut
+   en changer : tant qu'il ne l'a pas fait, le dire sur place vaut mieux qu'un
+   paragraphe qui renvoie à une autre carte. C'est la même annotation que pour
+   le modèle de défense, et la même règle que `styleRepose` applique. */
+/** @returns {boolean} vrai si le plan en place est encore celui du style. */
+function planPoseParLeStyle(){
+  const st = PROFILS.styles[S.profil.style];
+  return !!(S.profil.set && st && S.day.focus === st.plan);
+}
 /** La classe que le style conseille, vide tant qu'aucun style n'est choisi. */
 function classeSuggeree(){ const s = PROFILS.styles[S.profil.style]; return s ? s.classe : ''; }
 /** La classe que le profil vise : celle demandée, ou celle que le style conseille. */
@@ -6978,17 +6987,14 @@ settings(){
   const s=S.settings, d=S.day;
   const ecart = classeEcart();
   return `<section class="panel">
-    <div class="card"><h2>Profil</h2>
+    <div class="card"><h2>Profil et plan du jour</h2>
       <p class="note">${S.profil.set ? `Ton profil : <b>${esc(profilLigne())}</b>.` : 'Pas encore renseigné : l\'assistant t\'attend en tête d\'Aujourd\'hui.'}</p>
       ${S.profil.set ? `<div class="chips" style="margin-top:8px">${profilFocusHtml()}</div>
-      <p class="note" style="margin-top:8px">Les focus ponctuels remontent leurs cartes sans remplacer ton style.</p>` : ''}
+      <p class="note" style="margin-top:8px">Les focus ponctuels remontent leurs cartes sans remplacer ton style. Les poids de chaque catégorie sont dans <code>profils.js</code>.</p>` : ''}
       ${ecart ? `<p class="note">${esc(ecart)}</p>` : ''}
-      <div class="row"><button class="btn sm ghost" data-refaire="1">Refaire le questionnaire</button></div>
-      <p class="note">Ton style décide de l'ordre des cartes, et pose ce que le plan vise, ci-dessous, ainsi que le modèle de défense — jusqu'à ce que tu les changes toi-même ici. Les poids de chaque catégorie sont dans <code>profils.js</code>.</p>
-    </div>
-    <div class="card"><h2>Plan du jour</h2>
+      <div class="row" style="margin-bottom:12px"><button class="btn sm ghost" data-refaire="1">Refaire le questionnaire</button></div>
       <div class="grid">
-        <label class="f">Ce que le plan vise<select id="dFocus" data-day="focus">${Object.entries(FOCUS).map(([k,l])=>`<option value="${k}" ${d.focus===k?'selected':''}>${l}</option>`).join('')}</select></label>
+        <label class="f">Ce que le plan vise<select id="dFocus" data-day="focus">${Object.entries(FOCUS).map(([k,l])=>`<option value="${k}" ${d.focus===k?'selected':''}>${l}</option>`).join('')}</select>${planPoseParLeStyle() ? `<span class="note">Posé par ton style (${esc(PROFILS.styles[S.profil.style].n)}).</span>` : ''}</label>
         <label class="f">Place de la recherche<select id="dRes" data-day="research">${Object.entries(RESEARCH_MODE).map(([k,l])=>`<option value="${k}" ${researchMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
         <label class="f">Place des formes de vie<select id="dLf" data-day="lf">${Object.entries(LF_MODE).map(([k,l])=>`<option value="${k}" ${lfMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
         <label class="f">Je me connecte toutes les<select id="dInt" data-day="interval">${[30,60,90,120,180].map(v=>`<option value="${v}" ${+d.interval===v?'selected':''}>${v} min</option>`).join('')}</select></label>
