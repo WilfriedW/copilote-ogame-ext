@@ -427,3 +427,11 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 :root[data-skin=arcade] .big-alert .box .btn{background:#2a1300;color:#ffd166}
 :root[data-skin=arcade] label.f.bascule input:checked{background:linear-gradient(135deg,#ff5fa2,#8b5cf6);border-color:transparent}
 :root[data-skin=arcade] label.f.bascule input:checked::after{background:#fff}
+
+/* Sécurité : l'attaque en tête, le tableau des transports suggérés. */
+.secu-crit{border:1px solid var(--bad, #e0102b);}
+.secu-crit h3{font-size:12px;margin:10px 0 4px;text-transform:uppercase;letter-spacing:.04em;opacity:.8;}
+.secu-on > summary{color:var(--warn, #ff8c1a);}
+.fs-tab{width:100%;border-collapse:collapse;margin:8px 0 4px;font-size:11px;}
+.fs-tab th,.fs-tab td{text-align:left;vertical-align:top;padding:3px 4px;border-bottom:1px solid rgba(127,127,127,.25);white-space:normal;}
+.fs-tab th{font-size:10px;}

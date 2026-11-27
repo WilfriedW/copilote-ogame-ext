@@ -308,6 +308,8 @@ function runPage({ skin, planetId = '33657643', costs = [], stock = [0, 0, 0], d
     '.OGameClock': () => horloge,
     '[data-arrival-time]': () => arrivees.map(c => c.parent),
     '#slots, .fleetStatus': () => null,
+    '#eventContent': () => null,
+    '#attack_alert': () => null,
     '#planetList .smallplanet': () => [],
     // le lien du jeu vers le paramétrage de la production, quand la page en porte un
     'a[href*="esourcesettings" i]': () => (prodHref ? Object.assign(el('a'), { href: prodHref }) : null)

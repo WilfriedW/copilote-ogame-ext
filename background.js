@@ -86,6 +86,44 @@ function dedupe(list) {
   return kept;
 }
 
+/** Ce qui distingue deux mouvements : deux convois peuvent arriver à la même seconde. */
+const cleMouvement = m => [m.mission, m.arrival, !!m.ret, m.origin || '', m.dest || '', m.camp || 'own'].join('|');
+
+/**
+ * Les mouvements de flotte après une lecture de page.
+ *
+ * Trois sources ne disent pas la même chose. L'encart des événements montre
+ * tout ce qui vole, miens et hostiles : ce qu'il ne montre plus est arrivé ou
+ * rappelé, il remplace donc tout. La page Mouvements ne montre que mes
+ * flottes : elle remplace les miennes et garde les autres. Toute autre page
+ * n'ajoute que ce qu'elle voit — une flotte n'y disparaît qu'à son arrivée.
+ * Le témoin d'attaque du jeu, lui, se lit partout : éteint, aucune flotte
+ * hostile ne vole vers moi, et une attaque rappelée cesse d'alerter.
+ *
+ * Une flotte arrivée n'est pas oubliée tout de suite : sa cargaison est sur la
+ * planète, mais le stock lu avant son arrivée ne la porte pas. Elle passe dans
+ * `arrived` douze heures, pour que le panneau la crédite tant qu'aucune page
+ * n'a relu ce stock.
+ */
+function fusionneMouvements(game, s, now) {
+  const vivant = m => m && m.arrival * 1000 > now;
+  const avant = game.moves || [];
+  const arrives = (game.arrived || []).filter(m => now - m.arrival * 1000 < 12 * 3600e3);
+  for (const m of avant) if (!vivant(m) && m.cargo && !m.hostile && !arrives.some(x => cleMouvement(x) === cleMouvement(m))) arrives.push(m);
+  game.arrived = arrives.slice(-100);
+  const lus = (s.moves || []).filter(vivant);
+  let base;
+  if (s.eventList) base = [];
+  else if (s.movePage) base = avant.filter(m => vivant(m) && m.camp && m.camp !== 'own');
+  else base = avant.filter(vivant);
+  const par = new Map(base.map(m => [cleMouvement(m), m]));
+  // la lecture neuve l'emporte : elle peut porter le détail que l'ancienne n'avait pas
+  for (const m of lus) par.set(cleMouvement(m), m);
+  let out = [...par.values()];
+  if (s.alerteJeu === false) out = out.filter(m => !m.hostile);
+  return out.slice(0, 300);
+}
+
 /**
  * Merges a page snapshot into the stored game state and schedules alarms.
  * @param {object} s snapshot from content.js
@@ -147,9 +185,7 @@ async function merge(s) {
   for (const [id, lvl] of Object.entries(s.levels)) if (OG_TECH[id]) game.tech[OG_TECH[id]] = lvl;
 
   const now = Date.now();
-  const keepMoves = (game.moves || []).filter(m => m.arrival * 1000 > now);
-  if (s.movePage) game.moves = s.moves || [];
-  else { for (const m of s.moves || []) if (!keepMoves.some(x => x.mission === m.mission && x.arrival === m.arrival && x.ret === m.ret)) keepMoves.push(m); game.moves = keepMoves; }
+  game.moves = fusionneMouvements(game, s, now);
   if (s.slots) game.slots = { ...s.slots, at: s.at };
   if (s.artefacts != null) game.artefacts = s.artefacts;
   if (s.prodPanel && s.planetId) game.prod = { ...(game.prod || {}), [s.planetId]: { text: s.prodPanel, at: s.at } };
@@ -276,8 +312,9 @@ chrome.runtime.onMessage.addListener(msg => {
 });
 
 chrome.storage.onChanged.addListener(async (ch, area) => {
-  if (area !== 'local' || !ch.pendingAlerts || (ch.pendingAlerts.newValue || []).length) return;
-  chrome.action.setBadgeText({ text: '' });
+  if (area !== 'local') return;
+  if (BADGE_CLES.some(k => ch[k])) badge().catch(e => console.error('Copilote : badge', e));
+  if (!ch.pendingAlerts || (ch.pendingAlerts.newValue || []).length) return;
   chrome.notifications.getAll(all => Object.keys(all || {}).forEach(id => chrome.notifications.clear(id)));
 });
 
@@ -395,6 +432,59 @@ async function showAlertWindow(text) {
   if (pendingAlerts.includes(text)) return;
   pendingAlerts.push(text);
   await chrome.storage.local.set({ pendingAlerts });
-  chrome.action.setBadgeBackgroundColor({ color: '#ff4d6d' });
-  chrome.action.setBadgeText({ text: String(pendingAlerts.length) });
+  await badge();
 }
+
+/* ---------- le badge de l'icône ---------- */
+/* Un seul badge pour tout ce qui veut l'icône, et un seul endroit qui le
+   compose : chaque source qui l'écrivait elle-même effaçait celle d'à côté.
+   Priorité : attaque entrante > version instable > alertes critiques > files
+   terminées > rappel de mise à l'abri > mise à jour disponible. */
+const BADGE_CLES = ['game', 'pendingAlerts', 'critiques', 'versionInstable', 'fsRappelOn', 'majVer'];
+/** Une flotte hostile qui vient frapper l'une de mes planètes, et pas encore arrivée. */
+const estAttaque = (m, now) => m && m.hostile && !m.ret && [1, 2, 9].includes(+m.mission) && m.arrival * 1000 > now;
+/** Vrai si `b` est une version plus récente que `a`, nombre par nombre. */
+function versionPlusRecente(a, b) {
+  const n = v => String(v || '').split('.').map(x => parseInt(x, 10) || 0), x = n(a), y = n(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((y[i] || 0) !== (x[i] || 0)) return (y[i] || 0) > (x[i] || 0);
+  return false;
+}
+/**
+ * Ce que le badge doit montrer, à partir de ce que le stockage porte.
+ * Pur, pour pouvoir le vérifier sans navigateur.
+ * @returns {{text:string, color:string, quoi:string}}
+ */
+function badgeEtat(d, now, version) {
+  const game = d.game || {};
+  if ((game.moves || []).some(m => estAttaque(m, now))) return { text: '!', color: '#e0102b', quoi: 'attaque' };
+  if (d.versionInstable) return { text: 'v!', color: '#ff8c1a', quoi: 'instable' };
+  const crit = d.critiques && +d.critiques.n;
+  if (crit > 0) return { text: String(Math.min(crit, 99)), color: '#ff4d6d', quoi: 'critiques' };
+  const fin = (d.pendingAlerts || []).length;
+  if (fin > 0) return { text: String(Math.min(fin, 99)), color: '#ff4d6d', quoi: 'terminé' };
+  if (d.fsRappelOn && now - (+d.fsRappelOn.at || 0) < 24 * 3600e3) return { text: 'FS', color: '#3d7eff', quoi: 'rappel' };
+  if (d.majVer && versionPlusRecente(version, d.majVer)) return { text: '↑', color: '#2e9e5b', quoi: 'maj' };
+  return { text: '', color: '#ff4d6d', quoi: '' };
+}
+async function badge() {
+  const d = await chrome.storage.local.get(BADGE_CLES);
+  const e = badgeEtat(d, Date.now(), chrome.runtime.getManifest().version);
+  chrome.action.setBadgeBackgroundColor({ color: e.color });
+  chrome.action.setBadgeText({ text: e.text });
+}
+
+/* ---------- le rappel de mise à l'abri ---------- */
+/* Le panneau pose l'alarme et recopie ici ce dont elle a besoin
+   (`fsRappelCfg` : les jours actifs) : le service worker ne lit pas les
+   réglages du panneau. Pas de notification système : un badge, qui reste
+   jusqu'à ce que le joueur ouvre le plan — le panneau efface `fsRappelOn`. */
+chrome.alarms.create('badge', { periodInMinutes: 1 });
+chrome.alarms.onAlarm.addListener(async alarm => {
+  if (alarm.name === 'badge') { badge().catch(() => {}); return; }
+  if (alarm.name !== 'fsRappel') return;
+  const { fsRappelCfg } = await chrome.storage.local.get('fsRappelCfg');
+  const jours = fsRappelCfg && Array.isArray(fsRappelCfg.jours) ? fsRappelCfg.jours : [0, 1, 2, 3, 4, 5, 6];
+  if (!jours.includes(new Date().getDay())) return;
+  await chrome.storage.local.set({ fsRappelOn: { at: Date.now() } });
+});
+badge().catch(() => {});
