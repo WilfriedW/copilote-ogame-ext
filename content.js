@@ -381,15 +381,15 @@
      enlève ce qui parasite la lecture et on laisse la page du jeu telle
      qu'elle est. C'est ce qui se répare tout seul quand Gameforge bouge
      quelque chose — on ne lit ici que quatre identifiants. */
-  const LEAN = `html.copilote-lean #mmonetbar,
-html.copilote-lean #siteHeader,
+  /* La barre Gameforge et la bannière ne sont plus d'ici : elles ont chacune
+     leur interrupteur, « Bandeau supérieur » et « Publicité », que masque.js
+     pose à document_start pour qu'elles ne clignotent pas. */
+  const LEAN = `html.copilote-lean #siteHeader,
 html.copilote-lean #siteFooter{display:none}
 /* Le fond du jeu est une photo posée sur le corps de la page : elle se voit
    entre les panneaux et derrière le texte des listes. On garde l'aplat.
    La peau repose le sien par-dessus — même règle, plus bas dans la feuille. */
 html.copilote-lean body{background-image:none !important;background-color:var(--cp-fond) !important}
-/* La bannière du jeu : 160 px sur 600 au flanc de la page. */
-html.copilote-lean #bannerskyscrapercomponent{display:none}
 /* Le menu grossit d'un septième. Un zoom, et non une taille de police : le
    jeu dessine ses entrées sur des images de fond à hauteur fixe, et le texte
    seul, grossi, débordait de son bouton. Sous la peau, c'est le rail qui
@@ -848,7 +848,7 @@ background-image:none !important}
    et remonte la colonne du menu d'autant. Notre barre est plus haute que la
    sienne : les deux décalages se mordaient. On les remet à plat, et on ne
    garde la place du bandeau que s'il est encore là. */
-html.copilote-peau:not(.copilote-lean) #top{padding-top:32px}
+html.copilote-peau:not(.cp-hide-bandeau) #top{padding-top:32px}
 html.copilote-peau .copilote-col-menu{top:0 !important}
 /* Remettre dans le flux ce que le jeu pose en absolu — et le suivre dans la
    bande : une pièce déménagée n'est plus enfant direct de la rangée, et la

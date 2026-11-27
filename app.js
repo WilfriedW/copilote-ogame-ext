@@ -2687,6 +2687,20 @@ function header(){
     + (avert ? ' — ' + avert.charAt(0).toLowerCase() + avert.slice(1) : '');
   tzl.textContent = timeMode === 'local' ? 'Heures : locale' : (inconnu ? 'Heures : serveur ?' : 'Heures : serveur');
   tzl.title = avert || (LOCAL_TZ ? 'Fuseau local : ' + LOCAL_TZ : '');
+  /* Le masquage de la page du jeu : un bouton, et sous lui les trois cases. */
+  const mb = document.getElementById('masqueBtn'), mm = document.getElementById('masqueMenu');
+  if(mb && mm){
+    const n = MASQUE_CLES.filter(k=>masque[k]).length;
+    mb.textContent = n ? '🙈' : '👁';
+    mb.title = mb.ariaLabel = n ? `Page du jeu : ${n} élément${n>1?'s':''} masqué${n>1?'s':''}` : 'Masquer la pub, le bandeau ou le chat de la page du jeu';
+    mb.classList.toggle('primary', !!n);
+    mb.classList.toggle('ghost', !n);
+    // redessiné sous le doigt du joueur : la case qu'il vient de cocher garde le focus
+    const f = document.activeElement && mm.contains(document.activeElement) ? document.activeElement.id || 'tout' : null;
+    mm.innerHTML = `<div class="bascules">${masqueCases('hMq')}</div>`
+      + `<button class="btn sm" type="button" id="hMqtout" data-masque-tout>${toutMasque() ? 'Tout afficher' : 'Tout masquer'}</button>`;
+    if(f){ const el = document.getElementById(f === 'tout' ? 'hMqtout' : f); if(el) el.focus(); }
+  }
   /* La disposition des cartes : allumé = en onglets. */
   const cb = document.getElementById('cartesBtn');
   if(cb){
@@ -3709,6 +3723,53 @@ function setTimeMode(m){
   timeMode = m; timeSeen.clear();
   try{ if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){ const r = chrome.storage.sync.set({timeMode: m}); if(r && r.catch) r.catch(syncFailed); } }catch(e){ syncFailed(e); }
   render();
+}
+/* ---------- masquer des morceaux de la page du jeu ----------
+   Trois interrupteurs indépendants — Publicité, Bandeau supérieur, Barre de
+   chat — rangés dans chrome.storage.sync sous `masque`. C'est masque.js, dans
+   la page, qui les applique : il écoute la même clé, donc un changement ici
+   se voit dans chaque onglet ouvert, sans recharger. Le panneau n'en garde
+   qu'un miroir pour se dessiner. */
+const MASQUE_CLES = ['pub', 'bandeau', 'chat'];
+const MASQUE_NOMS = {pub: 'Publicité', bandeau: 'Bandeau supérieur', chat: 'Barre de chat'};
+const MASQUE_NOTES = {
+  pub: 'Bannières publicitaires et encarts promotionnels.',
+  bandeau: 'La barre Gameforge en haut de page : compte, lobby, liens externes.',
+  chat: 'La barre de chat et ses fenêtres repliées. Un nouveau message fait sortir une pastille dans le coin ; un clic dessus rouvre le chat jusqu\'à la page suivante.'
+};
+/** Les trois choix ramenés à des booléens : ce qui manque vaut « visible ». */
+function masqueNorme(m){ const o = {}; for(const k of MASQUE_CLES) o[k] = !!(m && m[k]); return o; }
+/* `var` : header() peut s'exécuter avant que cette ligne soit atteinte. */
+var masque = masqueNorme(typeof window !== 'undefined' ? window.__masque : null);
+/** Vrai quand les trois sont masqués : le raccourci dit alors « Tout afficher ». */
+function toutMasque(){ return MASQUE_CLES.every(k=>masque[k]); }
+/** Ce que fait « Tout masquer » : tout cacher, ou tout rendre si tout l'est déjà. */
+function masqueBascule(m){ const tout = MASQUE_CLES.every(k=>m[k]); return masqueNorme({pub:!tout, bandeau:!tout, chat:!tout}); }
+/** Pose un nouveau choix, le retient, et redessine ce qui le montre. */
+function setMasque(m, retenir){
+  m = masqueNorme(m);
+  if(MASQUE_CLES.every(k=>m[k] === masque[k])) return;
+  masque = m;
+  if(retenir !== false){
+    try{ if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){ const r = chrome.storage.sync.set({masque: m}); if(r && r.catch) r.catch(syncFailed); } }catch(e){ syncFailed(e); }
+  }
+  header();
+  // la carte des Réglages porte les mêmes cases : elle ne doit pas mentir
+  if(tab === 'settings') view.querySelectorAll('[data-masque]').forEach(el=>{ el.checked = !!masque[el.dataset.masque]; });
+  const tb = view.querySelector('[data-masque-tout]');
+  if(tb) tb.textContent = toutMasque() ? 'Tout afficher' : 'Tout masquer';
+}
+/** Les trois cases et le raccourci, tels que l'en-tête et les Réglages les montrent. */
+function masqueCases(prefixe){
+  return MASQUE_CLES.map(k=>bascule(prefixe + k, `data-masque="${k}"`, MASQUE_NOMS[k], masque[k], prefixe === 'sMq' ? MASQUE_NOTES[k] : '')).join('');
+}
+/* La première fois : le joueur qui avait coché « Épurer » gardait sa page sans
+   pub ni bandeau. On lui écrit le même choix, découpé en interrupteurs. */
+function masqueMigre(d){
+  if(!d || d.masque !== undefined) return;
+  const lean = !!(S.settings && S.settings.lean);
+  if(!lean) return;
+  setMasque({pub: true, bandeau: true, chat: false});
 }
 /* L'infobulle se pose après coup, sur ce qui est déjà dans la page : les heures
    vivent dans des phrases que esc() traverse, un balisage glissé par
@@ -8537,10 +8598,15 @@ settings(){
     ${affichageCard()}
     <div class="card"><h2>Page du jeu</h2>
       <div class="bascules">
-        ${bascule('sLean','data-set="lean"','Épurer la page du jeu', s.lean, 'Barre Gameforge, en-tête, pied de page et pub en moins ; fond sombre, menu plus grand.')}
+        ${bascule('sLean','data-set="lean"','Épurer la page du jeu', s.lean, 'En-tête et pied de page en moins ; fond sombre, menu plus grand.')}
         ${bascule('sNoShop','data-set="noshop"','Masquer les menus payants', s.noshop, 'Marchand, Mess des officiers, boutiques.')}
       </div>
       <p class="note">Allure seulement : la page du jeu, pas ce panneau, ni les calculs.</p>
+    </div>
+    <div class="card"><h2>Masquer dans la page du jeu</h2>
+      <div class="bascules">${masqueCases('sMq')}</div>
+      <div class="row"><button class="btn" type="button" data-masque-tout>${toutMasque() ? 'Tout afficher' : 'Tout masquer'}</button></div>
+      <p class="note">Masqué, pas supprimé : les éléments restent dans la page et le jeu marche comme avant. La barre de ressources, les planètes, le menu et les alertes du jeu ne se masquent jamais. Le choix vaut pour tous les onglets ouverts et se retrouve au prochain lancement ; le même est dans l'en-tête, sous 👁.</p>
     </div>
     <div class="card"><h2>Sauvegarde</h2>
       <p class="note">Tes données restent dans ce navigateur. « Enregistrer » écrit un fichier <code>save.json</code> : mets-le dans le dossier du dépôt et pousse-le, puis « Charger » le relit sur l'autre poste.</p>
@@ -9111,6 +9177,10 @@ function bind(){
     if(k==='skin') header();
     if(k==='lean' || k==='noshop' || k==='large' || k==='peau' || k==='clair' || k==='skin') pushLook();
   }));
+  view.querySelectorAll('[data-masque]').forEach(el=>el.addEventListener('change',()=>{
+    setMasque(Object.assign({}, masque, {[el.dataset.masque]: el.checked}));
+  }));
+  view.querySelectorAll('[data-masque-tout]').forEach(el=>el.addEventListener('click',()=>setMasque(masqueBascule(masque))));
   view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.checked; changed(); }));
   view.querySelectorAll('[data-mc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.mc; S.moonCalc[k] = (k==='pid'||k==='ship') ? el.value : Math.max(0, parseInt(el.value, 10)||0); changed(); }));
   /* `impact` vit à la racine de S.lune, le reste dans `rendu`. */
@@ -9475,6 +9545,24 @@ document.getElementById('nightBtn').addEventListener('click',()=>{
     : `Absence jusqu'à ${S.day.backHour} h`);
 });
 document.getElementById('tzBtn').addEventListener('click',()=>setTimeMode(timeMode === 'local' ? 'server' : 'local'));
+/* Le menu du masquage : ouvert d'un clic, refermé d'un clic ailleurs ou d'Échap.
+   Ses cases changent tout de suite — pas de bouton « appliquer ». */
+(function(){
+  const mb = document.getElementById('masqueBtn'), mm = document.getElementById('masqueMenu');
+  if(!mb || !mm) return;
+  const ouvre = o => { mm.hidden = !o; mb.setAttribute('aria-expanded', String(o)); };
+  mb.addEventListener('click', e=>{ e.stopPropagation(); ouvre(mm.hidden); });
+  mm.addEventListener('click', e=>{
+    e.stopPropagation();
+    if(e.target.closest('[data-masque-tout]')) setMasque(masqueBascule(masque));
+  });
+  mm.addEventListener('change', e=>{
+    const k = e.target.dataset && e.target.dataset.masque;
+    if(k) setMasque(Object.assign({}, masque, {[k]: e.target.checked}));
+  });
+  document.addEventListener('click', ()=>ouvre(false));
+  document.addEventListener('keydown', e=>{ if(e.key === 'Escape' && !mm.hidden){ ouvre(false); mb.focus(); } });
+})();
 { const cb = document.getElementById('cartesBtn'); if(cb) cb.addEventListener('click',()=>setCardMode(cardMode === 'tabs' ? 'stacked' : 'tabs')); }
 document.getElementById('luneBtn').addEventListener('click',()=>{ S.lune.on = !S.lune.on; luneTouche(); save(); render(); });
 view.addEventListener('click', e=>{
@@ -9845,11 +9933,13 @@ function syncApply(d){
   publieLePlan();
 }
 if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){
-  chrome.storage.sync.get(null, syncApply);
+  chrome.storage.sync.get(null, d=>{ syncApply(d); masqueMigre(d); });
   chrome.storage.onChanged.addListener((ch, area)=>{
     if(area !== 'sync') return;
     // le mode des heures choisi dans un autre panneau ouvert
     if(ch.timeMode) setTimeMode(ch.timeMode.newValue);
+    // le masquage changé ailleurs : on suit, sans réécrire ce qu'on reçoit
+    if(ch.masque) setMasque(ch.masque.newValue, false);
     // et la disposition des cartes
     if(ch.cardLayout) setCardMode(ch.cardLayout.newValue, true);
     const d = {}; for(const k in ch) d[k] = ch[k].newValue;
