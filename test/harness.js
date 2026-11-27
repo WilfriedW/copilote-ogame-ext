@@ -46,6 +46,8 @@ function loadApp(state, nowMs, want, api, ext, prioAsk, rules) {
   if (rules === undefined) rules = JSON.parse(fs.readFileSync(path.join(ROOT, 'rules.json'), 'utf8'));
   // l'onglet où le panneau se trouve à l'ouverture : il le relit dans le stockage de page
   const tab = state.__tab; delete state.__tab;
+  // ce que boot.js pose sur window avant app.js (disposition des cartes, onglet choisi)
+  const win = state.__win || {}; delete state.__win;
   const store = { 'ogame-copilot-v1': JSON.stringify(state) };
   if (tab) store['ogame-copilot-v1-tab'] = tab;
   const LS = {
@@ -100,7 +102,7 @@ function loadApp(state, nowMs, want, api, ext, prioAsk, rules) {
 
   // IS_EXT se lit sur window.chrome.runtime.id : seuls les tests qui veulent
   // le mode extension le demandent, les autres restent en mode page.
-  const window = { addEventListener() {}, chrome: ext ? chrome : undefined, __api: api || null, __game: null, __prioAsk: prioAsk || null, __rules: rules };
+  const window = { addEventListener() {}, chrome: ext ? chrome : undefined, __api: api || null, __game: null, __prioAsk: prioAsk || null, __rules: rules, ...win };
 
   // même ordre que boot.js
   const src = ['ids.js', 'profils.js', 'app.js']
