@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.8.1';
+const APP_VERSION = '2.9.1';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -180,6 +180,9 @@ function sample(){
          en clair plutôt que par référence : sample() tourne au chargement,
          bien avant la table DEF_MODELES. */
       defModele:'framework', defPalier:20, defPerso:{rl:40, ll:25, hl:10, ic:0, gc:4, pt:1},
+      /* Combien de cartes chaque liste montre d'office : une valeur pour
+         toutes, et celles que le joueur a posées liste par liste. */
+      cartesMax:3, cartesListe:{},
       /* Le framework d'expédition. `expoFret` est le nombre de ressources
          ramenées par point de flotte, à calibrer sur les retours réels ;
          `expoRes` les grands transporteurs qu'une expédition ne touche pas,
@@ -2037,6 +2040,103 @@ function uiVu(key){
 function uiReset(){ UI.etats = {}; UI.vus = {}; uiEcrit(); }
 /** L'attribut `open` d'un <details>, lu dans le store. */
 function fold(name, def, force){ return uiOuvert(name, def, force) ? ' open' : ''; }
+/* ---------- combien de cartes par liste ---------- */
+/* Une liste qui s'allonge repousse tout le reste sous le pli : le joueur
+   choisit combien de cartes chacune montre d'office, une valeur pour toutes et,
+   s'il veut, une valeur propre à l'une d'elles. La limite ne touche que
+   l'affichage : les cartes masquées sont calculées comme les autres, leurs
+   alertes et leurs compteurs aussi — on ne coupe que le HTML.
+   Les urgences ne se comptent pas : une carte « Urgent » cachée derrière un
+   « Voir plus », c'est exactement ce que la limite ne doit jamais faire.
+   Les valeurs vivent dans S.settings, donc dans la synchro entre postes ;
+   l'état « Voir plus » dans le store d'affichage (UI), comme les volets
+   repliés, propre au poste. */
+const CARTES_CHOIX = [1, 3, 5, 10, 'all'];
+const CARTES_DEF = 3;
+/* Les listes du panneau, dans l'ordre où Aujourd'hui les montre. L'id est la
+   clé de stockage : il ne change pas quand le libellé change. */
+const LISTES = [
+  ['maintenant', 'Maintenant'],
+  ['alertes', 'Alertes'],
+  ['expeditions', 'Expéditions'],
+  ['attente', 'En attente de ressources'],
+  ['encours', 'Déjà en cours'],
+];
+/** Une valeur de limite valide, ou null : elle vient d'un menu, mais aussi
+    d'une sauvegarde ou de l'autre poste. */
+function cartesVal(v){
+  if(v === 'all') return 'all';
+  const n = typeof v === 'number' || (typeof v === 'string' && v.trim() !== '') ? +v : NaN;
+  return CARTES_CHOIX.includes(n) ? n : null;
+}
+function cartesGlobal(){ return cartesVal((S.settings||{}).cartesMax) || CARTES_DEF; }
+function cartesPropre(id){ return cartesVal(((S.settings||{}).cartesListe||{})[id]); }
+/** La limite d'une liste : sa valeur propre l'emporte sur la valeur globale. */
+function cartesMax(id){ return cartesPropre(id) || cartesGlobal(); }
+function cartesLabel(v){ return v === 'all' ? 'Toutes' : String(v); }
+/* Les clés inconnues restent : une version plus récente, sur l'autre poste,
+   peut connaître une liste que celle-ci ignore, et la lui effacer au retour
+   de la synchro serait perdre son réglage. */
+function cartesSain(){
+  if(!S.settings || typeof S.settings !== 'object') return;
+  S.settings.cartesMax = cartesVal(S.settings.cartesMax) || CARTES_DEF;
+  const l = S.settings.cartesListe;
+  S.settings.cartesListe = l && typeof l === 'object' && !Array.isArray(l)
+    ? Object.fromEntries(Object.entries(l).filter(([k, v]) => /^[\w-]{1,40}$/.test(k) && cartesVal(v)).map(([k, v]) => [k, cartesVal(v)]))
+    : {};
+}
+/**
+ * Coupe une liste à sa limite. Chaque carte est `{crit, ...}`, dans l'ordre de
+ * priorité existant. Les critiques passent d'abord, toutes, hors limite ; puis
+ * les autres, dans leur ordre, jusqu'à la limite.
+ */
+function applyLimit(cartes, limite){
+  const crit = cartes.filter(c => c.crit), autres = cartes.filter(c => !c.crit);
+  const n = limite === 'all' ? autres.length : Math.max(0, +limite || 0);
+  return {visibles: crit.concat(autres.slice(0, n)), masquees: autres.slice(n)};
+}
+const voirPlusCle = id => id + '.voirPlus';
+function voirPlusOuvert(id){ return uiOuvert(voirPlusCle(id), false); }
+/** Le menu « Afficher : N » d'en-tête de liste. */
+function cartesMenu(id){
+  const v = cartesMax(id), propre = cartesPropre(id) != null;
+  return `<label class="cartes-menu note" title="${propre ? 'Valeur propre à cette liste (Réglages › Affichage)' : 'Valeur globale (Réglages › Affichage)'}">Afficher :
+    <select data-cartes="${esc(id)}" aria-label="Nombre de cartes affichées">${CARTES_CHOIX.map(c => `<option value="${c}"${c === v ? ' selected' : ''}>${cartesLabel(c)}</option>`).join('')}</select></label>`;
+}
+/**
+ * Le HTML d'une liste limitée : les cartes visibles, le reste dans une seconde
+ * liste repliée sur place, et le lien qui la déplie. `cartes` porte `{html,
+ * crit}`. Toutes les cartes sont écrites : déplier ne recalcule rien.
+ */
+function listeCartes(id, cartes, cls){
+  const {visibles, masquees} = applyLimit(cartes, cartesMax(id));
+  const ouvert = voirPlusOuvert(id), n = masquees.length;
+  const ul = (l, extra) => `<ul class="${cls}"${extra || ''}>${l.map(c => c.html).join('')}</ul>`;
+  if(!n) return ul(visibles);
+  return ul(visibles)
+    + ul(masquees, ` data-masquees="${esc(id)}" style="margin-top:6px"${ouvert ? '' : ' hidden'}`)
+    + `<button class="btn sm ghost voir-plus" data-voirplus="${esc(id)}" data-n="${n}" aria-expanded="${ouvert}">${ouvert ? 'Voir moins' : `Voir ${n} de plus`}</button>`;
+}
+/** Réglages › Affichage : la valeur globale, puis chaque liste. */
+function affichageCard(){
+  const g = cartesGlobal();
+  const opts = (v, avecGlobal) => (avecGlobal ? [`<option value=""${v == null ? ' selected' : ''}>Valeur globale (${cartesLabel(g)})</option>`] : [])
+    .concat(CARTES_CHOIX.map(c => `<option value="${c}"${c === v ? ' selected' : ''}>${cartesLabel(c)}</option>`)).join('');
+  const propres = LISTES.filter(([id]) => cartesPropre(id) != null).length;
+  return `<div class="card"><h2>Affichage</h2>
+      <div class="grid">
+        <label class="f">Nombre de cartes par liste<select id="sCartes" data-cartesg="1">${opts(g, false)}</select><span class="note">Les cartes urgentes s'affichent toujours, en plus. Le reste se déplie avec « Voir plus ».</span></label>
+      </div>
+      <table class="cartes-table"><thead><tr><th>Liste</th><th>Afficher</th></tr></thead><tbody>
+        ${LISTES.map(([id, n]) => `<tr><td>${esc(n)}</td><td><select id="sCartes-${id}" data-cartesl="${id}" aria-label="${esc(n)}">${opts(cartesPropre(id), true)}</select></td></tr>`).join('')}
+      </tbody></table>
+      <div class="row" style="margin-top:8px"><button class="btn sm ghost" data-cartesreset="1"${propres ? '' : ' disabled'}>Réinitialiser</button><span class="note">${propres ? `${propres} liste${propres > 1 ? 's ont leur' : ' a sa'} propre valeur.` : 'Toutes les listes suivent la valeur globale.'} Le menu « Afficher » en tête de chaque liste règle la même valeur.</span></div>
+    </div>`;
+}
+/* Au démarrage, ici et non avec les autres gardes plus haut : les tables
+   ci-dessus sont des `const`, et les lire avant leur ligne lèverait. */
+cartesSain();
+
 try{ tab = LS.getItem(KEY+'-tab') || 'today'; }catch(e){}
 if(!['today','empire','tools','settings'].includes(tab)) tab='today';
 
@@ -5332,7 +5432,9 @@ function expoHtml(){
       ${alts ? `<div class="m">Sinon ${alts}</div>` : ''}
     </li>`;
   };
-  if(props.length) parts.push(`<ul class="acts">${props.map(ligne).join('')}</ul>`);
+  /* Une expédition n'est jamais une urgence : elle se range à la limite comme
+     un conseil. */
+  if(props.length) parts.push(cartesMenu('expeditions') + listeCartes('expeditions', props.map(x=>({html: ligne(x), crit: false})), 'acts'));
   /* La durée, le fret et la réserve se règlent ailleurs : le dire ici évite
      de chercher, et rappelle que ces chiffres sont des réglages, pas des lois
      du jeu. */
@@ -7321,7 +7423,7 @@ today(){
   const d=S.day;
   return `<section class="panel">
     ${profilCard()}${profilBloc()}
-    <div class="card"><h2>Maintenant</h2><div id="tdNow"></div></div>
+    <div class="card"><div class="row spread liste-tete"><h2>Maintenant <span class="note" id="tdNowN"></span></h2>${cartesMenu('maintenant')}</div><div id="tdNow"></div></div>
     <div id="tdAlerts"></div>
     <details class="card"${fold('expeditions', false)}><summary data-fold="expeditions">Expéditions <span class="note" id="expoSum"></span></summary>
       <div id="expoBloc"></div>
@@ -7690,6 +7792,7 @@ settings(){
       <div class="row"><button class="btn ghost" id="uiReset">Réinitialiser l'affichage des cartes</button></div>
       <p class="note">Les cartes et les sections que tu as ouvertes ou fermées le restent, sur ce poste, d'une page et d'une session à l'autre. Ce bouton les remet comme au premier jour : alertes ouvertes, le reste fermé.</p>
     </div>
+    ${affichageCard()}
     <div class="card"><h2>Page du jeu</h2>
       <div class="bascules">
         ${bascule('sLean','data-set="lean"','Épurer la page du jeu', s.lean, 'Barre Gameforge, en-tête, pied de page et pub en moins ; fond sombre, menu plus grand.')}
@@ -7795,13 +7898,19 @@ today(){
      elles passent aussi devant les chantiers. Trier la liste des missions ne
      suffisait pas : l'ordre de la page se décide ici, pas dans dailyMissions. */
   const lun = nowMs.filter(m=>m.id === 'lune-sors'), reste = nowMs.filter(m=>m.id !== 'lune-sors');
-  const avant = luneUrgent() ? lun.map(taskHtml).join('') : '';
-  const apres = (luneUrgent() ? reste : lun.concat(reste)).map(taskHtml).join('');
-  if(a0.length || nowMs.length) nowParts.push(`<ul class="acts">${avant}${a0.map(a=>actHtml(a,true)).join('')}${apres}</ul>`);
+  /* Une carte « Urgent » passe la limite, et le tir de lune dans l'heure qui
+     précède l'impact aussi : c'est celle qui vaut des millions. */
+  const tache = m => ({html: taskHtml(m), crit: m.sev === 'bad' || (m.id === 'lune-sors' && luneUrgent())});
+  const avant = luneUrgent() ? lun.map(tache) : [];
+  const apres = (luneUrgent() ? reste : lun.concat(reste)).map(tache);
+  const cartesNow = avant.concat(a0.map(a=>({html: actHtml(a,true), crit: false})), apres);
+  /* Le compteur dit tout ce que la liste porte, cartes masquées comprises. */
+  const nN = document.getElementById('tdNowN'); if(nN) nN.textContent = cartesNow.length ? `(${cartesNow.length})` : '';
+  if(cartesNow.length) nowParts.push(listeCartes('maintenant', cartesNow, 'acts'));
   const RN = ['métal','cristal','deutérium'];
   const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
-  if(s0.waits.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${s0.waits.length})</summary><ul class="acts" style="margin-top:6px">${s0.waits.map(w=>`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+formatTime(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`).join('')}</ul></details>`);
-  if(plan.busy.length || infoMs.length) nowParts.push(`<details${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${plan.busy.length + infoMs.length})</summary><ul class="acts" style="margin-top:6px">${plan.busy.map(b=>`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${formatTime(b.end)}</span></li>`).join('')}${infoMs.map(m=>`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`).join('')}</ul></details>`);
+  if(s0.waits.length) nowParts.push(`<details${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${s0.waits.length})</summary>${cartesMenu('attente')}${listeCartes('attente', s0.waits.map(w=>({crit:false, html:`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill warn">${isFinite(w.eta)?'ressources réunies vers '+formatTime(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`})), 'acts')}</details>`);
+  if(plan.busy.length || infoMs.length) nowParts.push(`<details${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${plan.busy.length + infoMs.length})</summary>${cartesMenu('encours')}${listeCartes('encours', plan.busy.map(b=>({crit:false, html:`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${formatTime(b.end)}</span></li>`})).concat(infoMs.map(m=>({crit:false, html:`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`}))), 'acts')}</details>`);
   const nextS = plan.sessions.slice(1).find(x=>actsVus(x).length);
   if(!a0.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${formatTime(nextS.T)}</b>.`:''}</p>`);
   const aide = `<details${fold('aide', false)}><summary class="note" data-fold="aide">Comment lire ces cartes</summary><p class="note" style="margin-top:6px"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. <b>Non</b> met la carte de côté jusqu'à ce que tu la remettes. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p></details>`;
@@ -7815,9 +7924,10 @@ today(){
   const alerts = plan.alerts;
   /* Ouverte par défaut, et ouverte de force tant qu'une alerte critique y
      figure — sans toucher au choix du joueur : l'alerte passée, la carte
-     revient à l'état où il l'avait laissée. */
+     revient à l'état où il l'avait laissée. Le menu « Afficher » vit dans le
+     corps : un <select> dans le résumé replierait la carte à chaque clic. */
   const critique = alerts.some(a=>a.sev === 'bad');
-  document.getElementById('tdAlerts').innerHTML = alerts.length ? `<details class="card"${fold('alertes', true, critique)}><summary data-fold="alertes">Alertes <span class="note">${alerts.length}${critique ? ' · critique' : ''}</span></summary><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('')}</ul></details>` : '';
+  document.getElementById('tdAlerts').innerHTML = alerts.length ? `<details class="card"${fold('alertes', true, critique)}><summary data-fold="alertes">Alertes <span class="note">(${alerts.length})${critique ? ' · critique' : ''}</span></summary>${cartesMenu('alertes')}${listeCartes('alertes', alerts.map(a=>({crit: a.sev === 'bad', html:`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`})), 'advice')}</details>` : '';
   const later = plan.sessions.slice(1).filter(x=>actsVus(x).length || slotMs.has(x));
   const slot = x=>`<div class="slot"><div class="time">${formatTime(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${actsVus(x).map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
@@ -8290,6 +8400,43 @@ function bind(){
 }
 // Un clic sur la carte ouvre la page du jeu. Les boutons gardent leur rôle :
 // « Lancé » et « Fait » ne doivent jamais faire changer de page par surprise.
+/* Les menus de limite sont délégués : ceux d'Aujourd'hui vivent dans des
+   blocs que le rafraîchissement réécrit, sans repasser par bind(). Le choix
+   s'applique tout de suite : le rafraîchissement relit la limite, rien à
+   recharger. Changer l'en-tête crée une valeur propre à la liste, comme le
+   tableau de Réglages — c'est la même clé, donc les deux restent d'accord. */
+view.addEventListener('change', e=>{
+  const el = e.target;
+  if(!el || !el.dataset) return;
+  if(el.dataset.cartes != null || el.dataset.cartesl != null){
+    const id = el.dataset.cartes != null ? el.dataset.cartes : el.dataset.cartesl, v = cartesVal(el.value);
+    const l = S.settings.cartesListe = S.settings.cartesListe || {};
+    if(v == null) delete l[id]; else l[id] = v;
+    save(); tab === 'settings' ? render() : refresh();
+  } else if(el.dataset.cartesg != null){
+    S.settings.cartesMax = cartesVal(el.value) || CARTES_DEF;
+    save(); render();
+  }
+});
+/* « Voir plus » déplie sur place : les cartes masquées sont déjà écrites, on
+   ne fait que lever le `hidden`. L'état est noté comme celui d'un volet, donc
+   le prochain rafraîchissement, et le prochain démarrage, le retrouvent. */
+view.addEventListener('click', e=>{
+  const vp = e.target.closest('[data-voirplus]');
+  if(vp){
+    const id = vp.dataset.voirplus, ouvert = !voirPlusOuvert(id);
+    uiNote(voirPlusCle(id), ouvert);
+    const box = vp.parentElement && [...vp.parentElement.querySelectorAll('[data-masquees]')].find(x => x.dataset.masquees === id);
+    if(box) box.hidden = !ouvert;
+    vp.textContent = ouvert ? 'Voir moins' : `Voir ${vp.dataset.n} de plus`;
+    vp.setAttribute('aria-expanded', String(ouvert));
+    return;
+  }
+  if(e.target.closest('[data-cartesreset]')){
+    S.settings.cartesListe = {};
+    save(); render(); toast('Toutes les listes suivent la valeur globale');
+  }
+});
 view.addEventListener('click', e=>{
   // « Comment faire » se lit sans partir : seul le corps de la carte navigue.
   if(e.target.closest('button, a, summary, input, select, .how')) return;
@@ -8485,6 +8632,7 @@ function sainEtat(){
   }
 
   expoSain();
+  cartesSain();
 
   if(!S.day || typeof S.day !== 'object') S.day = def.day;
   S.day.interval   = nb(S.day.interval,   def.day.interval,   1, 24*60);

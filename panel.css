@@ -427,3 +427,14 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 :root[data-skin=arcade] .big-alert .box .btn{background:#2a1300;color:#ffd166}
 :root[data-skin=arcade] label.f.bascule input:checked{background:linear-gradient(135deg,#ff5fa2,#8b5cf6);border-color:transparent}
 :root[data-skin=arcade] label.f.bascule input:checked::after{background:#fff}
+/* Le menu « Afficher : N » d'une liste, et son « Voir plus » */
+.liste-tete{gap:8px}
+.liste-tete h2{margin:0}
+.cartes-menu{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:6px 0;white-space:nowrap}
+.cartes-menu select{width:auto;max-width:96px;flex:0 0 auto;padding:2px 6px;font-size:12px}
+.voir-plus{margin-top:6px;align-self:flex-start}
+.cartes-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+.cartes-table th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:4px 0}
+.cartes-table td{padding:4px 0;border-top:1px solid var(--line)}
+.cartes-table td:last-child{text-align:right}
+.cartes-table select{width:auto}

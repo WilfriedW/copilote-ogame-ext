@@ -63,6 +63,20 @@ La carte Alertes s'ouvre seule tant qu'une alerte critique y figure, puis
 revient à l'état choisi. **Réglages › Allure du panneau › Réinitialiser
 l'affichage des cartes** remet tout comme au premier jour.
 
+## Combien de cartes par liste
+
+Chaque liste d'Aujourd'hui — **Maintenant**, **Alertes**, **Expéditions**,
+**En attente de ressources**, **Déjà en cours** — montre d'office 3 cartes. Le
+menu **Afficher** en tête de liste change ce nombre pour cette liste seule
+(1, 3, 5, 10 ou Toutes) ; **Réglages › Affichage** change la valeur de toutes
+les listes et montre celles qui ont la leur. **Réinitialiser** les remet toutes
+sur la valeur commune.
+
+Les cartes **urgentes** s'affichent toujours, en plus de la limite. Le reste se
+déplie sur place avec **Voir N de plus**, et le panneau s'en souvient d'un
+démarrage à l'autre. Le compteur en tête de liste compte toutes les cartes,
+masquées comprises : la limite ne coupe que l'affichage, jamais les calculs.
+
 ## Mettre à jour
 
 **Réglages › Version** dit en quelle version tourne le panneau, si le dépôt en
