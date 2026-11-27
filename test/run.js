@@ -8595,7 +8595,7 @@ t('le champ du volet Empire republie le plan après avoir posé', () => {
 t('la minuterie de 30 s republie le plan aussi sur Empire', () => {
   /* setInterval est neutralisé dans le harnais : on épingle la source. */
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
-  assert.match(src, /REFRESH\[tab\]\(\);\s*publieLePlan\(\);\s*finDeNuit\(\);\s*nightBar\(\);\s*\}, 30000\)/);
+  assert.match(src, /REFRESH\[tab\]\(\);\s*(?:cartesSync\(\);\s*\}\s*)?publieLePlan\(\);\s*finDeNuit\(\);\s*nightBar\(\);\s*\}, 30000\)/);
 });
 
 t('le changement que provoque l\'effacement lui-même ne rejoue rien', () => {
@@ -12613,6 +12613,121 @@ t('météo : l\'Empire n\'affiche que la planète filtrée', () => {
   const h = g.VIEWS.planets();
   assert.ok(/data-pi="0"[^>]* hidden/.test(h), 'la planète mère se cache');
   assert.ok(!/data-pi="1"[^>]* hidden/.test(h), 'la colonie reste');
+});
+
+/* ---------- disposition des cartes : empilées ou en onglets ---------- */
+
+const CARTES_W = ['VIEWS', 'CARTES', 'RESUMES', 'REFRESH', 'resumeDe', 'niveauDe', 'critCle', 'segTabs', 'cardLayout', 'cartesPresentes', 'setCardMode', 'header', 'render'];
+/** Le panneau avec ce que boot.js aurait lu : `mode` vaut 'tabs', 'stacked' ou rien. */
+function appCartes(mode, modifier) {
+  const s = fixtureState();
+  s.planets.forEach(p => { p.stock.at = SOIR; });
+  if (modifier) modifier(s);
+  if (mode) s.__win = { __cardLayout: mode };
+  return loadApp(s, SOIR, CARTES_W.concat(['cardMode', 'cardTabs']));
+}
+const ordreCartes = h => [...h.matchAll(/data-carte="([^"]+)"/g)].map(m => m[1]);
+
+t('cartes : le mode empilé reste le défaut, sans barre ni masquage', () => {
+  const g = appCartes();
+  const h = g.VIEWS.today();
+  assert.ok(!/en-onglets|carteTabs/.test(h), 'rien du mode onglets');
+  assert.ok(!/<div class="carte"[^>]* hidden/.test(h), 'aucune carte masquée');
+  assert.deepEqual(ordreCartes(h), ['profil', 'maintenant', 'alertes', 'expeditions', 'journee', 'minuteurs']);
+  for (const id of ['tdNow', 'tdAlerts', 'expoBloc', 'tdDay', 'tmList']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là');
+});
+t('cartes : un mode inconnu retombe sur l\'empilé', () => {
+  assert.ok(!/en-onglets/.test(appCartes('grille').VIEWS.today()));
+});
+t('cartes : en onglets, une barre .seg en tête, les cartes dans le même ordre', () => {
+  const h = appCartes('tabs').VIEWS.today();
+  assert.ok(/<section class="panel en-onglets" data-disposition="today"><div class="seg" role="tablist" id="carteTabs"/.test(h));
+  assert.deepEqual(ordreCartes(h), ['profil', 'maintenant', 'alertes', 'expeditions', 'journee', 'minuteurs']);
+});
+t('cartes : une carte ne sait pas dans quel mode elle est montrée', () => {
+  const pile = appCartes().VIEWS.today();
+  const ong = appCartes('tabs').VIEWS.today()
+    .replace(' en-onglets', '').replace('<div class="seg" role="tablist" id="carteTabs" aria-label="Sections"></div>', '');
+  assert.equal(ong, pile, 'seul le conteneur change');
+});
+t('cartes : le compteur prend le niveau le plus grave', () => {
+  const g = appCartes();
+  assert.deepEqual(g.resumeDe([{sev: 'info'}, {sev: 'warn'}, {sev: 'good'}], 'x'), {count: 3, maxLevel: 'imp', critiques: []});
+  const r = g.resumeDe([{sev: 'warn'}, {sev: 'bad', key: 'Plus un emplacement libre sur Erablis (12/12)'}], 'alertes');
+  assert.equal(r.maxLevel, 'crit');
+  assert.deepEqual(r.critiques, ['alertes:Plus un emplacement libre sur Erablis ( / )']);
+  assert.deepEqual(g.resumeDe([], 'x'), {count: 0, maxLevel: null, critiques: []});
+  assert.equal(g.niveauDe('good'), 'info', 'un « Prêt » reste un conseil');
+});
+t('cartes : une alerte dont seuls les montants bougent reste la même', () => {
+  const g = appCartes();
+  assert.equal(g.critCle('Hangar plein sur Mère : 1 200 000 métal'), g.critCle('Hangar plein sur Mère : 1 350 500 métal'));
+  assert.notEqual(g.critCle('Hangar plein sur Mère'), g.critCle('Hangar plein sur Colonie'));
+});
+t('cartes : compteurs colorés, rien quand l\'onglet est vide', () => {
+  const g = appCartes();
+  const h = g.segTabs([['securite', 'Sécurité', {count: 2, maxLevel: 'crit'}], ['defense', 'Défense', {count: 0, maxLevel: null}], ['conseils', 'Conseils', {count: 3, maxLevel: 'info'}], ['x', 'X', null]], 'data-carte-tab', 'defense');
+  assert.ok(/data-carte-tab="securite" aria-selected="false">Sécurité <span class="cpt crit"[^>]*>\(2\)<\/span>/.test(h));
+  assert.ok(/data-carte-tab="defense" aria-selected="true">Défense<\/button>/.test(h), 'pas de compteur à zéro');
+  assert.ok(/class="cpt info"[^>]*>\(3\)/.test(h), 'gris pour des conseils seuls');
+  assert.ok(/data-carte-tab="x" aria-selected="false">X<\/button>/.test(h));
+});
+t('cartes : Outils garde la même barre, construite par le même composant', () => {
+  const g = appCartes();
+  const h = g.VIEWS.tools();
+  assert.ok(/<div class="seg" role="tablist"><button role="tab" data-tool="explore" aria-selected="false">Cibles<\/button>/.test(h));
+  assert.ok(/data-tool="colony" aria-selected="true">Colonie</.test(h));
+});
+t('cartes : une carte dynamique vide n\'a pas d\'onglet, une fixe toujours', () => {
+  const g = appCartes();
+  g.RESUMES.alertes = g.resumeDe([], 'alertes');
+  g.RESUMES.maintenant = g.resumeDe([], 'maintenant');
+  let ids = g.cartesPresentes('today').map(x => x.c.cardId);
+  assert.ok(!ids.includes('alertes'), 'pas d\'alerte, pas d\'onglet');
+  assert.deepEqual(ids, ['profil', 'maintenant', 'expeditions', 'journee', 'minuteurs']);
+  g.RESUMES.alertes = g.resumeDe([{sev: 'warn'}], 'alertes');
+  ids = g.cartesPresentes('today').map(x => x.c.cardId);
+  assert.equal(ids[2], 'alertes', 'à sa place dans l\'ordre de la pile');
+});
+t('cartes : le rafraîchissement dit ce que contient chaque carte', () => {
+  // toutes les cases prises : l'alerte la plus grave que le moteur sache dire
+  const g = appCartes(null, s => { s.planets[0].cases = {max: 163, pris: 163}; });
+  g.render();
+  const r = g.RESUMES;
+  assert.ok(r.maintenant && r.alertes && r.expeditions, 'les trois cartes calculées ont leur résumé');
+  assert.equal(r.alertes.maxLevel, 'crit', JSON.stringify(r.alertes));
+  assert.ok(r.alertes.critiques.length && r.alertes.critiques.every(k => k.startsWith('alertes:') && !/\d/.test(k)), 'clé sans chiffres');
+});
+t('cartes : l\'interrupteur se retient dans le stockage partagé et redessine', () => {
+  const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; });
+  const g = loadApp(s, SOIR, ['setCardMode', 'VIEWS', 'cardMode']);
+  g.setCardMode('tabs');
+  assert.equal(g.shared().cardLayout, 'tabs');
+  assert.ok(/class="panel en-onglets"/.test(g.el('view').innerHTML), 'appliqué sans recharger');
+  assert.ok(g.el('cartesBtn').classList.contains('primary'), 'l\'en-tête le montre');
+  assert.ok(/id="sOnglets" data-onglets-mode="1" checked/.test(g.VIEWS.settings()), 'Réglages aussi');
+  g.setCardMode('stacked');
+  assert.equal(g.shared().cardLayout, 'stacked');
+  assert.ok(!/id="sOnglets" data-onglets-mode="1" checked/.test(g.VIEWS.settings()));
+  assert.ok(!g.el('cartesBtn').classList.contains('primary'));
+});
+t('cartes : un autre panneau change le mode, celui-ci suit sans le réécrire', () => {
+  const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; });
+  const g = loadApp(s, SOIR, ['VIEWS']);
+  g.fire({cardLayout: {newValue: 'tabs'}}, 'sync');
+  assert.ok(/class="panel en-onglets"/.test(g.el('view').innerHTML));
+  assert.equal(g.shared().cardLayout, undefined, 'rien de renvoyé');
+});
+t('cartes : l\'onglet choisi se relit au démarrage', () => {
+  const s = fixtureState(); s.__win = {__cardLayout: 'tabs', __cardTab: {today: 'expeditions'}};
+  const g = loadApp(s, SOIR, ['cardTabs', 'cardMode']);
+  assert.equal(g.cardMode, 'tabs');
+  assert.deepEqual(g.cardTabs, {today: 'expeditions'});
+});
+t('cartes : les onglets ne lancent rien dans le jeu', () => {
+  const g = appCartes('tabs');
+  const h = g.segTabs(g.CARTES.today.map(c => [c.cardId, c.titre, null]), 'data-carte-tab', 'maintenant');
+  assert.ok(!/data-launch|data-sent|data-prep|href/.test(h));
 });
 
 /* ---------- combien de cartes par liste ---------- */
