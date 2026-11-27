@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk, rules) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'REGLES', 'REGLES_ERR', 'EVAL', 'regle', 'regleSaine', 'reglePose', 'regleActive', 'gabarit', 'constats', 'constatsDe', 'SEV_LABEL', 'ignore', 'ignKey', 'constatsVus', 'ignClean', 'conseilsHtml', 'reglesCard', 'planeteOuverte'], api, ext, prioAsk, rules);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'REGLES', 'REGLES_ERR', 'EVAL', 'regle', 'regleSaine', 'reglePose', 'regleActive', 'gabarit', 'constats', 'constatsDe', 'SEV_LABEL', 'ignore', 'ignKey', 'constatsVus', 'ignClean', 'conseilsHtml', 'reglesCard', 'planeteOuverte', 'cibleMines', 'mineEnRetard', 'naniteRetard', 'laboEnRetard', 'rechercheAilleurs', 'reglesRecherche', 'regOffHtml'], api, ext, prioAsk, rules);
 }
 /** L'application avec un rules.json donné — null pour un fichier illisible. */
 const appRegles = (rules, modifier, ext) => app(modifier, null, null, ext, null, rules);
@@ -12709,6 +12709,170 @@ t('chaque règle a sa ligne, la règle à verrou est grisée et dit pourquoi', (
   assert.match(h, /data-rg-on="RES_MINE_BLOCKED_BY_STORAGE" checked disabled/);
   assert.match(h, /Toujours active : Sans elle/);
   assert.match(h, /data-rg-p="RES_STORAGE_SOON:heures" value="8"/);
+});
+
+/* ---------- les règles du moteur : vague 2, ressources ---------- */
+
+const MINEUR = s => { s.profil = { style: 'mineur', classe: '', activite: 'regulier', focus: [], set: true }; };
+// le deutérium au même étage : sinon son pas, bon marché, borne la mine d'équilibre hors du classement
+const MINES_28_27 = s => { Object.assign(s.planets[0].b, { metal: 28, crystal: 27, deut: 25, solar: 40 }); };
+/** pickBuildings lit une planète SIMULÉE : elle porte son stock sous `st`. */
+const simulee = (g, i, st) => Object.assign({}, g.S.planets[i], { st: st || [0, 0, 0] });
+
+t('Mineur en position 8, métal 28 et cristal 27 : cible +3, actuel +1', () => {
+  const g = app(s => { MINEUR(s); MINES_28_27(s); });
+  assert.deepEqual(g.cibleMines(g.S.planets[0]), { cible: 3, actuel: 1, position: 8 });
+  const c = g.constats().find(x => x.regle === 'RES_MINE_BALANCE');
+  assert.match(c.what, /^Cible métal − cristal : \+3, actuel : \+1 sur Planète mère$/);
+  assert.equal(c.action, 'Mine de métal 29');
+});
+
+t('la mine de métal devient candidate, avec la cible dans sa raison', () => {
+  const g = app(s => { MINEUR(s); MINES_28_27(s); });
+  const c = g.pickBuildings(simulee(g, 0), { T: SOIR, iv: 1.5, goals: [] });
+  assert.ok(c.some(x => x.k === 'metal' && /Cible métal − cristal : \+3, actuel : \+1/.test(x.why)), JSON.stringify(c.map(x => [x.k, x.why])));
+});
+
+t('en Raideur, la cible de cette planète passe à +2 ; en position 3, un Mineur vise +1', () => {
+  const g = app(s => { MINEUR(s); s.profil.style = 'raideur'; MINES_28_27(s); });
+  assert.equal(g.cibleMines(g.S.planets[0]).cible, 2);
+  const h = app(s => { MINEUR(s); s.planets[0].coords = '1:142:3'; });
+  assert.equal(h.cibleMines(h.S.planets[0]).cible, 1);
+});
+
+t('sans style, ni cible ni constat', () => {
+  const g = app(MINES_28_27);
+  assert.equal(g.cibleMines(g.S.planets[0]), null);
+  assert.ok(!g.constats().some(x => x.regle === 'RES_MINE_BALANCE'));
+});
+
+t('la tolérance : un niveau au-dessus de la cible ne fait rien monter', () => {
+  const g = app(s => { MINEUR(s); Object.assign(s.planets[0].b, { metal: 30, crystal: 26 }); });
+  assert.equal(g.mineEnRetard(g.S.planets[0]), null, 'cible +3, actuel +4 : dans la tolérance');
+  const h = app(s => { MINEUR(s); Object.assign(s.planets[0].b, { metal: 31, crystal: 26 }); });
+  assert.equal(h.mineEnRetard(h.S.planets[0]).k, 'crystal');
+});
+
+t('une mine d\'équilibre trop chère ne passe pas devant le classement', () => {
+  const g = app(s => { MINEUR(s); MINES_28_27(s); s.settings.regles = { RES_MINE_BALANCE: { p: { facteurCout: 0.01 } } }; });
+  const c = g.pickBuildings(simulee(g, 0), { T: SOIR, iv: 1.5, goals: [] });
+  assert.ok(!c.some(x => /Cible métal/.test(x.why)));
+});
+
+/* ---------- les règles du moteur : vague 2, installations ---------- */
+
+const NANITES = s => { s.planets.forEach(p => { p.b.robot = 10; }); s.tech.computer = 10;
+  s.planets[0].b.nanite = 5; s.planets[1].b.nanite = 1;
+  Object.assign(s.planets[1].b, { metal: 30, crystal: 30, deut: 20, solar: 40 }); };
+
+t('nanites en retard sur l\'empire : constat, et Nanites +1 candidate', () => {
+  const g = app(NANITES);
+  assert.ok(g.constats().some(x => x.regle === 'INST_NANITES_LAGGING' && x.pid === 'colo'));
+  assert.ok(!g.constats().some(x => x.regle === 'INST_NANITES_LAGGING' && x.pid === 'mere'), 'pas la planète qui mène');
+  const c = g.pickBuildings(simulee(g, 1), { T: SOIR, iv: 1.5, goals: [] });
+  assert.ok(c.some(x => x.k === 'nanite' && /Nanites 1 ici, 5 ailleurs/.test(x.why)));
+});
+
+t('une priorité Robots 11 : le copilote obéit, et chiffre les nanites', () => {
+  // des hangars et un stock à la mesure de Robots 11, sinon la priorité commence par le hangar
+  const g = app(s => { s.planets[0].b.robot = 10; s.tech.computer = 10; s.prio = [{ kind: 'b', pid: 'mere', k: 'robot', lvl: 11 }];
+    Object.assign(s.planets[0].b, { smetal: 20, scrystal: 20, sdeut: 20, solar: 30 }); s.planets[0].stock = { m: 9e7, c: 9e7, d: 9e7, at: SOIR }; });
+  assert.ok(g.constats().some(x => x.regle === 'INST_NANITES_OVER_ROBOTS' && x.pid === 'mere'));
+  const s0 = g.simulateDay().sessions[0];
+  const a = s0.acts.concat(s0.waits).find(a => a.p === 0 && a.k === 'robot');
+  assert.ok(a, 'la priorité est servie');
+  assert.match(a.why || '', /Usine de nanites 1 diviserait le temps des chantiers par 2/);
+});
+
+t('14 cases libres sous un seuil de 15 : le conseil sort ; à 10 il se tait', () => {
+  const peu = s => { s.planets[1].cases = { pris: 191, max: 205 }; };
+  assert.ok(!app(peu).constats().some(x => x.regle === 'INST_FIELDS_LOW'));
+  const g = app(s => { peu(s); s.settings.regles = { INST_FIELDS_LOW: { p: { seuil: 15 } } }; });
+  const c = g.constats().find(x => x.regle === 'INST_FIELDS_LOW' && x.pid === 'colo');
+  assert.ok(c);
+  assert.match(c.why, /demande Nanites 1/, 'sans ses prérequis, il le dit au lieu de pousser');
+});
+
+t('le Terraformeur est poussé quand il peut l\'être', () => {
+  const g = app(s => { s.planets[1].cases = { pris: 200, max: 205 }; s.planets[1].b.nanite = 1; s.tech.energy = 12; });
+  const c = g.pickBuildings(simulee(g, 1), { T: SOIR, iv: 1.5, goals: [] });
+  assert.ok(c.some(x => x.k === 'terra'));
+});
+
+t('une règle coupée pour une planète ne s\'y évalue plus, ni dans le plan', () => {
+  const g = app(s => { s.planets[1].cases = { pris: 200, max: 205 }; s.planets[1].b.nanite = 1; s.tech.energy = 12;
+    s.planets[1].regOff = { INST_FIELDS_LOW: true }; });
+  assert.ok(!g.constats().some(x => x.regle === 'INST_FIELDS_LOW'));
+  assert.ok(!g.pickBuildings(simulee(g, 1), { T: SOIR, iv: 1.5, goals: [] }).some(x => x.k === 'terra'));
+  assert.match(lu(g.regOffHtml(g.S.planets[1])), /data-regoff="colo\|INST_FIELDS_LOW"  style/);
+});
+
+t('le réseau de labos ne parle que si on a le Réseau', () => {
+  const sans = app(s => { s.planets[0].b.lab = 10; s.planets[1].b.lab = 2; });
+  assert.ok(!sans.constats().some(x => x.regle === 'INST_LAB_NETWORK'));
+  const avec = app(s => { s.planets[0].b.lab = 10; s.planets[1].b.lab = 2; s.tech.irn = 1; });
+  assert.ok(avec.constats().some(x => x.regle === 'INST_LAB_NETWORK' && x.pid === 'colo'));
+  assert.equal(avec.constats().find(x => x.regle === 'INST_LAB_NETWORK').statut, 'a_valider');
+});
+
+/* ---------- les règles du moteur : vague 2, recherche ---------- */
+
+const PLASMA_OUVERT = s => { s.tech.energy = 8; s.tech.laser = 10; s.tech.ion = 5; };
+
+t('un mineur sous le plasma visé : Plasma passe en tête', () => {
+  const g = app(s => { MINEUR(s); PLASMA_OUVERT(s); });
+  const r = g.nextResearch().list[0];
+  assert.equal(r.k, 'plasma'); assert.equal(r.regle, 'RECH_PLASMA_MINER');
+  assert.match(r.why, /^Profil Mineur : le Plasma/);
+  assert.ok(g.constats().some(x => x.regle === 'RECH_PLASMA_MINER'));
+});
+
+t('une priorité du joueur reste devant le plasma de la règle', () => {
+  const g = app(s => { MINEUR(s); PLASMA_OUVERT(s); s.prio = [{ kind: 't', k: 'astro', lvl: 5 }]; });
+  assert.equal(g.nextResearch().list[0].k, 'astro');
+});
+
+t('sans le style visé, la règle ne pousse rien', () => {
+  const g = app(PLASMA_OUVERT);
+  assert.deepEqual(g.reglesRecherche(), []);
+});
+
+t('un explorateur pousse l\'Hyperespace, et dit le gain du serveur', () => {
+  const g = app(s => { s.profil = { style: 'explorateur', classe: '', activite: 'regulier', focus: [], set: true };
+    s.planets[0].b.lab = 7; s.tech.energy = 5; s.tech.shielding = 5; });
+  const r = g.nextResearch().list[0];
+  assert.equal(r.k, 'hyper');
+  assert.match(r.why, /ajoute 5 % de soute/);
+});
+
+const AILLEURS = s => { s.planets[0].stock = { m: 0, c: 0, d: 0, at: SOIR }; s.planets[1].b.lab = 5;
+  Object.assign(s.planets[1].b, { smetal: 20, scrystal: 20, sdeut: 20 }); s.planets[1].stock = { m: 9e7, c: 9e7, d: 9e7, at: SOIR }; };
+
+t('la recherche impayable au centre part d\'une planète qui peut', () => {
+  const g = app(AILLEURS);
+  assert.ok(g.constats().some(x => x.regle === 'RECH_FUND_ELSEWHERE' && x.pid === 'colo'));
+  const a = g.simulateDay().sessions[0].acts.find(a => a.kind === 't');
+  assert.equal(a.p, 1); assert.match(a.why, /^Depuis Colonie/);
+});
+
+t('une planète sans le labo du prérequis ne la lance pas', () => {
+  const g = app(s => { AILLEURS(s); s.planets[1].b.lab = 0; });
+  assert.ok(!g.simulateDay().sessions[0].acts.some(a => a.kind === 't' && a.p === 1));
+  assert.equal(g.rechercheAilleurs(), null);
+});
+
+t('RECH_FUND_ELSEWHERE coupée : la recherche attend au centre', () => {
+  const g = app(s => { AILLEURS(s); s.settings.regles = { RECH_FUND_ELSEWHERE: { on: false } }; });
+  assert.ok(!g.simulateDay().sessions[0].acts.some(a => a.kind === 't' && a.p === 1));
+});
+
+t('une planète de plus possible : constat, et en économie pure il dit pourquoi le plan n\'y va pas', () => {
+  const g = app();
+  assert.ok(g.constats().some(x => x.regle === 'RECH_ASTRO_COLONY'), 'Astrophysique 3 : trois planètes, deux prises');
+  const e = app(s => { s.day.focus = 'eco'; });
+  assert.match(e.constats().find(x => x.regle === 'RECH_ASTRO_COLONY').why, /Économie pure/);
+  const plein = app(s => { s.tech.astro = 1; });
+  assert.ok(!plein.constats().some(x => x.regle === 'RECH_ASTRO_COLONY'));
 });
 
 if (failures.length) {

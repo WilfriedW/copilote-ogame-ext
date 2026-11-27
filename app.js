@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.9.0';
+const APP_VERSION = '2.10.0';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -2521,7 +2521,7 @@ function constats(){
 function repondA(c, a, i){
   const r = c.repond;
   return !!r && r.kinds.includes(a.kind) && (r.partout || a.p === i)
-    && (!r.ks || a.kind !== 'b' || r.ks.includes(a.k));
+    && (!r.ks || a.kind !== 'b' || r.ks.includes(a.k)) && (!r.tk || a.k === r.tk);
 }
 
 /* ---------- les règles du moteur : évaluateurs ---------- */
@@ -2606,6 +2606,135 @@ EVAL.researchIdle = p => {
   if(l.some(enCours)) return [];
   return [{valeur:l.reduce((m, t) => Math.max(m, +t.end || 0), 0), repond:{kinds:['t'], partout:true}, vars:{}}];
 };
+
+/* La cible d'écart entre la mine de métal et celle de cristal : le style du
+   profil, ajusté par la position. Lue dans rules.json, jamais saisie. Rien sans
+   style ni position lisible : une cible inventée serait pire que pas de cible. */
+function cibleMines(p){
+  const st = S.profil && S.profil.style, mb = REGLES.mineBalance || {};
+  if(!st || !aSoi(mb.byStyle, st) || !Number.isFinite(+mb.byStyle[st])) return null;
+  const c = parseC(p && p.coords); if(!c) return null;
+  let adj = null;
+  for(const [k, v] of Object.entries(mb.byPosition || {})){
+    const m = /^(\d+)-(\d+)$/.exec(k);
+    if(m && c[2] >= +m[1] && c[2] <= +m[2] && Number.isFinite(+v)){ adj = +v; break; }
+  }
+  if(adj == null) return null;
+  return {cible:+mb.byStyle[st] + adj, actuel:(p.b.metal || 0) - (p.b.crystal || 0), position:c[2]};
+}
+/* La mine en retard sur la cible. Une tolérance d'un niveau au-dessus évite que
+   la planète oscille d'une mine à l'autre à chaque session. */
+function mineEnRetard(p){
+  const r = cibleMines(p); if(!r) return null;
+  const k = r.actuel < r.cible ? 'metal' : r.actuel > r.cible + regleParam('RES_MINE_BALANCE', 'tolerance', 1) ? 'crystal' : null;
+  return k ? Object.assign({k}, r) : null;
+}
+const signe = n => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n);
+EVAL.mineBalanceTarget = p => {
+  const r = mineEnRetard(p); if(!r) return [];
+  return [{valeur:`${r.k}:${r.cible}:${r.actuel}`, cost:levelCost(B[r.k], p.b[r.k] + 1), repond:{kinds:['b'], ks:[r.k]},
+    vars:{cible:signe(r.cible), actuel:signe(r.actuel), mine:B[r.k].n, niveau:p.b[r.k], position:r.position,
+      style:(PROFILS.styles[S.profil.style] || {}).n || ''}}];
+};
+/* Ce qu'une règle d'installation pousse dans pickBuildings, calculé au même
+   endroit pour le constat et pour le plan : sinon les deux finiraient par ne
+   plus dire la même chose. */
+function naniteRetard(p){
+  const max = Math.max(0, ...S.planets.map(x => x.b.nanite || 0)), n = p.b.nanite || 0;
+  return n < max - regleParam('INST_NANITES_LAGGING', 'ecart', 2) && !reqOk(B.nanite.req, p).length ? {n, max} : null;
+}
+EVAL.nanitesLagging = p => {
+  const r = naniteRetard(p); if(!r) return [];
+  return [{valeur:`${r.n}:${r.max}`, cost:levelCost(B.nanite, r.n + 1), repond:{kinds:['b'], ks:['nanite']}, vars:{niveau:r.n, max:r.max}}];
+};
+/* Le plan ne propose jamais de robots au-delà de 10 : ce cas ne naît que d'une
+   priorité du joueur. Le copilote la sert, et chiffre l'autre chemin. */
+function robotsOuNanites(p, lvl){
+  if(!(lvl > 10) || (p.b.robot || 0) < 10 || reqOk(B.nanite.req, p).length) return null;
+  return {robots:lvl, nanite:(p.b.nanite || 0) + 1, gain:((lvl + 1) / lvl).toFixed(2).replace('.', ',')};
+}
+EVAL.nanitesOverRobots = p => {
+  const pr = prios().find(x => x.kind === 'b' && x.pid === p.id && x.k === 'robot');
+  const r = pr && robotsOuNanites(p, (p.b.robot || 0) + 1);
+  return r ? [{valeur:`${r.robots}:${r.nanite}`, cost:levelCost(B.nanite, r.nanite), vars:r}] : [];
+};
+/* À 0 et 1 case libre, planetAlerts dit déjà le mur ; la règle parle avant. */
+function casesBasses(p){
+  const l = casesLibres(p), seuil = regleParam('INST_FIELDS_LOW', 'seuil', 10);
+  return l != null && l >= 2 && l < seuil ? l : null;
+}
+EVAL.fieldsFree = p => {
+  const l = casesBasses(p); if(l == null) return [];
+  const manque = reqOk(B.terra.req, p);
+  return [{valeur:l, cost:manque.length ? null : levelCost(B.terra, (p.b.terra || 0) + 1), repond:{kinds:['b'], ks:['terra']},
+    vars:{libres:l, pris:p.cases.pris, max:p.cases.max, niveau:p.b.terra || 0,
+      terra:manque.length ? `Le Terraformeur en ajouterait, mais il demande ${manque.join(', ')}.` : 'Le Terraformeur en ajoute à chaque niveau.'}}];
+};
+/* Les labos que le Réseau fait compter : celui du centre, et les N meilleurs
+   des autres planètes, N étant le niveau du Réseau (labEffectif). */
+function laboEnRetard(p){
+  const n = S.tech.irn || 0, c = labPlanet();
+  if(!n || !c || c.id === p.id || !((p.b.lab || 0) >= 1)) return null;
+  const comptes = S.planets.filter(x => x.id !== c.id).sort((a, b) => (b.b.lab || 0) - (a.b.lab || 0)).slice(0, n);
+  return comptes.some(x => x.id === p.id) && p.b.lab <= (c.b.lab || 0) - regleParam('INST_LAB_NETWORK', 'ecart', 3)
+    ? {niveau:p.b.lab, centre:c.b.lab || 0} : null;
+}
+EVAL.labNetworkGap = p => {
+  if(rechercheEnCours()) return [];
+  const r = laboEnRetard(p); if(!r) return [];
+  return [{valeur:`${r.niveau}:${r.centre}`, cost:levelCost(B.lab, r.niveau + 1), repond:{kinds:['b'], ks:['lab']}, vars:r}];
+};
+EVAL.colonySlotFree = p => {
+  const f = coloFrom();
+  if(!f || f.id !== p.id || S.planets.length >= maxPlanets() || colSentNow()) return [];
+  return [{valeur:`${S.planets.length}/${maxPlanets()}`, repond:{kinds:['ship', 'fleet'], partout:true},
+    vars:{planetes:S.planets.length, max:maxPlanets(), astro:S.tech.astro,
+      note:S.day.focus === 'eco' ? ' Avec « Économie pure », le plan ne colonise pas de lui-même : c\'est à toi de lancer le vaisseau.' : ''}}];
+};
+/* La recherche de tête, impayable au centre, payable ici avec un labo qui
+   remplit le prérequis. Une seule planète le dit : la première qui peut. */
+function rechercheAilleurs(){
+  const lab = labPlanet(); if(!lab || rechercheEnCours()) return null;
+  const R = nextResearch().list[0]; if(!R) return null;
+  const c = levelCost(T[R.k], R.lvl), peut = q => { const st = stockNow(q); return c.every((x, j) => x <= st[j]); };
+  if(peut(lab)) return null;
+  const q = S.planets.find(x => x.id !== lab.id && labOkPour(R.k, x) && peut(x));
+  return q ? {R, c, q} : null;
+}
+/* Le prérequis de labo d'une recherche, sur CETTE planète. `reqOk` lit le labo
+   du centre (labLevel) : juste pour ce qui est débloqué, faux pour dire d'où on
+   peut la lancer — un prérequis est une propriété de la planète. Les
+   prérequis de technologie, eux, sont ceux de l'empire, et nextResearch ne rend
+   que des pas déjà débloqués. */
+const labOkPour = (k, p) => (p.b.lab || 0) >= ((T[k].req || {}).lab || 0) && (p.b.lab || 0) >= 1;
+EVAL.researchElsewhere = p => {
+  const r = rechercheAilleurs(); if(!r || r.q.id !== p.id) return [];
+  return [{valeur:`${r.R.k}${r.R.lvl}`, cost:r.c, repond:{kinds:['t'], partout:true},
+    vars:{recherche:`${T[r.R.k].n} ${r.R.lvl}`, depuis:p.name}}];
+};
+/* Une recherche que le profil réclame : le style, ou un focus. */
+const profilVise = r => (Array.isArray(r.styles) && r.styles.includes(S.profil.style))
+  || (Array.isArray(r.focus) && r.focus.some(f => (S.profil.focus || []).includes(f)));
+EVAL.techBelow = (p, prm, r) => {
+  const lab = labPlanet();
+  if(!lab || lab.id !== p.id || !aSoi(T, r.tech) || !profilVise(r)) return [];
+  const n = S.tech[r.tech] || 0;
+  if(!(n < prm.niveauCible)) return [];
+  return [{valeur:String(n), cost:levelCost(T[r.tech], n + 1), repond:{kinds:['t'], partout:true, tk:r.tech},
+    vars:{niveau:n, cible:prm.niveauCible, style:(PROFILS.styles[S.profil.style] || {}).n || '', pct:hyperCargoPct()}}];
+};
+/* Les pas de recherche que les règles poussent en tête de la feuille de route,
+   derrière les priorités du joueur. Toute règle de condition techBelow y entre :
+   en ajouter une au fichier ne demande pas de code. */
+function reglesRecherche(){
+  const out = [];
+  for(const id of Object.keys(REGLES_PAR_ID)){
+    const r = regle(id);
+    if(r.condition !== 'techBelow' || !regleActive(id) || !aSoi(T, r.tech) || !profilVise(r)) continue;
+    if((S.tech[r.tech] || 0) < r.parametres.niveauCible) out.push([r.tech, r.parametres.niveauCible, '', id]);
+  }
+  return out;
+}
 
 /* ---------- les règles du moteur : ignorer, compter ---------- */
 /** La clé d'« Ignorer » : la règle, la planète en identifiant du jeu (`daily`
@@ -2724,6 +2853,16 @@ function reglesCard(){
   return `<details class="card"${fold('regles', false)}><summary data-fold="regles">Règles du moteur <span class="note">${ids.filter(id => regle(id).on).length} sur ${ids.length} actives</span></summary>
     <p class="note" style="margin:8px 0 0">Ce que le copilote surveille sur chaque planète, et ce que le plan en fait. Décocher une règle l'éteint : sa carte ne sort plus, et elle ne compte plus sur l'icône. Les seuils se changent ici ; le reste vit dans <code>rules.json</code>.</p>
     ${groupes}</details>`;
+}
+
+/* Les règles qu'on coupe pour une planète seulement — « pas de Terraformeur
+   sur mon coffre-fort ». Sur la planète, donc sur ce poste : un id local ne
+   voyage pas, comme le modèle de défense par planète. */
+function regOffHtml(p){
+  const ids = Object.keys(REGLES_PAR_ID).filter(id => REGLES_PAR_ID[id].parPlanete);
+  if(!ids.length) return '';
+  return `<p class="note" style="margin:10px 0 0"><b>Règles du moteur</b> — décoche celles qui ne valent pas pour cette planète.</p><div class="row" style="gap:10px;flex-wrap:wrap">${ids.map(id =>
+    `<label class="note" style="display:flex;gap:4px;align-items:center"><input type="checkbox" data-regoff="${esc(p.id)}|${esc(id)}" ${(p.regOff || {})[id] ? '' : 'checked'} style="width:auto">${esc(REGLES_PAR_ID[id].nom || id)}</label>`).join('')}</div>`;
 }
 
 function planetAlerts(p){
@@ -3435,9 +3574,12 @@ function nextResearch(){
      avant sur le centre tient le rang, et la recherche attend son tour. */
   const mienne = prioOf((labPlanet() || {}).id);
   const prio = mienne && mienne.kind === 't' ? mienne : null;
-  const rm = prio ? [[prio.k, prio.lvl, 'c']].concat(ROADMAPS[S.day.focus] || ROADMAPS.ecocol)
-    : (ROADMAPS[S.day.focus] || ROADMAPS.ecocol);
-  rm.forEach(([k,l,flag], i)=>{
+  /* Les pas que les règles du moteur poussent (RECH_PLASMA_MINER…) passent
+     derrière la priorité du joueur et devant la feuille de route, sans drapeau
+     critique : ils n'épargnent pas, ils passent à leur tour, en premier. */
+  const pousses = reglesRecherche();
+  const rm = (prio ? [[prio.k, prio.lvl, 'c']] : []).concat(pousses, ROADMAPS[S.day.focus] || ROADMAPS.ecocol);
+  rm.forEach(([k,l,flag,rid], i)=>{
     const mien = !!prio && i === 0;
     /* Ordre de priorité : un emplacement de planète libre se colonise avant de
        payer le palier suivant. Tant qu'il en reste un, Astrophysique n'ajoute
@@ -3453,8 +3595,9 @@ function nextResearch(){
        à ce que le joueur a posé — la priorité est muette. */
     if(r.lab){ labNeed = Math.max(labNeed, r.lab); if(mien) prioLab = r.lab; return; }
     const pourquoi = techWhy(r, k, l, roadmapGoal(rm, i));
-    if(!list.some(x=>x.k===r.k)) list.push({k:r.k, lvl:r.lvl, crit:flag==='c', prio:mien,
-      why:mien ? `Tu as mis ${T[k].n} ${l} en priorité. ${pourquoi}`.trim() : pourquoi});
+    const deRegle = rid ? regleTexte(rid, 'raison', '', {style:(PROFILS.styles[S.profil.style] || {}).n || '', pct:hyperCargoPct(), cible:l}) : '';
+    if(!list.some(x=>x.k===r.k)) list.push({k:r.k, lvl:r.lvl, crit:flag==='c', prio:mien, regle:rid || undefined,
+      why:mien ? `Tu as mis ${T[k].n} ${l} en priorité. ${pourquoi}`.trim() : deRegle ? `${deRegle} ${pourquoi}`.trim() : pourquoi});
   });
   /* Les deux plafonds que le joueur touche tous les jours ont chacun leur
      recherche. La feuille de route cesse de parler d'Astrophysique dès qu'on l'a
@@ -3771,7 +3914,11 @@ function pickBuildings(p, ctx){
      et pour une recherche l'appelant est le seul à connaître le coût du niveau
      à payer. */
   if(ctx.prio){
-    const pas = ctx.prio, deja = out.find(o=>o.k===pas.k);
+    /* Robots au-delà de 10, posés par le joueur : il est servi, et la carte
+       chiffre ce que les nanites feraient à la place (INST_NANITES_OVER_ROBOTS). */
+    const rn = ctx.prio.k === 'robot' && regleActive('INST_NANITES_OVER_ROBOTS') && robotsOuNanites(p, ctx.prio.lvl);
+    const pas = rn ? Object.assign({}, ctx.prio, {why:`${ctx.prio.why} Usine de nanites ${rn.nanite} diviserait le temps des chantiers par 2, Robots ${rn.robots} le divise par ${rn.gain}.`}) : ctx.prio;
+    const deja = out.find(o=>o.k===pas.k);
     // Un secours qui vise déjà ce bâtiment y va un niveau à la fois, et c'est
     // le même pas : les deux raisons sont vraies, elles s'ajoutent.
     if(deja){ deja.why = deja.why ? `${deja.why}. ${pas.why}` : pas.why; deja.prio = true; }
@@ -3789,6 +3936,24 @@ function pickBuildings(p, ctx){
     if(p.b.robot < 2) add('robot', 'Prérequis du chantier spatial');
     else add('shipyard', 'Pour que cette colonie ait ses propres transporteurs');
   }
+  /* Les règles d'installation et l'équilibre des mines entrent comme les robots
+     juste en dessous : des candidats forcés, avant le classement par
+     amortissement, mais bornés en prix par rapport à son meilleur pas — sans
+     cette borne, une règle « conseil » réécrirait le classement que le
+     copilote a construit pour juger. Le Terraformeur n'a pas de borne : une
+     planète pleine refuse tout, et lui seul la rouvre. */
+  const borne = (c, f) => !!best && mse(...c) <= f * mse(...best.cost);
+  if(regleActive('INST_FIELDS_LOW') && !(p.regOff || {}).INST_FIELDS_LOW && casesBasses(p) != null && !reqOk(B.terra.req, p).length)
+    add('terra', `Plus que ${casesBasses(p)} cases libres : le Terraformeur en ajoute`);
+  const nr8 = regleActive('INST_NANITES_LAGGING') && naniteRetard(p);
+  if(nr8 && borne(levelCost(B.nanite, nr8.n + 1), regleParam('INST_NANITES_LAGGING', 'facteurCout', 5)))
+    add('nanite', `Nanites ${nr8.n} ici, ${nr8.max} ailleurs : chaque niveau divise par deux le temps des chantiers de la planète`);
+  const lr = regleActive('INST_LAB_NETWORK') && !ctx.researchRunning && laboEnRetard(p);
+  if(lr && borne(levelCost(B.lab, lr.niveau + 1), 3))
+    add('lab', `Laboratoire ${lr.niveau} pour ${lr.centre} au centre : avec le Réseau, ce labo compte dans la vitesse de tes recherches`);
+  const eq = regleActive('RES_MINE_BALANCE') && mineEnRetard(p);
+  if(eq && !(ranked.find(u => u.key === eq.k) || {}).extraSolar && borne(levelCost(B[eq.k], p.b[eq.k] + 1), regleParam('RES_MINE_BALANCE', 'facteurCout', 2)))
+    add(eq.k, `Cible métal − cristal : ${signe(eq.cible)}, actuel : ${signe(eq.actuel)}${mineWhy(p, eq.k)}`);
   const robotTarget = Math.min(10, Math.floor(Math.max(p.b.metal,p.b.crystal)/2));
   if(p.b.robot < robotTarget && best){ const rc = levelCost(B.robot,p.b.robot+1); if(mse(...rc) <= 3*mse(...best.cost)) add('robot', 'Accélère toutes les constructions'); }
   for(const u of ranked.slice(0,2)){
@@ -3806,7 +3971,7 @@ function simulateDay(){
      automatique pour tout le reste de la journée simulée. */
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
-  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, satsOk:p.satsOk, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
+  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:stockNow(p), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, satsOk:p.satsOk, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs, regOff:p.regOff}));
   const expoBusy = [], expoDeja = {};
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
@@ -3954,13 +4119,21 @@ function simulateDay(){
          continue de n'interroger que `epargnePrio` : c'est lui qui pose
          l'objectif de cette priorité, il ne peut pas se l'interdire. */
       const prioDevant = p => epargnePrio(p) || (p === labP && !!(nr.list[0] || {}).prio);
-      const launchR = (R, why)=>{ const c=levelCost(T[R.k],R.lvl); pay(labP,c); const d=researchTime(R.k,R.lvl), k=R.k, L=R.lvl, fin=Tm+d*1000; sim.rq=fin; sim.ev.push({at:fin, fn:()=>{ sim.tech[k]=Math.max(sim.tech[k],L); }}); acts.push({q:'Recherche · '+planetRef(labP), what:`${T[k].n} ${L}`, why: [why, R.why].filter(Boolean).join(' '), cost:c, dur:d, end:fin, kind:'t', k, lvl:L, p:labP.i}); };
+      const launchR = (R, why, payeur)=>{ const pp = payeur || labP, c=levelCost(T[R.k],R.lvl); pay(pp,c); const d=researchTime(R.k,R.lvl), k=R.k, L=R.lvl, fin=Tm+d*1000; sim.rq=fin; sim.ev.push({at:fin, fn:()=>{ sim.tech[k]=Math.max(sim.tech[k],L); }}); acts.push({q:'Recherche · '+planetRef(pp), what:`${T[k].n} ${L}`, why: [why, R.why].filter(Boolean).join(' '), cost:c, dur:d, end:fin, kind:'t', k, lvl:L, p:pp.i}); };
       const tryResearch = phase=>{
         if(sim.rq>Tm || !nr.k || labBusy) return;
         const R = nr.list[0], key='t:'+R.k+R.lvl, c = levelCost(T[R.k],R.lvl), mine = goals.find(g=>g.key===key);
         if(phase==='pre' && !R.crit && !mine) return;
         const sr = phase==='post' ? softRes(labP) : [0,0,0], rr = reserveOf(labP,Tm,mine).map((x,j)=>x+sr[j]);
         if(can(labP,c,rr)){ launchR(R, mine ? `Économisée depuis ${formatTime(mine.since)}` : ''); dropGoal(key); delete sim.rSince[key]; return; }
+        /* RECH_FUND_ELSEWHERE : le centre ne peut pas, une autre planète le
+           peut, avec un labo qui remplit le prérequis et qui n'est pas en
+           chantier. Elle paie ; la durée reste celle du centre, à défaut de
+           mieux, et la carte le dit. */
+        if(phase==='post' && regleActive('RECH_FUND_ELSEWHERE')){
+          const q = P.find(x => x !== labP && !(x.bq>Tm && x.bqKey==='lab') && labOkPour(R.k, x) && can(x, c, reserveOf(x,Tm)));
+          if(q){ launchR(R, `Depuis ${q.name} : le centre ne peut pas la payer maintenant, ${q.name} le peut. Durée estimée sur le labo du centre, celui de ${q.name} peut la changer.`, q); dropGoal(key); delete sim.rSince[key]; return; }
+        }
         if(!sim.rSince[key]) sim.rSince[key] = Tm;
         const starving = Tm - sim.rSince[key] >= Math.max(4, 4*iv)*3600e3;
         /* `mine` d'abord : un objectif déjà posé se retrouve, même sous une
@@ -7444,6 +7617,7 @@ planets(){
         <label class="f">Satellites autorisés<select data-satsok="${p.id}"><option value="">Hériter (${S.settings.sats ? 'oui' : 'non'})</option><option value="1" ${p.satsOk === true ? 'selected' : ''}>Oui</option><option value="0" ${p.satsOk === false ? 'selected' : ''}>Non</option></select></label>
       </div>
       ${lfBloc(p)}
+      ${regOffHtml(p)}
       </details>
       <details class="volet"${fold('stock:' + p.id, false)}><summary data-fold="stock:${p.id}">Stock <span class="mono note" id="pstk-${i}"></span></summary>
       <p class="note" style="margin:8px 0 0">Ce que cette planète a en magasin. Il avance tout seul avec ta production ; recale-le quand tu dépenses.</p>
@@ -8268,6 +8442,10 @@ view.addEventListener('click', e=>{
    seulement — `ui` ne voyage pas. */
 view.addEventListener('change', e=>{
   /* Réglages › Règles : n'est écrit que ce qui s'écarte du fichier. */
+  const off = e.target.closest && e.target.closest('[data-regoff]');
+  if(off){ const [pid, id] = off.dataset.regoff.split('|'), p = planetById(pid);
+    if(p && aSoi(REGLES_PAR_ID, id)){ const o = Object.assign({}, p.regOff); if(off.checked) delete o[id]; else o[id] = true; p.regOff = o; save(); render(); }
+    return; }
   const ro = e.target.closest && e.target.closest('[data-rg-on]');
   if(ro){ reglePose(ro.dataset.rgOn, {on:!!ro.checked}); save(); render(); return; }
   const rp = e.target.closest && e.target.closest('[data-rg-p]');
