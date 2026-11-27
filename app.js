@@ -2192,6 +2192,24 @@ function cartesPresentes(vue){
     .filter(({c, r})=>c.fixe || (r && r.count > 0));
 }
 /**
+ * La carte de la première alerte critique jamais vue, ou null. `vus` est
+ * complété au passage : une alerte ne fait basculer qu'une fois par session.
+ * Sorti de cartesSync, qui lit le DOM, pour se vérifier sans lui.
+ */
+function alerteNeuve(presentes, vus){
+  let bascule = null;
+  for(const {c, r} of presentes) for(const k of (r && r.critiques) || []){
+    if(vus.has(k)) continue;
+    vus.add(k); if(!bascule) bascule = c.cardId;
+  }
+  return bascule;
+}
+/** L'onglet à montrer : la bascule d'alerte d'abord, puis le choix du joueur, puis le premier. */
+function ongletAffiche(ids, force, choisi){
+  const voulu = force && ids.includes(force) ? force : choisi;
+  return ids.includes(voulu) ? voulu : ids[0];
+}
+/**
  * Pose l'onglet affiché, la barre et ses compteurs, après chaque rafraîchissement.
  * En mode empilé, elle ne fait que noter les alertes critiques déjà vues.
  */
@@ -2200,15 +2218,10 @@ function cartesSync(){
   const vue = sec.dataset.disposition, presentes = cartesPresentes(vue), ids = presentes.map(x=>x.c.cardId);
   /* Une alerte critique jamais vue fait basculer sur sa carte, une fois. Vue
      en mode empilé, elle est vue aussi : passer en onglets ne la rejoue pas. */
-  let bascule = null;
-  for(const {c, r} of presentes) for(const k of (r && r.critiques) || []){
-    if(cardCritVus.has(k)) continue;
-    cardCritVus.add(k); if(!bascule) bascule = c.cardId;
-  }
+  const bascule = alerteNeuve(presentes, cardCritVus);
   if(cardMode !== 'tabs'){ delete cardAffiche[vue]; return; }
   if(bascule) cardForce[vue] = bascule;
-  const voulu = cardForce[vue] && ids.includes(cardForce[vue]) ? cardForce[vue] : cardTabs[vue];
-  const affiche = ids.includes(voulu) ? voulu : ids[0];
+  const affiche = ongletAffiche(ids, cardForce[vue], cardTabs[vue]);
   cardAffiche[vue] = affiche;
   sec.querySelectorAll('.carte[data-carte]').forEach(w=>{
     const on = w.dataset.carte === affiche;
