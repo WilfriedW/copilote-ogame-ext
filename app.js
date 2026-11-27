@@ -5667,6 +5667,9 @@ function simulateDay(){
       if(lfMode()==='after') lfPass(false);
       // Chaque planète qui a un chantier peut construire : le hub pour la soute
       // de l'empire, une colonie pour ses propres transporteurs.
+      /* Les planètes au palier dont le chantier reste libre : le surplus de
+         stock y passe en défense, mais seulement après la recherche. */
+      const surplusApres = [];
       for(const p of P){
         const estHub = p === hubP;
         /* `flou` : le chantier a sorti un lot dont le jeu n'a pas dit le
@@ -5756,9 +5759,25 @@ function simulateDay(){
             acts.push({q:(estDef?'Défense · ':'Chantier spatial · ')+planetRef(p), what:'Construire '+shipList({[k]:n}), why:w.why, cost, dur:d, end:fin, kind:estDef?'def':'shipbuild', ships:{[k]:n}, p:p.i});
             break;
           }
+          if(p.sq<=Tm && props && !props.vise.lignes.some(l=>l.manque>0)) surplusApres.push(p);
         }
       }
       tryResearch('post');
+      /* Le palier tenu, la défense ne sert plus qu'à ne pas perdre de
+         production : une ressource au plafond, ou qui va l'atteindre, que rien
+         de cette session ne dépense sur la planète — ni chantier, ni
+         recherche, ni forme de vie — part en packs du modèle. En dernier, pour
+         ne jamais passer devant ce qui fait grandir l'empire. */
+      for(const p of surplusApres){
+        if(p.sq>Tm) continue;
+        const servies = [0,1,2].map(j=>acts.some(a=>a.p===p.i && a.kind!=='def' && a.kind!=='shipbuild' && a.cost && a.cost[j]>0));
+        const s = defSurplus(p, {st:p.st, res:reserveOf(p,Tm).map((x,j)=>x+softRes(p)[j]), servies});
+        if(!s) continue;
+        const ships = s.ships, cost = [0,1,2].map(i=>Object.entries(ships).reduce((a,[k,n])=>a+DEF[k].c[i]*n, 0));
+        const d = Object.entries(ships).reduce((a,[k,n])=>a+shipTime(k,n,p), 0), fin = Tm+d*1000;
+        pay(p,cost); p.sq = fin; sim.ev.push({at:fin, fn:()=>addBuilt(p, ships)});
+        acts.push({q:'Défense · '+planetRef(p), what:'Construire '+shipList(ships), why:s.why, cost, dur:d, end:fin, kind:'def', k:s.k, ships, p:p.i});
+      }
       /* L'état d'une priorité ne se connaît qu'ici : son objectif peut naître
          dans `tryResearch`, et son chantier partir au milieu de la session.
          Trois sorts possibles, et le bloc les dit tels quels — une priorité qui
@@ -7550,7 +7569,7 @@ function noLabel(key, miss){
   let nom = quoi;
   if(kind === 'b') nom = (B[quoi]||{}).n || quoi;
   else if(kind === 't') nom = (T[quoi]||{}).n || quoi;
-  else if(kind === 'def') nom = (DEF[quoi]||{}).n || quoi;
+  else if(kind === 'def') nom = quoi === 'pack' ? 'Packs du modèle (surplus)' : (DEF[quoi]||{}).n || quoi;
   else if(kind === 'shipbuild') nom = (SHIPS[quoi]||{}).n || quoi;
   else if(kind === 'lf') nom = p ? lfNom(p, quoi) : quoi;
   else if(kind === 'sats') nom = '';
@@ -8155,8 +8174,12 @@ function computeDefenseGap(p, o = {}){
   const enFile = o.enFile || {};
   const k = o.modele || resolveActiveModel(p), r = defRatio(k) || {}, ancre = defAncre(r);
   const vise = o.palier != null ? o.palier : defPalierDe(p);
-  /* « Compléter » : c'est ce qui est au sol, ou en route, qui fixe la taille. */
-  const palier = vise === 'fill' ? Math.max(0, num(have[ancre], 0) + num(enFile[ancre], 0)) : Math.max(0, num(vise, 0));
+  /* « Compléter » : c'est ce qui est au sol, ou en route, qui fixe la taille.
+     Sans une seule unité d'ancrage, compléter autour de zéro ne demanderait
+     rien : la planète resterait nue sans conseil. Le plus petit palier
+     proposé prend le relais. */
+  const ancres = num(have[ancre], 0) + num(enFile[ancre], 0);
+  const palier = vise === 'fill' ? (ancres > 0 ? ancres : DEF_PALIERS[0]) : Math.max(0, num(vise, 0));
   const f = r[ancre] > 0 ? palier / r[ancre] : 0;
   const lignes = DEF_ORDER.map(j=>{
     const dedans = !DEF[j].un && num(r[j], 0) > 0;
@@ -8221,6 +8244,87 @@ function defPlan(p){
   return Object.assign(d, {cout, stock, payable: cout.every((x,i)=>x <= stock[i]),
     phase: pr.phase, plancher: pr.plancher, plancherGap: pr.phase === 'plancher' ? pr.gap : null});
 }
+/* Le niveau sous lequel un surplus est résorbé : assez bas pour que le plafond
+   ne revienne pas à la tournée suivante, assez haut pour ne pas vider le stock. */
+const DEF_SURPLUS_VISE = 0.9;
+/**
+ * Le palier tenu, la défense ne monte plus que pour ne pas perdre de
+ * production. Une ressource au plafond (règle RES_STORAGE_FULL) ou qui va
+ * l'atteindre (RES_STORAGE_SOON) part en packs du modèle — la recette à son
+ * ancre, au ratio du modèle, jamais une pièce qu'il ne nomme pas.
+ *
+ *   packs = min(ce qui ramène la ressource sous 90 % du hangar,
+ *               ce que les autres ressources paient, réserves du plan déduites)
+ *
+ * Moins d'un pack payable : la pièce de la recette qui mange le plus la
+ * ressource en trop (les lanceurs pour le métal), seule.
+ * Lecture seule : la fonction propose, l'appelant décide.
+ *
+ * @param {object} p planète (réelle ou simulée)
+ * @param {{st?:number[], res?:number[], servies?:boolean[]}} [o] le stock,
+ *   les réserves du plan, et les ressources qu'un chantier ou une recherche de
+ *   la session consomme déjà (celles-là ne déclenchent rien)
+ * @returns {{k:string, ships:object, n:number, pack:boolean, j:number,
+ *   plein:boolean, why:string}|null}
+ */
+function defSurplus(p, o = {}){
+  const g = computeDefenseGap(p);
+  /* Sous le palier, c'est le manque qui parle, pas le surplus. */
+  if(!g || g.lignes.some(l=>l.manque > 0)) return null;
+  const r = defRatio(g.modele) || {};
+  const recette = DEF_ORDER.filter(k=>!DEF[k].un && num(r[k], 0) > 0);
+  if(!recette.length) return null;
+  const pr = production(p), st = o.st || stockNow(p), res = o.res || [0,0,0], servies = o.servies || [];
+  const rates = [pr.m, pr.c, pr.d];
+  const seuil = regleParam('RES_STORAGE_FULL', 'seuil', .98), heures = regleParam('RES_STORAGE_SOON', 'heures', 8);
+  /* Active sur la planète : allumée dans les réglages, et pas coupée ici. */
+  const on = id => regleActive(id) && !(p.regOff || {})[id];
+  const pleinOn = on('RES_STORAGE_FULL'), bientotOn = on('RES_STORAGE_SOON');
+  const cands = [];
+  for(let j = 0; j < 3; j++){
+    const cap = pr.cap[j];
+    if(!(cap > 0) || servies[j]) continue;
+    const plein = pleinOn && st[j] >= cap * seuil;
+    let bientot = false;
+    if(!plein && bientotOn && rates[j] > 0){
+      const bk = HANGARS[j][1];
+      bientot = (cap - st[j]) / rates[j] < Math.max(heures, buildTime(bk, num(p.b[bk], 0) + 1, p) / 3600);
+    }
+    const exces = st[j] - cap * DEF_SURPLUS_VISE;
+    if((plein || bientot) && exces > 0) cands.push({j, plein, exces, taux:st[j] / cap});
+  }
+  cands.sort((a, b)=>(b.plein - a.plein) || (b.taux - a.taux));
+  const libre = j => [0,1,2].map(i=>Math.max(0, st[i] - (i === j ? 0 : res[i])));
+  const paie = (c, L) => Math.min(...c.map((x, i)=>x > 0 ? Math.floor(L[i] / x) : Infinity));
+  const nom = p.name || planetRef(p);
+  const Res = j => NOM_RES[j][0].toUpperCase() + NOM_RES[j].slice(1);
+  const recetteTxt = shipList(Object.fromEntries(recette.map(k=>[k, r[k]])));
+  for(const c of cands){
+    const j = c.j, L = libre(j), etat = c.plein ? 'au plafond' : 'bientôt au plafond';
+    const cadre = `${g.nom}, palier ${fmt(g.palier)} tenu`;
+    const packC = [0,1,2].map(i=>recette.reduce((a, k)=>a + r[k] * DEF[k].c[i], 0));
+    if(packC[j] > 0 && recette.every(k=>shipReqOk(k, p)) && !refused(cardKey('def', p.id, 'pack'))){
+      const n = Math.min(Math.ceil(c.exces / packC[j]), paie(packC, L));
+      if(n >= 1){
+        const ships = Object.fromEntries(recette.map(k=>[k, r[k] * n]));
+        return {k:'pack', ships, n, pack:true, j, plein:c.plein,
+          why:`${Res(j)} ${etat} sur ${nom} : ${fmt(n)} pack${n > 1 ? 's' : ''} du modèle pour ne pas perdre la production (${cadre} ; un pack = ${recetteTxt}).`};
+      }
+    }
+    /* Pas un pack entier : la pièce qui mange le plus cette ressource dans la
+       recette, et à égalité la plus pure — elle ne touche pas aux autres. */
+    const part = k => DEF[k].c[j] / mse(...DEF[k].c);
+    const pieces = recette.filter(k=>DEF[k].c[j] > 0 && shipReqOk(k, p) && !refused(cardKey('def', p.id, k)))
+      .sort((a, b)=>(r[b] * DEF[b].c[j] - r[a] * DEF[a].c[j]) || (part(b) - part(a)));
+    for(const k of pieces){
+      const n = Math.min(Math.ceil(c.exces / DEF[k].c[j]), paie(DEF[k].c, L));
+      if(n < 1) continue;
+      return {k, ships:{[k]:n}, n, pack:false, j, plein:c.plein,
+        why:`${Res(j)} ${etat} sur ${nom} : pas de quoi payer un pack du modèle, ${shipList({[k]:n})} pour ne pas perdre la production (${cadre}).`};
+    }
+  }
+  return null;
+}
 /** Ce qui bloque une pièce, en clair : « Chantier spatial 8, Technologie Plasma 7 ». */
 function defPrereq(j, p){
   const r = DEF[j].r;
@@ -8242,7 +8346,7 @@ function defCarte(p){
   const exces = d.lignes.filter(l=>l.exces > 0), hors = d.lignes.filter(l=>l.hors), bloques = d.lignes.filter(l=>l.req);
   const enFile = d.lignes.some(l=>l.file > 0);
   return `<div class="card">${tete}${menus}
-    <p class="note">${esc(d.nom)} · ${d.palier} ${esc(DEF[d.ancre].p)}${defPalierDe(p)==='fill' ? ' déjà au sol' : ''}</p>
+    <p class="note">${esc(d.nom)} · ${d.palier} ${esc(DEF[d.ancre].p)}${defPalierDe(p)==='fill' ? (d.lignes.some(l=>l.k===d.ancre && l.n + l.file > 0) ? ' déjà au sol' : ' : rien à compléter, le plus petit palier sert de départ') : ''}</p>
     ${p.defModele ? `<p class="note mono">${defRecetteHtml(defModele(d.modele))}</p>` : ''}
     ${d.plancherGap ? `<p class="pill warn">Sous le plancher de ton profil (${fmt(d.plancher)} ${esc(DEF[d.ancre].p)}) : ses cartes passent avant celles du palier.</p>` : ''}
     <div class="tbl-wrap"><table><thead><tr><th>Pièce</th><th class="n">Au sol</th>${enFile ? '<th class="n">En file</th>' : ''}<th class="n">Cible</th><th class="n">Manque</th><th>Coût du manque</th></tr></thead><tbody>
