@@ -1,6 +1,6 @@
 /* node test/run.js — vérifie la mise à l'abri.
-   Pas de framework : app.js reste un script classique chargé par la page, et on
-   l'évalue ici comme le ferait le navigateur, avec un DOM factice. */
+   Pas de framework : le harnais évalue les scripts et les modules du panneau
+   dans l'ordre du navigateur, avec un DOM factice (voir test/harness.js). */
 /* Les heures se vérifient dans un fuseau choisi : Tahiti, onze heures
    derrière un serveur européen, l'écart du joueur de cette extension. */
 process.env.TZ = 'Pacific/Tahiti';
@@ -3977,6 +3977,12 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
   const root = path.join(__dirname, '..');
   const lu = f => fs.readFileSync(path.join(root, f), 'utf8');
   const liste = lu('pack.sh').match(/FICHIERS="([^"]+)"/)[1].split(/\s+/);
+  /* Les modules ES du panneau partent en dossier entier (`cp -R src`) : tout
+     ce qui est sous src/ est emporté, et chacun est relu comme les autres. */
+  assert.match(lu('pack.sh'), /^cp -R src dist\/src$/m, 'pack.sh doit emporter le dossier src/');
+  const sousSrc = d => fs.readdirSync(path.join(root, d), { withFileTypes: true })
+    .flatMap(e => e.isDirectory() ? sousSrc(d + '/' + e.name) : [d + '/' + e.name]);
+  const emporte = [...liste, ...sousSrc('src')];
   const m = JSON.parse(lu('manifest.json'));
   /* Le manifeste ne dit pas tout : `app.js` n'est nommé que par boot.js, et
      `ids.js` par un `importScripts`. On relit donc chaque fichier emporté et on
@@ -3985,8 +3991,12 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
   /* Un nom donné à un téléchargement (`filename:'save.json'`, `a.download=…`)
      est un fichier que l'extension ÉCRIT chez le joueur, pas un fichier qu'elle
      charge : il ne part pas dans le zip. */
-  const cites = liste.filter(f => /\.(js|html|css)$/.test(f))
-    .flatMap(f => [...lu(f).matchAll(/(?<!(?:filename\s*:|download\s*=)\s*)['"]([\w-]+\.(?:js|css|html|png|woff2|json))['"]/g)].map(x => x[1]))
+  /* Un chemin relatif (`'../app.js'` dans un import) se lit depuis le
+     dossier du fichier qui le cite ; un autre, depuis la racine, comme
+     `'src/main.js'` que boot.js ajoute à sidepanel.html. */
+  const cites = emporte.filter(f => /\.(js|html|css)$/.test(f))
+    .flatMap(f => [...lu(f).matchAll(/(?<!(?:filename\s*:|download\s*=)\s*)['"]((?:\.{1,2}\/)*[\w-]+(?:\/[\w-]+)*\.(?:js|css|html|png|woff2|json))['"]/g)]
+      .map(x => /^\.{1,2}\//.test(x[1]) ? path.posix.normalize(path.posix.join(path.posix.dirname(f), x[1])) : x[1]))
     /* Un .json cité peut être un nom de téléchargement (save.json) : seul
        compte celui qui existe dans le dépôt, comme rules.json. */
     .filter(f => !f.endsWith('.json') || fs.existsSync(path.join(root, f)));
@@ -3997,10 +4007,106 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
     ...[...lu('sidepanel.html').matchAll(/(?:src|href)="([^":]+)"/g)].map(x => x[1]),
     ...cites]);
   for (const f of voulus)
-    assert.ok(liste.includes(f), f + ' est chargé par l\'extension et pack.sh ne l\'emporte pas');
+    assert.ok(emporte.includes(f), f + ' est chargé par l\'extension et pack.sh ne l\'emporte pas');
   for (const f of liste)
     assert.ok(fs.existsSync(path.join(root, f)), 'pack.sh emporte ' + f + ', qui n\'existe pas');
 });
+
+/* ---------- les modules ES du panneau (issue #49) ---------- */
+/* Le harnais met les modules à plat : il ne voit ni un import oublié, ni un
+   import d'un nom que l'autre module n'exporte pas. Ces vérifications-ci le
+   voient, à la lecture du source, et test/esm.js au vrai chargement. */
+{
+  const M = require('./modules');
+  const fs = require('fs'), path = require('path');
+  const lu = f => fs.readFileSync(path.join(M.ROOT, f), 'utf8');
+  const mods = M.ordre('src/main.js');
+  const haut = Object.fromEntries(mods.map(f => [f, M.nomsHaut(lu(f))]));
+
+  t('modules : chaque import vise un fichier qui existe et un nom qu\'il exporte', () => {
+    for (const f of mods) for (const { de, noms } of M.imports(f)) {
+      assert.ok(fs.existsSync(path.join(M.ROOT, de)), f + ' importe ' + de + ', qui n\'existe pas');
+      const ex = M.exports_(de);
+      for (const n of noms) {
+        assert.ok(/^[A-Za-z_$][\w$]*$/.test(n), f + ' : « ' + n + ' » — pas de renommage à l\'import, le harnais met les modules à plat');
+        assert.ok(ex.has(n), f + ' importe ' + n + ' de ' + de + ', qui ne l\'exporte pas : le panneau ne se chargerait pas');
+      }
+    }
+  });
+
+  t('modules : chaque nom pris à un autre module est importé', () => {
+    const manque = [];
+    for (const f of mods) {
+      const { emplois, locaux } = M.usages(lu(f));
+      const importes = new Set(M.imports(f).flatMap(i => i.noms));
+      for (const g of mods) if (g !== f) for (const n of haut[g])
+        if (emplois.has(n) && !haut[f].has(n) && !locaux.has(n) && !importes.has(n)) manque.push(f + ' emploie ' + n + ' (' + g + ')');
+    }
+    assert.deepEqual(manque, [], 'sans import, le navigateur lève au premier appel');
+  });
+
+  t('modules : un nom n\'est déclaré qu\'une fois dans tout le panneau', () => {
+    /* Un script classique laissait la dernière déclaration l'emporter ; un
+       module refuse de se charger, et deux modules mis à plat par le
+       harnais se marcheraient dessus. */
+    const vu = {};
+    for (const f of [...require('./harness').CLASSIQUES, ...mods]) {
+      const j = M.jetons(lu(f));
+      for (let k = 0; k < j.length - 1; k++)
+        if (j[k].prof === 0 && j[k].v === 'function' && j[k + 1].t === 'id') {
+          const n = j[k + 1].v;
+          assert.ok(!vu[n], n + ' déclarée dans ' + vu[n] + ' et dans ' + f);
+          vu[n] = f;
+        }
+    }
+  });
+
+  t('modules : les scripts classiques n\'empruntent rien aux modules', () => {
+    /* ids.js et profils.js restent des scripts : les déclarations d'un module
+       ne sont plus des globales, un script qui les appellerait lèverait. */
+    const tous = new Set(mods.flatMap(f => [...haut[f]]));
+    for (const f of require('./harness').CLASSIQUES) {
+      const { emplois, locaux } = M.usages(lu(f));
+      const propres = M.nomsHaut(lu(f));
+      const pris = [...emplois].filter(n => tous.has(n) && !propres.has(n) && !locaux.has(n));
+      assert.deepEqual(pris, [], f + ' emprunte aux modules');
+    }
+  });
+
+  t('modules : les scripts classiques et ceux des content scripts n\'ont ni import ni export', () => {
+    // Chrome ne charge pas de module en content script déclaré, ni importScripts() dans le service worker
+    for (const f of ['ids.js', 'profils.js', 'boot.js', 'content.js', 'background.js', 'masque.js', 'masque-conf.js'])
+      assert.ok(!/^\s*(?:import|export)\b/m.test(lu(f)), f + ' doit rester un script classique');
+  });
+
+  t('modules : pas de dépendance circulaire, hors app.js en cours de découpage', () => {
+    /* app.js importe la météo et la flotte cible, qui lui empruntent en
+       retour : ce cycle-là est toléré tant qu'app.js existe. Entre deux
+       modules sortis de lui, aucun. */
+    const graphe = Object.fromEntries(mods.map(f => [f, M.imports(f).map(i => i.de).filter(d => d !== 'app.js')]));
+    const etat = {};
+    const visite = (f, pile) => {
+      if (etat[f] === 2) return;
+      assert.ok(etat[f] !== 1, 'cycle : ' + [...pile, f].join(' → '));
+      etat[f] = 1;
+      for (const d of graphe[f] || []) visite(d, [...pile, f]);
+      etat[f] = 2;
+    };
+    for (const f of mods) if (f !== 'app.js') visite(f, []);
+  });
+
+  t('modules : le panneau se charge en vrais modules ES, onglet par onglet', () => {
+    /* Un processus par onglet : un module ne s'évalue qu'une fois par
+       processus. Chaque outil de l'onglet Outils a sa vue. */
+    const { spawnSync } = require('child_process');
+    const cas = [['today'], ['empire'], ['settings'],
+      ...['explore', 'server', 'research', 'moon', 'defense', 'fleet', 'colony'].map(o => ['tools', o])];
+    for (const c of cas) {
+      const r = spawnSync(process.execPath, [path.join(__dirname, 'esm.js'), ...c], { encoding: 'utf8', env: { ...process.env } });
+      assert.equal(r.status, 0, c.join(' › ') + ' : ' + (r.stderr || r.stdout).slice(0, 1500));
+    }
+  });
+}
 
 t('le manifeste donné au joueur reste du JSON, sans notre clé', () => {
   /* pack.sh retire la ligne `"key"` du manifeste qu'il met dans le zip, avec un

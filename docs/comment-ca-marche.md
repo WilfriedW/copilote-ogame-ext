@@ -437,10 +437,18 @@ de jeu unique, programme les **alarmes** de fin de file, affiche les
 notifications système, n'allume l'icône et le panneau que sur les onglets
 OGame, et réinjecte le script de page quand l'extension a été rechargée.
 
-**`app.js`** (5 000 lignes) est le panneau. Il contient le modèle du jeu
+**`app.js`** (11 000 lignes) est le panneau. Il contient le modèle du jeu
 (coûts, temps de construction, production, vol, soute), la simulation de la
 journée, les missions quotidiennes, et tout l'affichage. Il écrit son état dans
 le stockage local sous la clé `ogame-copilot-v1`.
+
+Le panneau se charge en **modules ES**, sans outil de build : `boot.js` lit le
+stockage puis ajoute `src/main.js`, qui importe `app.js`, lui-même important
+`src/meteo.js` et `src/flotte/cible.js`. `app.js` se découpe ainsi, un domaine
+par PR (issue #49), jusqu'à disparaître. `ids.js` et `profils.js` restent des
+scripts classiques. Les tests mettent les modules à plat dans une seule portée
+(`test/modules.js`) et vérifient à part les imports, les doublons, les cycles
+et le chargement réel (`test/esm.js`).
 
 **`profils.js`** tient le profil de jeu : les cinq styles (Mineur, Turtle,
 Raideur, Fleeter, Explorateur), la classe que chacun conseille, le plan qu'il

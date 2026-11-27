@@ -10,9 +10,17 @@
    ici ; une règle de météo qui dirait autre chose que le reste du panneau
    ferait lire deux copilotes qui se contredisent.
 
-   Chargé avant app.js : les fonctions ne touchent aux globales d'app.js
-   (S, constatsVus, planetAlerts, defPlan…) qu'à l'appel, jamais au chargement.
+   Module ES, importé par app.js et important d'app.js (S, constatsVus,
+   planetAlerts, defPlan…) : ce cycle tient parce que les fonctions n'y
+   touchent qu'à l'appel, jamais au chargement — le module s'évalue avant
+   app.js, comme quand il était un script chargé avant lui.
    Lecture seule : rien ici ne navigue, ne remplit ni n'envoie quoi que ce soit. */
+
+import {
+  SEV_NIVEAU, S, planetById, fmt, esc, planetRef, uiOuvert, uiNote,
+  render, constatsVus, planetAlerts, formatTime, DEF, DEF_ABR, defPlan,
+  poidsCat
+} from '../app.js';
 
 /** Les quatre domaines, dans l'ordre des colonnes. */
 const METEO_DOM = [
@@ -167,14 +175,14 @@ function meteoErreur(quoi, e){ if(_meteoErr.has(quoi)) return; _meteoErr.add(quo
    le retire. Il ne change rien dans le jeu — aucune navigation. */
 let filterPlanet = null;
 /** La planète filtrée, si elle existe encore. */
-function meteoFiltre(){ const p = filterPlanet && planetById(filterPlanet); if(filterPlanet && !p) filterPlanet = null; return p || null; }
+export function meteoFiltre(){ const p = filterPlanet && planetById(filterPlanet); if(filterPlanet && !p) filterPlanet = null; return p || null; }
 /**
  * Vrai si l'élément du panneau (carte, attente, alerte, mission) concerne la
  * planète filtrée, ou s'il n'y a pas de filtre. Un élément qui ne dit pas sa
  * planète (l'empire entier) se cache sous le filtre : seules les cartes de la
  * planète restent.
  */
-function meteoVoit(x){
+export function meteoVoit(x){
   const p = meteoFiltre();
   if(!p) return true;
   if(!x) return false;
@@ -211,14 +219,14 @@ function meteoPuceHtml(){
   return p ? `<span class="mt-puce">Filtré : ${esc(planetRef(p))}<button type="button" data-meteo-off="1" aria-label="Retirer le filtre" title="Retirer le filtre">✕</button></span>` : '';
 }
 /** Redessine le bandeau, la grille et la puce. Appelée à chaque recalcul. */
-function renderMeteo(){
+export function renderMeteo(){
   const box = document.getElementById('meteo'), puce = document.getElementById('meteoFiltre');
   if(box){ let el = []; try{ el = meteoElements(); }catch(e){ meteoErreur('calcul', e); } box.innerHTML = meteoHtml(el); }
   if(puce){ puce.innerHTML = meteoPuceHtml(); puce.hidden = !filterPlanet; }
 }
 /* Les clics vivent hors de #view : le bandeau et la puce ne sont pas redessinés
    par render(), ils ont donc leur propre écoute, posée une fois. */
-function meteoBind(){
+export function meteoBind(){
   const box = document.getElementById('meteo'), puce = document.getElementById('meteoFiltre');
   const choisir = tr => { const pid = tr.dataset.meteoP; filterPlanet = filterPlanet === pid ? null : pid; render(); };
   if(box && box.addEventListener){
