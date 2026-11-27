@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -12408,6 +12408,86 @@ t('le sélecteur écrit sous chaque nom sa recette et son pack', () => {
   const d = lu(g.VIEWS.defense());
   assert.ok(/data-defpick="" data-dp=/.test(d), 'et chaque planète garde « Comme les réglages »');
   assert.ok(!/data-launch|data-sent/.test(d), 'toujours en lecture seule');
+});
+
+/* ---------- combien de cartes par liste ---------- */
+const carte = (i, crit) => ({html: `<li>c${i}</li>`, crit: !!crit});
+const huit = () => Array.from({length: 8}, (_, i) => carte(i));
+
+t('limite 3 sur 8 cartes sans urgence : 3 visibles, 5 masquées, dans l\'ordre', () => {
+  const g = app();
+  const r = g.applyLimit(huit(), 3);
+  assert.deepEqual(r.visibles.map(c => c.html), ['<li>c0</li>', '<li>c1</li>', '<li>c2</li>']);
+  assert.equal(r.masquees.length, 5);
+  assert.equal(r.masquees[0].html, '<li>c3</li>', 'l\'ordre de priorité est gardé');
+});
+t('les urgences passent toutes, d\'abord, et ne comptent pas dans la limite', () => {
+  const g = app();
+  const l = huit().concat([carte('u1', true), carte('u2', true)]);
+  const r = g.applyLimit(l, 3);
+  assert.deepEqual(r.visibles.map(c => c.html), ['<li>cu1</li>', '<li>cu2</li>', '<li>c0</li>', '<li>c1</li>', '<li>c2</li>']);
+  assert.equal(r.masquees.length, 5, '« Voir 5 de plus »');
+  assert.ok(r.masquees.every(c => !c.crit), 'aucune urgence masquée');
+});
+t('« Toutes » ne masque rien', () => {
+  const g = app();
+  assert.equal(g.applyLimit(huit(), 'all').masquees.length, 0);
+});
+t('« Voir N de plus » dit le bon nombre ; pas de lien sous la limite', () => {
+  const g = app();
+  const h = g.listeCartes('maintenant', huit(), 'acts');
+  assert.ok(/data-voirplus="maintenant"/.test(h) && h.includes('Voir 5 de plus'));
+  assert.ok(/data-masquees="maintenant"[^>]* hidden/.test(h), 'le reste est replié sur place');
+  for (let i = 0; i < 8; i++) assert.ok(h.includes(`c${i}`), 'toutes les cartes sont écrites, masquées comprises');
+  const court = g.listeCartes('maintenant', [carte(0), carte(1)], 'acts');
+  assert.ok(!/data-voirplus|Voir/.test(court), '2 cartes, limite 3 : pas de lien');
+});
+t('l\'état « Voir plus » vient du même stock que les volets', () => {
+  const g = app(s => { s.ui = Object.assign({}, s.ui, {fold: {'maintenant.voirPlus': true}}); });
+  const h = g.listeCartes('maintenant', huit(), 'acts');
+  assert.ok(!/data-masquees="maintenant"[^>]* hidden/.test(h), 'déplié au démarrage');
+  assert.ok(h.includes('Voir moins'));
+});
+t('la valeur propre l\'emporte sur la globale, et la globale vaut 3 par défaut', () => {
+  const g = app();
+  assert.equal(g.cartesGlobal(), 3);
+  g.S.settings.cartesListe = {alertes: 'all'};
+  g.S.settings.cartesMax = 5;
+  assert.equal(g.cartesMax('alertes'), 'all', 'Sécurité reste sur Toutes');
+  assert.equal(g.cartesMax('maintenant'), 5, 'les autres suivent la globale');
+});
+t('une valeur abîmée se remet d\'aplomb, une clé inconnue reste', () => {
+  const g = app(s => { s.settings.cartesMax = 7; s.settings.cartesListe = {maintenant: 'x', alertes: '10', futur: 1, encours: true}; });
+  g.cartesSain();
+  assert.equal(g.S.settings.cartesMax, 3);
+  assert.deepEqual(JSON.parse(JSON.stringify(g.S.settings.cartesListe)), {alertes: 10, futur: 1});
+});
+t('les réglages de limite voyagent avec la synchro entre postes', () => {
+  const g = app(s => { s.settings.cartesListe = {alertes: 'all'}; });
+  assert.deepEqual(JSON.parse(JSON.stringify(g.syncOut()['sy:settings'].cartesListe)), {alertes: 'all'});
+});
+t('Réglages › Affichage montre la valeur propre posée depuis l\'en-tête', () => {
+  const g = app(s => { s.settings.cartesListe = {alertes: 'all'}; });
+  const h = lu(g.affichageCard());
+  assert.ok(/data-cartesl="alertes"[^>]*>.*<option value="all" selected>Toutes/.test(h.replace(/\n/g, '')), h);
+  assert.ok(/data-cartesl="maintenant"[^>]*><option value="" selected>Valeur globale \(3\)/.test(h), 'les autres sur la globale');
+  assert.ok(/data-cartesreset="1"(?! disabled)/.test(h), 'Réinitialiser est actif');
+  assert.ok(g.VIEWS.settings().includes('data-cartesg'), 'la carte est dans Réglages');
+  assert.ok(lu(g.cartesMenu('alertes')).includes('<option value="all" selected>'), 'l\'en-tête dit la même chose');
+});
+t('Maintenant : le compteur compte tout, la liste coupe à la limite', () => {
+  const rend = lim => { const g = app(s => { s.settings.cartesMax = lim; }); g.REFRESH.today(); return g.html(); };
+  const un = rend(1), tout = rend('all');
+  const n = +((un.tdNowN || '').match(/\d+/) || [0])[0];
+  assert.ok(n > 1, 'la fixture doit porter plusieurs cartes : ' + un.tdNowN);
+  assert.equal(un.tdNowN, tout.tdNowN, 'le compteur ne dépend pas de la limite');
+  const m = (un.tdNow || '').match(/data-voirplus="maintenant" data-n="(\d+)"[^>]*>Voir (\d+) de plus/);
+  assert.ok(m, 'limite 1 : un lien « Voir N de plus »');
+  assert.equal(m[1], m[2]);
+  assert.ok(+m[1] <= n - 1 && +m[1] >= 1, `${m[1]} masquées sur ${n}`);
+  assert.ok(!/data-voirplus/.test(tout.tdNow || ''), '« Toutes » : pas de lien');
+  assert.equal(lu(un.tdNow).replace(/<ul[^>]*>|<\/ul>|<button[^>]*data-voirplus[\s\S]*?<\/button>/g, '').length,
+    lu(tout.tdNow).replace(/<ul[^>]*>|<\/ul>/g, '').length, 'les mêmes cartes, masquées comprises');
 });
 
 if (failures.length) {
