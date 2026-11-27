@@ -2274,14 +2274,16 @@ function header(){
   const tz = document.getElementById('tzBtn'), tzl = document.getElementById('tzLbl');
   const inconnu = timeMode === 'server' && srvOffSec() == null;
   tz.setAttribute('aria-checked', String(timeMode === 'local'));
-  /* Le libellé disparaît en panneau étroit (panel.css) : l'avertissement
-     « serveur ? » passe aussi dans l'infobulle de l'interrupteur, et dans
-     son nom accessible — un libellé en display:none ne se lit pas non plus. */
+  /* Les deux avertissements du libellé — heure serveur pas encore lue, ou
+     décalage non vérifié sur la dernière page — sont aussi copiés dans
+     l'infobulle de l'interrupteur et dans son nom accessible : en panneau
+     étroit, le libellé est masqué (panel.css), donc ni vu ni lu. */
+  const avert = inconnu ? 'Heure serveur pas encore lue : les heures restent en heure locale jusqu\'à la prochaine page du jeu'
+    : (S.srvTz && S.srvTz.ok === false ? 'Décalage du serveur non vérifié sur la dernière page : le dernier connu sert' : '');
   tz.title = tz.ariaLabel = (timeMode === 'local' ? 'Afficher les heures en heure serveur' : 'Afficher les heures en heure locale')
-    + (inconnu ? ' — heure serveur pas encore lue : les heures restent en heure locale jusqu\'à la prochaine page du jeu' : '');
+    + (avert ? ' — ' + avert.charAt(0).toLowerCase() + avert.slice(1) : '');
   tzl.textContent = timeMode === 'local' ? 'Heures : locale' : (inconnu ? 'Heures : serveur ?' : 'Heures : serveur');
-  tzl.title = inconnu ? 'Heure serveur pas encore lue : les heures restent en heure locale jusqu\'à la prochaine page du jeu'
-    : (S.srvTz && S.srvTz.ok === false ? 'Décalage du serveur non vérifié sur la dernière page : le dernier connu sert' : (LOCAL_TZ ? 'Fuseau local : ' + LOCAL_TZ : ''));
+  tzl.title = avert || (LOCAL_TZ ? 'Fuseau local : ' + LOCAL_TZ : '');
   /* L'engrenage est un onglet comme les autres, hors de la barre : il porte le
      même `data-tab`, donc le même état sélectionné. */
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.tab===tab)));
