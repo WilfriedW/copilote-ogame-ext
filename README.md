@@ -180,7 +180,7 @@ Importante.
 
 **Rappel de mise à l'abri.** Réglages › Sécurité : tes planètes coffres-forts,
 l'heure du rappel (22:00), les jours actifs, l'heure de réveil — la fin de
-nuit du plan du jour, un seul réglage pour les deux (7 h) —, et
+nuit du plan du jour, un seul réglage pour les deux (7 h), à la minute près —, et
 « Préférer Stationner ». À l'heure du rappel l'icône affiche « FS » — aucune
 notification — jusqu'à ce que tu ouvres **Plan de la nuit** dans Aujourd'hui.
 Le plan propose une vitesse, et au besoin une heure de départ, pour que la

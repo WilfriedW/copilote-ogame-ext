@@ -589,7 +589,7 @@ et le Dock spatial dans le modèle. Le code est bon, le commentaire trompe.
 | Priorité | `day.focus` | Équilibré · Économie + colonie · Économie pure · Flotte et expéditions | **Équilibré** | Feuille de route des recherches ; « Économie pure » n'ouvre aucune colonie ; « Flotte » supprime le centre |
 | Je me connecte toutes les | `day.interval` | 30 · 60 · 90 · 120 · 180 min | **90 min** | Pas de temps entre deux connexions simulées ; sert aussi à mesurer une « tournée de production » (le plus petit lot qui vaille une connexion) |
 | Nuit : de | `day.nightStart` | 0–23 | **23** | Début de la fenêtre sautée par la simulation ; déclenche la mise à l'abri |
-| Nuit : à | `day.nightEnd` | 0–23 | **7** | Fin de cette fenêtre ; sert à calculer la vitesse de retour de la flotte mise à l'abri |
+| Nuit : à (réveil) | `day.nightEnd` | 00:00–23:59, à la minute (stocké en heures décimales : 7,5 = 7 h 30) | **7** | Fin de cette fenêtre et heure de réveil : la vitesse de la flotte mise à l'abri, le plan de la nuit et la première connexion du matin s'y calent |
 | Recherche | `day.research` | À son tour · Avant les bâtiments | **À son tour** | « Avant » rend critique la tête de liste : elle passe devant les chantiers et pose aussitôt sa réserve |
 | Formes de vie | `day.lf` | Après les bâtiments · Avant tout le reste · Ne pas s'en occuper | **Après les bâtiments** | Place des deux files de forme de vie ; « avant » ignore ce qu'un bâtiment épargne |
 | Horizon | `day.horizon` | 12 · 24 · 48 h | **24 h** | Durée simulée, et période du « Production +X % » |

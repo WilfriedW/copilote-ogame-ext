@@ -12329,7 +12329,7 @@ t('le sélecteur écrit sous chaque nom sa recette et son pack', () => {
 /* ---------- flottes en mouvement et plan de sécurité ---------- */
 const SECU = ['S', 'ogFleetDetail', 'mouvements', 'livraisons', 'projectResources', 'whenAffordable', 'statutFinancement',
   'attaquesEntrantes', 'espionnagesEntrants', 'coffreFortPour', 'transportSuggere', 'planSecurite', 'securiteHtml',
-  'production', 'formatTime', 'simulateDay', 'wakeTime', 'RESUMES', 'secu', 'secuCard', 'armeRappel', 'fsRappelVu', 'shipCourt', 'VIEWS', 'REFRESH', 'flight', 'shipStats'];
+  'production', 'formatTime', 'simulateDay', 'wakeTime', 'RESUMES', 'sessionTimes', 'dayValue', 'isNight', 'hhmmDe', 'heureTxt', 'syncApply', 'secu', 'secuCard', 'armeRappel', 'fsRappelVu', 'shipCourt', 'VIEWS', 'REFRESH', 'flight', 'shipStats'];
 const H = 3600e3;
 /** Un empire à trois planètes : Tourtierion (source, G1), Poutinia (G1) et Erablis (G2), coffres-forts. */
 function empireSecu(s) {
@@ -12552,7 +12552,7 @@ t('Réglages › Sécurité : coffres-forts, heures, jours et Stationner', () =>
   const h = lu(g.secuCard());
   assert.ok(h.includes('data-secu-vault="pout" checked'));
   assert.ok(h.includes('data-secu="rappel" value="22:00"'));
-  assert.ok(h.includes('data-day="nightEnd" value="7"'), 'le réveil se règle sur la fin de nuit');
+  assert.ok(h.includes('data-day="nightEnd" value="07:00"'), 'le réveil se règle sur la fin de nuit');
   assert.ok(h.includes('data-secu-jour="0" checked'));
   assert.ok(h.includes('Préférer Stationner'));
   // une sauvegarde d'avant n'a rien : les défauts
@@ -12602,6 +12602,39 @@ t('cartes : une attaque entrante ouvre son onglet, critique', () => {
   g.REFRESH.today();
   assert.equal(g.RESUMES.attaque.count, 1);
   assert.equal(g.RESUMES.attaque.maxLevel, 'crit', 'une alerte critique fait basculer sur sa carte');
+});
+
+t('le réveil se règle à la minute : champ horaire, et toute valeur douteuse refusée', () => {
+  const g = appSecu();
+  assert.equal(g.dayValue('nightEnd', '07:30', 7), 7.5);
+  assert.equal(g.dayValue('nightEnd', '6:45', 7), 6.75);
+  assert.equal(g.dayValue('nightEnd', '8', 7), 8, 'un nombre d’heures, comme avant');
+  assert.equal(g.dayValue('nightEnd', '', 7), 7, 'vide : l’ancienne valeur reste');
+  assert.equal(g.dayValue('nightEnd', '24:00', 7), 7);
+  assert.equal(g.dayValue('nightEnd', '07:75', 7), 7);
+  assert.equal(g.dayValue('nightEnd', '"><b>x', 7), 7);
+  assert.equal(g.hhmmDe(7.5), '07:30');
+  assert.equal(g.heureTxt(7.5), '7h30');
+  assert.equal(g.heureTxt(7), '7h');
+});
+
+t('réveil à 7 h 30 : le mode nuit, le plan de la nuit et la journée le suivent', () => {
+  const g = appSecu(s => { s.day.nightEnd = 7.5; });
+  const w = new Date(2026, 10, 9, 7, 30, 0).getTime();
+  assert.equal(g.wakeTime(SOIR), w, 'le mode nuit rentre à 7 h 30');
+  assert.equal(g.secu().reveil, '07:30');
+  assert.equal(g.planSecurite('routine', SOIR, []).find(e => e.p.name === 'Tourtierion').wake, w);
+  assert.equal(g.isNight(new Date(2026, 10, 9, 7, 15, 0).getTime()), true);
+  assert.equal(g.isNight(w), false);
+  const t1 = g.sessionTimes(SOIR).find(t => t > SOIR + 3 * H);
+  assert.equal(t1, w, 'la première connexion après la nuit tombe au réveil, pas à 8 h');
+  assert.ok(lu(g.VIEWS.settings()).includes('data-day="nightEnd" value="07:30"'));
+});
+
+t('une fin de nuit à la minute survit à la synchro, une absurde est refusée', () => {
+  const g = appSecu();
+  g.S.day.nightEnd = 7.5; g.syncApply && g.syncApply({ 'sy:day': g.S.day });
+  assert.equal(g.S.day.nightEnd, 7.5);
 });
 
 t('l’ancienne question du coucher a disparu : seul le rappel est armé', () => {
