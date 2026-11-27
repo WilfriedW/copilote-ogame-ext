@@ -87,6 +87,39 @@ La carte Alertes s'ouvre seule tant qu'une alerte critique y figure, puis
 revient à l'état choisi. **Réglages › Allure du panneau › Réinitialiser
 l'affichage des cartes** remet tout comme au premier jour.
 
+## Ressources en trop
+
+Quand un hangar est plein, la mine (ou le synthétiseur) de cette planète
+s'arrête tant que le stock ne redescend pas. La carte **Ressources en trop**
+d'**Aujourd'hui** dit, pour chaque ressource au plafond ou qui va l'atteindre,
+ce que tu perds par heure — « Cristal au plafond sur Erablis : 12 k cristal/h
+perdus » — et de combien le stock dépasse. La planète qui perd le plus, en
+équivalent métal à ton ratio d'échange, passe devant.
+
+Jusqu'à trois solutions, toujours dans cet ordre :
+
+1. **Dépenser sur place** ce que ton plan juge déjà utile — un bâtiment, une
+   recherche (depuis cette planète si son labo le permet), une case de forme
+   de vie, un lot de défense du modèle — payable maintenant, réserves du plan
+   déduites. Jamais un achat « pour vider ».
+2. **Transférer** l'excédent vers une planète où un élément du plan attend
+   cette ressource et qui a la place (95 % de ses hangars au plus, livraisons
+   en vol comprises). La quantité est bornée par l'excédent au-dessus de 90 %,
+   le besoin, la place et la soute. Seuls partent les transporteurs libres :
+   ni le kit d'expédition, ni ta réserve de GT. Tableau Source / Vaisseaux /
+   Cible / Mission / M-C-D et bouton **Préparer** ; l'envoi reste ton clic.
+3. **Monter le hangar**, seulement si la ressource a débordé au moins 3 fois en
+   7 jours (réglable : **Règles du moteur › Stockage plein › recurrence**) ou
+   si la prochaine mine coûte plus que le hangar ne contient. Coût et durée
+   affichés.
+
+Baisser la production n'est jamais proposé. Un retour d'expédition ou un
+convoi qui fera déborder un hangar déclenche l'alerte à l'avance, avec sa
+cause (« Retour d'expédition à 07:12 : +3,20 M cristal »). Un convoi proposé
+par le copilote (rapatriement, mise à l'abri) qui ferait déborder sa cible le
+dit avant l'envoi et nomme une planète qui a la place. L'historique des
+débordements reste sur ce poste, sept jours glissants.
+
 ## La météo
 
 Tout en haut du panneau, au-dessus des onglets, un bandeau dit l'état de
@@ -111,7 +144,7 @@ défense. Une alerte que tu **ignores** cesse de la noircir.
 ## Les cartes en onglets
 
 **Réglages ⚙️ › Affichage › Empiler les sections** est cochée par défaut :
-les cartes d'**Aujourd'hui** (Profil, Maintenant, Alertes, Expéditions, Ta
+les cartes d'**Aujourd'hui** (Profil, Maintenant, Ressources en trop, Alertes, Expéditions, Ta
 journée, Minuteurs) s'affichent les unes sous les autres. Décochée, elle les
 range en onglets, avec la même barre que dans **Outils**. Une seule carte
 s'affiche, toujours dépliée ; ses sections internes gardent leur état.
@@ -119,8 +152,8 @@ s'affiche, toujours dépliée ; ses sections internes gardent leur état.
 - Chaque onglet porte un compteur : **rouge** s'il contient au moins un
   élément urgent, **orange** un élément à surveiller, **gris** des conseils
   seulement. Pas de compteur quand l'onglet est vide.
-- Alertes n'a d'onglet que lorsqu'il y a une alerte ; les autres cartes ont
-  toujours le leur.
+- Alertes et Ressources en trop n'ont d'onglet que lorsqu'elles ont quelque
+  chose à dire ; les autres cartes ont toujours le leur.
 - Une nouvelle alerte urgente fait basculer une fois sur son onglet. Revenir
   sur le tien ne te ramène pas pour la même alerte ; une autre, si. Une alerte
   déjà vue en mode empilé ne fait pas basculer.
