@@ -99,3 +99,15 @@ dont la masse encaisse les tirs pour que les gros canons tirent. Deux types
 valent mieux qu'un : chaque vaisseau d'attaque a un tir rapide contre l'un et
 rien contre l'autre.
 _Éviter_ : piétaille, remplissage.
+
+**flotte cible** :
+Ce que chaque planète devrait avoir au sol pour lancer une expédition et
+lever son stock seule le soir : kit noyau, kit complet ou non, soute, combat.
+Le copilote la calcule ; le joueur ne la pose pas.
+_Éviter_ : objectif (c'est l'épargne du plan), priorité (ce que le joueur pose).
+
+**rééquilibrer** :
+Déplacer durablement des vaisseaux d'une planète à une autre pour la
+rapprocher de sa flotte cible. Toujours en Stationner : un Transport ramène
+les vaisseaux à leur départ.
+_Éviter_ : rapatrier (un rapatriement déplace des ressources, pas la flotte).

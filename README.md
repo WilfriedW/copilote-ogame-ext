@@ -248,17 +248,56 @@ Importante.
 
 **Rappel de mise à l'abri.** Réglages › Sécurité : tes planètes coffres-forts,
 l'heure du rappel (22:00), les jours actifs, l'heure de réveil — la fin de
-nuit du plan du jour, un seul réglage pour les deux (7 h), à la minute près —, et
-« Préférer Stationner ». À l'heure du rappel l'icône affiche « FS » — aucune
+nuit du plan du jour, un seul réglage pour les deux (7 h), à la minute près.
+À l'heure du rappel l'icône affiche « FS » — aucune
 notification — jusqu'à ce que tu ouvres **Plan de la nuit** dans Aujourd'hui.
 Le plan propose une vitesse, et au besoin une heure de départ, pour que la
 flotte se pose à ton réveil. Heures du rappel en heure locale du navigateur.
 
 Les transports suggérés vont au coffre-fort le plus proche (même galaxie
-d'abord), jamais vers un coffre-fort attaqué, en mission Transport par défaut.
+d'abord), jamais vers un coffre-fort attaqué, toujours en mission Transport.
+La carte du soir aussi : vers un coffre-fort, la flotte rentre après ton
+réveil ; vers une autre planète, la cargaison ne s'y pose qu'après ton réveil.
+Un Transport se voit à la phalange et ne se rappelle plus une fois le retour
+commencé : la carte le rappelle. Stationner ne sert qu'aux cartes qui déplacent
+durablement des vaisseaux (Rééquilibrer, « Ramène… », trajet à vide d'un
+rapatriement), et elles le disent.
 **Préparer** remplit vaisseaux, cible et mission dans le formulaire du jeu ;
 les ressources se recopient (⧉) et la vitesse se règle à la main. L'envoi
 reste ton clic.
+
+## La flotte cible
+
+**Outils › Flotte › Flotte cible** dit, planète par planète, la flotte qui lui
+permet de lancer une expédition et de lever son stock seule le soir, puis
+l'écart avec ce qu'elle a (vaisseaux en vol comptés là où ils se poseront).
+L'ordre de calcul arbitre les manques :
+
+1. **Kit noyau** partout : une sonde, un Éclaireur, le gros vaisseau le plus
+   avancé de l'empire. S'il en manque, les planètes les plus productives sont
+   servies d'abord. Hors Explorateur, l'Éclaireur ne se construit pas : le kit
+   part avec le gros vaisseau seul, et le tableau le dit.
+2. **Kits complets** : un par emplacement d'expédition (il suit l'Astrophysique
+   et la classe), composés par le même calcul que le bloc Expéditions, sur les
+   planètes qui en sont le plus près.
+3. **Soute** : le stock prévu à l'heure du rappel de mise à l'abri, et au moins
+   la réserve de grands transporteurs. Les GT du kit n'y comptent pas, ils sont
+   en expédition. Si les transporteurs manquent, ils se répartissent au prorata
+   des besoins, et le tableau chiffre le manque.
+4. **Combat** restant : à parts égales, le reste aux plus productives.
+
+La colonne **Carburant** vérifie que la planète aura le deutérium pour envoyer
+sa flotte du soir vers son coffre-fort. Survole une case pour le détail par
+type de vaisseau.
+
+**Rééquilibrer.** Quand une planète n'a pas son kit noyau, ou que sa soute
+tombe sous 80 % de sa cible (réglable dans le même tableau), une carte propose
+les vaisseaux à y envoyer depuis la planète qui en a le plus en trop, en
+mission **Stationner** : les vaisseaux restent sur la planète cible. Elle ne
+sort jamais entre le rappel du soir et le
+réveil, ni pendant une attaque entrante. Un rapatriement proposé dit aussi quels
+vaisseaux faire suivre (un second envoi en Stationner sur le même trajet), le
+rapatriement lui-même restant en Transport.
 
 ## À savoir
 
