@@ -151,3 +151,56 @@ var OG_NAMES = {
   120:'Technologie Laser', 121:'Technologie Ions', 122:'Technologie Plasma', 123:'Réseau de recherche intergalactique', 124:'Astrophysique', 199:'Technologie Graviton',
   212:'Satellite solaire', 217:'Foreuse'
 };
+
+/* Les noms de vaisseaux tels que le client français les écrit dans le détail
+   d'une flotte, ramenés à leur clé. Le détail ne porte aucun identifiant :
+   c'est le nom ou rien. Clés normalisées par `ogNorm` — sans accents, sans
+   ponctuation — pour qu'une apostrophe typographique ou une majuscule ne
+   fassent pas perdre un vaisseau. */
+var OG_SHIP_NOMS = {
+  'petit transporteur':'sc', 'grand transporteur':'lc', 'chasseur leger':'lf', 'chasseur lourd':'hf',
+  'croiseur':'cr', 'vaisseau de bataille':'bs', 'vaisseau de colonisation':'col', 'recycleur':'rec',
+  'sonde d espionnage':'pr', 'sonde despionnage':'pr', 'bombardier':'bb', 'destructeur':'ds',
+  'etoile de la mort':'rip', 'traqueur':'bc', 'faucheur':'rp', 'eclaireur':'pf',
+  'satellite solaire':'sat', 'foreuse':'crawl'
+};
+function ogNorm(s){ return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+
+/**
+ * Le détail d'une flotte, tel que le jeu l'écrit dans l'infobulle d'un
+ * mouvement (encart des événements) ou dans le tableau `fleetinfo` de la page
+ * Mouvements de flotte : une rangée par vaisseau sous « Vaisseaux », une par
+ * ressource sous « Chargement ».
+ *
+ * Lu comme du texte, sans DOM : la chaîne vient de la page, on n'en construit
+ * aucun élément, on n'en retient que des noms connus et des nombres.
+ * Un nombre que le jeu masque (« ? » quand l'espionnage est trop faible) ne
+ * devient pas zéro : la clé reste absente, et `connu` le dit.
+ * @param {string} html le détail, entités déjà décodées ou non
+ * @returns {{ships:Object<string,number>, cargo:number[]|null, connu:boolean}}
+ */
+function ogFleetDetail(html){
+  const txt = String(html || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+  const ships = {}, cargo = [0, 0, 0];
+  let section = '', vuCargo = false, connu = true;
+  const nombre = v => { const s = String(v).replace(/<[^>]*>/g, '').trim(); if (!/\d/.test(s) || /\?/.test(s)) return null; const n = +s.replace(/[^\d]/g, ''); return Number.isFinite(n) ? n : null; };
+  for (const m of txt.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const row = m[1];
+    const th = row.match(/<th[^>]*>([\s\S]*?)<\/th>/i);
+    if (th) { const t = ogNorm(th[1].replace(/<[^>]*>/g, ' ')); section = /vaisseau|flotte/.test(t) ? 'ships' : /chargement|cargaison|ressource/.test(t) ? 'cargo' : ''; continue; }
+    const cells = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(c => c[1]);
+    if (cells.length < 2) continue;
+    const nom = ogNorm(cells[0].replace(/<[^>]*>/g, ' ')), n = nombre(cells[cells.length - 1]);
+    if (section === 'cargo' || /^(metal|cristal|deuterium)$/.test(nom)) {
+      const j = ['metal', 'cristal', 'deuterium'].indexOf(nom);
+      if (j < 0) continue;
+      vuCargo = true;
+      if (n == null) connu = false; else cargo[j] = n;
+    } else {
+      const k = OG_SHIP_NOMS[nom];
+      if (!k) continue;
+      if (n == null) connu = false; else ships[k] = (ships[k] || 0) + n;
+    }
+  }
+  return { ships, cargo: vuCargo ? cargo : null, connu };
+}

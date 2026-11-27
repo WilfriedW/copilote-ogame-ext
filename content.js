@@ -184,18 +184,48 @@
       });
     }
 
+    /* Les mouvements de flotte, miens et hostiles, tels que le jeu les affiche
+       déjà : l'encart des événements (vue d'ensemble, quand le joueur l'ouvre)
+       et la page Mouvements de flotte. Aucune requête : ce que le jeu n'a pas
+       chargé lui-même n'est pas lu.
+
+       Le camp se lit sur le compte à rebours de l'encart — `hostile`,
+       `friendly`, `neutral` ; la page Mouvements ne montre que les miens. Une
+       rangée `partnerInfo` détaille un participant d'une attaque groupée déjà
+       comptée par sa rangée de tête : la compter aussi doublerait l'attaque. */
     const moves = [], seen = new Set();
     document.querySelectorAll('[data-mission-type][data-arrival-time]').forEach(el => {
+      if (el.classList && el.classList.contains('partnerInfo')) return;
       const arrival = +el.dataset.arrivalTime;
       if (!arrival || arrival * 1000 < Date.now()) return;
       const ret = /^(true|1)$/i.test(el.dataset.returnFlight || '');
-      const coords = sel => (clean(el.querySelector(sel)?.textContent).match(/\d+:\d+:\d+/) || [''])[0];
+      const q = sel => { try { return el.querySelector(sel); } catch (e) { return null; } };
+      const coords = sel => (clean(q(sel)?.textContent).match(/\d+:\d+:\d+/) || [''])[0];
+      const nom = sel => clean(q(sel)?.textContent).replace(/\[?\d+:\d+:\d+\]?/, '').trim().slice(0, 40) || null;
       const mission = +el.dataset.missionType;
-      const key = `${mission}|${arrival}|${ret}`;
+      const cdCls = [q('.countDown')?.className, q('.countDown span')?.className, el.className].filter(Boolean).join(' ');
+      const camp = /\bhostile\b/.test(cdCls) ? 'hostile' : /\bneutral\b/.test(cdCls) ? 'neutral' : 'own';
+      /* Le détail : le tableau de la page Mouvements, sinon l'infobulle de
+         l'icône dans l'encart. Les deux portent le même balisage. */
+      const tab = q('table.fleetinfo');
+      const tip = q('.icon_movement .tooltip, .icon_movement_reserve .tooltip, .icon_movement [title], .icon_movement_reserve [title]');
+      const det = ogFleetDetail(tab ? tab.outerHTML : tip ? (tip.getAttribute('data-tooltip-title') || tip.getAttribute('title') || '') : '');
+      const origin = coords('.coordsOrigin, .originCoords, .origin'), dest = coords('.destCoords, .destinationCoords, .destination');
+      const key = `${mission}|${arrival}|${ret}|${origin}|${dest}|${camp}`;
       if (seen.has(key)) return;
       seen.add(key);
-      moves.push({ mission, ret, arrival, origin: coords('.coordsOrigin, .originCoords, .origin'), dest: coords('.destCoords, .destinationCoords, .destination') });
+      const id = (String(el.id || el.dataset.fleetId || '').match(/\d+/) || [null])[0];
+      moves.push({ id, mission, ret, arrival, camp, hostile: camp === 'hostile', origin, dest,
+        originName: nom('.originFleet, .originPlanet'), destName: nom('.destFleet, .destinationPlanet'),
+        ships: det.ships, cargo: det.cargo, detailConnu: det.connu });
     });
+    /* L'encart des événements, quand il est là, dit TOUT ce qui vole : ce qu'il
+       ne montre plus est arrivé ou rappelé. Le témoin d'attaque du jeu se lit
+       sur toutes les pages : `noAttack` veut dire qu'aucune flotte hostile ne
+       vole vers moi, même encart fermé. */
+    const eventList = !!document.querySelector('#eventContent');
+    const aa = document.querySelector('#attack_alert');
+    const alerteJeu = aa ? !/\bnoAttack\b/.test(aa.className || '') : null;
 
     const slotTxt = clean(document.querySelector('#slots, .fleetStatus')?.textContent);
     /* Trois chiffres au plus : le jeu n'en affiche jamais davantage ici, et ce
@@ -278,6 +308,8 @@
       // La page lue, pour que le panneau sache quel arrêt de son relevé vient d'arriver.
       page: component,
       movePage: /movement/i.test(component),
+      eventList,
+      alerteJeu,
       artefacts,
       prodPanel,
       /* Le lien que le jeu affiche vers « Paramétrage de la production ». Le
