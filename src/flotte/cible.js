@@ -12,10 +12,18 @@
    3. la soute du soir, au prorata des besoins quand elle manque ;
    4. le combat restant, à parts égales.
 
-   Chargé avant app.js, comme meteo.js : les fonctions ne touchent aux
-   globales d'app.js (S, expoFleet, shipStats, mouvements…) qu'à l'appel.
+   Module ES, comme src/meteo.js : il importe d'app.js (S, expoFleet,
+   shipStats, mouvements…), qui l'importe en retour, et n'y touche qu'à l'appel.
    Lecture seule : rien ici n'envoie ni ne clique. Les cartes passent par les
    liens « Préparer » du panneau, et l'envoi reste le clic du joueur. */
+
+import {
+  SHIPS, EXPO_GROS, expoRes, S, fmtLigne, fmt, dur, esc, num, planetRef,
+  production, mse, stockNow, souteUtile, shipStats, flight, expoFleet,
+  shipList, formatTime, SHIP_COURT, shipCourt, mcd, secu, prochaineHeure,
+  planeteEn, mouvements, projectResources, attaquesEntrantes, aQuai,
+  transportSuggere, expoCap, fmtCourt
+} from '../../app.js';
 
 /** Les transporteurs : ce qui compte dans la soute du soir. */
 const FC_SOUTE = ['lc', 'sc'];
@@ -232,7 +240,7 @@ function fcFenetre(now){
  * La flotte cible de l'empire tel que le panneau le connaît, carburant compris.
  * @returns {{par:object, manqueGT:number, gros:string|null, nKits:number, actuels:Map, fen:object}}
  */
-function flotteCible(now){
+export function flotteCible(now){
   now = now || Date.now();
   const actuels = fcActuels(now), fen = fcFenetre(now);
   const planets = S.planets.map(p => {
@@ -270,7 +278,7 @@ function fcDetail(cible, actuel, types){
 }
 
 /** Le tableau « Flotte cible », une ligne par planète. */
-function flotteCibleHtml(now){
+export function flotteCibleHtml(now){
   if(!S.planets.length) return '';
   const r = flotteCible(now);
   const lignes = S.planets.map(p => {
@@ -315,7 +323,7 @@ function flotteCibleHtml(now){
  * pas des moments pour déplacer la flotte.
  * @returns {Array<object>} des missions du jour, au format de dailyMissions
  */
-function reequilibreCartes(now, r){
+export function reequilibreCartes(now, r){
   now = now || Date.now();
   r = r || flotteCible(now);
   if(r.fen.dedans || attaquesEntrantes(now).length) return [];
@@ -363,7 +371,7 @@ function reequilibreCartes(now, r){
  * trajet.
  * @returns {string} une phrase, vide s'il n'y a rien à ajouter
  */
-function flotteAjout(r, src, dst){
+export function flotteAjout(r, src, dst){
   if(!r || !src || !dst || src === dst || r.fen.dedans) return '';
   const a = r.par[src.id], b = r.par[dst.id]; if(!a || !b) return '';
   const add = {};

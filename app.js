@@ -1,3 +1,9 @@
+/* Module ES, chargé par src/main.js (issue #49, étape 0). En attendant son
+   découpage par domaine, app.js garde tout ce qu'il avait ; il n'importe que
+   ce que la météo et la flotte cible lui fournissent, et n'exporte que ce
+   qu'elles lui empruntent (liste en fin de fichier). */
+import { meteoFiltre, meteoVoit, renderMeteo, meteoBind } from './src/meteo.js';
+import { flotteCible, flotteCibleHtml, reequilibreCartes, flotteAjout } from './src/flotte/cible.js';
 
 const APP_VERSION = '2.19.1';
 const KEY = 'ogame-copilot-v1';
@@ -3996,13 +4002,10 @@ const baseTitle = document.title;
 let flashT = null;
 function flashTitle(msg){ clearInterval(flashT); let on=false; flashT=setInterval(()=>{ document.title = (on=!on) ? `Terminé : ${msg}` : baseTitle; },1000); }
 const alertQueue = [];
-/** Shows a full-screen pulsing alert that stays until dismissed. */
-function showBigAlert(label){
-  alertQueue.push(label);
-  const box = document.getElementById('bigAlert');
-  document.getElementById('bigAlertMsg').innerHTML = alertQueue.map(esc).join('<br>');
-  box.hidden = false;
-}
+/* showBigAlert est déclarée plus bas (« one alert, one acknowledgment ») :
+   elle passe par le service worker. La version locale qui vivait ici n'a
+   jamais servi — en script classique, la dernière déclaration l'emportait —
+   et un module ES refuse de charger un nom déclaré deux fois. */
 /** Hides every finished timer up to now. */
 function ackFinished(){ S.ackBefore = Date.now(); save(); renderTimers(); }
 document.getElementById('bigAlertOk').addEventListener('click', ()=>{ alertQueue.length = 0; document.getElementById('bigAlert').hidden = true; stopFlash(); ackFinished(); });
@@ -11218,3 +11221,14 @@ if(IS_EXT && chrome.runtime.getURL) (function(){
     }).catch(()=>{});
   });
 })();
+
+/* Ce que src/meteo.js et src/flotte/cible.js empruntent à app.js. Rien de
+   plus : un nom ajouté ici sans module qui l'importe est un oubli. */
+export {
+  SEV_NIVEAU, S, planetById, fmt, esc, planetRef, uiOuvert, uiNote, render,
+  constatsVus, planetAlerts, formatTime, DEF, DEF_ABR, defPlan, poidsCat,
+  SHIPS, EXPO_GROS, expoRes, fmtLigne, dur, num, production, mse, stockNow,
+  souteUtile, shipStats, flight, expoFleet, shipList, SHIP_COURT, shipCourt,
+  mcd, secu, prochaineHeure, planeteEn, mouvements, projectResources,
+  attaquesEntrantes, aQuai, transportSuggere, expoCap, fmtCourt
+};

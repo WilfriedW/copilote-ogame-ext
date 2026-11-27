@@ -1,13 +1,21 @@
-/* Charge app.js sous Node avec un DOM factice et une horloge figée, pour
+/* Charge le panneau sous Node avec un DOM factice et une horloge figée, pour
    pouvoir appeler la logique de planification hors du navigateur.
 
-   app.js reste un script classique : on l'évalue ici comme le ferait la page,
-   avec les globales qu'il attend. Le code évalué est un fichier du dépôt, pas
-   une entrée extérieure. */
+   Le panneau est fait de scripts classiques (ids.js, profils.js) puis de
+   modules ES tirés de src/main.js. On les évalue ici dans une seule portée,
+   dans l'ordre du navigateur, les modules privés de leurs import/export
+   (voir test/modules.js) et le tout en mode strict, comme un module. Un test
+   peut ainsi lire n'importe quel symbole, exporté ou non. Le code évalué
+   est un fichier du dépôt, pas une entrée extérieure. */
 const fs = require('fs');
 const path = require('path');
+const modules = require('./modules');
 
 const ROOT = path.join(__dirname, '..');
+/** Les scripts classiques que sidepanel.html charge avant boot.js. */
+const CLASSIQUES = ['ids.js', 'profils.js'];
+/** Le module que boot.js ajoute à la page. */
+const ENTREE = 'src/main.js';
 
 /** Élément de DOM tolérant : tout accès réussit, rien n'a d'effet. */
 function fakeEl() {
@@ -34,10 +42,10 @@ function fakeEl() {
 }
 
 /**
- * Évalue ids.js puis app.js et renvoie les symboles demandés.
+ * Évalue les scripts du panneau puis ses modules, et renvoie les symboles demandés.
  * @param {object} state état à placer dans le stockage local (devient `S`)
  * @param {number} nowMs instant figé renvoyé par Date.now()
- * @param {string[]} want noms des symboles d'app.js à récupérer
+ * @param {string[]} want noms des symboles à récupérer (exportés ou non)
  * @returns {object} les symboles demandés
  */
 function loadApp(state, nowMs, want, api, ext, prioAsk, rules) {
@@ -107,9 +115,9 @@ function loadApp(state, nowMs, want, api, ext, prioAsk, rules) {
   const window = { addEventListener() {}, chrome: ext ? chrome : undefined, __api: api || null, __game: null, __prioAsk: prioAsk || null, __rules: rules,
     __uiState: ui.etats || null, __uiSeen: ui.vus || null, ...win };
 
-  // même ordre que boot.js
-  const src = ['ids.js', 'profils.js', 'meteo.js', 'flotte.js', 'app.js']
-    .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
+  // même ordre que sidepanel.html puis boot.js : les scripts classiques, puis les modules
+  const src = [...CLASSIQUES.map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')),
+    ...modules.ordre(ENTREE).map(modules.aplatir)].join('\n');
 
   // l'envoi aux autres postes est différé : sans ces bouchons, le test
   // attendrait dix secondes pour rien et le runner ne rendrait pas la main
@@ -117,7 +125,7 @@ function loadApp(state, nowMs, want, api, ext, prioAsk, rules) {
     setInterval: () => 0, clearInterval: () => {},
     setTimeout: () => 0, clearTimeout: () => {} };
   const names = Object.keys(args);
-  const out = new Function(...names, src + '\nreturn {' + want.join(', ') + '};')(
+  const out = new Function(...names, '"use strict";\n' + src + '\nreturn {' + want.join(', ') + '};')(
     ...names.map(n => args[n]));
   /** Ce que le rendu a écrit, par identifiant d'élément. */
   /** Ce que le panneau a écrit dans le stockage de l'extension. */
@@ -180,4 +188,4 @@ function fixtureState() {
   };
 }
 
-module.exports = { loadApp, fixtureState };
+module.exports = { loadApp, fixtureState, fakeEl, CLASSIQUES, ENTREE };

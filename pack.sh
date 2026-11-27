@@ -4,15 +4,17 @@
 # git, les tests, les docs, les plans : quinze mégaoctets pour un demi-méga de
 # code. On lui donne `dist/`, qui ne contient que les fichiers du manifeste.
 # La liste est gardée par un test : test/run.js refuse qu'un fichier chargé par
-# le manifeste, par sidepanel.html ou par panel.css manque ici.
+# le manifeste, par sidepanel.html, par panel.css ou par un module de src/ manque ici.
 set -e
 cd "$(dirname "$0")"
-FICHIERS="README.md manifest.json background.js boot.js ids.js profils.js meteo.js flotte.js rules.json content.js masque.css masque-conf.js masque.js app.js sidepanel.html panel.css icon32.png icon128.png oxanium.woff2 plex-sans.woff2 jetbrains-mono.woff2"
+FICHIERS="README.md manifest.json background.js boot.js ids.js profils.js rules.json content.js masque.css masque-conf.js masque.js app.js sidepanel.html panel.css icon32.png icon128.png oxanium.woff2 plex-sans.woff2 jetbrains-mono.woff2"
 # La feuille du masquage et sa configuration se tirent du JSON des sélecteurs :
 # un sélecteur corrigé dans config/hide-selectors.json part au prochain paquet.
 node config/masque-css.js
 rm -rf dist && mkdir dist
 cp $FICHIERS dist/
+# Les modules ES du panneau : tout le dossier, pour qu'un module ajouté parte sans retoucher la liste.
+cp -R src dist/src
 
 # L'historique des versions, que Réglages › Version affiche : une ligne par
 # commit, et c'est l'empreinte du commit qu'on passe à `git checkout` pour

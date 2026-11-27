@@ -27,9 +27,12 @@ chrome.storage.local.get(null, d => {
   window.__cardTab = d.cardTab || null;
   /* Le mode des heures (serveur ou locale) se lit avant le premier dessin :
      lu après, le panneau s'ouvrirait une fraction de seconde dans l'autre. */
+  /* Le panneau est un module ES (src/main.js, qui importe app.js) : il
+     s'exécute en mode strict et ses déclarations ne sont plus des globales. */
   const go = () => {
     const s = document.createElement('script');
-    s.src = 'app.js';
+    s.type = 'module';
+    s.src = 'src/main.js';
     document.body.appendChild(s);
   };
   /* Les règles du moteur se lisent avant app.js, qui les consulte dès son
