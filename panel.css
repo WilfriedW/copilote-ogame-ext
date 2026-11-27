@@ -440,3 +440,14 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 .seg .cpt.crit{color:var(--bad)}
 .seg .cpt.imp{color:var(--warn)}
 .seg .cpt.info{color:var(--muted)}
+/* Le menu « Afficher : N » d'une liste, et son « Voir plus » */
+.liste-tete{gap:8px}
+.liste-tete h2{margin:0}
+.cartes-menu{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:6px 0;white-space:nowrap}
+.cartes-menu select{width:auto;max-width:96px;flex:0 0 auto;padding:2px 6px;font-size:12px}
+.voir-plus{margin-top:6px;align-self:flex-start}
+.cartes-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+.cartes-table th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:4px 0}
+.cartes-table td{padding:4px 0;border-top:1px solid var(--line)}
+.cartes-table td:last-child{text-align:right}
+.cartes-table select{width:auto}
