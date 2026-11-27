@@ -13554,16 +13554,19 @@ function appCartes(mode, modifier) {
 }
 const ordreCartes = h => [...h.matchAll(/data-carte="([^"]+)"/g)].map(m => m[1]);
 
-t('cartes : le mode empilé reste le défaut, sans barre ni masquage', () => {
-  const g = appCartes();
+/* ENH-54 : les onglets sont devenus le défaut ; l'empilé reste un choix. */
+t('cartes : le mode empilé, choisi, n\'a ni barre ni masquage', () => {
+  const g = appCartes('stacked');
   const h = g.VIEWS.today();
   assert.ok(!/en-onglets|carteTabs/.test(h), 'rien du mode onglets');
   assert.ok(!/<div class="carte"[^>]* hidden/.test(h), 'aucune carte masquée');
   assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions', 'journee', 'minuteurs']);
   for (const id of ['tdNow', 'tdAlerts', 'expoBloc', 'tdDay', 'tmList']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là');
 });
-t('cartes : un mode inconnu retombe sur l\'empilé', () => {
-  assert.ok(!/en-onglets/.test(appCartes('grille').VIEWS.today()));
+t('cartes : un mode inconnu retombe sur les onglets, le défaut', () => {
+  assert.ok(/en-onglets/.test(appCartes('grille').VIEWS.today()));
+  assert.ok(/en-onglets/.test(appCartes().VIEWS.today()), 'rien d\'écrit : onglets');
+  assert.ok(!/en-onglets/.test(appCartes('stacked').VIEWS.today()), 'empilé choisi : gardé');
 });
 t('cartes : en onglets, une barre .seg en tête, les cartes dans le même ordre', () => {
   const h = appCartes('tabs').VIEWS.today();
@@ -13571,7 +13574,7 @@ t('cartes : en onglets, une barre .seg en tête, les cartes dans le même ordre'
   assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions', 'journee', 'minuteurs']);
 });
 t('cartes : une carte ne sait pas dans quel mode elle est montrée', () => {
-  const pile = appCartes().VIEWS.today();
+  const pile = appCartes('stacked').VIEWS.today();
   const ong = appCartes('tabs').VIEWS.today()
     .replace(' en-onglets', '').replace('<div class="seg" role="tablist" id="carteTabs" aria-label="Sections"></div>', '');
   assert.equal(ong, pile, 'seul le conteneur change');
@@ -13627,6 +13630,7 @@ t('cartes : le rafraîchissement dit ce que contient chaque carte', () => {
 });
 t('cartes : l\'interrupteur se retient dans le stockage partagé et redessine', () => {
   const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; });
+  s.__win = { __cardLayout: 'stacked' };
   const g = loadApp(s, SOIR, ['setCardMode', 'VIEWS', 'cardMode']);
   g.setCardMode('tabs');
   assert.equal(g.shared().cardLayout, 'tabs');
@@ -13636,13 +13640,13 @@ t('cartes : l\'interrupteur se retient dans le stockage partagé et redessine', 
   assert.equal(g.shared().cardLayout, 'stacked');
   assert.ok(/id="sEmpile" data-empile="1" checked/.test(g.VIEWS.settings()));
 });
-t('cartes : sur une installation neuve, les sections sont empilées, et la bascule le dit', () => {
+t('cartes : sur une installation neuve, les sections sont en onglets, et la bascule le dit', () => {
   const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; });
   const g = loadApp(s, SOIR, ['VIEWS', 'cardMode']);
-  assert.equal(g.cardMode, 'stacked');
+  assert.equal(g.cardMode, 'tabs');
   const h = g.VIEWS.settings(), i = h.indexOf('<h2>Affichage</h2>');
-  assert.ok(i >= 0 && h.indexOf('id="sEmpile" data-empile="1" checked') > i, '« Empiler les sections », cochée, dans Affichage');
-  assert.ok(/Empiler les sections/.test(h));
+  assert.ok(i >= 0 && h.indexOf('id="sEmpile" data-empile="1"') > i, '« Empiler les sections » est dans Affichage');
+  assert.ok(!/id="sEmpile" data-empile="1" checked/.test(h), 'et décochée');
 });
 t('cartes : un autre panneau change le mode, celui-ci suit sans le réécrire', () => {
   const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; });
@@ -14745,7 +14749,7 @@ const appReglages = (mode, modifier) => {
   s.planets.forEach(p => { p.stock.at = SOIR; });
   if (modifier) modifier(s);
   if (mode) s.__win = { __cardLayout: mode };
-  return loadApp(s, SOIR, CARTES_W.concat(['cardMode', 'cardTabs', 'renvoiCible', 'allerVers', 'RENVOI_RE', 'TOOLS', 'enOnglets', 'S']));
+  return loadApp(s, SOIR, CARTES_W.concat(['cardMode', 'cardTabs', 'renvoiCible', 'allerVers', 'RENVOI_RE', 'TOOLS', 'enOnglets', 'S', 'ongletAffiche']));
 };
 /** Les titres de carte (h2 ou résumé) d'un groupe de Réglages, dans l'ordre. */
 const titresDuGroupe = (h, id) => {
@@ -14754,13 +14758,13 @@ const titresDuGroupe = (h, id) => {
 };
 
 t('ENH-54 : Réglages se range en cinq onglets, même quand Aujourd\'hui est empilé', () => {
-  const g = appReglages();
-  assert.equal(g.cardMode, 'stacked', 'Aujourd\'hui reste empilé par défaut');
+  const g = appReglages('stacked');
+  assert.equal(g.cardMode, 'stacked', 'Aujourd\'hui empilé, par choix du joueur');
   const h = g.VIEWS.settings();
   assert.match(h, /<section class="panel en-onglets" data-disposition="settings"><div class="seg" role="tablist" id="carteTabs"/);
   assert.deepEqual(ordreCartes(h), ['jeu', 'defense', 'affichage', 'moteur', 'donnees']);
   assert.deepEqual(g.CARTES.settings.map(c => c.titre), ['Mon jeu', 'Défense et sécurité', 'Affichage', 'Moteur', 'Données']);
-  assert.ok(g.enOnglets('settings') && !g.enOnglets('today'));
+  assert.ok(g.enOnglets('settings') && g.enOnglets('empire') && !g.enOnglets('today'));
 });
 
 t('ENH-54 : chaque carte de Réglages est dans son groupe, aucune ne manque', () => {
@@ -14816,6 +14820,26 @@ t('ENH-54 : « Modifier » et les renvois ouvrent le sous-onglet, retenu comme u
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
   const gotos = [...src.matchAll(/data-goto="([^"]+)"/g)].map(m => m[1]);
   assert.deepEqual(gotos, ['settings:defense', 'settings:jeu', 'settings:defense']);
+});
+
+/* ENH-54, étape 3 : Empire en sous-onglets, Aujourd'hui en onglets par défaut. */
+t('ENH-54 : Empire se range en deux onglets, Planètes et Recherche', () => {
+  const g = appReglages('stacked');
+  const h = g.VIEWS.empire();
+  assert.match(h, /<section class="panel en-onglets" data-disposition="empire"><div class="seg" role="tablist" id="carteTabs"/, 'même quand Aujourd\'hui est empilé');
+  assert.deepEqual(ordreCartes(h), ['planetes', 'recherche']);
+  assert.ok(h.split('data-carte="recherche"')[1].includes('Recherches et niveaux visés'), 'la recherche dans son onglet');
+  for (const id of ['empireRes', 'empireFactor', 'labLv']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là pour REFRESH.empire');
+});
+
+t('ENH-54 : Aujourd\'hui s\'ouvre sur Maintenant une fois le profil posé, sur le questionnaire avant', () => {
+  const g = appReglages();
+  assert.equal(g.ongletAffiche(['profil', 'maintenant', 'journee'], null, undefined, 'maintenant'), 'maintenant', 'le défaut de la vue');
+  assert.equal(g.ongletAffiche(['profil', 'maintenant'], null, 'profil', 'maintenant'), 'profil', 'le choix du joueur passe devant');
+  assert.equal(g.ongletAffiche(['profil', 'maintenant'], 'maintenant', 'profil', 'profil'), 'maintenant', 'une alerte passe devant tout');
+  assert.equal(g.ongletAffiche(['profil', 'journee'], null, null, 'maintenant'), 'profil', 'défaut absent : le premier');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  assert.match(src, /CARTE_DEFAUT = \{today: \(\)=> S\.profil\.set \? 'maintenant' : 'profil'\}/);
 });
 
 /* ENH-54, étape 1 : une seule échelle de styles. Ces deux vérifications
