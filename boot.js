@@ -16,6 +16,10 @@ chrome.storage.local.get(null, d => {
   window.__api = d.api || null;
   // les demandes de la page du jeu ne portent pas le préfixe « ls: » : sans ceci, app.js ne les voit jamais
   window.__prioAsk = d.prioAsk || null;
+  /* Ce qui est ouvert ou fermé se lit avant le premier dessin : lu après,
+     chaque carte s'ouvrirait fermée puis se rouvrirait sous les yeux. */
+  window.__uiState = d.uiState || null;
+  window.__uiSeen = d.uiSeen || null;
   /* Le mode des heures (serveur ou locale) se lit avant le premier dessin :
      lu après, le panneau s'ouvrirait une fraction de seconde dans l'autre. */
   const go = () => {

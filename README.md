@@ -52,6 +52,17 @@ et l'infobulle dit « décalage non vérifié ». Le choix est retenu d'une sess
 à l'autre, et `save.json` porte toujours les deux heures (`serverTime`,
 `localTime`, `localTimeZone`, `serverOffsetMinutes`).
 
+## Les cartes
+
+Une carte ou une section que tu ouvres (« Comment faire », ⓘ, Expéditions…)
+reste ouverte, et une carte fermée reste fermée : au changement de page ou de
+planète, au rechargement, après un redémarrage du navigateur, et quand une
+autre carte apparaît ou disparaît. Le choix est propre à ce poste. Les blocs
+fixes valent pour toutes les planètes ; chaque recommandation garde le sien.
+La carte Alertes s'ouvre seule tant qu'une alerte critique y figure, puis
+revient à l'état choisi. **Réglages › Allure du panneau › Réinitialiser
+l'affichage des cartes** remet tout comme au premier jour.
+
 ## Mettre à jour
 
 **Réglages › Version** dit en quelle version tourne le panneau, si le dépôt en

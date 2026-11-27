@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'missionKey', 'UI', 'uiOuvert', 'uiNote', 'uiVu', 'uiPurge', 'uiReset', 'uiEcrit', 'fold', 'garderVue'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -8592,7 +8592,8 @@ t('le champ du volet Empire republie le plan après avoir posé', () => {
 t('la minuterie de 30 s republie le plan aussi sur Empire', () => {
   /* setInterval est neutralisé dans le harnais : on épingle la source. */
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
-  assert.match(src, /REFRESH\[tab\]\(\);\s*publieLePlan\(\);\s*finDeNuit\(\);\s*nightBar\(\);\s*\}, 30000\)/);
+  // garderVue() enrobe le dessin pour que la carte lue ne bouge pas à l'écran
+  assert.match(src, /garderVue\(\(\)=>REFRESH\[tab\]\(\)\);\s*publieLePlan\(\);\s*finDeNuit\(\);\s*nightBar\(\);\s*\}, 30000\)/);
 });
 
 t('le changement que provoque l\'effacement lui-même ne rejoue rien', () => {
@@ -12408,6 +12409,166 @@ t('le sélecteur écrit sous chaque nom sa recette et son pack', () => {
   const d = lu(g.VIEWS.defense());
   assert.ok(/data-defpick="" data-dp=/.test(d), 'et chaque planète garde « Comme les réglages »');
   assert.ok(!/data-launch|data-sent/.test(d), 'toujours en lecture seule');
+});
+
+/* ---------- ce qui est ouvert reste ouvert ---------- */
+
+/** La carte de mise à l'abri du soir, et sa clé d'affichage. */
+const nuitDe = g => g.dailyMissions().find(m => m.id === 'night');
+/** Le « Comment faire » d'une carte, tel que REFRESH.today l'écrit. */
+const howDe = (html, key) => {
+  const i = html.indexOf(`data-fold="${key}.comment-faire"`);
+  return i < 0 ? null : html.slice(html.lastIndexOf('<details', i), i);
+};
+
+t("la clé d'une recommandation dit son type, sa règle, sa planète et sa cible", () => {
+  const g = app();
+  const m = nuitDe(g), k = g.missionKey(m);
+  assert.ok(m, 'la fixture a sa carte du soir');
+  assert.equal(k, `securite:fleetsave-nuit:mere:${String(m.dest).replace(/:/g, '-')}`);
+});
+
+t('la clé ne bouge pas quand les montants ou les heures de la carte changent', () => {
+  const a = app(), b = app(s => { s.planets[0].stock.m = 160000; s.planets[0].stock.d = 25000; }, SOIR + 7 * 60e3);
+  const ma = nuitDe(a), mb = nuitDe(b);
+  assert.notEqual(ma.sol, mb.sol, 'préalable : le stock affiché a changé');
+  assert.equal(a.missionKey(ma), b.missionKey(mb));
+});
+
+t('la carte de tête et ses voisines portent la même règle, chacune sa planète', () => {
+  const g = app();
+  const tete = g.missionKey({id: 'night', q: 'Sécurité', p: 0, dest: '1:142:16'});
+  const autre = g.missionKey({id: 'night:colo', q: 'Sécurité', p: 1, dest: '1:142:16'});
+  assert.equal(tete, 'securite:fleetsave-nuit:mere:1-142-16');
+  assert.equal(autre, 'securite:fleetsave-nuit:colo:1-142-16');
+});
+
+t('« Comment faire » est fermé tant que le joueur ne l\'a pas ouvert', () => {
+  const g = app();
+  g.REFRESH.today();
+  const k = g.missionKey(nuitDe(g)), h = howDe(g.html().tdNow, k);
+  assert.ok(h != null, 'la section porte sa clé');
+  assert.ok(!/\sopen/.test(h), 'fermée par défaut : ' + h);
+});
+
+t('« Comment faire » ouvert le reste quand une autre carte apparaît ou disparaît', () => {
+  const g = app();
+  const k = g.missionKey(nuitDe(g));
+  g.uiNote(k + '.comment-faire', true);
+  const cartes = () => (g.html().tdNow.match(/data-ck="/g) || []).length;
+  g.REFRESH.today();
+  assert.ok(/\sopen/.test(howDe(g.html().tdNow, k)), 'ouvert au premier dessin');
+  const n0 = cartes();
+  // une carte de plus : la colonie arrivée à évaluer
+  g.S.colo.target = '1:142:9'; g.S.colo.sentAt = SOIR;
+  g.REFRESH.today();
+  assert.ok(cartes() > n0, 'préalable : une carte est bien apparue');
+  assert.ok(/\sopen/.test(howDe(g.html().tdNow, k)), 'toujours ouvert après le changement de liste');
+  // et une de moins : on écarte toutes les autres
+  const n1 = cartes();
+  for (const m of g.dailyMissions()) if (m.id !== 'night') g.S.daily.no['m:' + m.id] = SOIR;
+  g.REFRESH.today();
+  assert.ok(cartes() < n1, 'préalable : des cartes ont bien disparu');
+  assert.ok(/\sopen/.test(howDe(g.html().tdNow, k)), 'toujours ouvert quand les voisines disparaissent');
+});
+
+t('« Comment faire » ouvert le reste quand ses propres montants changent', () => {
+  const g = app();
+  const k = g.missionKey(nuitDe(g));
+  g.uiNote(k + '.comment-faire', true);
+  g.S.planets[0].stock.m += 50000;
+  g.REFRESH.today();
+  assert.ok(/\sopen/.test(howDe(g.html().tdNow, k)));
+});
+
+t("l'état est lu avant le premier dessin, depuis le stockage du poste", () => {
+  const g = app(s => { s.__ui = {etats: {journee: 'open', expeditions: 'closed', bidon: 'peut-être'}, vus: {}}; });
+  assert.equal(g.uiOuvert('journee', false), true);
+  assert.equal(g.uiOuvert('expeditions', true), false, 'le choix enregistré bat le défaut');
+  assert.equal(g.UI.etats.bidon, undefined, 'une valeur inconnue est ignorée');
+  assert.match(g.VIEWS.today(), /<details class="card" open><summary data-fold="journee">/);
+});
+
+t('une carte fixe est globale : sa clé ne porte pas la planète', () => {
+  const g = app();
+  g.uiNote('expeditions', true);
+  assert.equal(g.fold('expeditions', false), ' open');
+  g.S.centre = 'colo';
+  assert.equal(g.fold('expeditions', false), ' open');
+});
+
+t('le clic du joueur est groupé puis écrit dans chrome.storage.local, hors de la sauvegarde', () => {
+  const g = app();
+  g.uiNote('journee', true); g.uiNote('aide', false);
+  g.uiEcrit();
+  assert.deepEqual(g.stored().uiState, {journee: 'open', aide: 'closed'});
+  g.REFRESH.today(); g.uiEcrit();
+  assert.ok(Object.keys(g.stored().uiSeen).some(k => k.startsWith('securite:fleetsave-nuit:')), 'la carte du soir a sa date');
+  assert.equal(JSON.stringify(g.S).includes('"fold"'), false, 'rien dans S, donc rien dans save.json');
+});
+
+t('les replis rangés dans S.ui.fold passent dans le nouveau stockage', () => {
+  const g = app(s => { s.ui.fold = {journee: true, aide: false}; });
+  assert.equal(g.UI.etats.journee, 'open');
+  assert.equal(g.UI.etats.aide, 'closed');
+  assert.equal(g.S.ui.fold, undefined);
+  assert.deepEqual(g.stored().uiState, {journee: 'open', aide: 'closed'}, 'écrit tout de suite');
+});
+
+t('une carte disparue depuis plus de 7 jours est oubliée, une carte revue dans les 24 h garde son état', () => {
+  const vieux = new Date(SOIR - 8 * 86400e3).toISOString(), hier = new Date(SOIR - 20 * 3600e3).toISOString();
+  const g = app(s => { s.__ui = {
+    etats: {'a:x:p:c': 'open', 'a:x:p:c.comment-faire': 'open', 'b:y:p:c.comment-faire': 'open', journee: 'open'},
+    vus: {'a:x:p:c': vieux, 'b:y:p:c': hier}}; });
+  assert.equal(g.UI.etats['a:x:p:c'], undefined);
+  assert.equal(g.UI.etats['a:x:p:c.comment-faire'], undefined, 'ses sections partent avec elle');
+  assert.equal(g.UI.vus['a:x:p:c'], undefined);
+  assert.equal(g.UI.etats['b:y:p:c.comment-faire'], 'open', 'revue hier : gardée');
+  assert.equal(g.UI.etats.journee, 'open', 'une carte fixe ne se purge pas');
+});
+
+t('une alerte critique ouvre la carte sans toucher au choix enregistré', () => {
+  const g = app();
+  g.uiNote('alertes', false);
+  assert.equal(g.fold('alertes', true, true), ' open', 'ouverte de force');
+  assert.equal(g.UI.etats.alertes, 'closed', 'le choix reste');
+  assert.equal(g.fold('alertes', true, false), '', "l'alerte passée, elle revient fermée");
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  assert.match(src, /fold\('alertes', true, critique\)/, 'la carte Alertes passe la criticité');
+});
+
+t('le ⓘ ouvert le reste au dessin suivant', () => {
+  const g = app();
+  const [b0, w0] = g.whyParts(['Une raison. Puis le détail.'], 'k:1');
+  assert.ok(/aria-expanded="false"/.test(b0) && / hidden>/.test(w0), 'fermé par défaut');
+  g.uiNote('k:1.pourquoi', true);
+  const [b1, w1] = g.whyParts(['Une raison. Puis le détail.'], 'k:1');
+  assert.ok(/aria-expanded="true"/.test(b1) && !/hidden/.test(w1));
+  assert.ok(/data-ui="k:1\.pourquoi"/.test(b1), 'le bouton dit quelle clé écrire');
+});
+
+t('« Fait », « Non » et la copie ne touchent pas à l\'affichage des cartes', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  // seuls le résumé d'un repli et le ⓘ écrivent un état
+  assert.equal((src.match(/uiNote\(/g) || []).length, 3, 'définition + résumé + ⓘ');
+});
+
+t('« Réinitialiser l\'affichage des cartes » remet les défauts', () => {
+  const g = app();
+  g.uiNote('journee', true); g.uiNote('alertes', false); g.uiVu('a:b:c:d');
+  g.uiReset();
+  assert.deepEqual(g.UI.etats, {});
+  assert.equal(g.fold('journee', false), '');
+  assert.equal(g.fold('alertes', true), ' open');
+  assert.deepEqual(g.stored().uiState, {});
+  assert.match(g.VIEWS.settings(), /id="uiReset"/);
+});
+
+t('garderVue dessine même sans fenêtre qui défile', () => {
+  const g = app();
+  let n = 0;
+  g.garderVue(() => { n++; g.garderVue(() => { n++; }); });
+  assert.equal(n, 2);
 });
 
 if (failures.length) {
