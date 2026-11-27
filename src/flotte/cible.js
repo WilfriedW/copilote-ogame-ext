@@ -17,11 +17,13 @@
    Lecture seule : rien ici n'envoie ni ne clique. Les cartes passent par les
    liens « Préparer » du panneau, et l'envoi reste le clic du joueur. */
 
+import { S } from '../core/etat.js';
+import { dur, formatTime } from '../core/temps.js';
 import {
-  SHIPS, EXPO_GROS, expoRes, S, fmtLigne, fmt, dur, esc, num, planetRef,
+  SHIPS, EXPO_GROS, expoRes, fmtLigne, fmt, esc, num, planetRef,
   production, mse, stockNow, souteUtile, shipStats, flight, expoFleet,
-  shipList, formatTime, SHIP_COURT, shipCourt, mcd, secu, prochaineHeure,
-  planeteEn, mouvements, projectResources, attaquesEntrantes, aQuai,
+  shipList, SHIP_COURT, shipCourt, mcd, secu, prochaineHeure, planeteEn,
+  mouvements, projectResources, attaquesEntrantes, aQuai,
   transportSuggere, expoCap, fmtCourt, aide
 } from '../../app.js';
 

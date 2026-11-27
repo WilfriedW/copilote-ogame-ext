@@ -9,9 +9,13 @@ import {
   crawlerBonus, CRAWLER_COST, CRAWLER_ENERGY, SAT_COST, MINES_PCT, satEnergy,
   POS_BONUS_M, POS_BONUS_C
 } from './src/core/formules.js';
+import { KEY, LUNE_DF, EXPO_FRET, sample, newPlanet, S, remplaceEtat } from './src/core/etat.js';
+import {
+  LOCAL_TZ, timeMode, srvOffSec, timeZoneShown, clockParts, JOURS_COURTS, p2,
+  clockText, timeSeen, formatTime, timeTitle, dur, poseModeHeure
+} from './src/core/temps.js';
 
 const APP_VERSION = '2.20.0';
-const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
 /** La version du dépôt, quand on a pu la lire. */
@@ -65,9 +69,6 @@ document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
 
 
-/* Le taux de débris par défaut, en pourcent. Déclaré ici parce que sample()
-   le lit au chargement, bien avant le bloc du tir de lune. */
-const LUNE_DF = 30;
 
 const SHIPS = {
   sc:  {n:'Petit transporteur', cargo:5000, speed:5000, drive:'combustion', fuel:10, transporter:true, bou:10},
@@ -113,9 +114,6 @@ const EXPO_GROS = ['rp','ds','bc','bs'];
 const EXPO_COMBAT = ['bc','lf','hf','bs','bb','cr','ds','rp'];
 /* Au-delà de cinq pour cent, le plafond est dépassé pour rien. */
 const EXPO_MARGE = 1.05;
-/* Ressources ramenées par point d'expédition. Valeur de départ, à calibrer sur
-   les retours réels : c'est le réglage « facteur de fret ». */
-const EXPO_FRET = 200;
 /* Durées d'exploration que le jeu propose. ponytail: supposées 1 à 4 heures,
    jamais relues dans le jeu — un serveur qui en propose d'autres se rattrape
    par le réglage de la durée par défaut. */
@@ -196,66 +194,6 @@ function expoFret(){ return expoPts()*Math.max(1, num(S.settings.expoFret, EXPO_
     la mise à l'abri gardent, et qu'une expédition immobiliserait des heures. */
 function expoRes(p){ const v = p && p.expoRes != null ? p.expoRes : S.settings.expoRes; return Math.max(0, Math.round(num(v, 0))); }
 
-function sample(){
-  return {
-    v:1, sample:true,
-    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, sats:false, muet:false, debris:LUNE_DF, skin:'relief',
-      /* Le modèle de défense visé, son palier, et le ratio que le joueur
-         écrit lui-même. Le ratio par défaut recopie celui du Framework mineur,
-         en clair plutôt que par référence : sample() tourne au chargement,
-         bien avant la table DEF_MODELES. */
-      defModele:'framework', defPalier:20, defPerso:{rl:40, ll:25, hl:10, ic:0, gc:4, pt:1},
-      /* Le plancher (en packs du modèle) que le profil impose tant que le
-         palier n'est pas atteint : null = celui du profil. Et la durée de
-         chantier, en heures, au-delà de laquelle une carte Défense se coupe. */
-      defPlancher:null, defDuree:4,
-      /* Combien de cartes chaque liste montre d'office : une valeur pour
-         toutes, et celles que le joueur a posées liste par liste. */
-      cartesMax:3, cartesListe:{},
-      /* Le framework d'expédition. `expoFret` est le nombre de ressources
-         ramenées par point de flotte, à calibrer sur les retours réels ;
-         `expoRes` les grands transporteurs qu'une expédition ne touche pas,
-         à zéro tant que le joueur n'en réserve pas — en réserver d'office
-         ferait taire le bloc chez qui n'en a que vingt ; `expoHold` la durée
-         d'exploration par défaut, celle qui rapporte le plus à l'heure. */
-      expoFret:EXPO_FRET, expoRes:0, expoHold:1,
-      /* La sécurité : planètes coffres-forts (ids du copilote), rappel de mise
-         à l'abri (heure locale, jours actifs 0 = dimanche), heure de réveil.
-         Les transports suggérés partent toujours en Transport. Lu par `secu()`. */
-      secu:{vaults:[], rappel:'22:00', jours:[0,1,2,3,4,5,6]}},
-    tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
-    planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
-    fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
-    moonCalc:{pid:'', ship:'lf', n:0, bou:null, viser:12},
-    expo:{pf:true},
-    ui:{tool:'colony', pose:{k:'metal', lvl:'', hors:{}}},
-    day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false,
-      /* Le joueur a-t-il dit comment il joue. Faux tant qu'il ne l'a pas dit :
-         `focus` vaut alors « Équilibré » parce qu'il faut bien viser quelque
-         chose, pas parce qu'on le lui a demandé — et c'est la différence que
-         la carte d'ouverture a besoin de lire. */
-      focusSet:false,
-      /* Absence de jour : l'heure de retour du joueur, null quand il n'en a pas
-         donné. Et le jour civil où la question du coucher a été répondue, pour
-         ne la poser qu'une fois par nuit. */
-      /* Et l'instant où la mise à l'abri cesse de valoir : c'est l'allumage qui
-         dit sa propre fin, parce qu'au matin rien ne distingue un réveil d'une
-         absence qui commence. Zéro quand le mode jour est en place. */
-      backHour:null, until:0},
-    /* Comment le joueur joue : son style, la classe qu'il vise, sa présence,
-       et les focus ponctuels posés par-dessus. Tout vide tant qu'il n'a pas
-       répondu — et vide veut dire « ne pondère rien », pas « mineur ». */
-    profil:{style:'', classe:'', activite:'regulier', focus:[], set:false},
-    lf:{found:['humans','rocktal']},
-    centre:null, raid:null, raids:{}, prio:[], prioAsk:[],
-    daily:{done:{}, no:{}},
-    /* Les minuteurs : vides au départ. Sans la clé, « Réinitialiser » rendait
-       un état que renderTimers ne savait pas filtrer, et le panneau levait
-       au redessin ; le chargement, lui, la comblait plus bas. */
-    timers:[],
-    colo:{fromId:null, objective:'balanced', bonus:0, target:'', kit:'std', tr:'sc', built:false, fields:'', fpos:''},
-  };
-}
 /* Le chantier sort trois choses qui ne se rangent pas au même endroit : des
    vaisseaux, des foreuses que production() compte à part, et de la défense,
    comptée par type et par total. Chaque file le réinventait ; un seul endroit
@@ -270,33 +208,7 @@ function addBuilt(p, ships){
     else { p.ships=p.ships||{}; p.ships[k]=(p.ships[k]||0)+n; }
   }
 }
-function newPlanet(name, coords, tmax, b){
-  const lv = Object.fromEntries(Object.keys(B).map(k=>[k,0]));
-  return {id:Math.random().toString(36).slice(2,9), name, coords, tmax, b:Object.assign(lv,b||{}), sats:0, stock:{m:500,c:500,d:0,at:Date.now()}};
-}
 
-let S;
-try{ S = JSON.parse(LS.getItem(KEY)) || sample(); }catch(e){ S = sample(); }
-S = Object.assign(sample(), S);
-/* Les réglages se fusionnent comme `tech` et `day` juste en dessous :
-   `Object.assign` ne descend pas d'un niveau, et une sauvegarde d'avant un
-   réglage ne porte pas sa clé — le menu se serait affiché vide et le calcul
-   aurait lu `undefined`. */
-S.settings = Object.assign(sample().settings, S.settings);
-S.tech = Object.assign(sample().tech, S.tech);
-S.day = Object.assign(sample().day, S.day);
-S.ui = Object.assign(sample().ui, S.ui);
-S.lf = Object.assign(sample().lf, S.lf);
-/* `moonCalc` rejoint les clés fusionnées : une sauvegarde abîmée ou venue d'une
-   autre version le laissait nul ou amputé, et `moonPlanete()` levait — ce qui
-   faisait taire toute la synchro, priorités et centre compris. */
-S.moonCalc = Object.assign(sample().moonCalc, S.moonCalc);
-/* Le mode lune (la campagne de tirs croisés) a été retiré : sa campagne ne se
-   garde plus. Le calculateur d'Outils › Lune, lui, reste dans `moonCalc`. */
-delete S.lune;
-S.raids = S.raids || {};
-S.prio = Array.isArray(S.prio) ? S.prio : [];
-S.prioAsk = Array.isArray(S.prioAsk) ? S.prioAsk : [];
 migratePlanetIds();
 /* Une sauvegarde d'avant un bâtiment ne connaît pas sa clé : sans ce comblement
    la case du volet Empire afficherait « undefined » et le joueur l'y saisirait. */
@@ -913,7 +825,6 @@ const fmtLigne = n => isFinite(n) ? nf.format(Math.round(n)) : '∞';
 const coutTexte = c => { const l = ['métal','cristal','deutérium'].map((n,i)=>c[i]>0?`${fmt(c[i])} de ${n}`:'').filter(Boolean);
   return l.length < 2 ? (l[0] || 'rien') : `${l.slice(0,-1).join(', ')} et ${l[l.length-1]}`; };
 function fmt(n){ if(!isFinite(n)) return '∞'; const a=Math.abs(n); if(a>=1e9) return (n/1e9).toFixed(2).replace('.',',')+' G'; if(a>=1e6) return (n/1e6).toFixed(2).replace('.',',')+' M'; if(a>=1e5) return (n/1e3).toFixed(0)+' k'; return nf.format(Math.round(n)); }
-function dur(sec){ if(!isFinite(sec)) return 'jamais'; sec=Math.max(0,Math.round(sec)); const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60), s=sec%60; if(d) return `${d}j ${h}h`; if(h) return `${h}h ${String(m).padStart(2,'0')}m`; if(m) return `${m}m ${String(s).padStart(2,'0')}s`; return `${s}s`; }
 /* L'apostrophe compte autant que le guillemet : data-launch est un attribut
    à apostrophes, et « Tour d'habitation » — un nom qui est dans notre propre
    table — y refermait l'attribut au milieu du JSON. Le bouton « Lancé » mourait
@@ -4471,75 +4382,11 @@ function dayValue(k, v, prev){
   const t = {focus:FOCUS, lf:LF_MODE, research:RESEARCH_MODE}[k];
   return t ? (t[v] ? v : prev) : Math.max(0, parseInt(v) || 0);
 }
-/* ---------- les heures du panneau : serveur ou locale ----------
-
-   Le jeu vit à l'heure de son serveur, le joueur à la sienne, et l'écart
-   bouge deux fois l'an — l'Europe et l'Amérique ne changent pas d'heure le
-   même dimanche. Les instants restent donc partout des millisecondes UTC ;
-   seul `formatTime` choisit un fuseau, au moment d'écrire. Tout le panneau
-   passe par lui : le mode s'applique partout ou nulle part.
-
-   L'heure locale est celle du navigateur, que `Date` connaît déjà avec ses
-   changements d'heure. L'heure serveur se déduit du décalage du serveur sur
-   UTC, relu par le script de page à chaque page du jeu (`S.srvTz`). Tant
-   qu'aucune page ne l'a donné, il n'y a pas d'heure serveur à montrer : on
-   montre la locale et l'infobulle le dit. */
-const LOCAL_TZ = (()=>{ try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; }catch(e){ return ''; } })();
-/* `var` : header() peut s'exécuter avant que cette ligne soit atteinte. */
-var timeMode = (typeof window !== 'undefined' && window.__timeMode === 'local') ? 'local' : 'server';
-/** Le décalage du serveur sur UTC en secondes, ou null s'il n'a jamais été lu. */
-function srvOffSec(){ const z = S && S.srvTz; return z && Number.isFinite(z.off) ? z.off : null; }
-/** Le fuseau réellement affiché : le serveur demandé mais inconnu retombe sur la locale. */
-function timeZoneShown(){ return timeMode === 'server' && srvOffSec() != null ? 'server' : 'local'; }
-/** Jour, heure, minute d'un instant, dans le fuseau dit. */
-function clockParts(ms, zone){
-  const off = zone === 'server' ? srvOffSec() : null;
-  if(off != null){ const d = new Date(ms + off*1000); return {y:d.getUTCFullYear(), mo:d.getUTCMonth(), d:d.getUTCDate(), h:d.getUTCHours(), mi:d.getUTCMinutes(), s:d.getUTCSeconds(), wd:d.getUTCDay()}; }
-  const d = new Date(ms); return {y:d.getFullYear(), mo:d.getMonth(), d:d.getDate(), h:d.getHours(), mi:d.getMinutes(), s:d.getSeconds(), wd:d.getDay()};
-}
-const JOURS_COURTS = ['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'];
-const p2 = n => String(n).padStart(2, '0');
-/** L'heure d'un instant dans un fuseau : « 18:29 », « demain 04:12 », « jeu. 07:00 ». */
-function clockText(ms, zone, opts){
-  const c = clockParts(ms, zone), n = clockParts(Date.now(), zone);
-  const t = p2(c.h) + ':' + p2(c.mi);
-  // l'écart en jours civils du fuseau, pas en tranches de 24 h : un changement d'heure ne le fausse pas
-  const ecart = Math.round((Date.UTC(c.y, c.mo, c.d) - Date.UTC(n.y, n.mo, n.d)) / 864e5);
-  if(ecart === 0) return t;
-  if(opts && opts.date) return `${t} le ${p2(c.d)}/${p2(c.mo+1)}/${c.y}`;
-  if(ecart === 1) return 'demain ' + t;
-  if(Math.abs(ecart) < 7) return JOURS_COURTS[c.wd] + ' ' + t;
-  return `${p2(c.d)}/${p2(c.mo+1)} ${t}`;
-}
-/* Ce que formatTime a écrit, et pour quel instant : l'infobulle s'en sert
-   pour retrouver l'instant derrière un texte déjà posé dans la page — même
-   quand ce texte a traversé esc() au milieu d'une phrase. Deux instants qui
-   s'écrivent pareil tombent à la même minute : leur autre fuseau aussi. */
-var timeSeen = new Map();
-/**
- * La seule façon d'écrire une heure dans le panneau.
- * @param {number} timestampUtc instant en millisecondes UTC
- * @param {{date?:boolean}} [opts] `date` : la date en entier hors du jour même
- * @returns {string} l'heure dans le mode choisi (serveur ou locale)
- */
-function formatTime(timestampUtc, opts){
-  const txt = clockText(timestampUtc, timeZoneShown(), opts);
-  if(timeSeen.size > 600) timeSeen.clear();
-  timeSeen.set(txt, timestampUtc);
-  return txt;
-}
-/** Ce que dit l'infobulle d'une heure : la même dans l'autre fuseau. */
-function timeTitle(ms){
-  if(srvOffSec() == null) return 'heure locale · heure serveur pas encore lue : ouvre une page du jeu';
-  const autre = timeZoneShown() === 'server' ? 'local' : 'server';
-  const verif = S.srvTz && S.srvTz.ok === false ? ' · décalage non vérifié' : '';
-  return clockText(ms, autre) + (autre === 'server' ? ' heure serveur' : ' heure locale') + verif;
-}
 /** Change de mode, le retient, et redessine sans recharger. */
 function setTimeMode(m){
   m = m === 'local' ? 'local' : 'server';
   if(m === timeMode) return;
-  timeMode = m; timeSeen.clear();
+  poseModeHeure(m);
   try{ if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){ const r = chrome.storage.sync.set({timeMode: m}); if(r && r.catch) r.catch(syncFailed); } }catch(e){ syncFailed(e); }
   render();
 }
@@ -10415,7 +10262,7 @@ function bind(){
       .catch(()=>msg('Lecture du fichier impossible')); });
   on('ioImport','click',()=>{ if(appliqueSauvegarde(document.getElementById('ioText').value)) toast('Données importées'); else msg('Texte invalide : colle une sauvegarde complète'); });
   on('uiReset','click',()=>{ uiReset(); render(); toast('Affichage des cartes réinitialisé'); });
-  on('ioReset','click',e=>{ const b=e.currentTarget; if(b.dataset.armed){ S=sample(); save(); render(); toast('Réinitialisé'); } else { b.dataset.armed='1'; b.textContent='Confirmer la réinitialisation'; b.classList.remove('ghost'); } });
+  on('ioReset','click',e=>{ const b=e.currentTarget; if(b.dataset.armed){ remplaceEtat(sample()); save(); render(); toast('Réinitialisé'); } else { b.dataset.armed='1'; b.textContent='Confirmer la réinitialisation'; b.classList.remove('ghost'); } });
 }
 // Un clic sur la carte ouvre la page du jeu. Les boutons gardent leur rôle :
 // « Lancé » et « Fait » ne doivent jamais faire changer de page par surprise.
@@ -10625,7 +10472,7 @@ function appliqueSauvegarde(txt){
   // l'heure de l'enregistrement le date, elle n'est pas un état
   for(const k of ['serverTime','localTime','localTimeZone','serverOffsetMinutes']) delete d[k];
   if(d.srvTz && !Number.isFinite(d.srvTz.off)) delete d.srvTz;
-  S = Object.assign(sample(), d); S.sample = false; sainEtat(); save(); render(); return true;
+  remplaceEtat(Object.assign(sample(), d)); S.sample = false; sainEtat(); save(); render(); return true;
 }
 /**
  * Remet d'aplomb les champs de l'état qui viennent d'ailleurs.
@@ -11261,10 +11108,10 @@ if(IS_EXT && chrome.runtime.getURL) (function(){
 /* Ce que src/meteo.js et src/flotte/cible.js empruntent à app.js. Rien de
    plus : un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
-  SEV_NIVEAU, S, planetById, fmt, esc, planetRef, uiOuvert, uiNote, render,
-  constatsVus, planetAlerts, formatTime, DEF, DEF_ABR, defPlan, poidsCat,
-  SHIPS, EXPO_GROS, expoRes, fmtLigne, dur, num, production, mse, stockNow,
-  souteUtile, shipStats, flight, expoFleet, shipList, SHIP_COURT, shipCourt,
-  mcd, secu, prochaineHeure, planeteEn, mouvements, projectResources,
-  attaquesEntrantes, aQuai, transportSuggere, expoCap, fmtCourt, aide
+  SEV_NIVEAU, planetById, fmt, esc, planetRef, uiOuvert, uiNote, render,
+  constatsVus, planetAlerts, DEF, DEF_ABR, defPlan, poidsCat, SHIPS,
+  EXPO_GROS, expoRes, fmtLigne, num, production, mse, stockNow, souteUtile,
+  shipStats, flight, expoFleet, shipList, SHIP_COURT, shipCourt, mcd, secu,
+  prochaineHeure, planeteEn, mouvements, projectResources, attaquesEntrantes,
+  aQuai, transportSuggere, expoCap, fmtCourt, aide
 };
