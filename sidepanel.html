@@ -10,25 +10,25 @@
 <div class="wrap">
   <header class="top">
     <h1>Copilote <span>OGame</span> <small class="ver" id="appVer"></small></h1>
-    <div class="row" style="gap:8px"><button class="btn sm primary" id="majBtn" hidden>Actualiser</button><div class="uni" id="uniBadge"></div><button class="tzsw" id="tzBtn" role="switch" aria-checked="false"><span class="knob"></span></button><small class="tzlbl" id="tzLbl"></small><button class="btn sm ghost gear" id="nightBtn"></button><button class="btn sm ghost gear" id="luneBtn"></button><button class="btn sm ghost gear" id="gearBtn" data-tab="settings" aria-label="Réglages" title="Réglages">⚙️</button></div>
+    <div class="row" style="gap:8px"><button class="btn sm primary" id="majBtn" hidden>Actualiser</button><div class="uni" id="uniBadge"></div><button class="tzsw" id="tzBtn" role="switch" aria-checked="false"><span class="knob"></span></button><small class="tzlbl" id="tzLbl"></small><button class="btn sm ghost gear" id="cartesBtn" role="switch" aria-checked="false" aria-label="Organiser les sections en onglets" title="Organiser les sections en onglets">🗂️</button><button class="btn sm ghost gear" id="nightBtn"></button><button class="btn sm ghost gear" id="luneBtn"></button><button class="btn sm ghost gear" id="gearBtn" data-tab="settings" aria-label="Réglages" title="Réglages">⚙️</button></div>
   </header>
+  <!-- La météo de l'empire : toujours visible, au-dessus des onglets et des cartes. -->
+  <div class="meteo" id="meteo"></div>
   <nav class="tabs" role="tablist" id="tabs">
     <button role="tab" data-tab="today">Aujourd'hui</button>
     <button role="tab" data-tab="empire">Empire</button>
     <button role="tab" data-tab="tools">Outils</button>
   </nav>
+  <div class="mt-filtre" id="meteoFiltre" hidden></div>
   <main id="view"></main>
 </div>
 <div class="toast" id="toast" hidden></div>
-<!-- Les deux bandeaux sont empilés : à 22 h, une file qui se termine tombe en
-     même temps que la question du coucher, et posés tous deux en `fixed` au même
-     point ils se recouvraient exactement. -->
 <div class="alertes">
-  <div class="big-alert" id="nightAsk" hidden role="alert"><div class="box"><div class="txt"><h2>Mise à l'abri</h2><div class="msg">On passe en mode sauvegarde des ressources ?</div></div><button class="btn" data-nuit="oui">Oui</button><button class="btn ghost" data-nuit="non">Non</button></div></div>
   <div class="big-alert" id="bigAlert" hidden role="alert"><div class="box"><div class="txt"><h2>Terminé</h2><div class="msg" id="bigAlertMsg"></div></div><button class="btn" id="bigAlertOk">OK, vu</button></div></div>
 </div>
 <script src="ids.js"></script>
 <script src="profils.js"></script>
+<script src="meteo.js"></script>
 <script src="boot.js"></script>
 </body>
 </html>

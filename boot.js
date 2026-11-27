@@ -16,6 +16,12 @@ chrome.storage.local.get(null, d => {
   window.__api = d.api || null;
   // les demandes de la page du jeu ne portent pas le préfixe « ls: » : sans ceci, app.js ne les voit jamais
   window.__prioAsk = d.prioAsk || null;
+  /* Ce qui est ouvert ou fermé se lit avant le premier dessin : lu après,
+     chaque carte s'ouvrirait fermée puis se rouvrirait sous les yeux. */
+  window.__uiState = d.uiState || null;
+  window.__uiSeen = d.uiSeen || null;
+  // l'onglet de carte choisi par vue (mode onglets), propre à cette machine
+  window.__cardTab = d.cardTab || null;
   /* Le mode des heures (serveur ou locale) se lit avant le premier dessin :
      lu après, le panneau s'ouvrirait une fraction de seconde dans l'autre. */
   const go = () => {
@@ -31,7 +37,9 @@ chrome.storage.local.get(null, d => {
     .then(j => { window.__rules = j; })
     .catch(e => { window.__rules = null; console.error('Copilote : rules.json illisible, le moteur tourne sans réglages de règles', e); });
   const heures = new Promise(ok => {
-    try { chrome.storage.sync.get('timeMode', v => { window.__timeMode = (v && v.timeMode) || null; ok(); }); }
+    /* Et la disposition des cartes (empilées ou en onglets), pour la même
+       raison : lue après, le panneau s'ouvrirait empilé puis sauterait. */
+    try { chrome.storage.sync.get(['timeMode', 'cardLayout'], v => { window.__timeMode = (v && v.timeMode) || null; window.__cardLayout = (v && v.cardLayout) || null; ok(); }); }
     catch (e) { ok(); }
   });
   Promise.all([regles, heures]).then(go, go);

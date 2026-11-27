@@ -52,6 +52,76 @@ et l'infobulle dit « décalage non vérifié ». Le choix est retenu d'une sess
 à l'autre, et `save.json` porte toujours les deux heures (`serverTime`,
 `localTime`, `localTimeZone`, `serverOffsetMinutes`).
 
+## Les cartes
+
+Une carte ou une section que tu ouvres (« Comment faire », ⓘ, Expéditions…)
+reste ouverte, et une carte fermée reste fermée : au changement de page ou de
+planète, au rechargement, après un redémarrage du navigateur, et quand une
+autre carte apparaît ou disparaît. Le choix est propre à ce poste. Les blocs
+fixes valent pour toutes les planètes ; chaque recommandation garde le sien.
+La carte Alertes s'ouvre seule tant qu'une alerte critique y figure, puis
+revient à l'état choisi. **Réglages › Allure du panneau › Réinitialiser
+l'affichage des cartes** remet tout comme au premier jour.
+
+## La météo
+
+Tout en haut du panneau, au-dessus des onglets, un bandeau dit l'état de
+l'empire d'un mot et d'une icône : **Soleil**, **Nuageux**, **Orage** ou
+**Tempête**. Un clic le déplie : une ligne par planète, son icône, et quatre
+pastilles — **Sécurité**, **Activité**, **Économie**, **Défense**. Le panneau
+se souvient s'il est replié ou déplié.
+
+- **Rouge** : au moins une alerte Critique dans ce domaine ; **orange** : au
+  moins une Importante ; **vert** : rien, ou de simples conseils.
+- Une planète prend la pire de ses pastilles ; une attaque qui arrive sur elle
+  la met en **Tempête**. L'empire prend la pire de ses planètes.
+- Survole une ligne : l'infobulle dit les causes par domaine, ou « Tout va
+  bien ». Clique-la : les cartes ne montrent plus que cette planète, jusqu'à ce
+  que tu retires la puce « Filtré » (ou que le panneau se recharge). Le jeu,
+  lui, ne change pas de page.
+
+La météo n'invente rien : elle relit les alertes du moteur, les flottes
+hostiles que montrent tes mouvements de flotte, et le palier de ton modèle de
+défense. Une alerte que tu **ignores** cesse de la noircir.
+
+## Les cartes en onglets
+
+Le bouton 🗂️ de l'en-tête — ou **Réglages › Allure du panneau › Organiser les
+sections en onglets** — range les cartes d'**Aujourd'hui** (Profil,
+Maintenant, Alertes, Expéditions, Ta journée, Minuteurs) en onglets, avec la
+même barre que dans **Outils**. Une seule carte s'affiche, toujours dépliée ;
+ses sections internes gardent leur état. Empilé reste le mode par défaut.
+
+- Chaque onglet porte un compteur : **rouge** s'il contient au moins un
+  élément urgent, **orange** un élément à surveiller, **gris** des conseils
+  seulement. Pas de compteur quand l'onglet est vide.
+- Alertes n'a d'onglet que lorsqu'il y a une alerte ; les autres cartes ont
+  toujours le leur.
+- Une nouvelle alerte urgente fait basculer une fois sur son onglet. Revenir
+  sur le tien ne te ramène pas pour la même alerte ; une autre, si. Une alerte
+  déjà vue en mode empilé ne fait pas basculer.
+- L'onglet choisi est retenu sur cette machine (changement de page, de
+  planète, redémarrage). S'il n'existe plus, c'est le premier qui s'affiche,
+  et le tien revient dès qu'il réapparaît.
+- En passant en onglets, la carte où tu t'étais arrêté de défiler devient
+  l'onglet actif ; en revenant à la pile, le panneau défile jusqu'à elle.
+- Le mode suit ton compte d'un poste à l'autre, comme l'interrupteur des
+  heures.
+
+## Combien de cartes par liste
+
+Chaque liste d'Aujourd'hui — **Maintenant**, **Alertes**, **Expéditions**,
+**En attente de ressources**, **Déjà en cours** — montre d'office 3 cartes. Le
+menu **Afficher** en tête de liste change ce nombre pour cette liste seule
+(1, 3, 5, 10 ou Toutes) ; **Réglages › Affichage** change la valeur de toutes
+les listes et montre celles qui ont la leur. **Réinitialiser** les remet toutes
+sur la valeur commune.
+
+Les cartes **urgentes** s'affichent toujours, en plus de la limite. Le reste se
+déplie sur place avec **Voir N de plus**, et le panneau s'en souvient d'un
+démarrage à l'autre. Le compteur en tête de liste compte toutes les cartes,
+masquées comprises : la limite ne coupe que l'affichage, jamais les calculs.
+
 ## Mettre à jour
 
 **Réglages › Version** dit en quelle version tourne le panneau, si le dépôt en
@@ -96,6 +166,42 @@ estimations à calibrer, pas des lois du jeu :
 
 Le plafond de points, lui, se déduit des points du n°1 de l'univers, lus dans
 le classement public.
+
+## Flottes en vol et sécurité
+
+Le copilote lit les mouvements de flotte que **le jeu t'affiche déjà** —
+l'encart des événements de la vue d'ensemble, quand tu l'ouvres, et la page
+Mouvements de flotte : les tiens (aller et retour, toutes missions) et les
+flottes hostiles (attaques, attaques groupées, espionnages), avec l'heure, les
+vaisseaux et la cargaison. Il n'envoie aucune requête au serveur pour les
+rafraîchir.
+
+**Conseils de construction.** Les ressources d'une planète se projettent avec
+les convois qui arrivent : la production s'arrête au hangar, une livraison
+non. Un conseil en attente dit « Finançable à 07:12 (convoi Tourtierion,
+30 GT) », « Finançable à … (production) » ou « Non finançable sous 24 h ». À
+l'arrivée du convoi, il passe dans les actions de maintenant.
+
+**Attaque entrante.** Une carte critique en tête d'Aujourd'hui, avec compte à
+rebours : ressources exposées à l'impact, constructions finançables pour
+dépenser, transport de la flotte à quai vers un coffre-fort, et les convois à
+toi qui arrivent avant l'impact + 10 min (« à rappeler ou à laisser » : ta
+décision). L'icône affiche « ! ». Un espionnage hostile donne une alerte
+Importante.
+
+**Rappel de mise à l'abri.** Réglages › Sécurité : tes planètes coffres-forts,
+l'heure du rappel (22:00), les jours actifs, l'heure de réveil — la fin de
+nuit du plan du jour, un seul réglage pour les deux (7 h), à la minute près —, et
+« Préférer Stationner ». À l'heure du rappel l'icône affiche « FS » — aucune
+notification — jusqu'à ce que tu ouvres **Plan de la nuit** dans Aujourd'hui.
+Le plan propose une vitesse, et au besoin une heure de départ, pour que la
+flotte se pose à ton réveil. Heures du rappel en heure locale du navigateur.
+
+Les transports suggérés vont au coffre-fort le plus proche (même galaxie
+d'abord), jamais vers un coffre-fort attaqué, en mission Transport par défaut.
+**Préparer** remplit vaisseaux, cible et mission dans le formulaire du jeu ;
+les ressources se recopient (⧉) et la vitesse se règle à la main. L'envoi
+reste ton clic.
 
 ## À savoir
 

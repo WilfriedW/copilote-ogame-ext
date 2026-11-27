@@ -411,15 +411,12 @@ Le **mode nuit** (bouton 🌙 de l'en-tête, ou Réglages › Plan du jour › �
 l'abri ») vide le plan et ne laisse que la sécurité. C'est l'inverse du besoin
 ici.
 
-**Depuis la v1.55, il se propose tout seul.** Une heure avant `nightStart`, une
-alarme du navigateur sonne — notification avec deux boutons *Oui* / *Non*, qui
-marche panneau fermé — et le panneau affiche le même bandeau. *Oui* bascule en
-mode nuit et ouvre aussitôt la page de flotte déjà remplie (vaisseaux,
-destination, mission) du plus gros lot ; les autres lots restent en cartes dans
-Sécurité. Le **chargement des ressources et la vitesse** ne passent pas par
-l'URL : le jeu ne les accepte pas en paramètre, et le copilote ne clique jamais
-à ta place. *Non* classe la question pour la nuit ; elle ne revient pas avant
-le lendemain.
+**Il ne se propose plus tout seul (v2.9).** La question du coucher —
+alarme `nuit`, notification *Oui* / *Non* et bandeau du panneau, une heure avant
+`nightStart` — a été retirée. Ce qui la remplace est le **rappel de mise à
+l'abri** (Réglages › Sécurité) : à l'heure choisie, les jours cochés, l'icône
+affiche « FS » sans aucune notification, jusqu'à ce que le joueur ouvre *Plan
+de la nuit* dans Aujourd'hui. Le mode nuit s'allume désormais à la main.
 
 **Et il s'éteint tout seul.** L'allumage retient l'instant où la mise à l'abri
 cesse de valoir — le même `wakeTime` qui choisit la vitesse de la flotte, donc
@@ -591,14 +588,13 @@ et le Dock spatial dans le modèle. Le code est bon, le commentaire trompe.
 |---|---|---|---|---|
 | Priorité | `day.focus` | Équilibré · Économie + colonie · Économie pure · Flotte et expéditions | **Équilibré** | Feuille de route des recherches ; « Économie pure » n'ouvre aucune colonie ; « Flotte » supprime le centre |
 | Je me connecte toutes les | `day.interval` | 30 · 60 · 90 · 120 · 180 min | **90 min** | Pas de temps entre deux connexions simulées ; sert aussi à mesurer une « tournée de production » (le plus petit lot qui vaille une connexion) |
-| Nuit : de | `day.nightStart` | 0–23 | **23** | Début de la fenêtre sautée par la simulation ; déclenche la mise à l'abri |
-| Nuit : à | `day.nightEnd` | 0–23 | **7** | Fin de cette fenêtre ; sert à calculer la vitesse de retour de la flotte mise à l'abri |
+| Nuit : de (coucher) | `day.nightStart` | 00:00–23:59, à la minute (heures décimales : 22,75 = 22 h 45) | **23** | Début de la fenêtre sautée par la simulation ; borne la carte « Avant la nuit » et le mode nuit |
+| Nuit : à (réveil) | `day.nightEnd` | 00:00–23:59, à la minute (stocké en heures décimales : 7,5 = 7 h 30) | **7** | Fin de cette fenêtre et heure de réveil : la vitesse de la flotte mise à l'abri, le plan de la nuit et la première connexion du matin s'y calent |
 | Recherche | `day.research` | À son tour · Avant les bâtiments | **À son tour** | « Avant » rend critique la tête de liste : elle passe devant les chantiers et pose aussitôt sa réserve |
 | Formes de vie | `day.lf` | Après les bâtiments · Avant tout le reste · Ne pas s'en occuper | **Après les bâtiments** | Place des deux files de forme de vie ; « avant » ignore ce qu'un bâtiment épargne |
 | Horizon | `day.horizon` | 12 · 24 · 48 h | **24 h** | Durée simulée, et période du « Production +X % » |
 | Mise à l'abri (nuit, absence) | `day.night` | oui / non | **non** | Mode nuit : vide le plan, ne garde que la sécurité. Aussi sur le bouton 🌙 de l'en-tête, et proposé tout seul une heure avant `nightStart` |
 | Retour vers (heure) | `day.backHour` | 0–23 ou vide | **vide** | Heure de retour d'une absence de jour ; vide = absence de la longueur d'une nuit. Ignoré quand le coucher est plus proche qu'une nuit |
-| *(interne)* | `day.askedOn` | jour civil | **vide** | Le jour où la question du coucher a reçu sa réponse, pour ne pas la reposer |
 | *(interne)* | `day.until` | horodatage | **0** | Instant où la mise à l'abri cesse de valoir ; passé, le mode jour revient seul |
 
 ### 6.2 Réglages › Formes de vie découvertes

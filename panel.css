@@ -440,3 +440,67 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 :root[data-skin=arcade] .big-alert .box .btn{background:#2a1300;color:#ffd166}
 :root[data-skin=arcade] label.f.bascule input:checked{background:linear-gradient(135deg,#ff5fa2,#8b5cf6);border-color:transparent}
 :root[data-skin=arcade] label.f.bascule input:checked::after{background:#fff}
+
+/* ---------- la météo ----------
+   Les trois couleurs sont celles du thème (--good, --warn, --bad), redéfinies
+   en clair et en sombre plus haut : aucune couleur en dur ici. Les icônes sont
+   en currentColor, elles suivent. Une ligne de planète tient en 28 px. */
+.meteo{margin-top:10px}
+.mt-band{display:flex;align-items:center;gap:8px;width:100%;padding:6px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);color:var(--fg);font:inherit;font-family:var(--f-display);font-weight:600;letter-spacing:.04em;cursor:pointer;text-align:left}
+.mt-band:focus-visible,.mt-grid tr:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.mt-band b{flex:1}
+.mt-car{color:var(--muted)}
+.mt-ico{display:block;flex:0 0 auto}
+.mt-ico.mt-big{width:22px;height:22px}
+.mt-good{color:var(--good)} .mt-warn{color:var(--warn)} .mt-bad{color:var(--bad)}
+.mt-grid{margin-top:4px;padding:4px 8px 6px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface)}
+.mt-grid table{width:100%;border-collapse:collapse;font-size:13px}
+.mt-grid th{font-size:11px;font-weight:600;color:var(--muted);text-align:center;padding:2px 4px}
+.mt-grid th:nth-child(2){text-align:left}
+.mt-grid th abbr{text-decoration:none;cursor:help}
+.mt-grid tbody tr{height:28px;max-height:28px;cursor:pointer}
+.mt-grid tbody tr:hover,.mt-grid tbody tr.mt-on{background:var(--surface-2)}
+.mt-grid td{padding:0 4px;line-height:1;vertical-align:middle}
+.mt-grid td.mt-w{width:24px}
+.mt-grid td.mt-n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:0;width:100%}
+.mt-grid td.mt-d{text-align:center;width:34px}
+.mt-dot{display:inline-block;width:11px;height:11px;border-radius:50%;background:currentColor;box-shadow:0 0 0 1px color-mix(in srgb,var(--fg) 25%,transparent)}
+.mt-leg{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:6px 0 0;font-size:11px;color:var(--muted)}
+.mt-leg span{display:inline-flex;margin-right:-6px}
+.mt-leg .mt-ico{width:14px;height:14px}
+.mt-filtre{margin:-4px 0 8px}
+.mt-puce{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 4px 2px 10px;border-radius:999px;border:1px solid var(--accent);color:var(--accent)}
+.mt-puce button{border:0;background:none;color:inherit;font:inherit;cursor:pointer;padding:0 6px;line-height:1.4}
+
+/* Disposition des cartes. Empilées, l'enveloppe d'une carte ne compte pas
+   dans la mise en page : la pile reste exactement celle d'avant. En onglets,
+   seule la carte de l'onglet actif s'affiche, et elle reste dépliée — son
+   titre n'est plus un bouton. */
+.carte{display:contents}
+.carte[hidden]{display:none}
+.en-onglets>.carte>details.card>summary,.en-onglets>.carte>div>details.card>summary{pointer-events:none;cursor:default;list-style:none}
+.en-onglets>.carte>details.card>summary::-webkit-details-marker,.en-onglets>.carte>div>details.card>summary::-webkit-details-marker{display:none}
+.en-onglets>.carte>details.card>summary::after,.en-onglets>.carte>div>details.card>summary::after{content:none}
+.seg .cpt{font:700 11px var(--f-mono);margin-left:2px}
+.seg .cpt.crit{color:var(--bad)}
+.seg .cpt.imp{color:var(--warn)}
+.seg .cpt.info{color:var(--muted)}
+/* Le menu « Afficher : N » d'une liste, et son « Voir plus » */
+.liste-tete{gap:8px}
+.liste-tete h2{margin:0}
+.cartes-menu{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:6px 0;white-space:nowrap}
+.cartes-menu select{width:auto;max-width:96px;flex:0 0 auto;padding:2px 6px;font-size:12px}
+.voir-plus{margin-top:6px;align-self:flex-start}
+.cartes-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+.cartes-table th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:4px 0}
+.cartes-table td{padding:4px 0;border-top:1px solid var(--line)}
+.cartes-table td:last-child{text-align:right}
+.cartes-table select{width:auto}
+
+/* Sécurité : l'attaque en tête, le tableau des transports suggérés. */
+.secu-crit{border:1px solid var(--bad, #e0102b);}
+.secu-crit h3{font-size:12px;margin:10px 0 4px;text-transform:uppercase;letter-spacing:.04em;opacity:.8;}
+.secu-on > summary{color:var(--warn, #ff8c1a);}
+.fs-tab{width:100%;border-collapse:collapse;margin:8px 0 4px;font-size:11px;}
+.fs-tab th,.fs-tab td{text-align:left;vertical-align:top;padding:3px 4px;border-bottom:1px solid rgba(127,127,127,.25);white-space:normal;}
+.fs-tab th{font-size:10px;}
