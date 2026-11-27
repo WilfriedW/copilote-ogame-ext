@@ -7714,6 +7714,15 @@ function dailyMissions(){
   const fcR = flotteCible(now), reeq = reequilibreCartes(now, fcR);
   out.push(...reeq);
   const reeqVers = new Set(reeq.map(m => m.dstId));
+  /* « Ramène… » était critique dès midi pour un vol de 25 minutes : la carte
+     passait devant les constructions avec dix heures d'avance. Elle ne
+     devient critique qu'à l'heure où il ne reste plus que le vol et une heure
+     de marge avant le rappel de fleet save. Le rappel retenu est celui qui
+     précède la nuit qui vient — à 22 h 30, celui de 22 h, pas celui du
+     lendemain — et jamais après le début de la nuit. Sans rappel réglé,
+     l'heure d'avant-nuit (nightAt), comme avant. */
+  const rappelRegle = S.settings.secu && /^\d{1,2}:\d{2}$/.test(String(S.settings.secu.rappel || ''));
+  const rappelAt = rappelRegle ? Math.min(prochaineHeure(secu().rappel, nd.getTime() - 12*3600e3), nd.getTime()) : nightAt;
   for(const g of cargoGaps()){
     if(reeqVers.has(g.p.id)) continue;
     const don = g.ailleurs[0]; if(!don) continue;
@@ -7722,7 +7731,10 @@ function dailyMissions(){
     const fl = flight(don.p.coords, g.p.coords, ships, 100); if(!fl) continue;
     const arrive = now + fl.secs*1000;
     const tard = arrive > nightAt + 3600e3;
-    out.push({id:'cargo-split:'+g.p.id, q:'Sécurité', every:12, sev:tard?'warn':'bad',
+    const escalade = rappelAt - fl.secs*1000 - 3600e3;
+    const sev = tard ? 'warn' : (now >= escalade ? 'bad' : 'info');
+    out.push({id:'cargo-split:'+g.p.id, q:'Sécurité', every:12, sev,
+      ...(sev === 'info' ? {sol:`À faire avant ${formatTime(escalade)} (vol de ${dur(fl.secs)}, rappel à ${formatTime(rappelAt)})`} : {}),
       what:`Ramène ${shipList(ships)} de ${planetRef(don.p)} vers ${planetRef(g.p)}`,
       ships, dest:g.p.coords, mission:4, p:S.planets.indexOf(don.p),
       why:`${planetRef(g.p)} garde ${fmt(g.load)} de ressources et ${g.cargo ? `seulement ${fmt(g.cargo)} de soute au sol` : 'aucun transporteur'} : ce soir, il n'y a rien pour les mettre à l'abri. ${fmt(don.dispo)} de soute libre dorment sur ${planetRef(don.p)}.`,
