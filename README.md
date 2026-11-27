@@ -215,14 +215,15 @@ Importante.
 
 **Rappel de mise à l'abri.** Réglages › Sécurité : tes planètes coffres-forts,
 l'heure du rappel (22:00), les jours actifs, l'heure de réveil — la fin de
-nuit du plan du jour, un seul réglage pour les deux (7 h), à la minute près —, et
-« Préférer Stationner ». À l'heure du rappel l'icône affiche « FS » — aucune
+nuit du plan du jour, un seul réglage pour les deux (7 h), à la minute près.
+À l'heure du rappel l'icône affiche « FS » — aucune
 notification — jusqu'à ce que tu ouvres **Plan de la nuit** dans Aujourd'hui.
 Le plan propose une vitesse, et au besoin une heure de départ, pour que la
 flotte se pose à ton réveil. Heures du rappel en heure locale du navigateur.
 
 Les transports suggérés vont au coffre-fort le plus proche (même galaxie
-d'abord), jamais vers un coffre-fort attaqué, en mission Transport par défaut.
+d'abord), jamais vers un coffre-fort attaqué, toujours en mission Transport :
+seules les cartes Rééquilibrer partent en Stationner, et elles le disent.
 **Préparer** remplit vaisseaux, cible et mission dans le formulaire du jeu ;
 les ressources se recopient (⧉) et la vitesse se règle à la main. L'envoi
 reste ton clic.

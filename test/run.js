@@ -12444,7 +12444,7 @@ function empireSecu(s) {
   s.planets[0].ships = { lc: 30, sc: 2, pr: 1 };
   s.planets.push({ id: 'pout', name: 'Poutinia', coords: '1:300:8', tmax: 40, b: { ...s.planets[1].b }, sats: 0, ships: {}, shipsAt: 0, stock: { m: 0, c: 0, d: 0, at: s.planets[0].stock.at } });
   s.planets.push({ id: 'erab', name: 'Erablis', coords: '2:142:8', tmax: 40, b: { ...s.planets[1].b }, sats: 0, ships: {}, shipsAt: 0, stock: { m: 0, c: 0, d: 0, at: s.planets[0].stock.at } });
-  s.settings.secu = { vaults: ['pout', 'erab'], rappel: '22:00', jours: [0, 1, 2, 3, 4, 5, 6], stationner: false };
+  s.settings.secu = { vaults: ['pout', 'erab'], rappel: '22:00', jours: [0, 1, 2, 3, 4, 5, 6] };
 }
 function appSecu(modif, now) {
   const s = fixtureState();
@@ -12637,12 +12637,12 @@ t('le plan routine liste exposé, à quai, files libres et convois de nuit', () 
   assert.ok(h.includes('Plan de la nuit') && h.includes('Convoi de nuit') && h.includes('File libre'));
 });
 
-t('« Préférer Stationner » change la mission suggérée', () => {
+t('les transports suggérés partent en Transport, même avec un ancien « Préférer Stationner » en sauvegarde', () => {
   const g = appSecu(s => { s.settings.secu.stationner = true; });
   const x = g.planSecurite('routine', SOIR, []).find(e => e.p.name === 'Tourtierion');
-  assert.equal(x.transport.missionNom, 'Stationner');
-  assert.equal(x.transport.mission, 4);
-  assert.equal(x.transport.retour, null);
+  assert.equal(x.transport.missionNom, 'Transport');
+  assert.equal(x.transport.mission, 3);
+  assert.ok(x.transport.retour > x.transport.arrivee, 'la flotte revient à sa planète');
 });
 
 t('fret : hyperespace et classe comptent, les GT s’arrondissent au-dessus', () => {
@@ -12654,17 +12654,17 @@ t('fret : hyperespace et classe comptent, les GT s’arrondissent au-dessus', ()
   assert.ok(t1.gt >= Math.ceil(1237500 / lc));
 });
 
-t('Réglages › Sécurité : coffres-forts, heures, jours et Stationner', () => {
+t('Réglages › Sécurité : coffres-forts, heures et jours, sans bascule Stationner', () => {
   const g = appSecu();
   const h = lu(g.secuCard());
   assert.ok(h.includes('data-secu-vault="pout" checked'));
   assert.ok(h.includes('data-secu="rappel" value="22:00"'));
   assert.ok(h.includes('data-day="nightEnd" value="07:00"'), 'le réveil se règle sur la fin de nuit');
   assert.ok(h.includes('data-secu-jour="0" checked'));
-  assert.ok(h.includes('Préférer Stationner'));
+  assert.ok(!h.includes('Préférer Stationner') && !h.includes('data-secu="stationner"'));
   // une sauvegarde d'avant n'a rien : les défauts
   const g2 = appSecu(s => { delete s.settings.secu; });
-  assert.deepEqual(JSON.parse(JSON.stringify(g2.secu())), { vaults: [], rappel: '22:00', jours: [0, 1, 2, 3, 4, 5, 6], reveil: '07:00', stationner: false });
+  assert.deepEqual(JSON.parse(JSON.stringify(g2.secu())), { vaults: [], rappel: '22:00', jours: [0, 1, 2, 3, 4, 5, 6], reveil: '07:00' });
   // le réveil suit la fin de nuit, et rien d'autre : une ancienne clé `reveil` ne compte plus
   const g3 = appSecu(s => { s.day.nightEnd = 6; s.settings.secu.reveil = '09:30'; });
   assert.equal(g3.secu().reveil, '06:00');

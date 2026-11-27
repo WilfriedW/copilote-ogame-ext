@@ -217,9 +217,9 @@ function sample(){
          d'exploration par défaut, celle qui rapporte le plus à l'heure. */
       expoFret:EXPO_FRET, expoRes:0, expoHold:1,
       /* La sécurité : planètes coffres-forts (ids du copilote), rappel de mise
-         à l'abri (heure locale, jours actifs 0 = dimanche), heure de réveil,
-         et la mission des transports suggérés. Lu par `secu()`. */
-      secu:{vaults:[], rappel:'22:00', jours:[0,1,2,3,4,5,6], stationner:false}},
+         à l'abri (heure locale, jours actifs 0 = dimanche), heure de réveil.
+         Les transports suggérés partent toujours en Transport. Lu par `secu()`. */
+      secu:{vaults:[], rappel:'22:00', jours:[0,1,2,3,4,5,6]}},
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
@@ -5804,14 +5804,13 @@ function secuCard(){
       <label class="f">Réveil = fin de nuit (heure)<input type="time" data-day="nightEnd" value="${hhmmDe(S.day.nightEnd)}"><span class="note">La même que « Nuit : à » du plan du jour.</span></label>
     </div>
     <div class="chips" style="margin-top:8px">${[1,2,3,4,5,6,0].map(j=>`<label class="chip"><input type="checkbox" data-secu-jour="${j}" ${c.jours.includes(j)?'checked':''}> ${J[j]}</label>`).join('')}</div>
-    <div class="bascules">${bascule('sStat','data-secu="stationner"','Préférer Stationner', c.stationner, 'Les transports suggérés partent en Stationner au lieu de Transport : la flotte reste au coffre-fort au lieu de revenir.')}</div>
     <p class="note">À l'heure du rappel, les jours cochés, l'icône du Copilote affiche « FS » jusqu'à ce que tu ouvres le plan de la nuit. Aucune notification. Heures en heure locale du navigateur.</p>
   </div>`;
 }
 
 /** Mes réglages de sécurité, toujours complets : une sauvegarde d'avant ne les porte pas. */
 function secu(){
-  const d = {vaults:[], rappel:'22:00', jours:[0,1,2,3,4,5,6], stationner:false};
+  const d = {vaults:[], rappel:'22:00', jours:[0,1,2,3,4,5,6]};
   const s = S.settings.secu && typeof S.settings.secu === 'object' ? S.settings.secu : {};
   const hhmm = v => /^\d{1,2}:\d{2}$/.test(String(v)) ? String(v).padStart(5, '0') : null;
   return {
@@ -5821,8 +5820,7 @@ function secu(){
     /* Le réveil n'a qu'une source : la fin de nuit du plan du jour. Deux
        champs pour la même heure finissent par se contredire — le plan de la
        nuit visait 7 h pendant que le mode nuit visait 6 h. À la minute près. */
-    reveil: hhmmDe(S.day.nightEnd),
-    stationner: !!s.stationner
+    reveil: hhmmDe(S.day.nightEnd)
   };
 }
 /** Le prochain instant, en heure locale, où l'horloge marque `hhmm`, après `apres`. */
@@ -6033,25 +6031,24 @@ function aQuai(p){ return Object.fromEntries(Object.entries(p.ships || {}).filte
  * l'heure de réveil, et un départ retardé d'autant s'il reste de la marge — les
  * crans de 10 % ne tombent pas tout seuls à dix minutes près, l'heure de départ
  * si. Attaque : en Transport, la flotte revient à sa planète ; elle doit donc
- * rentrer APRÈS l'impact, dix minutes de marge. En Stationner elle ne revient
- * pas, et le plus rapide est le mieux.
+ * rentrer APRÈS l'impact, dix minutes de marge.
  * @param {object} o {mode:'attaque'|'routine', now, impact, wake, visees}
  */
 function transportSuggere(p, o){
   const ships = aQuai(p); if(!Object.keys(ships).length) return null;
   const dest = coffreFortPour(p, o.visees || new Set()); if(!dest) return null;
-  const stationner = secu().stationner, mission = stationner ? 4 : 3, trajets = stationner ? 1 : 2;
+  /* Toujours en Transport : c'est la préférence du joueur, et la bascule
+     « Préférer Stationner » n'existe plus. Seules les cartes Rééquilibrer
+     partent en Stationner, et elles le disent. */
+  const mission = 3, trajets = 2;
   const now = o.now, vols = crans().map(pct => ({pct, fl: flight(p.coords, dest.q.coords, ships, pct)})).filter(x => x.fl);
   if(!vols.length) return null;
   let choix = null, depart = now, note = '';
   if(o.mode === 'attaque'){
     const apres = o.impact + 10*60e3;
-    if(trajets === 1) choix = vols[0];
-    else {
-      choix = vols.find(x => now + 2*x.fl.secs*1000 >= apres);
-      if(!choix){ choix = vols[vols.length - 1]; depart = apres - 2*choix.fl.secs*1000;
-        note = `Pars à ${formatTime(depart)} au plus tôt : plus tôt, la flotte rentrerait avant l'impact.`; }
-    }
+    choix = vols.find(x => now + 2*x.fl.secs*1000 >= apres);
+    if(!choix){ choix = vols[vols.length - 1]; depart = apres - 2*choix.fl.secs*1000;
+      note = `Pars à ${formatTime(depart)} au plus tôt : plus tôt, la flotte rentrerait avant l'impact.`; }
   } else {
     const W = o.wake;
     const tient = vols.filter(x => now + x.fl.secs*1000 <= W);
@@ -9447,8 +9444,7 @@ function bind(){
     const j = +el.dataset.secuJour; c.jours = c.jours.filter(x=>x!==j); if(el.checked) c.jours.push(j); c.jours.sort(); })));
   view.querySelectorAll('[data-secu]').forEach(el=>el.addEventListener('change',()=>secuPose(c=>{
     const k = el.dataset.secu;
-    if(k==='stationner') c.stationner = el.checked;
-    else if(/^\d{1,2}:\d{2}$/.test(el.value)) c[k] = el.value;
+    if(/^\d{1,2}:\d{2}$/.test(el.value)) c[k] = el.value;
   })));
   view.querySelectorAll('[data-set]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{
     const k=el.dataset.set, s=S.settings;
