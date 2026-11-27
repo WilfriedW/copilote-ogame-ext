@@ -12322,7 +12322,7 @@ t('le sélecteur écrit sous chaque nom sa recette et son pack', () => {
 /* ---------- flottes en mouvement et plan de sécurité ---------- */
 const SECU = ['S', 'ogFleetDetail', 'mouvements', 'livraisons', 'projectResources', 'whenAffordable', 'statutFinancement',
   'attaquesEntrantes', 'espionnagesEntrants', 'coffreFortPour', 'transportSuggere', 'planSecurite', 'securiteHtml',
-  'production', 'formatTime', 'simulateDay', 'secu', 'secuCard', 'armeRappel', 'fsRappelVu', 'shipCourt', 'VIEWS', 'REFRESH', 'flight', 'shipStats'];
+  'production', 'formatTime', 'simulateDay', 'wakeTime', 'secu', 'secuCard', 'armeRappel', 'fsRappelVu', 'shipCourt', 'VIEWS', 'REFRESH', 'flight', 'shipStats'];
 const H = 3600e3;
 /** Un empire à trois planètes : Tourtierion (source, G1), Poutinia (G1) et Erablis (G2), coffres-forts. */
 function empireSecu(s) {
@@ -12330,7 +12330,7 @@ function empireSecu(s) {
   s.planets[0].ships = { lc: 30, sc: 2, pr: 1 };
   s.planets.push({ id: 'pout', name: 'Poutinia', coords: '1:300:8', tmax: 40, b: { ...s.planets[1].b }, sats: 0, ships: {}, shipsAt: 0, stock: { m: 0, c: 0, d: 0, at: s.planets[0].stock.at } });
   s.planets.push({ id: 'erab', name: 'Erablis', coords: '2:142:8', tmax: 40, b: { ...s.planets[1].b }, sats: 0, ships: {}, shipsAt: 0, stock: { m: 0, c: 0, d: 0, at: s.planets[0].stock.at } });
-  s.settings.secu = { vaults: ['pout', 'erab'], rappel: '22:00', jours: [0, 1, 2, 3, 4, 5, 6], reveil: '07:00', stationner: false };
+  s.settings.secu = { vaults: ['pout', 'erab'], rappel: '22:00', jours: [0, 1, 2, 3, 4, 5, 6], stationner: false };
 }
 function appSecu(modif, now) {
   const s = fixtureState();
@@ -12545,12 +12545,18 @@ t('Réglages › Sécurité : coffres-forts, heures, jours et Stationner', () =>
   const h = lu(g.secuCard());
   assert.ok(h.includes('data-secu-vault="pout" checked'));
   assert.ok(h.includes('data-secu="rappel" value="22:00"'));
-  assert.ok(h.includes('data-secu="reveil" value="07:00"'));
+  assert.ok(h.includes('data-day="nightEnd" value="7"'), 'le réveil se règle sur la fin de nuit');
   assert.ok(h.includes('data-secu-jour="0" checked'));
   assert.ok(h.includes('Préférer Stationner'));
   // une sauvegarde d'avant n'a rien : les défauts
   const g2 = appSecu(s => { delete s.settings.secu; });
   assert.deepEqual(JSON.parse(JSON.stringify(g2.secu())), { vaults: [], rappel: '22:00', jours: [0, 1, 2, 3, 4, 5, 6], reveil: '07:00', stationner: false });
+  // le réveil suit la fin de nuit, et rien d'autre : une ancienne clé `reveil` ne compte plus
+  const g3 = appSecu(s => { s.day.nightEnd = 6; s.settings.secu.reveil = '09:30'; });
+  assert.equal(g3.secu().reveil, '06:00');
+  const x = g3.planSecurite('routine', SOIR, []).find(e => e.p.name === 'Tourtierion');
+  assert.equal(x.wake, new Date(2026, 10, 9, 6, 0, 0).getTime());
+  assert.equal(x.wake, g3.wakeTime ? g3.wakeTime(SOIR) : x.wake, 'même réveil que le mode nuit');
 });
 
 t('le rappel est armé par chrome.alarms à l’heure choisie, sans notification', () => {

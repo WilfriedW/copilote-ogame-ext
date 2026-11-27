@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.9.1';
+const APP_VERSION = '2.9.2';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -190,7 +190,7 @@ function sample(){
       /* La sécurité : planètes coffres-forts (ids du copilote), rappel de mise
          à l'abri (heure locale, jours actifs 0 = dimanche), heure de réveil,
          et la mission des transports suggérés. Lu par `secu()`. */
-      secu:{vaults:[], rappel:'22:00', jours:[0,1,2,3,4,5,6], reveil:'07:00', stationner:false}},
+      secu:{vaults:[], rappel:'22:00', jours:[0,1,2,3,4,5,6], stationner:false}},
     tech:Object.fromEntries(Object.keys(T).map(k=>[k,0])),
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
@@ -4763,7 +4763,7 @@ function secuCard(){
     <div class="chips">${S.planets.map(p=>`<label class="chip"><input type="checkbox" data-secu-vault="${esc(p.id)}" ${c.vaults.includes(p.id)?'checked':''}> ${esc(p.name)} <span class="note">${esc(p.coords||'')}</span></label>`).join('')}</div>
     <div class="grid" style="margin-top:8px">
       <label class="f">Heure du rappel<input type="time" data-secu="rappel" value="${esc(c.rappel)}"></label>
-      <label class="f">Heure de réveil<input type="time" data-secu="reveil" value="${esc(c.reveil)}"></label>
+      <label class="f">Réveil = fin de nuit (heure)<input type="number" min="0" max="23" data-day="nightEnd" value="${+S.day.nightEnd}"><span class="note">La même que « Nuit : à » du plan du jour.</span></label>
     </div>
     <div class="chips" style="margin-top:8px">${[1,2,3,4,5,6,0].map(j=>`<label class="chip"><input type="checkbox" data-secu-jour="${j}" ${c.jours.includes(j)?'checked':''}> ${J[j]}</label>`).join('')}</div>
     <div class="bascules">${bascule('sStat','data-secu="stationner"','Préférer Stationner', c.stationner, 'Les transports suggérés partent en Stationner au lieu de Transport : la flotte reste au coffre-fort au lieu de revenir.')}</div>
@@ -4773,14 +4773,18 @@ function secuCard(){
 
 /** Mes réglages de sécurité, toujours complets : une sauvegarde d'avant ne les porte pas. */
 function secu(){
-  const d = {vaults:[], rappel:'22:00', jours:[0,1,2,3,4,5,6], reveil:'07:00', stationner:false};
+  const d = {vaults:[], rappel:'22:00', jours:[0,1,2,3,4,5,6], stationner:false};
   const s = S.settings.secu && typeof S.settings.secu === 'object' ? S.settings.secu : {};
   const hhmm = v => /^\d{1,2}:\d{2}$/.test(String(v)) ? String(v).padStart(5, '0') : null;
   return {
     vaults: Array.isArray(s.vaults) ? s.vaults.filter(id => planetById(id)) : d.vaults,
     rappel: hhmm(s.rappel) || d.rappel,
     jours: Array.isArray(s.jours) ? s.jours.filter(j => Number.isInteger(j) && j >= 0 && j <= 6) : d.jours,
-    reveil: hhmm(s.reveil) || d.reveil,
+    /* Le réveil n'a qu'une source : la fin de nuit du plan du jour. Deux
+       champs pour la même heure finissent par se contredire — le plan de la
+       nuit visait 7 h pendant que le mode nuit visait 6 h. Heure pleine, comme
+       elle : `nightEnd` ne porte pas de minutes. */
+    reveil: `${p2(Math.max(0, Math.min(23, Math.round(+S.day.nightEnd) || 0)))}:00`,
     stationner: !!s.stationner
   };
 }
@@ -7963,7 +7967,7 @@ settings(){
         <label class="f">Je me connecte toutes les<select id="dInt" data-day="interval">${[30,60,90,120,180].map(v=>`<option value="${v}" ${+d.interval===v?'selected':''}>${v} min</option>`).join('')}</select></label>
         <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
         <label class="f">Nuit : de (heure)<input id="dNs" type="number" min="0" max="23" data-day="nightStart" value="${d.nightStart}"></label>
-        <label class="f">à (heure)<input id="dNe" type="number" min="0" max="23" data-day="nightEnd" value="${d.nightEnd}"></label>
+        <label class="f">à (heure) — réveil<input id="dNe" type="number" min="0" max="23" data-day="nightEnd" value="${d.nightEnd}"></label>
         <label class="f">Mise à l'abri (nuit, absence)<select id="dNight" data-day="night"><option value="0" ${d.night?'':'selected'}>non</option><option value="1" ${d.night?'selected':''}>oui</option></select></label>
         <label class="f">Retour vers (heure)<input id="dBack" type="number" min="0" max="23" data-day="backHour" value="${d.backHour==null?'':d.backHour}" placeholder="dans ${nightLen()} h"></label>
       </div>

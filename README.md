@@ -120,7 +120,8 @@ décision). L'icône affiche « ! ». Un espionnage hostile donne une alerte
 Importante.
 
 **Rappel de mise à l'abri.** Réglages › Sécurité : tes planètes coffres-forts,
-l'heure du rappel (22:00), les jours actifs et l'heure de réveil (07:00), et
+l'heure du rappel (22:00), les jours actifs, l'heure de réveil — la fin de
+nuit du plan du jour, un seul réglage pour les deux (7 h) —, et
 « Préférer Stationner ». À l'heure du rappel l'icône affiche « FS » — aucune
 notification — jusqu'à ce que tu ouvres **Plan de la nuit** dans Aujourd'hui.
 Le plan propose une vitesse, et au besoin une heure de départ, pour que la
