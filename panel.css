@@ -115,6 +115,14 @@ nav.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(
 display:flex;flex-direction:column;gap:8px;padding:10px 12px;
 background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
 .masque-menu .bascule .note{display:none}
+/* Panneau étroit : le bouton, passé sous le titre, est trop à gauche pour que
+   le menu tienne aligné sur lui — il débordait de l'écran. Il s'accroche
+   alors au bord droit de l'en-tête, et ne dépasse jamais la largeur utile. */
+@media (max-width:520px){
+  header.top{position:relative}
+  .masque-hote{position:static}
+}
+.masque-menu{max-width:calc(100vw - 32px);box-sizing:border-box}
 /* Une heure du panneau : son infobulle donne l'autre fuseau. */
 time.hr{cursor:help;text-decoration:underline dotted color-mix(in srgb,currentColor 35%,transparent);text-underline-offset:3px}
 section.panel{display:flex;flex-direction:column;gap:14px}
