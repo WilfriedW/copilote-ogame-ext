@@ -2320,7 +2320,8 @@ t('un r\u00e9glage de mode reste un mot, les autres des nombres', () => {
   // un mot hors liste ne remplace pas ce qui est en place
   assert.equal(g.dayValue('research', 'nawak', 'first'), 'first');
   assert.equal(g.dayValue('interval', '90', 60), 90);
-  assert.equal(g.dayValue('nightStart', '-3', 23), 0);
+  // une heure hors du jour ne remplace pas ce qui est en place
+  assert.equal(g.dayValue('nightStart', '-3', 23), 23);
 });
 
 t('les donneurs voyagent avec les d\u00e9bits', () => {
@@ -12790,6 +12791,19 @@ t('réveil à 7 h 30 : le mode nuit, le plan de la nuit et la journée le suiven
   const t1 = g.sessionTimes(SOIR).find(t => t > SOIR + 3 * H);
   assert.equal(t1, w, 'la première connexion après la nuit tombe au réveil, pas à 8 h');
   assert.ok(lu(g.VIEWS.settings()).includes('data-day="nightEnd" value="07:30"'));
+});
+
+t('coucher à 22 h 45 : la nuit, la carte du soir et le plan du jour le suivent', () => {
+  const g = appSecu(s => { s.day.nightStart = 22.75; });
+  assert.equal(g.dayValue('nightStart', '22:45', 23), 22.75);
+  assert.equal(g.isNight(new Date(2026, 10, 8, 22, 40, 0).getTime()), false);
+  assert.equal(g.isNight(new Date(2026, 10, 8, 22, 50, 0).getTime()), true);
+  assert.equal(g.heureTxt(22.75), '22h45');
+  const h = lu(g.VIEWS.settings());
+  assert.ok(h.includes('data-day="nightStart" value="22:45"'), 'champ horaire du coucher');
+  assert.ok(lu(g.VIEWS.today()).includes('nuit 22h45–7h'));
+  g.S.day.nightStart = 22.5; g.syncApply({ 'sy:day': g.S.day });
+  assert.equal(g.S.day.nightStart, 22.5, 'la minute survit à la synchro');
 });
 
 t('une fin de nuit à la minute survit à la synchro, une absurde est refusée', () => {

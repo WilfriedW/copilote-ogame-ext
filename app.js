@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.13.0';
+const APP_VERSION = '2.14.0';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -3622,9 +3622,9 @@ function dayValue(k, v, prev){
   /* Vide veut dire « je n'ai pas d'heure de retour » : le plan retombe alors
      sur la longueur de la nuit. Zéro est une heure, pas une absence. */
   if(k === 'backHour'){ const x = parseInt(v); return Number.isFinite(x) && x >= 0 && x <= 23 ? x : null; }
-  /* Le réveil, à la minute : « 07:30 » d'un champ horaire, ou un nombre
+  /* Le coucher et le réveil, à la minute : « 07:30 » d'un champ horaire, ou un nombre
      d'heures. Rien d'autre ne passe — l'ancienne valeur reste. */
-  if(k === 'nightEnd'){
+  if(k === 'nightEnd' || k === 'nightStart'){
     const m = String(v).trim().match(/^(\d{1,2}):(\d{2})$/);
     const x = m ? +m[1] + +m[2] / 60 : String(v).trim() === '' ? NaN : Number(v);
     return Number.isFinite(x) && x >= 0 && x < 24 && (!m || +m[2] < 60) ? Math.round(x * 60) / 60 : prev;
@@ -3749,7 +3749,7 @@ function timeExport(ms){
     serverOffsetMinutes: off == null ? null : Math.round((off/60 + loc.getTimezoneOffset()) / 15) * 15
   };
 }
-/* La fin de nuit — l'heure de réveil — se règle à la minute. Elle reste un
+/* Le début et la fin de nuit — le coucher et le réveil — se règlent à la minute. Elle reste un
    nombre d'heures, décimal (7,5 pour 7 h 30) : une sauvegarde ou une synchro
    d'avant, qui porte 7, se lit telle quelle. Arrondie à la minute partout où
    elle devient un instant. */
@@ -4988,7 +4988,7 @@ function nightLen(){ return (+S.day.nightEnd - +S.day.nightStart + 24) % 24 || 8
 function absenceJour(now){
   if(!S.day.night || isNight(now)) return false;
   if(S.day.backHour != null) return true;
-  const d = new Date(now); d.setHours(+S.day.nightStart, 0, 0, 0);
+  const d = poseHeure(new Date(now), +S.day.nightStart);
   if(d.getTime() <= now) d.setDate(d.getDate()+1);
   return d.getTime() - now > nightLen()*3600e3;
 }
@@ -5024,7 +5024,7 @@ function wakeTime(now){
     if(e.getTime() <= now) e.setDate(e.getDate()+1);
     return e.getTime();
   }
-  const s = new Date(now); s.setHours(a,0,0,0); if(s.getTime() <= now) s.setDate(s.getDate()+1);
+  const s = poseHeure(new Date(now), a); if(s.getTime() <= now) s.setDate(s.getDate()+1);
   const e = poseHeure(new Date(s), b); if(e.getTime() <= s.getTime()) e.setDate(e.getDate()+1);
   return e.getTime();
 }
@@ -6382,7 +6382,7 @@ function dailyMissions(){
   if(rt.length) out.push({id:'raid', q:'Pillage', every:12, sev:'good', coords:rt[0].coords, mark:rt.map(r=>r.coords), what:`Espionner ${rt.length>1?'ces inactifs':'cet inactif'} : ${rt.map(r=>r.coords).join(', ')}`, whatHtml:`Espionner ${rt.length>1?'ces inactifs':'cet inactif'} : ${rt.map(r=>coordLink(r.coords)).join(', ')}`, why:`Inactifs proches et moins forts que toi : pas d'avertissement hors-la-loi.${bride?` ${rtAll.length} repérés, mais ${libres} emplacement${libres>1?'s':''} de flotte libre${libres>1?'s':''}.`:''} Détail dans Outils › Cibles.`, how:[sansSonde ? 'Aucune sonde au sol : construis-en au chantier spatial avant d\'espionner. L\'œil de la Galaxie envoie les sondes déjà là, sinon le jeu répond « Vous n\'avez pas sélectionné de vaisseaux ».' : 'Galaxie : clique sur l\'œil de la ligne pour envoyer une sonde.', 'Un chiffre ou une étoile dans sa ligne : les minutes depuis la dernière activité sur la planète. Sur un inactif, c\'est le plus souvent la sonde d\'un autre pilleur — le stock sera maigre.', 'Chaque sonde occupe un emplacement de flotte jusqu\'à son retour.', 'Rapport sans flotte ni défense et avec des ressources : mission Attaquer, assez de soute pour la moitié de son stock.'].concat(bride ? [leverFlotte()] : [])});
   else if(!rtAll.length) out.push({id:'inactive', q:'Pillage', every:24, sev:'info', what:'Repérer des inactifs à piller', why:'Les joueurs marqués (i) ou (I) ne se défendent plus. À piller dès qu\'ils sont dans ta tranche de points.',
     how:['Galaxie : parcours ton système et les voisins, note les noms gris (i)/(I).', 'Espionne-les. Si le jeu affiche « joueur plus puissant », réponds <b>Non</b> : tu perdrais ta protection pendant 7 jours.', 'Sans flotte ni défense et avec des ressources : mission Attaquer avec assez de soute.']});
-  const ns = +S.day.nightStart, nd = new Date(now); nd.setHours(ns,0,0,0); if(nd.getTime() <= now) nd.setDate(nd.getDate()+1);
+  const ns = +S.day.nightStart, nd = poseHeure(new Date(now), ns); if(nd.getTime() <= now) nd.setDate(nd.getDate()+1);
   const nightAt = nd.getTime() - 3600e3;
   /* Un rapatriement laisse les transporteurs stationnés là où ils ont chargé —
      c'est voulu, un Transporter repartirait seul et ne serait plus là pour la
@@ -6418,7 +6418,7 @@ function dailyMissions(){
        la nuit a commencé, il reste à protéger ce qu'elle expose. */
     const quand = abs ? (S.day.backHour == null ? `Absence de ${nightLen()} h` : `Absence jusqu'à ${S.day.backHour} h`)
       : isNight(now) ? 'Cette nuit'
-      : `Avant la nuit (${ns} h)`;
+      : `Avant la nuit (${heureTxt(ns)})`;
     /* `at` dit à quelle connexion la carte appartient : l'heure du rappel
        d'avant-coucher en mode jour, et maintenant dès que le mode nuit est
        allumé. Le garder à nightAt en mode nuit renvoyait la carte au soir
@@ -8163,7 +8163,7 @@ today(){
       <div id="expoBloc"></div>
     </details>`,
     journee: `<details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
-      <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${d.nightStart}h–${heureTxt(d.nightEnd)} <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
+      <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${heureTxt(d.nightStart)}–${heureTxt(d.nightEnd)} <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
       <div id="tdDay"></div>
     </details>`,
     minuteurs: `<details class="card"${fold('minuteurs', false)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
@@ -8474,7 +8474,7 @@ settings(){
         <label class="f">Place des formes de vie<select id="dLf" data-day="lf">${Object.entries(LF_MODE).map(([k,l])=>`<option value="${k}" ${lfMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
         <label class="f">Je me connecte toutes les<select id="dInt" data-day="interval">${[30,60,90,120,180].map(v=>`<option value="${v}" ${+d.interval===v?'selected':''}>${v} min</option>`).join('')}</select></label>
         <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
-        <label class="f">Nuit : de (heure)<input id="dNs" type="number" min="0" max="23" data-day="nightStart" value="${d.nightStart}"></label>
+        <label class="f">Nuit : de (heure) — coucher<input id="dNs" type="time" data-day="nightStart" value="${hhmmDe(d.nightStart)}"></label>
         <label class="f">à (heure) — réveil<input id="dNe" type="time" data-day="nightEnd" value="${hhmmDe(d.nightEnd)}"></label>
         <label class="f">Mise à l'abri (nuit, absence)<select id="dNight" data-day="night"><option value="0" ${d.night?'':'selected'}>non</option><option value="1" ${d.night?'selected':''}>oui</option></select></label>
         <label class="f">Retour vers (heure)<input id="dBack" type="number" min="0" max="23" data-day="backHour" value="${d.backHour==null?'':d.backHour}" placeholder="dans ${nightLen()} h"></label>
@@ -8696,7 +8696,7 @@ today(){
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
   const phases = [], horizonEnd = plan.now + (+S.day.horizon||24)*3600e3;
   for(const x of plan.sessions){ const key = x.goals.map(g=>g.key).join('|') || 'free'; const last = phases[phases.length-1]; if(last && last.key===key) continue; if(last) last.to = x.T; phases.push({key, from:x.T, to:horizonEnd, goals:x.goals}); }
-  const nightStartAfter = t=>{ const d = new Date(t); d.setHours(+S.day.nightStart,0,0,0); if(d.getTime() <= t) d.setDate(d.getDate()+1); return d.getTime(); };
+  const nightStartAfter = t=>{ const d = poseHeure(new Date(t), +S.day.nightStart); if(d.getTime() <= t) d.setDate(d.getDate()+1); return d.getTime(); };
   for(const ph of phases){ const n = nightStartAfter(ph.from); if(n < ph.to) ph.to = n; }
   const launchedAt = label => { for(const x of plan.sessions) if(x.acts.some(a=>a.what===label || (label==='le vaisseau de colonisation' && a.kind==='ship'))) return x.T; return null; };
   const phaseHtml = ph => {
@@ -8748,7 +8748,7 @@ settings(){
   const n = plan.sessions.slice(1).filter(x=>actsVus(x).length).length;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
   // Deux heures égales ne font pas une nuit de zéro heure : elles n'en font aucune.
-  const nuit = +d.nightStart === +d.nightEnd ? 'aucune nuit' : `nuit ${d.nightStart}h–${heureTxt(d.nightEnd)}`;
+  const nuit = +d.nightStart === +d.nightEnd ? 'aucune nuit' : `nuit ${heureTxt(d.nightStart)}–${heureTxt(d.nightEnd)}`;
   el.textContent = `${FOCUS[d.focus]||''} · toutes les ${d.interval} min · ${nuit} · `
     + `${n} connexion${n>1?'s':''} avec quelque chose à lancer · `
     + `production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${d.horizon} h`;
@@ -9418,7 +9418,7 @@ function sainEtat(){
   if(!S.day || typeof S.day !== 'object') S.day = def.day;
   S.day.interval   = nb(S.day.interval,   def.day.interval,   1, 24*60);
   S.day.horizon    = nb(S.day.horizon,    def.day.horizon,    1, 24*30);
-  S.day.nightStart = nb(S.day.nightStart, def.day.nightStart, 0, 23);
+  S.day.nightStart = Math.round(nb(S.day.nightStart, def.day.nightStart, 0, 24 - 1/60) * 60) / 60;
   S.day.nightEnd   = Math.round(nb(S.day.nightEnd, def.day.nightEnd, 0, 24 - 1/60) * 60) / 60;
   if(!(S.day.focus in FOCUS)) S.day.focus = def.day.focus;
   S.day.night = !!S.day.night;
