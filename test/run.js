@@ -23,13 +23,15 @@ const SOIR = new Date(2026, 10, 8, 22, 30, 0).getTime();
 const REVEIL = new Date(2026, 10, 9, 7, 0, 0).getTime();
 
 /** Charge l'application avec un état modifié à la volée. */
-function app(modifier, now, api, ext, prioAsk) {
+function app(modifier, now, api, ext, prioAsk, rules) {
   const s = fixtureState();
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'dayValue', 'modeNuit', 'finDeNuit', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES', 'missionKey', 'UI', 'uiOuvert', 'uiNote', 'uiVu', 'uiPurge', 'uiReset', 'uiEcrit', 'fold', 'garderVue', 'carteDetails'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'dayValue', 'modeNuit', 'finDeNuit', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES', 'missionKey', 'UI', 'uiOuvert', 'uiNote', 'uiVu', 'uiPurge', 'uiReset', 'uiEcrit', 'fold', 'garderVue', 'carteDetails', 'REGLES', 'REGLES_ERR', 'EVAL', 'regle', 'regleSaine', 'reglePose', 'regleActive', 'gabarit', 'constats', 'constatsDe', 'SEV_LABEL', 'ignore', 'ignKey', 'constatsVus', 'ignClean', 'conseilsHtml', 'reglesCard', 'planeteOuverte', 'cibleMines', 'mineEnRetard', 'naniteRetard', 'laboEnRetard', 'rechercheAilleurs', 'reglesRecherche', 'regOffHtml', 'raceDe', 'baseDe', 'lfNom', 'lfNomConnu', 'lfManques', 'rescanner', 'lfNomsRetiens', 'raceRows'], api, ext, prioAsk, rules);
 }
+/** L'application avec un rules.json donné — null pour un fichier illisible. */
+const appRegles = (rules, modifier, ext) => app(modifier, null, null, ext, null, rules);
 
 /* ---------- fraîcheur du relevé ---------- */
 
@@ -3755,7 +3757,10 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
      est un fichier que l'extension ÉCRIT chez le joueur, pas un fichier qu'elle
      charge : il ne part pas dans le zip. */
   const cites = liste.filter(f => /\.(js|html|css)$/.test(f))
-    .flatMap(f => [...lu(f).matchAll(/(?<!(?:filename\s*:|download\s*=)\s*)['"]([\w-]+\.(?:js|css|html|png|woff2|json))['"]/g)].map(x => x[1]));
+    .flatMap(f => [...lu(f).matchAll(/(?<!(?:filename\s*:|download\s*=)\s*)['"]([\w-]+\.(?:js|css|html|png|woff2|json))['"]/g)].map(x => x[1]))
+    /* Un .json cité peut être un nom de téléchargement (save.json) : seul
+       compte celui qui existe dans le dépôt, comme rules.json. */
+    .filter(f => !f.endsWith('.json') || fs.existsSync(path.join(root, f)));
   const voulus = new Set(['manifest.json', m.background.service_worker,
     ...m.content_scripts.flatMap(c => c.js),
     ...Object.values(m.icons),
@@ -4465,7 +4470,7 @@ t('energie negative et hangar plein sont dits tous les deux', () => {
 
 /* rules.json illisible, ou plus ancien que le code : les alertes que les
    règles ont remplacées sortent quand même, avec les mêmes mots. */
-function appRegles(rules, modifier) {
+function appSecours(rules, modifier) {
   const s = fixtureState();
   s.planets.forEach(p => { p.stock.at = SOIR; });
   if (modifier) modifier(s);
@@ -4475,7 +4480,7 @@ const VIDE_ET_PLEIN = s => { Object.assign(s.planets[0].b, { metal: 20, solar: 1
 
 t('rules.json illisible : énergie négative et hangar plein sont dits quand même', () => {
   for (const [nom, rules] of [['illisible', null], ['sans ces règles', { version: 1, regles: [] }]]) {
-    const g = appRegles(rules, VIDE_ET_PLEIN);
+    const g = appSecours(rules, VIDE_ET_PLEIN);
     const a = g.planetAlerts(g.S.planets[0]);
     assert.ok(a.some(x => x.sev === 'bad' && /^Rétablir l'énergie/.test(x.what)), nom + ' : l\'énergie : ' + JSON.stringify(a));
     assert.ok(a.some(x => x.sev === 'bad' && /^Hangar de métal plein/.test(x.what)), nom + ' : le hangar');
@@ -4485,19 +4490,19 @@ t('rules.json illisible : énergie négative et hangar plein sont dits quand mê
 
 t('le repli et rules.json disent la même chose', () => {
   const fichier = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'rules.json'), 'utf8'));
-  const sec = appRegles(null).REGLES_SECOURS;
+  const sec = appSecours(null).REGLES_SECOURS;
   for (const id of Object.keys(sec)) {
     const f = fichier.regles.find(r => r.id === id);
     assert.ok(f, id + ' manque dans rules.json');
     for (const k of ['domaine', 'cat', 'niveau', 'condition', 'parametres', 'effet', 'message', 'raison', 'actif_par_defaut', 'verrou'])
       assert.deepEqual(sec[id][k], f[k], id + '.' + k + ' diffère entre app.js et rules.json');
   }
-  assert.deepEqual(appRegles(undefined).REGLES_SECOURS, {}, 'le fichier lu, le repli ne sert à rien');
+  assert.deepEqual(appSecours(undefined).REGLES_SECOURS, {}, 'le fichier lu, le repli ne sert à rien');
 });
 
 t('rules.json illisible : les réglages de règles du joueur ne sont pas effacés', () => {
   const reg = { INST_QUEUE_EMPTY: { on: false }, RES_STORAGE_SOON: { p: { heures: 12 } } };
-  const g = appRegles(null, s => { s.settings.regles = JSON.parse(JSON.stringify(reg)); });
+  const g = appSecours(null, s => { s.settings.regles = JSON.parse(JSON.stringify(reg)); });
   assert.deepEqual(g.S.settings.regles, reg);
   assert.equal(g.regle('RES_STORAGE_SOON').parametres.heures, 12, 'le repli suit le réglage du joueur');
 });
@@ -4654,7 +4659,7 @@ t('la carte Alertes affiche ce que le moteur produit', () => {
   });
   g.REFRESH.today();
   const html = g.html().tdAlerts || '';
-  assert.ok(/Urgent/.test(html), 'la pastille de sévérité doit être rendue : ' + html.slice(0, 200));
+  assert.ok(/Critique/.test(html), 'la pastille de sévérité doit être rendue : ' + html.slice(0, 200));
   assert.ok(/[Hh]angar/.test(html), 'et le hangar plein y figurer : ' + html.slice(0, 200));
 });
 
@@ -12685,7 +12690,7 @@ t('une alerte critique ouvre la carte sans toucher au choix enregistré', () => 
   assert.equal(g.UI.etats.alertes, 'closed', 'le choix reste');
   assert.equal(g.fold('alertes', true, false), '', "l'alerte passée, elle revient fermée");
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
-  assert.match(src, /fold\('alertes', true, critique\)/, 'la carte Alertes passe la criticité');
+  assert.match(src, /fold\('conseils', false, critique\)/, 'le bloc des conseils passe la criticité');
 });
 
 t('le ⓘ ouvert le reste au dessin suivant', () => {
@@ -13100,6 +13105,8 @@ const CALME = s => {
     { id: 't1', kind: 't', pid: 'mere', k: 'computer', lvl: 3, end: fin }
   ];
   s.planets.forEach(p => { p.stock = { m: 100, c: 100, d: 0, at: SOIR }; p.b.solar = 20; });
+  // deux planètes pour deux places : aucune colonie à proposer (RECH_ASTRO_COLONY)
+  s.tech.astro = 1;
 };
 function meteo(modifier, ext) {
   const s = fixtureState();
@@ -13224,7 +13231,8 @@ t('météo : un style qui met la défense à 0 ne la compte pas', () => {
 t('météo : la recherche à l\'arrêt va sur la planète d\'où la dernière est partie', () => {
   const g = meteo(s => { s.timers = s.timers.filter(t => t.kind !== 't'); s.rechPid = 'colo'; s.planets[1].b.lab = 1; });
   const el = g.meteoElements();
-  assert.equal(g.domainColor(el, 'colo', 'act'), 'warn', JSON.stringify(el));
+  // RECH_LAB_IDLE est critique depuis les règles du moteur (vague 1)
+  assert.equal(g.domainColor(el, 'colo', 'act'), 'bad', JSON.stringify(el));
   assert.equal(g.domainColor(el, 'mere', 'act'), 'good');
 });
 
@@ -13490,6 +13498,636 @@ t('en onglets, le volet de la carte Alertes est trouvé sous #tdAlerts', () => {
   const alertes = el('DETAILS', 'card');
   assert.equal(g.carteDetails(el('DIV', 'carte', el('DIV', '', alertes))), alertes, 'Alertes : un cran plus bas');
   assert.equal(g.carteDetails(el('DIV', 'carte', el('DIV', 'card'))), null, 'Maintenant : pas de volet');
+});
+
+/* ---------- les règles du moteur : le fichier ---------- */
+
+t('rules.json se lit, et chaque règle a ce qu\'il lui faut', () => {
+  const g = app();
+  assert.equal(g.REGLES_ERR, '');
+  assert.ok(g.REGLES.regles.length, 'des règles dans le fichier');
+  const ids = new Set();
+  for (const r of g.REGLES.regles) {
+    assert.ok(!ids.has(r.id), 'id en double : ' + r.id); ids.add(r.id);
+    assert.ok(['ressources', 'installations', 'recherche', 'formes_de_vie'].includes(r.domaine), r.id + ' : domaine');
+    assert.ok(['critique', 'important', 'conseil'].includes(r.niveau), r.id + ' : niveau');
+    assert.ok(['pousser', 'marquer', 'suspendre', 'signaler'].includes(r.effet), r.id + ' : effet');
+    assert.ok(['valide', 'a_valider'].includes(r.statut), r.id + ' : statut');
+    assert.ok(r.domaine === 'formes_de_vie' ? !r.cat : g.PROFILS.cats[r.cat], r.id + ' : cat');
+    assert.equal(typeof g.EVAL[r.condition], 'function', r.id + ' : un évaluateur pour ' + r.condition);
+    assert.ok(r.message && r.raison && r.nom, r.id + ' : ses textes');
+    if (r.verrou) assert.ok(r.pourquoi_verrou, r.id + ' : un verrou dit pourquoi');
+  }
+});
+
+t('un fichier de règles illisible laisse tourner le plan d\'avant, et l\'en-tête le dit', () => {
+  const g = appRegles(null);
+  assert.match(g.REGLES_ERR, /illisibles/);
+  assert.deepEqual(g.REGLES.regles, []);
+  assert.ok(g.simulateDay().sessions.length, 'le plan tourne quand même');
+  assert.ok(g.regleActive('RES_STORAGE_FULL'), 'une règle inconnue laisse le moteur faire ce qu\'il faisait');
+  assert.match(lu(g.el('uniBadge').innerHTML), /règles illisibles/);
+});
+
+const DEUX_REGLES = { version: 1, mineBalance: { byStyle: {}, byPosition: {} }, lifeforms: {},
+  regles: [
+    { id: 'A', nom: 'A', domaine: 'installations', cat: 'infra', niveau: 'important', condition: 'queueEmpty',
+      effet: 'signaler', parametres: { seuil: 10 }, message: 'a', raison: 'a', statut: 'valide', actif_par_defaut: true },
+    { id: 'B', nom: 'B', domaine: 'ressources', cat: 'stock', niveau: 'critique', condition: 'queueEmpty',
+      effet: 'pousser', parametres: {}, message: 'b', raison: 'b', statut: 'valide', actif_par_defaut: true, verrou: true }] };
+
+/** Les deux mêmes, sans évaluateur. */
+const CASSEES = Object.assign({}, DEUX_REGLES, { regles: DEUX_REGLES.regles.map(r => Object.assign({}, r, { condition: 'inexistante' })) });
+
+t('le joueur remplace un seuil et un interrupteur, pas le reste', () => {
+  const g = appRegles(DEUX_REGLES, s => { s.settings.regles = { A: { on: false, p: { seuil: 15 } } }; });
+  assert.equal(g.regle('A').on, false);
+  assert.equal(g.regle('A').parametres.seuil, 15);
+  assert.equal(g.regle('A').niveau, 'important');
+  assert.equal(g.regle('Z'), null);
+});
+
+t('une règle à verrou ne se coupe pas', () => {
+  const g = appRegles(DEUX_REGLES, s => { s.settings.regles = { B: { on: false } }; });
+  assert.equal(g.regle('B').on, true);
+  assert.deepEqual(g.S.settings.regles, {}, 'et l\'écart n\'est même pas gardé');
+});
+
+t('des réglages de règles abîmés sont jetés sans exception', () => {
+  const g = appRegles(DEUX_REGLES, s => { s.settings.regles = JSON.parse(
+    '{"A":{"on":"non","p":{"seuil":"dix","inconnu":3}},"Z":{"on":false},"__proto__":{"on":false},"B":null}'); });
+  assert.equal(g.regle('A').on, true);
+  assert.equal(g.regle('A').parametres.seuil, 10);
+  assert.deepEqual(g.S.settings.regles, {});
+});
+
+t('une règle sans évaluateur se tait, et ne le dit qu\'une fois', () => {
+  // le premier rendu, au chargement, évalue déjà les règles : on écoute avant
+  const avant = console.error; let n = 0; console.error = () => { n++; };
+  // les constats du repli (règles absentes du fichier) ne viennent pas des règles cassées
+  const SECOURS = ['RES_STORAGE_FULL', 'RES_STORAGE_SOON', 'RES_ENERGY_NEGATIVE'];
+  try { const g = appRegles(CASSEES); assert.deepEqual(g.constats().filter(c => !SECOURS.includes(c.regle)), []); g.constats(); g.render(); }
+  finally { console.error = avant; }
+  assert.equal(n, 2, 'une ligne par règle cassée, pas une par rendu');
+});
+
+t('reglePose n\'écrit que l\'écart au fichier', () => {
+  const g = app();
+  const defaut = g.REGLES.regles.find(r => r.id === 'RES_STORAGE_SOON').parametres.heures;
+  g.reglePose('RES_STORAGE_SOON', { p: { heures: 20 } });
+  assert.deepEqual(g.S.settings.regles, { RES_STORAGE_SOON: { p: { heures: 20 } } });
+  g.reglePose('RES_STORAGE_SOON', { p: { heures: defaut } });
+  assert.deepEqual(g.S.settings.regles, {}, 'revenu au fichier : plus rien d\'écrit');
+});
+
+t('un gabarit remplit ce qu\'il connaît et laisse voir le reste', () => {
+  assert.equal(app().gabarit('{batiment} {niveau+1} sur {planete} · {trou}',
+    { batiment: 'Hangar de cristal', niveau: 7, planete: 'Mère' }),
+    'Hangar de cristal 8 sur Mère · {trou}');
+});
+
+t('un seul vocabulaire de niveau', () => {
+  assert.deepEqual(app().SEV_LABEL, { bad: 'Critique', warn: 'Important', info: 'Conseil', good: 'Prêt' });
+});
+
+/* ---------- les règles du moteur : ressources ---------- */
+
+/** Le cristal de la mère au-dessus de son hangar (Hangar C 3). */
+const CRISTAL_PLEIN = s => { s.planets[0].stock.c = 1e9; };
+
+t('cristal au-dessus du hangar : un constat critique, et le plan dépense', () => {
+  const g = app(CRISTAL_PLEIN);
+  const c = g.constats().find(x => x.regle === 'RES_STORAGE_FULL' && x.valeur === 1);
+  assert.equal(c.pid, 'mere'); assert.equal(c.niveau, 'critique');
+  assert.match(c.what, /^Hangar de cristal plein sur Planète mère$/);
+  const plan = g.simulateDay();
+  assert.ok(plan.sessions[0].acts.some(a => a.kind === 'b' && a.p === 0), 'le plan pousse un chantier sur la mère');
+  assert.ok(plan.constats.find(x => x.regle === 'RES_STORAGE_FULL' && x.valeur === 1).servi, 'et la carte est sa réponse');
+});
+
+t('RES_STORAGE_FULL coupée : ni constat, ni secours du plafond dans le plan', () => {
+  const g = app(s => { CRISTAL_PLEIN(s); s.settings.regles = { RES_STORAGE_FULL: { on: false } }; });
+  assert.ok(!g.constats().some(x => x.regle === 'RES_STORAGE_FULL'));
+  assert.ok(!g.planetAlerts(g.S.planets[0]).some(a => /plein sur/.test(a.what) && !/dans/.test(a.what)));
+  assert.ok(!g.simulateDay().sessions[0].acts.some(a => /plafond/.test(a.why || '')), 'le secours du plafond ne sort plus');
+});
+
+t('le seuil de RES_STORAGE_SOON se règle', () => {
+  const sans = app(), avec = app(s => { s.settings.regles = { RES_STORAGE_SOON: { p: { heures: 1000 } } }; });
+  const n = g => g.constats().filter(x => x.regle === 'RES_STORAGE_SOON').length;
+  assert.ok(n(avec) > n(sans), `${n(avec)} constats à 1000 h, ${n(sans)} à 8 h`);
+});
+
+t('une catégorie de poids 0 ne rend aucun constat, et le plan ne paie rien pour elle', () => {
+  const g = app(s => { CRISTAL_PLEIN(s); s.profil = { style: 'raideur', classe: '', activite: 'regulier', focus: [], set: true }; });
+  g.PROFILS.poids.raideur.stock = 0;
+  try {
+    assert.ok(!g.constats().some(x => x.cat === 'stock'));
+    assert.ok(!g.simulateDay().sessions[0].acts.some(a => /plafond/.test(a.why || '')));
+  } finally { g.PROFILS.poids.raideur.stock = 1; }
+});
+
+t('l\'énergie négative est une règle, et son texte ne change pas', () => {
+  const g = app(s => { Object.assign(s.planets[1].b, { metal: 12, solar: 1 }); });
+  const a = g.planetAlerts(g.S.planets[1]).find(x => x.regle === 'RES_ENERGY_NEGATIVE');
+  assert.match(a.what, /^Rétablir l'énergie sur Colonie$/);
+  assert.match(a.why, /^Tes mines tournent à \d+ %\. /);
+});
+
+t('mine plus chère que le hangar : le hangar sort, et la règle ne se décoche pas', () => {
+  const g = app(s => { Object.assign(s.planets[0].b, { metal: 30, crystal: 30, deut: 30, solar: 40 });
+    s.settings.regles = { RES_MINE_BLOCKED_BY_STORAGE: { on: false } }; });
+  assert.equal(g.regle('RES_MINE_BLOCKED_BY_STORAGE').on, true);
+  assert.ok(g.constats().some(x => x.regle === 'RES_MINE_BLOCKED_BY_STORAGE' && x.pid === 'mere'));
+  const s0 = g.simulateDay().sessions[0];
+  assert.ok(s0.acts.concat(s0.waits).some(a => a.p === 0 && /^s(metal|crystal|deut)$/.test(a.k)), 'un hangar est proposé sur la mère');
+});
+
+/* ---------- les règles du moteur : marquer ---------- */
+
+t('planète sans chantier : sa carte bâtiment est critique', () => {
+  const a = app().simulateDay().sessions[0].acts.find(a => a.kind === 'b' && a.p === 0);
+  assert.equal(a.niveau, 'critique'); assert.equal(a.regle, 'INST_QUEUE_EMPTY');
+  assert.match(app().actHtml(a, true), /class="pill bad">Critique/);
+});
+
+t('INST_QUEUE_EMPTY coupée : la carte reste, sans ce niveau-là', () => {
+  const g = app(s => { s.settings.regles = { INST_QUEUE_EMPTY: { on: false } }; });
+  const a = g.simulateDay().sessions[0].acts.find(a => a.kind === 'b' && a.p === 0);
+  assert.ok(a, 'c\'est une carte du plan, elle ne dépend pas de la règle');
+  assert.notEqual(a.regle, 'INST_QUEUE_EMPTY');
+});
+
+t('un chantier en cours : pas de constat de file vide', () => {
+  const g = app(s => { s.timers = [{ kind: 'b', pid: 'mere', k: 'metal', lvl: 15, end: SOIR + 3600e3 }]; });
+  assert.ok(!g.constats().some(x => x.regle === 'INST_QUEUE_EMPTY' && x.pid === 'mere'));
+  assert.ok(g.constats().some(x => x.regle === 'INST_QUEUE_EMPTY' && x.pid === 'colo'));
+});
+
+t('file vide sans rien de payable : le constat reste à signaler', () => {
+  const g = app(s => { s.planets[1].stock = { m: 0, c: 0, d: 0, at: SOIR }; });
+  const c = g.simulateDay().constats.find(x => x.regle === 'INST_QUEUE_EMPTY' && x.pid === 'colo');
+  assert.equal(c.servi, false);
+});
+
+t('aucune recherche en cours : la carte recherche est critique, ou le constat reste', () => {
+  const plan = app().simulateDay();
+  const a = plan.sessions[0].acts.find(a => a.kind === 't');
+  if (a) assert.equal(a.niveau, 'critique');
+  else assert.ok(plan.constats.some(x => x.regle === 'RECH_LAB_IDLE' && !x.servi));
+});
+
+t('une recherche en cours : pas de constat de labo à l\'arrêt', () => {
+  const g = app(s => { s.timers = [{ kind: 't', pid: 'mere', k: 'energy', lvl: 4, end: SOIR + 3600e3 }]; });
+  assert.ok(!g.constats().some(x => x.regle === 'RECH_LAB_IDLE'));
+});
+
+/* ---------- les règles du moteur : l'icône ---------- */
+
+t('le panneau publie le compte des critiques', () => {
+  const g = app(null, null, null, true);
+  g.render();
+  assert.equal(g.stored().critiques.n, g.constatsVus().filter(x => x.niveau === 'critique').length);
+  assert.ok(g.stored().critiques.n > 0, 'la fixture a deux files vides');
+});
+
+t('les règles critiques coupées : le compte tombe à zéro', () => {
+  const off = { on: false };
+  const g = app(s => { s.settings.regles = { INST_QUEUE_EMPTY: off, RECH_LAB_IDLE: off, RES_STORAGE_FULL: off, RES_ENERGY_NEGATIVE: off }; }, null, null, true);
+  g.render();
+  assert.equal(g.stored().critiques.n, 0);
+});
+
+t('le badge : les critiques avant les files finies, rien à zéro', () => {
+  const w = chargeWorker(), now = Date.now();
+  const b = d => w.badgeEtat(d, now, '2.9.0');
+  assert.equal(b({ critiques: { n: 0, at: 1 }, pendingAlerts: [] }).text, '');
+  assert.equal(b({}).text, '');
+  assert.equal(b({ critiques: { n: 2, at: 5 }, pendingAlerts: ['a'], fileAt: 1 }).text, '2');
+  assert.equal(b({ critiques: { n: 2, at: 1 }, pendingAlerts: ['a', 'b', 'c'], fileAt: 5 }).text, '3',
+    'un compte de critiques d\'avant la fin de file ne l\'écrase pas');
+  assert.equal(b({ critiques: { n: 2, at: 1 }, pendingAlerts: [], fileAt: 5 }).text, '2', 'sans file finie, il reste');
+  assert.equal(b({ critiques: { n: 0 }, pendingAlerts: ['a'] }).text, '1');
+  assert.equal(b({ versionInstable: true, critiques: { n: 4, at: 9 } }).quoi, 'instable', 'la version instable passe devant');
+});
+
+/* ---------- les règles du moteur : le bloc des conseils ---------- */
+
+const TETE = g => lu(g.el('tdAlerts').innerHTML).split('<details')[0];
+
+t('la tête du bloc ne parle que de la planète ouverte, puis Voir tout', () => {
+  const g = app(s => { s.planets[1].gid = '102'; s.cur = '102'; s.planets[0].stock.c = 1e9;
+    s.planets[0].b.scrystal = 0; s.planets[0].stock.m = 0; s.planets[0].stock.d = 0; });
+  g.REFRESH.today();
+  const h = lu(g.el('tdAlerts').innerHTML);
+  assert.ok(!/sur Planète mère/.test(TETE(g)), 'la tête ne parle que de la Colonie : ' + TETE(g));
+  assert.ok((TETE(g).match(/<li/g) || []).length <= 3);
+  assert.match(h, /Voir tout \(\d+\)/);
+});
+
+t('un constat servi par une carte ne se répète pas dans le bloc', () => {
+  const g = app(CRISTAL_PLEIN); g.REFRESH.today();
+  assert.ok(!/Hangar de cristal plein/.test(lu(g.el('tdAlerts').innerHTML)), 'le plan dépense déjà : sa carte est la réponse');
+});
+
+t('une ligne sans réponse du plan dit son niveau, son domaine, et peut s\'ignorer', () => {
+  const g = app(s => { s.planets[1].stock = { m: 0, c: 0, d: 0, at: SOIR }; }); g.REFRESH.today();
+  const h = lu(g.el('tdAlerts').innerHTML);
+  assert.match(h, /Critique/); assert.match(h, /Installations/);
+  assert.match(h, /data-ign="INST_QUEUE_EMPTY\|colo\|0"/);
+});
+
+t('le filtre Données manquantes ne garde que FDV_DATA_MISSING', () => {
+  const g = app(s => { s.ui.cf = { manque: true }; s.planets[1].stock = { m: 0, c: 0, d: 0, at: SOIR }; });
+  g.REFRESH.today();
+  assert.match(lu(g.el('tdAlerts').innerHTML).split('<details')[1], /Aucun conseil pour ces filtres/);
+});
+
+/* ---------- les règles du moteur : ignorer ---------- */
+
+const COLO_VIDE = s => { s.planets[1].stock = { m: 0, c: 0, d: 0, at: SOIR }; };
+const fileVideColo = g => g.constatsVus().some(x => x.regle === 'INST_QUEUE_EMPTY' && x.pid === 'colo');
+
+t('Ignorer, remplir la file, la revider : le constat revient', () => {
+  const g = app(COLO_VIDE, null, null, true);
+  g.ignore(g.constats().find(x => x.regle === 'INST_QUEUE_EMPTY' && x.pid === 'colo'));
+  assert.ok(!fileVideColo(g), 'masqué');
+  g.S.timers.push({ kind: 'b', pid: 'colo', k: 'metal', lvl: 5, end: SOIR + 60e3 });
+  g.render();
+  assert.deepEqual(g.S.daily.ign, {}, 'la condition a changé : l\'entrée tombe');
+  g.S.timers = []; g.render();
+  assert.ok(fileVideColo(g), 'et il revient');
+});
+
+t('un constat ignoré il y a 25 h revient', () => {
+  const g = app(COLO_VIDE, null, null, true);
+  const c = g.constats().find(x => x.regle === 'INST_QUEUE_EMPTY' && x.pid === 'colo');
+  g.S.daily.ign = { [g.ignKey(c)]: SOIR - 25 * 3600e3 };
+  assert.ok(fileVideColo(g));
+  g.render();
+  assert.deepEqual(g.S.daily.ign, {});
+});
+
+t('ignorer ne change rien au plan', () => {
+  const g = app(CRISTAL_PLEIN, null, null, true);
+  const avant = JSON.stringify(g.simulateDay().sessions[0].acts);
+  g.ignore(g.constats().find(x => x.regle === 'RES_STORAGE_FULL'));
+  assert.equal(JSON.stringify(g.simulateDay().sessions[0].acts), avant);
+});
+
+t('sur les données d\'exemple, rien n\'est nettoyé', () => {
+  const g = app(s => { s.sample = true; s.daily.ign = { 'X|1|0': SOIR }; }, null, null, true);
+  g.render();
+  assert.deepEqual(g.S.daily.ign, { 'X|1|0': SOIR });
+});
+
+t('la clé d\'Ignorer porte l\'identifiant du jeu quand il existe', () => {
+  const g = app(s => { COLO_VIDE(s); s.planets[1].gid = '102'; });
+  assert.equal(g.ignKey(g.constats().find(x => x.regle === 'INST_QUEUE_EMPTY' && x.pid === 'colo')), 'INST_QUEUE_EMPTY|102|0');
+});
+
+/* ---------- les règles du moteur : Réglages ---------- */
+
+t('chaque règle a sa ligne, la règle à verrou est grisée et dit pourquoi', () => {
+  const g = app(s => { s.__tab = 'settings'; }); g.render();
+  const h = lu(g.view.innerHTML);
+  for (const r of g.REGLES.regles) assert.ok(h.includes(r.id), r.id);
+  assert.match(h, /data-rg-on="RES_MINE_BLOCKED_BY_STORAGE" checked disabled/);
+  assert.match(h, /Toujours active : Sans elle/);
+  assert.match(h, /data-rg-p="RES_STORAGE_SOON:heures" value="8"/);
+});
+
+/* ---------- les règles du moteur : vague 2, ressources ---------- */
+
+const MINEUR = s => { s.profil = { style: 'mineur', classe: '', activite: 'regulier', focus: [], set: true }; };
+// le deutérium au même étage : sinon son pas, bon marché, borne la mine d'équilibre hors du classement
+const MINES_28_27 = s => { Object.assign(s.planets[0].b, { metal: 28, crystal: 27, deut: 25, solar: 40 }); };
+/** pickBuildings lit une planète SIMULÉE : elle porte son stock sous `st`. */
+const simulee = (g, i, st) => Object.assign({}, g.S.planets[i], { st: st || [0, 0, 0] });
+
+t('Mineur en position 8, métal 28 et cristal 27 : cible +3, actuel +1', () => {
+  const g = app(s => { MINEUR(s); MINES_28_27(s); });
+  assert.deepEqual(g.cibleMines(g.S.planets[0]), { cible: 3, actuel: 1, position: 8 });
+  const c = g.constats().find(x => x.regle === 'RES_MINE_BALANCE');
+  assert.match(c.what, /^Cible métal − cristal : \+3, actuel : \+1 sur Planète mère$/);
+  assert.equal(c.action, 'Mine de métal 29');
+});
+
+t('la mine de métal devient candidate, avec la cible dans sa raison', () => {
+  const g = app(s => { MINEUR(s); MINES_28_27(s); });
+  const c = g.pickBuildings(simulee(g, 0), { T: SOIR, iv: 1.5, goals: [] });
+  assert.ok(c.some(x => x.k === 'metal' && /Cible métal − cristal : \+3, actuel : \+1/.test(x.why)), JSON.stringify(c.map(x => [x.k, x.why])));
+});
+
+t('en Raideur, la cible de cette planète passe à +2 ; en position 3, un Mineur vise +1', () => {
+  const g = app(s => { MINEUR(s); s.profil.style = 'raideur'; MINES_28_27(s); });
+  assert.equal(g.cibleMines(g.S.planets[0]).cible, 2);
+  const h = app(s => { MINEUR(s); s.planets[0].coords = '1:142:3'; });
+  assert.equal(h.cibleMines(h.S.planets[0]).cible, 1);
+});
+
+t('sans style, ni cible ni constat', () => {
+  const g = app(MINES_28_27);
+  assert.equal(g.cibleMines(g.S.planets[0]), null);
+  assert.ok(!g.constats().some(x => x.regle === 'RES_MINE_BALANCE'));
+});
+
+t('la tolérance : un niveau au-dessus de la cible ne fait rien monter', () => {
+  const g = app(s => { MINEUR(s); Object.assign(s.planets[0].b, { metal: 30, crystal: 26 }); });
+  assert.equal(g.mineEnRetard(g.S.planets[0]), null, 'cible +3, actuel +4 : dans la tolérance');
+  const h = app(s => { MINEUR(s); Object.assign(s.planets[0].b, { metal: 31, crystal: 26 }); });
+  assert.equal(h.mineEnRetard(h.S.planets[0]).k, 'crystal');
+});
+
+t('une mine d\'équilibre trop chère ne passe pas devant le classement', () => {
+  const g = app(s => { MINEUR(s); MINES_28_27(s); s.settings.regles = { RES_MINE_BALANCE: { p: { facteurCout: 0.01 } } }; });
+  const c = g.pickBuildings(simulee(g, 0), { T: SOIR, iv: 1.5, goals: [] });
+  assert.ok(!c.some(x => /Cible métal/.test(x.why)));
+});
+
+/* ---------- les règles du moteur : vague 2, installations ---------- */
+
+const NANITES = s => { s.planets.forEach(p => { p.b.robot = 10; }); s.tech.computer = 10;
+  s.planets[0].b.nanite = 5; s.planets[1].b.nanite = 1;
+  Object.assign(s.planets[1].b, { metal: 30, crystal: 30, deut: 20, solar: 40 }); };
+
+t('nanites en retard sur l\'empire : constat, et Nanites +1 candidate', () => {
+  const g = app(NANITES);
+  assert.ok(g.constats().some(x => x.regle === 'INST_NANITES_LAGGING' && x.pid === 'colo'));
+  assert.ok(!g.constats().some(x => x.regle === 'INST_NANITES_LAGGING' && x.pid === 'mere'), 'pas la planète qui mène');
+  const c = g.pickBuildings(simulee(g, 1), { T: SOIR, iv: 1.5, goals: [] });
+  assert.ok(c.some(x => x.k === 'nanite' && /Nanites 1 ici, 5 ailleurs/.test(x.why)));
+});
+
+t('une priorité Robots 11 : le copilote obéit, et chiffre les nanites', () => {
+  // des hangars et un stock à la mesure de Robots 11, sinon la priorité commence par le hangar
+  const g = app(s => { s.planets[0].b.robot = 10; s.tech.computer = 10; s.prio = [{ kind: 'b', pid: 'mere', k: 'robot', lvl: 11 }];
+    Object.assign(s.planets[0].b, { smetal: 20, scrystal: 20, sdeut: 20, solar: 30 }); s.planets[0].stock = { m: 9e7, c: 9e7, d: 9e7, at: SOIR }; });
+  assert.ok(g.constats().some(x => x.regle === 'INST_NANITES_OVER_ROBOTS' && x.pid === 'mere'));
+  const s0 = g.simulateDay().sessions[0];
+  const a = s0.acts.concat(s0.waits).find(a => a.p === 0 && a.k === 'robot');
+  assert.ok(a, 'la priorité est servie');
+  assert.match(a.why || '', /Usine de nanites 1 diviserait le temps des chantiers par 2/);
+});
+
+t('14 cases libres sous un seuil de 15 : le conseil sort ; à 10 il se tait', () => {
+  const peu = s => { s.planets[1].cases = { pris: 191, max: 205 }; };
+  assert.ok(!app(peu).constats().some(x => x.regle === 'INST_FIELDS_LOW'));
+  const g = app(s => { peu(s); s.settings.regles = { INST_FIELDS_LOW: { p: { seuil: 15 } } }; });
+  const c = g.constats().find(x => x.regle === 'INST_FIELDS_LOW' && x.pid === 'colo');
+  assert.ok(c);
+  assert.match(c.why, /demande Nanites 1/, 'sans ses prérequis, il le dit au lieu de pousser');
+});
+
+t('le Terraformeur est poussé quand il peut l\'être', () => {
+  const g = app(s => { s.planets[1].cases = { pris: 200, max: 205 }; s.planets[1].b.nanite = 1; s.tech.energy = 12; });
+  const c = g.pickBuildings(simulee(g, 1), { T: SOIR, iv: 1.5, goals: [] });
+  assert.ok(c.some(x => x.k === 'terra'));
+});
+
+t('une règle coupée pour une planète ne s\'y évalue plus, ni dans le plan', () => {
+  const g = app(s => { s.planets[1].cases = { pris: 200, max: 205 }; s.planets[1].b.nanite = 1; s.tech.energy = 12;
+    s.planets[1].regOff = { INST_FIELDS_LOW: true }; });
+  assert.ok(!g.constats().some(x => x.regle === 'INST_FIELDS_LOW'));
+  assert.ok(!g.pickBuildings(simulee(g, 1), { T: SOIR, iv: 1.5, goals: [] }).some(x => x.k === 'terra'));
+  assert.match(lu(g.regOffHtml(g.S.planets[1])), /data-regoff="colo\|INST_FIELDS_LOW"  style/);
+});
+
+t('le réseau de labos ne parle que si on a le Réseau', () => {
+  const sans = app(s => { s.planets[0].b.lab = 10; s.planets[1].b.lab = 2; });
+  assert.ok(!sans.constats().some(x => x.regle === 'INST_LAB_NETWORK'));
+  const avec = app(s => { s.planets[0].b.lab = 10; s.planets[1].b.lab = 2; s.tech.irn = 1; });
+  assert.ok(avec.constats().some(x => x.regle === 'INST_LAB_NETWORK' && x.pid === 'colo'));
+  assert.equal(avec.constats().find(x => x.regle === 'INST_LAB_NETWORK').statut, 'a_valider');
+});
+
+/* ---------- les règles du moteur : vague 2, recherche ---------- */
+
+const PLASMA_OUVERT = s => { s.tech.energy = 8; s.tech.laser = 10; s.tech.ion = 5; };
+
+t('un mineur sous le plasma visé : Plasma passe en tête', () => {
+  const g = app(s => { MINEUR(s); PLASMA_OUVERT(s); });
+  const r = g.nextResearch().list[0];
+  assert.equal(r.k, 'plasma'); assert.equal(r.regle, 'RECH_PLASMA_MINER');
+  assert.match(r.why, /^Profil Mineur : le Plasma/);
+  assert.ok(g.constats().some(x => x.regle === 'RECH_PLASMA_MINER'));
+});
+
+t('une priorité du joueur reste devant le plasma de la règle', () => {
+  const g = app(s => { MINEUR(s); PLASMA_OUVERT(s); s.prio = [{ kind: 't', k: 'astro', lvl: 5 }]; });
+  assert.equal(g.nextResearch().list[0].k, 'astro');
+});
+
+t('sans le style visé, la règle ne pousse rien', () => {
+  const g = app(PLASMA_OUVERT);
+  assert.deepEqual(g.reglesRecherche(), []);
+});
+
+t('un explorateur pousse l\'Hyperespace, et dit le gain du serveur', () => {
+  const g = app(s => { s.profil = { style: 'explorateur', classe: '', activite: 'regulier', focus: [], set: true };
+    s.planets[0].b.lab = 7; s.tech.energy = 5; s.tech.shielding = 5; });
+  const r = g.nextResearch().list[0];
+  assert.equal(r.k, 'hyper');
+  assert.match(r.why, /ajoute 5 % de soute/);
+});
+
+const AILLEURS = s => { s.planets[0].stock = { m: 0, c: 0, d: 0, at: SOIR }; s.planets[1].b.lab = 5;
+  Object.assign(s.planets[1].b, { smetal: 20, scrystal: 20, sdeut: 20 }); s.planets[1].stock = { m: 9e7, c: 9e7, d: 9e7, at: SOIR }; };
+
+t('la recherche impayable au centre part d\'une planète qui peut', () => {
+  const g = app(AILLEURS);
+  assert.ok(g.constats().some(x => x.regle === 'RECH_FUND_ELSEWHERE' && x.pid === 'colo'));
+  const a = g.simulateDay().sessions[0].acts.find(a => a.kind === 't');
+  assert.equal(a.p, 1); assert.match(a.why, /^Depuis Colonie/);
+});
+
+t('une planète sans le labo du prérequis ne la lance pas', () => {
+  const g = app(s => { AILLEURS(s); s.planets[1].b.lab = 0; });
+  assert.ok(!g.simulateDay().sessions[0].acts.some(a => a.kind === 't' && a.p === 1));
+  assert.equal(g.rechercheAilleurs(), null);
+});
+
+t('RECH_FUND_ELSEWHERE coupée : la recherche attend au centre', () => {
+  const g = app(s => { AILLEURS(s); s.settings.regles = { RECH_FUND_ELSEWHERE: { on: false } }; });
+  assert.ok(!g.simulateDay().sessions[0].acts.some(a => a.kind === 't' && a.p === 1));
+});
+
+t('une planète de plus possible : constat, et en économie pure il dit pourquoi le plan n\'y va pas', () => {
+  const g = app();
+  assert.ok(g.constats().some(x => x.regle === 'RECH_ASTRO_COLONY'), 'Astrophysique 3 : trois planètes, deux prises');
+  const e = app(s => { s.day.focus = 'eco'; });
+  assert.match(e.constats().find(x => x.regle === 'RECH_ASTRO_COLONY').why, /Économie pure/);
+  const plein = app(s => { s.tech.astro = 1; });
+  assert.ok(!plein.constats().some(x => x.regle === 'RECH_ASTRO_COLONY'));
+});
+
+/* ---------- les règles du moteur : vague 3, formes de vie ---------- */
+
+/** Une planète Humains : habitat et nourriture lus, la nourriture chiffrée. */
+const HUMAINS = s => { s.host = 's1-fr.ogame.gameforge.com'; s.planets[0].gid = '101';
+  s.planets[0].lf = { 11101: { lvl: 20, nom: 'Secteur résidentiel' },
+    11102: { lvl: 18, nom: 'Ferme biosphérique', cost: [1, 1, 0], next: 19, secs: 60 } }; };
+/** Le tableau de production de la mère nomme un bâtiment Rock'tal. */
+const PROD_ROCTA = s => { s.prod = { '101': { at: SOIR, rows: [{ label: 'Centre technologique runique (Niveau 3)' }] } }; };
+const lfActs = g => g.simulateDay().sessions[0].acts.filter(a => a.kind === 'lf' && a.p === 0);
+
+t('la race se déduit des identifiants de ses cases', () => {
+  const g = app(HUMAINS);
+  assert.deepEqual(g.raceDe(g.S.planets[0]), { race: 'humans', src: 'ids', conflit: false });
+  assert.deepEqual(g.lfManques(g.S.planets[0]), []);
+});
+
+t('les quatre séries de rules.json donnent les quatre races', () => {
+  const g = app(s => { s.planets[0].lf = { 14203: { lvl: 1 } }; s.planets[1].lf = { 13105: { lvl: 2 } }; });
+  assert.equal(g.raceDe(g.S.planets[0]).race, 'kaelesh', 'une recherche Kaelesh (142xx)');
+  assert.equal(g.raceDe(g.S.planets[1]).race, 'mechas');
+});
+
+t('la race posée à la main l\'emporte, et déplace habitat et nourriture', () => {
+  const g = app(s => { HUMAINS(s); s.planets[0].race = 'rocktal'; });
+  assert.deepEqual(g.raceDe(g.S.planets[0]), { race: 'rocktal', src: 'main', conflit: false });
+  assert.deepEqual(g.baseDe(g.S.planets[0]), { habitat: 12101, nourriture: 12102 });
+});
+
+t('identifiants et nom qui se contredisent : pas de race, et rien de forme de vie dans le plan', () => {
+  assert.ok(lfActs(app(HUMAINS)).length, 'préalable : sans contradiction, la nourriture part');
+  const g = app(s => { HUMAINS(s); PROD_ROCTA(s); });
+  const r = g.raceDe(g.S.planets[0]);
+  assert.equal(r.conflit, true); assert.equal(r.race, null);
+  const c = g.constats().find(x => x.regle === 'FDV_DATA_MISSING' && x.pid === 'mere');
+  assert.match(c.why, /Race contradictoire : les identifiants disent Humains, le tableau de production Roctas/);
+  assert.deepEqual(lfActs(g), [], 'suspendues : pas de conseil sur la mauvaise espèce');
+});
+
+t('FDV_DATA_MISSING coupée : plus de suspension', () => {
+  const g = app(s => { HUMAINS(s); PROD_ROCTA(s); s.settings.regles = { FDV_DATA_MISSING: { on: false } }; });
+  assert.ok(!g.constats().some(x => x.regle === 'FDV_DATA_MISSING'));
+  assert.ok(lfActs(g).length);
+});
+
+t('une case Rock\'tal sans nom : le manque est dit, et Scanner ouvre sa page', () => {
+  const g = app(s => { HUMAINS(s); s.planets[0].lf = { 12101: { lvl: 3 } }; });
+  const c = g.constats().find(x => x.regle === 'FDV_DATA_MISSING' && x.pid === 'mere');
+  assert.match(c.why, /^Noms des bâtiments Roctas inconnus \(1\)/);
+  assert.equal(c.vars.url, 'https://s1-fr.ogame.gameforge.com/game/index.php?page=ingame&component=lfbuildings&cp=101');
+  g.REFRESH.today();
+  assert.match(lu(g.el('tdAlerts').innerHTML), /data-prep="https:[^"]*component=lfbuildings&cp=101">Scanner/);
+});
+
+t('race Rock\'tal posée sans aucune donnée : noms inconnus, et l\'Encyclopédie est nommée', () => {
+  const g = app(s => { s.planets[0].race = 'rocktal'; });
+  const c = g.constats().find(x => x.regle === 'FDV_DATA_MISSING' && x.pid === 'mere');
+  assert.match(c.why, /^Noms Roctas inconnus/);
+  assert.equal(c.vars.url, null);
+  assert.match(c.action, /Encyclopédie/);
+});
+
+t('les noms reviennent par un instantané : le constat tombe, et sert à toutes les planètes', () => {
+  const g = app(s => { HUMAINS(s); s.planets[0].lf = { 12101: { lvl: 3 } }; s.planets[1].lf = { 12101: { lvl: 1 } }; });
+  assert.ok(g.constats().some(x => x.regle === 'FDV_DATA_MISSING' && x.pid === 'colo'));
+  g.S.planets[0].lf[12101].nom = 'Enclave stoïque';
+  g.lfNomsRetiens();
+  assert.equal(g.lfNom(g.S.planets[1], 12101), 'Enclave stoïque');
+  assert.ok(!g.constats().some(x => x.regle === 'FDV_DATA_MISSING'));
+});
+
+t('un nom lu dans le jeu remplace le nom du fichier', () => {
+  const g = app(s => { HUMAINS(s); s.planets[0].lf[11101].nom = 'Quartier résidentiel'; });
+  assert.equal(g.lfNom(g.S.planets[0], 11101), 'Quartier résidentiel');
+  assert.equal(g.lfNomConnu(g.S.planets[1], 11101), 'Secteur résidentiel', 'le fichier, faute de lecture ici');
+});
+
+t('le cache des noms ne voyage pas', () => {
+  const g = app(HUMAINS); g.lfNomsRetiens();
+  assert.ok(Object.keys(g.S.lfNoms).length);
+  assert.ok(!JSON.stringify(g.syncOut()).includes('Ferme biosphérique'));
+});
+
+t('Rescanner oublie les noms lus, garde la race posée à la main', () => {
+  const g = app(s => { s.planets[0].race = 'rocktal'; s.planets[0].lf = { 12101: { lvl: 3, nom: 'Enclave stoïque' } }; });
+  g.lfNomsRetiens();
+  assert.ok(!g.constats().some(x => x.regle === 'FDV_DATA_MISSING'));
+  g.rescanner();
+  assert.equal(g.S.planets[0].race, 'rocktal');
+  assert.match(g.constats().find(x => x.regle === 'FDV_DATA_MISSING').why, /Noms des bâtiments Roctas inconnus/);
+});
+
+t('Réglages › Formes de vie montre la race de chaque planète, et Rescanner', () => {
+  const g = app(HUMAINS);
+  const h = lu(g.raceRows());
+  assert.match(h, /Planète mère.*Humains · déduite des identifiants/);
+  assert.match(h, /data-race="mere"/); assert.match(h, /data-rescan="1"/);
+});
+
+t('une case que la population bloque : la nourriture passe en tête', () => {
+  const g = app(s => { HUMAINS(s);
+    s.planets[0].lf[11104] = { lvl: 0, state: 'pop', nom: 'Académie des sciences' };
+    s.planets[0].lf[11106] = { lvl: 1, nom: 'Fusion à haute énergie', cost: [1, 0, 0], next: 2, secs: 30, eff: 0 };
+    Object.assign(s.planets[0].lf[11101], { cost: [1, 1, 0], next: 21, secs: 60 }); });
+  const l = g.lfCandidates(g.S.planets[0], 'lfbuilding');
+  assert.deepEqual(l.slice(0, 2).map(c => c.id), [11102, 11101], 'la nourriture, puis l\'habitat, devant la case qui produit');
+  assert.ok(g.constats().some(x => x.regle === 'FDV_POP_LIMIT'));
+});
+
+t('une priorité du joueur reste devant la base poussée par la règle', () => {
+  const g = app(s => { HUMAINS(s);
+    s.planets[0].lf[11104] = { lvl: 0, state: 'pop', nom: 'Académie des sciences' };
+    s.planets[0].lf[11106] = { lvl: 1, nom: 'Fusion à haute énergie', cost: [1, 0, 0], next: 2, secs: 30, eff: 0 };
+    s.prio = [{ kind: 'lf', pid: 'mere', k: 11106, lvl: 5 }]; });
+  assert.equal(g.lfCandidates(g.S.planets[0], 'lfbuilding')[0].id, 11106);
+});
+
+t('la base sous son palier alors qu\'un bâtiment avancé attend : la base d\'abord', () => {
+  const g = app(s => { HUMAINS(s); s.planets[0].lf[11102].lvl = 10; s.planets[0].lf[11102].next = 11;
+    s.planets[0].lf[11106] = { lvl: 1, nom: 'Fusion à haute énergie', cost: [1, 0, 0], next: 2, secs: 30, eff: 0 }; });
+  assert.equal(g.lfCandidates(g.S.planets[0], 'lfbuilding')[0].id, 11102);
+  assert.match(g.constats().find(x => x.regle === 'FDV_BASE_FIRST').what, /La base d'abord : Ferme biosphérique 10/);
+});
+
+t('file de forme de vie vide : sa carte est marquée', () => {
+  const a = lfActs(app(HUMAINS))[0];
+  assert.equal(a.niveau, 'important'); assert.equal(a.regle, 'FDV_QUEUE_EMPTY');
+});
+
+t('« Ne pas s\'en occuper » fait taire les règles de forme de vie, pas le manque', () => {
+  const g = app(s => { HUMAINS(s); s.planets[1].lf = { 12101: { lvl: 1 } }; s.day.lf = 'off'; });
+  const cs = g.constats().filter(x => x.domaine === 'formes_de_vie');
+  assert.deepEqual([...new Set(cs.map(x => x.regle))], ['FDV_DATA_MISSING']);
+});
+
+t('les paliers de population se lisent du fichier', () => {
+  const g = app();
+  assert.equal(g.LF_PALIER.nourriture, g.REGLES.regles.find(r => r.id === 'FDV_BASE_FIRST').parametres.nourriture);
+});
+
+t('une règle propre à une race ne s\'évalue que sur ses planètes', () => {
+  const r = { id: 'H', nom: 'H', domaine: 'installations', cat: 'infra', niveau: 'conseil', condition: 'queueEmpty',
+    effet: 'signaler', races: ['humans'], parametres: {}, message: 'h', raison: 'h', statut: 'a_valider', actif_par_defaut: true };
+  const g = appRegles({ version: 1, mineBalance: { byStyle: {}, byPosition: {} }, lifeforms: {}, regles: [r] },
+    s => { s.planets[0].race = 'rocktal'; s.planets[1].race = 'humans'; });
+  assert.deepEqual(g.constats().filter(x => x.regle === 'H').map(x => x.pid), ['colo']);
+});
+
+/* ---------- les règles du moteur : tenue ---------- */
+
+t('constats() sur dix planètes de dix-huit cases chacune : moins de 50 ms', () => {
+  const g = app(s => {
+    const base = s.planets[0];
+    s.profil = { style: 'mineur', classe: '', activite: 'regulier', focus: [], set: true }; s.tech.irn = 3;
+    s.planets = Array.from({ length: 10 }, (_, i) => Object.assign(JSON.parse(JSON.stringify(base)),
+      { id: 'p' + i, gid: String(200 + i), coords: `1:${100 + i}:8`, stock: { m: 0, c: 0, d: 0, at: SOIR },
+        lf: Object.fromEntries(Array.from({ length: 12 }, (_, k) => [11101 + k, { lvl: 5, cost: [1000, 1000, 0], next: 6, secs: 60 }])
+          .concat(Array.from({ length: 6 }, (_, k) => [11201 + k, { lvl: 2 }]))) }));
+  });
+  g.constats();
+  // Date est figé par le harnais : la mesure passe par l'horloge du processus
+  const t0 = process.hrtime.bigint(); g.constats(); const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+  assert.ok(ms < 50, ms.toFixed(1) + ' ms');
+});
+
+t('la carte du jour ne dit plus « Hors plan : formes de vie »', () => {
+  const g = app(); g.REFRESH.today();
+  assert.ok(!/Hors plan/.test(g.el('tdDay').innerHTML));
 });
 
 if (failures.length) {

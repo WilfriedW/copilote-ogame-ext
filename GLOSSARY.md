@@ -60,6 +60,39 @@ seul type est gratuit à percer.
 _Éviter_ : protection, bouclier (le bouclier est une pièce de la défense, pas
 la défense), invulnérable.
 
+**règle** :
+Une bonne pratique décrite dans `rules.json` : ce qu'elle surveille sur une
+planète, son niveau, ses seuils, ses textes. Le joueur l'allume, l'éteint et
+règle ses seuils ; le fichier garde le reste.
+_Éviter_ : alerte (une règle n'alerte pas forcément), conseil (c'est une ligne
+du bloc, pas la règle).
+
+**constat** :
+Ce qu'une règle trouve sur une planète à un instant : elle, la planète, un
+niveau et une valeur. Il disparaît dès que la situation change.
+_Éviter_ : alerte, problème.
+
+**pousser**, **marquer**, **suspendre**, **signaler** :
+Les quatre choses que le moteur fait d'un constat, et rien d'autre. Pousser :
+ajouter une construction que le plan paie comme les autres. Marquer : donner
+son niveau à une carte que le plan sort déjà. Suspendre : retirer ce qui
+dépend d'une donnée manquante. Signaler : une ligne du bloc des conseils,
+seulement quand le plan n'a rien qui y réponde.
+_Éviter_ : déclencher, afficher (une règle qui ne fait qu'afficher est
+précisément ce que le moteur refuse).
+
+**niveau** (d'une règle ou d'une carte) :
+Critique, Important ou Conseil — un seul vocabulaire dans tout le panneau. Il
+se lit sur la carte ; il ne la déplace pas.
+_Éviter_ : Urgent, Attention, sévérité, priorité (une priorité est ce que le
+joueur pose).
+
+**race** :
+L'espèce de formes de vie d'une planète : Humains, Rock'tal, Mécas ou Kaelesh.
+Posée à la main, ou lue dans le jeu ; une lecture qui se contredit n'en est
+pas une.
+_Éviter_ : forme de vie (c'est le système de jeu, pas l'espèce), faction.
+
 **chair à canon** :
 Les pièces nombreuses et peu chères — lanceurs de missiles, lasers légers —
 dont la masse encaisse les tirs pour que les gros canons tirent. Deux types

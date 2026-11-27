@@ -321,6 +321,7 @@ chrome.runtime.onMessage.addListener(msg => {
   if (msg && msg.type === 'apiRefresh') apiRefresh(!!msg.force);
 });
 
+
 chrome.storage.onChanged.addListener(async (ch, area) => {
   if (area !== 'local') return;
   if (BADGE_CLES.some(k => ch[k])) badge().catch(e => console.error('Copilote : badge', e));
@@ -421,7 +422,8 @@ async function showAlertWindow(text) {
   const { pendingAlerts = [] } = await chrome.storage.local.get('pendingAlerts');
   if (pendingAlerts.includes(text)) return;
   pendingAlerts.push(text);
-  await chrome.storage.local.set({ pendingAlerts });
+  // l'heure de la fin de file : un compte de critiques d'avant elle ne la cache pas
+  await chrome.storage.local.set({ pendingAlerts, fileAt: Date.now() });
   await badge();
 }
 
@@ -430,7 +432,7 @@ async function showAlertWindow(text) {
    compose : chaque source qui l'écrivait elle-même effaçait celle d'à côté.
    Priorité : attaque entrante > version instable > alertes critiques > files
    terminées > rappel de mise à l'abri > mise à jour disponible. */
-const BADGE_CLES = ['game', 'pendingAlerts', 'critiques', 'versionInstable', 'fsRappelOn', 'majVer'];
+const BADGE_CLES = ['game', 'pendingAlerts', 'fileAt', 'critiques', 'versionInstable', 'fsRappelOn', 'majVer'];
 /** Une flotte hostile qui vient frapper l'une de mes planètes, et pas encore arrivée. */
 const estAttaque = (m, now) => m && m.hostile && !m.ret && [1, 2, 9].includes(+m.mission) && m.arrival * 1000 > now;
 /** Vrai si `b` est une version plus récente que `a`, nombre par nombre. */
@@ -448,9 +450,14 @@ function badgeEtat(d, now, version) {
   const game = d.game || {};
   if ((game.moves || []).some(m => estAttaque(m, now))) return { text: '!', color: '#e0102b', quoi: 'attaque' };
   if (d.versionInstable) return { text: 'v!', color: '#ff8c1a', quoi: 'instable' };
-  const crit = d.critiques && +d.critiques.n;
+  /* Les critiques viennent du panneau, qui les compte à chaque rendu ; les
+     files finies viennent des alarmes, qui sonnent panneau fermé. Un compte de
+     critiques plus vieux que la dernière fin de file ne la cache donc pas : il
+     daterait d'un panneau qui n'a pas vu la file se vider. */
+  const fin = (d.pendingAlerts || []).length, c = d.critiques;
+  const vieux = !!(c && d.fileAt && c.at < d.fileAt);
+  const crit = c && !(vieux && fin) ? +c.n : 0;
   if (crit > 0) return { text: String(Math.min(crit, 99)), color: '#ff4d6d', quoi: 'critiques' };
-  const fin = (d.pendingAlerts || []).length;
   if (fin > 0) return { text: String(Math.min(fin, 99)), color: '#ff4d6d', quoi: 'terminé' };
   if (d.fsRappelOn && now - (+d.fsRappelOn.at || 0) < 24 * 3600e3) return { text: 'FS', color: '#3d7eff', quoi: 'rappel' };
   if (d.majVer && versionPlusRecente(version, d.majVer)) return { text: '↑', color: '#2e9e5b', quoi: 'maj' };

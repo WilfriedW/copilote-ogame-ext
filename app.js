@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.14.0';
+const APP_VERSION = '2.15.0';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -28,16 +28,19 @@ REGLES.regles.forEach((r, i) => { if(r && typeof r.id === 'string' && !aSoi(REGL
    vérifie qu'elles disent la même chose que rules.json. */
 const REGLES_SECOURS = {};
 [
-  {id:'RES_STORAGE_FULL', domaine:'ressources', cat:'', niveau:'critique', condition:'storageRatio', parametres:{seuil:0.98}, effet:'pousser',
+  {id:'RES_STORAGE_FULL', nom:'Stockage plein', domaine:'ressources', cat:'stock', niveau:'critique', condition:'storageRatio', parametres:{seuil:0.98}, effet:'pousser',
     message:'{hangar} plein{sur}',
-    raison:'La production de {ressource} est arrêtée. {depense} Monter {hangar} {niveau+1} prend {montee}, et la production reste à l\'arrêt jusque-là.'},
-  {id:'RES_STORAGE_SOON', domaine:'ressources', cat:'', niveau:'important', condition:'storageEta', parametres:{heures:8}, effet:'pousser',
+    raison:'La production de {ressource} est arrêtée. {depense} Monter {hangar} {niveau+1} prend {montee}, et la production reste à l\'arrêt jusque-là.',
+    action:'{quoi}', source:'https://ogame.fandom.com/wiki/Buildings', statut:'valide'},
+  {id:'RES_STORAGE_SOON', nom:'Stockage bientôt plein', domaine:'ressources', cat:'stock', niveau:'important', condition:'storageEta', parametres:{heures:8}, effet:'pousser',
     message:'{hangar} plein dans {dans}{sur}',
-    raison:'Lance {hangar} {niveau+1} maintenant : il met {montee} à sortir, et au plafond la production s\'arrête.'},
-  {id:'RES_ENERGY_NEGATIVE', domaine:'ressources', cat:'', niveau:'critique', condition:'energyBalance', parametres:{}, effet:'pousser',
+    raison:'Lance {hangar} {niveau+1} maintenant : il met {montee} à sortir, et au plafond la production s\'arrête.',
+    action:'{hangar} {niveau+1}', source:'https://ogame.fandom.com/wiki/Buildings', statut:'valide'},
+  {id:'RES_ENERGY_NEGATIVE', nom:'Énergie négative', domaine:'ressources', cat:'mines', niveau:'critique', condition:'energyBalance', parametres:{}, effet:'pousser',
     message:'Rétablir l\'énergie{sur}',
-    raison:'Tes mines tournent à {pct} %. {options}'},
-].forEach((r, i) => { if(!aSoi(REGLES_PAR_ID, r.id)) REGLES_SECOURS[r.id] = Object.assign({actif_par_defaut:true, verrou:false}, r, {rang:REGLES.regles.length + i}); });
+    raison:'Tes mines tournent à {pct} %. {options}',
+    action:'{quoi}', source:'https://ogame.fandom.com/wiki/Buildings', statut:'valide'},
+].forEach((r, i) => { if(!aSoi(REGLES_PAR_ID, r.id)) REGLES_SECOURS[r.id] = Object.assign({actif_par_defaut:true}, r,{rang:REGLES.regles.length + i}); });
 /** La définition d'une règle : le fichier, sinon le repli, sinon null. */
 const regleDef = id => aSoi(REGLES_PAR_ID, id) ? REGLES_PAR_ID[id] : aSoi(REGLES_SECOURS, id) ? REGLES_SECOURS[id] : null;
 /** Une fonction par type de condition : (planète, paramètres, ctx) → constats bruts. */
@@ -294,6 +297,8 @@ S.daily = Object.assign(sample().daily, S.daily);
    effacerait tous les réglages de règles du joueur, et save() les retirerait
    de chrome.storage.sync. On les garde pour le jour où le fichier se relit. */
 if(!REGLES_ERR) regleSaine();
+/* Le cache des noms de forme de vie : sur ce poste, hors de la synchro. */
+if(!S.lfNoms || typeof S.lfNoms !== 'object' || Array.isArray(S.lfNoms)) S.lfNoms = {};
 /* Le profil indexe des tables par ses propres clés : une clé inconnue y lève,
    et `sainEtat` ne passe qu'à l'import d'une sauvegarde ou au retour d'une
    synchro. Il se remet donc d'aplomb ici aussi, au démarrage. */
@@ -571,8 +576,7 @@ const lfCle = id => lfQueue(id) + ':' + (+id % 100);
 /* Le nom d'une case. Celui du relevé d'abord : il vient de la partie en cours,
    et le jeu peut le traduire autrement que notre table. */
 function lfNom(p, id){
-  const v = ((p || {}).lf || {})[id] || {};
-  return v.nom || v.name || LF_NAMES[id] || ('Forme de vie ' + id);
+  return lfNomConnu(p, id) || ('Forme de vie ' + id);
 }
 /* La case de cette planète à ce rang, ou rien : l'espèce diffère d'une planète
    à l'autre, et le jeu n'ouvre pas tous les rangs d'un coup. */
@@ -1065,8 +1069,11 @@ function goNote(a){
 }
 /* Noms relevés sur le jeu ; le panneau de détail en apporte d'autres au fil
    des visites, et ceux-là priment puisqu'ils viennent de la partie en cours. */
-const LF_NAMES = Object.assign({}, typeof OG_LF_BUILD !== 'undefined' ? OG_LF_BUILD : {},
-  typeof OG_LF_TECH !== 'undefined' ? OG_LF_TECH : {});
+/* Les noms par défaut viennent de rules.json, toutes races confondues : un nom
+   lu dans le jeu les remplace (lfNom), et le fichier corrige ce qui a changé
+   sans toucher au code. */
+const LF_NAMES = Object.assign({}, ...Object.values(REGLES.lifeforms || {})
+  .flatMap(r => [r && r.buildings, r && r.research]).filter(x => x && typeof x === 'object'));
 
 /**
  * Le prix relevé vaut-il encore ? Il a été lu pour un niveau précis ; dès que
@@ -1244,7 +1251,7 @@ function lfCandidates(p, queue){
     if(!c || !(v.secs > 0)) return [];
     return [{id:+id, cost:c.cost, src:c.src, at:c.at, secs:v.secs, next,
       eff: [0,1,2].includes(v.eff) ? v.eff : null,
-      nom: v.nom || v.name || LF_NAMES[id] || 'Forme de vie'}];
+      nom: lfNomConnu(p, id) || 'Forme de vie'}];
   /* Une case qui produit passe devant, quel que soit son prix : son gain porte
      sur toutes les planètes et dure toute la partie, quand une case qui ne
      produit rien ne rembourse jamais. Le prix ne départage plus qu'à effet
@@ -1268,6 +1275,17 @@ function lfCandidates(p, queue){
   /* Si la première posée n'est pas candidate (le plus souvent : pas encore
      chiffrée), la suivante de la même file passe : servir une priorité qu'on
      sait chiffrer vaut mieux que ne rien faire. */
+  /* Les règles de forme de vie (FDV_POP_LIMIT, FDV_BASE_FIRST) mettent la base
+     en tête, dans leur ordre ; une priorité du joueur passe encore devant. */
+  for(const pz of lfPousses(p, queue)){
+    const tetes = pz.ids.map(id => liste.find(c => c.id === id)).filter(Boolean);
+    if(!tetes.length) continue;
+    const pourquoi = regleTexte(pz.regle, 'raison', '', {bloquees:casesPop(p).map(id => lfNom(p, id)).join(', '),
+      base:tetes.map(c => `${c.nom} ${c.next - 1}`).join(' et ')});
+    for(const c of tetes) c.why = pourquoi + reste;
+    liste.splice(0, liste.length, ...tetes, ...liste.filter(c => !tetes.includes(c)));
+    break;
+  }
   const voulue = priosLf().find(x => x.pid === p.id && liste.some(c => c.id === x.k));
   if(!voulue) return liste;
   const tete = liste.find(c => c.id === voulue.k);
@@ -2678,8 +2696,10 @@ function header(){
     : (S.syncAt ? 'synchro ' + formatTime(S.syncAt) : 'en attente du jeu');
   const cls = ({collector:'Collecteur',general:'Général',explorer:'Explorateur',none:'Sans classe'})[s.cls];
   const ub = document.getElementById('uniBadge');
-  ub.innerHTML = `${esc(quand)}<span class="cls"> · ${esc(cls)}</span>`;
-  ub.title = `${quand} · ${cls}`;
+  /* Un rules.json illisible ne bloque rien, mais il change ce que le panneau
+     sait dire : l'en-tête le dit, à côté de la fraîcheur du relevé. */
+  ub.innerHTML = `${esc(quand)}<span class="cls"> · ${esc(cls)}</span>${REGLES_ERR ? `<span class="cls"> · ${esc(REGLES_ERR)}</span>` : ''}`;
+  ub.title = `${quand} · ${cls}${REGLES_ERR ? ' · ' + REGLES_ERR : ''}`;
   /* Le mode nuit vit dans l'en-tête, à côté de l'engrenage : il tient en une
      icône, et la carte Maintenant n'a plus à le porter. */
   const nb = document.getElementById('nightBtn'), nuit = !!S.day.night;
@@ -2987,6 +3007,11 @@ function constatsDe(p, id){
   if(!r || !r.on || !p) return [];
   if(r.cat && poidsCat(r.cat) === 0) return [];
   if(p.regOff && p.regOff[id] === true) return [];
+  /* Les formes de vie suivent leur propre réglage : « Ne pas s'en occuper »
+     les fait taire. Sauf ce qui dit un manque — il ne conseille rien. */
+  if(r.domaine === 'formes_de_vie' && r.effet !== 'suspendre' && lfMode() === 'off') return [];
+  /* Une règle propre à une race ne s'évalue que sur une planète de cette race. */
+  if(Array.isArray(r.races) && r.races.length && !r.races.includes(raceDe(p).race)) return [];
   const ev = aSoi(EVAL, r.condition) ? EVAL[r.condition] : null;
   if(typeof ev !== 'function'){ regleTue(id, `aucun évaluateur pour « ${r.condition} »`); return []; }
   let bruts;
@@ -3016,7 +3041,8 @@ function constats(){
 function repondA(c, a, i){
   const r = c.repond;
   return !!r && r.kinds.includes(a.kind) && (r.partout || a.p === i)
-    && (!r.ks || a.kind !== 'b' || r.ks.includes(a.k));
+    && (!r.ks || a.kind !== 'b' || r.ks.includes(a.k)) && (!r.tk || a.k === r.tk)
+    && (!r.lfq || lfQueue(a.id) === r.lfq) && (!r.ids || r.ids.includes(a.id));
 }
 
 /* ---------- les règles du moteur : évaluateurs ---------- */
@@ -3102,10 +3128,286 @@ EVAL.researchIdle = p => {
   return [{valeur:l.reduce((m, t) => Math.max(m, +t.end || 0), 0), repond:{kinds:['t'], partout:true}, vars:{}}];
 };
 
+/* La cible d'écart entre la mine de métal et celle de cristal : le style du
+   profil, ajusté par la position. Lue dans rules.json, jamais saisie. Rien sans
+   style ni position lisible : une cible inventée serait pire que pas de cible. */
+function cibleMines(p){
+  const st = S.profil && S.profil.style, mb = REGLES.mineBalance || {};
+  if(!st || !aSoi(mb.byStyle, st) || !Number.isFinite(+mb.byStyle[st])) return null;
+  const c = parseC(p && p.coords); if(!c) return null;
+  let adj = null;
+  for(const [k, v] of Object.entries(mb.byPosition || {})){
+    const m = /^(\d+)-(\d+)$/.exec(k);
+    if(m && c[2] >= +m[1] && c[2] <= +m[2] && Number.isFinite(+v)){ adj = +v; break; }
+  }
+  if(adj == null) return null;
+  return {cible:+mb.byStyle[st] + adj, actuel:(p.b.metal || 0) - (p.b.crystal || 0), position:c[2]};
+}
+/* La mine en retard sur la cible. Une tolérance d'un niveau au-dessus évite que
+   la planète oscille d'une mine à l'autre à chaque session. */
+function mineEnRetard(p){
+  const r = cibleMines(p); if(!r) return null;
+  const k = r.actuel < r.cible ? 'metal' : r.actuel > r.cible + regleParam('RES_MINE_BALANCE', 'tolerance', 1) ? 'crystal' : null;
+  return k ? Object.assign({k}, r) : null;
+}
+const signe = n => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n);
+EVAL.mineBalanceTarget = p => {
+  const r = mineEnRetard(p); if(!r) return [];
+  return [{valeur:`${r.k}:${r.cible}:${r.actuel}`, cost:levelCost(B[r.k], p.b[r.k] + 1), repond:{kinds:['b'], ks:[r.k]},
+    vars:{cible:signe(r.cible), actuel:signe(r.actuel), mine:B[r.k].n, niveau:p.b[r.k], position:r.position,
+      style:(PROFILS.styles[S.profil.style] || {}).n || ''}}];
+};
+/* Ce qu'une règle d'installation pousse dans pickBuildings, calculé au même
+   endroit pour le constat et pour le plan : sinon les deux finiraient par ne
+   plus dire la même chose. */
+function naniteRetard(p){
+  const max = Math.max(0, ...S.planets.map(x => x.b.nanite || 0)), n = p.b.nanite || 0;
+  return n < max - regleParam('INST_NANITES_LAGGING', 'ecart', 2) && !reqOk(B.nanite.req, p).length ? {n, max} : null;
+}
+EVAL.nanitesLagging = p => {
+  const r = naniteRetard(p); if(!r) return [];
+  return [{valeur:`${r.n}:${r.max}`, cost:levelCost(B.nanite, r.n + 1), repond:{kinds:['b'], ks:['nanite']}, vars:{niveau:r.n, max:r.max}}];
+};
+/* Le plan ne propose jamais de robots au-delà de 10 : ce cas ne naît que d'une
+   priorité du joueur. Le copilote la sert, et chiffre l'autre chemin. */
+function robotsOuNanites(p, lvl){
+  if(!(lvl > 10) || (p.b.robot || 0) < 10 || reqOk(B.nanite.req, p).length) return null;
+  return {robots:lvl, nanite:(p.b.nanite || 0) + 1, gain:((lvl + 1) / lvl).toFixed(2).replace('.', ',')};
+}
+EVAL.nanitesOverRobots = p => {
+  const pr = prios().find(x => x.kind === 'b' && x.pid === p.id && x.k === 'robot');
+  const r = pr && robotsOuNanites(p, (p.b.robot || 0) + 1);
+  return r ? [{valeur:`${r.robots}:${r.nanite}`, cost:levelCost(B.nanite, r.nanite), vars:r}] : [];
+};
+/* À 0 et 1 case libre, planetAlerts dit déjà le mur ; la règle parle avant. */
+function casesBasses(p){
+  const l = casesLibres(p), seuil = regleParam('INST_FIELDS_LOW', 'seuil', 10);
+  return l != null && l >= 2 && l < seuil ? l : null;
+}
+EVAL.fieldsFree = p => {
+  const l = casesBasses(p); if(l == null) return [];
+  const manque = reqOk(B.terra.req, p);
+  return [{valeur:l, cost:manque.length ? null : levelCost(B.terra, (p.b.terra || 0) + 1), repond:{kinds:['b'], ks:['terra']},
+    vars:{libres:l, pris:p.cases.pris, max:p.cases.max, niveau:p.b.terra || 0,
+      terra:manque.length ? `Le Terraformeur en ajouterait, mais il demande ${manque.join(', ')}.` : 'Le Terraformeur en ajoute à chaque niveau.'}}];
+};
+/* Les labos que le Réseau fait compter : celui du centre, et les N meilleurs
+   des autres planètes, N étant le niveau du Réseau (labEffectif). */
+function laboEnRetard(p){
+  const n = S.tech.irn || 0, c = labPlanet();
+  if(!n || !c || c.id === p.id || !((p.b.lab || 0) >= 1)) return null;
+  const comptes = S.planets.filter(x => x.id !== c.id).sort((a, b) => (b.b.lab || 0) - (a.b.lab || 0)).slice(0, n);
+  return comptes.some(x => x.id === p.id) && p.b.lab <= (c.b.lab || 0) - regleParam('INST_LAB_NETWORK', 'ecart', 3)
+    ? {niveau:p.b.lab, centre:c.b.lab || 0} : null;
+}
+EVAL.labNetworkGap = p => {
+  if(rechercheEnCours()) return [];
+  const r = laboEnRetard(p); if(!r) return [];
+  return [{valeur:`${r.niveau}:${r.centre}`, cost:levelCost(B.lab, r.niveau + 1), repond:{kinds:['b'], ks:['lab']}, vars:r}];
+};
+EVAL.colonySlotFree = p => {
+  const f = coloFrom();
+  if(!f || f.id !== p.id || S.planets.length >= maxPlanets() || colSentNow()) return [];
+  return [{valeur:`${S.planets.length}/${maxPlanets()}`, repond:{kinds:['ship', 'fleet'], partout:true},
+    vars:{planetes:S.planets.length, max:maxPlanets(), astro:S.tech.astro,
+      note:S.day.focus === 'eco' ? ' Avec « Économie pure », le plan ne colonise pas de lui-même : c\'est à toi de lancer le vaisseau.' : ''}}];
+};
+/* La recherche de tête, impayable au centre, payable ici avec un labo qui
+   remplit le prérequis. Une seule planète le dit : la première qui peut. */
+function rechercheAilleurs(){
+  const lab = labPlanet(); if(!lab || rechercheEnCours()) return null;
+  const R = nextResearch().list[0]; if(!R) return null;
+  const c = levelCost(T[R.k], R.lvl), peut = q => { const st = stockNow(q); return c.every((x, j) => x <= st[j]); };
+  if(peut(lab)) return null;
+  const q = S.planets.find(x => x.id !== lab.id && labOkPour(R.k, x) && peut(x));
+  return q ? {R, c, q} : null;
+}
+/* Le prérequis de labo d'une recherche, sur CETTE planète. `reqOk` lit le labo
+   du centre (labLevel) : juste pour ce qui est débloqué, faux pour dire d'où on
+   peut la lancer — un prérequis est une propriété de la planète. Les
+   prérequis de technologie, eux, sont ceux de l'empire, et nextResearch ne rend
+   que des pas déjà débloqués. */
+const labOkPour = (k, p) => (p.b.lab || 0) >= ((T[k].req || {}).lab || 0) && (p.b.lab || 0) >= 1;
+EVAL.researchElsewhere = p => {
+  const r = rechercheAilleurs(); if(!r || r.q.id !== p.id) return [];
+  return [{valeur:`${r.R.k}${r.R.lvl}`, cost:r.c, repond:{kinds:['t'], partout:true},
+    vars:{recherche:`${T[r.R.k].n} ${r.R.lvl}`, depuis:p.name}}];
+};
+/* Une recherche que le profil réclame : le style, ou un focus. */
+const profilVise = r => (Array.isArray(r.styles) && r.styles.includes(S.profil.style))
+  || (Array.isArray(r.focus) && r.focus.some(f => (S.profil.focus || []).includes(f)));
+EVAL.techBelow = (p, prm, r) => {
+  const lab = labPlanet();
+  if(!lab || lab.id !== p.id || !aSoi(T, r.tech) || !profilVise(r)) return [];
+  const n = S.tech[r.tech] || 0;
+  if(!(n < prm.niveauCible)) return [];
+  return [{valeur:String(n), cost:levelCost(T[r.tech], n + 1), repond:{kinds:['t'], partout:true, tk:r.tech},
+    vars:{niveau:n, cible:prm.niveauCible, style:(PROFILS.styles[S.profil.style] || {}).n || '', pct:hyperCargoPct()}}];
+};
+/* Les pas de recherche que les règles poussent en tête de la feuille de route,
+   derrière les priorités du joueur. Toute règle de condition techBelow y entre :
+   en ajouter une au fichier ne demande pas de code. */
+function reglesRecherche(){
+  const out = [];
+  for(const id of Object.keys(REGLES_PAR_ID)){
+    const r = regle(id);
+    if(r.condition !== 'techBelow' || !regleActive(id) || !aSoi(T, r.tech) || !profilVise(r)) continue;
+    if((S.tech[r.tech] || 0) < r.parametres.niveauCible) out.push([r.tech, r.parametres.niveauCible, '', id]);
+  }
+  return out;
+}
+
+/* ---------- les règles du moteur : formes de vie ---------- */
+const LF_RACES = REGLES.lifeforms && typeof REGLES.lifeforms === 'object' ? REGLES.lifeforms : {};
+/* La race d'une case, d'après sa série : le chiffre des milliers est la race,
+   la centaine impaire construit, la paire cherche (121xx et 122xx, Rock'tal). */
+function raceDeSerie(id){
+  const s = Math.floor(+id / 100);
+  return Object.keys(LF_RACES).find(r => { const pre = +(LF_RACES[r] || {}).idPrefix; return pre > 0 && (s === pre || s === pre + 1); }) || null;
+}
+/**
+ * La race d'une planète : posée à la main, sinon déduite des identifiants de
+ * ses cases, sinon du nom d'un bâtiment du tableau de production. Identifiants
+ * et nom qui se contredisent ne font pas une race : un conseil sur la mauvaise
+ * espèce serait pire que pas de conseil.
+ * @returns {{race:string|null, src:string, conflit:boolean, ids?:string[], nom?:string}}
+ */
+function raceDe(p){
+  if(p && p.race && aSoi(LIFEFORMS, p.race)) return {race:p.race, src:'main', conflit:false};
+  const ids = [...new Set(lfIds(p).map(raceDeSerie).filter(Boolean))], nom = p ? speciesOfPlanet(p) : null;
+  if(ids.length > 1 || (ids.length && nom && nom !== ids[0])) return {race:null, src:'ids', conflit:true, ids, nom};
+  if(ids.length) return {race:ids[0], src:'ids', conflit:false};
+  if(nom) return {race:nom, src:'nom', conflit:false};
+  return {race:null, src:'', conflit:false};
+}
+const RACE_SRC = {main:'posée à la main', ids:'déduite des identifiants', nom:'lue dans le tableau de production'};
+const nomRace = r => (LIFEFORMS[r] || {}).n || r;
+/** L'habitat et la nourriture de la race de cette planète, ou null. */
+function baseDe(p){
+  const r = raceDe(p).race, b = r && (LF_RACES[r] || {}).base;
+  return b && +b.habitat > 0 && +b.nourriture > 0 ? {habitat:+b.habitat, nourriture:+b.nourriture} : null;
+}
+/** Le nom d'une case quand quelqu'un le connaît : le jeu, puis le cache, puis le fichier. */
+function lfNomConnu(p, id){
+  const v = ((p || {}).lf || {})[id] || {};
+  return v.nom || v.name || (aSoi(S.lfNoms, id) ? S.lfNoms[id] : null) || LF_NAMES[id] || null;
+}
+/**
+ * Ce qui manque pour conseiller sur les formes de vie de cette planète, du plus
+ * bloquant au moins bloquant. Vide quand tout est là, ou quand la planète n'a
+ * pas encore d'espèce : c'est alors un choix à faire, pas une donnée à relire.
+ * @returns {{quoi:string, detail:string, page:string, ids?:number[]}[]}
+ */
+function lfManques(p){
+  const ids = lfIds(p);
+  if(!p || (!ids.length && !p.race)) return [];
+  const r = raceDe(p);
+  if(r.conflit) return [{quoi:'conflit', page:'lfbuildings',
+    detail:`Race contradictoire : les identifiants disent ${r.ids.map(nomRace).join(' et ')}${r.nom ? `, le tableau de production ${nomRace(r.nom)}` : ''}`}];
+  if(!r.race) return [{quoi:'race', page:'lfbuildings', detail:'Race inconnue'}];
+  const out = [], nr = nomRace(r.race);
+  const sansNom = ids.filter(id => !lfNomConnu(p, id));
+  if(sansNom.length){
+    const bat = sansNom.some(id => lfQueue(id) === 'lfbuilding'), rech = sansNom.some(id => lfQueue(id) === 'lfresearch');
+    out.push({quoi:'noms', page:bat ? 'lfbuildings' : 'lfresearch', ids:sansNom,
+      detail:`Noms ${bat && rech ? 'des bâtiments et des recherches' : bat ? 'des bâtiments' : 'des recherches'} ${nr} inconnus (${sansNom.length})`});
+  } else if(!ids.length && !Object.keys((LF_RACES[r.race] || {}).buildings || {}).length)
+    out.push({quoi:'noms', page:'encyclopedie', detail:`Noms ${nr} inconnus`});
+  const sansNiv = ids.filter(id => !Number.isFinite(+((p.lf || {})[id] || {}).lvl));
+  if(sansNiv.length) out.push({quoi:'niveau', page:lfQueue(sansNiv[0]) === 'lfresearch' ? 'lfresearch' : 'lfbuildings', ids:sansNiv,
+    detail:`Niveau illisible pour ${sansNiv.length} case${sansNiv.length > 1 ? 's' : ''}`});
+  return out;
+}
+/* Ce que FDV_DATA_MISSING suspend : toute la planète sans race, les seules
+   cases concernées sans nom ou sans niveau. Un conseil sur une case qu'on ne
+   sait pas nommer serait un conseil à l'aveugle. */
+function lfSuspendu(p){
+  if(!regleActive('FDV_DATA_MISSING')) return {tout:false, ids:new Set()};
+  const m = lfManques(p);
+  return {tout:m.some(x => x.quoi === 'race' || x.quoi === 'conflit'), ids:new Set(m.flatMap(x => x.ids || []))};
+}
+EVAL.lifeformDataComplete = p => {
+  const m = lfManques(p); if(!m.length) return [];
+  const i = S.planets.indexOf(p), page = m[0].page;
+  const url = page === 'encyclopedie' ? null : goUrl(page, i);
+  return [{valeur:m.map(x => `${x.quoi}:${(x.ids || []).length}`).join(','),
+    vars:{detail:m.map(x => x.detail).join(' · '), url,
+      scanner:url ? 'Ouvre la page dans le jeu : le copilote la lit à son chargement' : 'Ouvre l\'Encyclopédie de cette race dans le jeu : le copilote y lira les noms'}}];
+};
+/* Une file de forme de vie vide. La recherche n'existe qu'une fois une case
+   de bâtiment lue : avant, l'arbre n'est pas ouvert. */
+EVAL.lfQueueEmpty = (p, prm, r) => {
+  const ids = lfIds(p);
+  if(!ids.some(id => lfQueue(id) === 'lfbuilding') || lfManques(p).length) return [];
+  const l = fileDe(p, t => t.kind === 'x' && t.queue === r.file);
+  if(l.some(enCours)) return [];
+  return [{valeur:l.reduce((m, t) => Math.max(m, +t.end || 0), 0), repond:{kinds:['lf'], lfq:r.file}, vars:{}}];
+};
+/* Les cases que la population bloque : le jeu ne dit pas si c'est la
+   nourriture ou le logement, la nourriture passe donc d'abord (lfPousses). */
+const casesPop = p => Object.entries((p && p.lf) || {}).filter(([, v]) => v && v.state === 'pop').map(([id]) => +id);
+EVAL.lifeformPop = p => {
+  const b = baseDe(p), pop = casesPop(p);
+  if(!b || !pop.length || lfManques(p).length) return [];
+  return [{valeur:pop.join(','), repond:{kinds:['lf'], ids:[b.nourriture, b.habitat]},
+    vars:{bloquees:pop.map(id => lfNom(p, id)).join(', '), nourriture:lfNom(p, b.nourriture), habitat:lfNom(p, b.habitat)}}];
+};
+/* La base sous son palier alors qu'une case avancée (rang 6 et plus) attend. */
+function baseEnRetard(p){
+  const b = baseDe(p); if(!b) return null;
+  const n = id => +(((p.lf || {})[id] || {}).lvl) || 0;
+  const prm = (regle('FDV_BASE_FIRST') || {}).parametres || {};
+  const sous = [[b.nourriture, prm.nourriture], [b.habitat, prm.habitat]].filter(([id, x]) => Number.isFinite(x) && n(id) < x).map(([id]) => id);
+  const avancee = lfIds(p).some(id => lfQueue(id) === 'lfbuilding' && id % 100 >= 6 && !lfBloquee(p.lf[id]));
+  return sous.length && avancee ? sous : null;
+}
+EVAL.lifeformBase = p => {
+  const sous = !lfManques(p).length && baseEnRetard(p); if(!sous) return [];
+  return [{valeur:sous.map(id => `${id}:${+(p.lf[id] || {}).lvl || 0}`).join(','), repond:{kinds:['lf'], ids:sous},
+    vars:{base:sous.map(id => `${lfNom(p, id)} ${+(p.lf[id] || {}).lvl || 0}`).join(' et ')}}];
+};
+/* Les cases que les règles de forme de vie mettent en tête de la file des
+   bâtiments, dans l'ordre : la population bloquée d'abord, la base ensuite. */
+function lfPousses(p, queue){
+  if(queue !== 'lfbuilding') return [];
+  const b = baseDe(p); if(!b) return [];
+  if(regleActive('FDV_POP_LIMIT') && casesPop(p).length) return [{ids:[b.nourriture, b.habitat], regle:'FDV_POP_LIMIT'}];
+  const sous = regleActive('FDV_BASE_FIRST') && baseEnRetard(p);
+  return sous ? [{ids:sous, regle:'FDV_BASE_FIRST'}] : [];
+}
+/** Vide le cache des noms : utile après une mise à jour du jeu. La race posée
+    à la main reste — c'est une décision du joueur, pas une lecture. */
+function rescanner(){
+  S.lfNoms = {};
+  for(const p of S.planets || []) for(const v of Object.values(p.lf || {})) if(v){ delete v.nom; delete v.name; }
+}
+/* Les noms lus sur n'importe quelle planète servent à toutes : la même case
+   porte le même nom partout. Bornés : une page abîmée ne fait pas grossir le
+   stockage. */
+function lfNomsRetiens(extra){
+  const c = S.lfNoms && typeof S.lfNoms === 'object' ? S.lfNoms : (S.lfNoms = {});
+  const pose = (id, nom) => { if(Number.isInteger(+id) && +id >= 11000 && +id < 100000 && typeof nom === 'string' && nom.trim() && nom.length <= 80) c[+id] = nom.trim(); };
+  for(const p of S.planets || []) for(const [id, v] of Object.entries(p.lf || {})) if(v) pose(id, v.nom || v.name);
+  if(extra && typeof extra === 'object') for(const [id, nom] of Object.entries(extra)) pose(id, nom);
+}
+/** Réglages › Formes de vie : la race de chaque planète, d'où elle vient, et de quoi la corriger. */
+function raceRows(){
+  const ps = (S.planets || []).filter(p => lfIds(p).length || p.race);
+  if(!ps.length) return '';
+  return `<p class="note" style="margin:10px 0 4px"><b>Race par planète</b> — corrige-la si la lecture se trompe : la valeur posée à la main l'emporte.</p><ul class="list">${ps.map(p => {
+    const r = raceDe(p), etat = r.conflit ? 'contradictoire' : r.race ? `${nomRace(r.race)} · ${RACE_SRC[r.src] || ''}` : 'inconnue';
+    return `<li><span><b>${esc(p.name)}</b> <span class="note">${esc(etat)}</span></span><select data-race="${esc(p.id)}" style="width:auto"><option value="">Lire dans le jeu</option>${Object.entries(LIFEFORMS).map(([k, l]) => `<option value="${k}" ${p.race === k ? 'selected' : ''}>${esc(l.n)}</option>`).join('')}</select></li>`;
+  }).join('')}</ul><div class="row" style="margin-top:6px"><button class="btn sm ghost" data-rescan="1" title="Oublie les noms lus et relance les conseils : utile après une mise à jour du jeu">Rescanner</button><span class="note">Les noms se relisent à la prochaine visite des pages Formes de vie.</span></div>`;
+}
+
 /* ---------- les règles du moteur : ignorer, compter ---------- */
 /** La clé d'« Ignorer » : la règle, la planète en identifiant du jeu (`daily`
     voyage), et la valeur de la condition. */
-function ignKey(c){ return `${c.regle}|${gidDe(c.pid) || c.pid}|${c.valeur}`; }
+function ignKey(c){
+  // planetById et non gidDe : celle-là est une const posée en fin de fichier, après le premier rendu
+  const p = planetById(c.pid), gid = p && p.gid != null ? String(p.gid) : null;
+  return `${c.regle}|${gid || c.pid}|${c.valeur}`;
+}
 const IGN_MS = 24 * 3600e3;
 function ignores(){ return S.daily && S.daily.ign && typeof S.daily.ign === 'object' ? S.daily.ign : {}; }
 function ignore(c){ if(!c) return; S.daily.ign = Object.assign({}, ignores(), {[ignKey(c)]: Date.now()}); }
@@ -3134,8 +3436,111 @@ function publieCritiques(cs){
   try{ chrome.storage.local.set({critiques:_critPub}); }catch(e){}
 }
 
+/* ---------- les règles du moteur : le bloc des conseils ---------- */
+/**
+ * Les lignes du bloc : les constats que le plan ne sert pas et que le joueur
+ * n'a pas ignorés, puis les alertes qui ne sont pas des règles (bridage,
+ * emplacements). Un constat servi n'y est pas : la carte du plan est sa
+ * réponse, et le bloc n'est pas une seconde liste des mêmes choses.
+ */
+function conseilLignes(plan){
+  const cs = constatsVus(plan.constats || []).filter(c => !c.servi);
+  const autres = (plan.alerts || []).filter(a => !a.regle).map(a => ({
+    niveau:SEV_NIVEAU[a.sev] || 'conseil', sev:a.sev, what:a.what, why:a.why, pid:a.pid, domaine:'', cat:'', rang:Infinity}));
+  const pi = new Map((S.planets || []).map((p, i) => [p.id, i]));
+  return cs.map(c => Object.assign({sev:NIVEAU_SEV[c.niveau]}, c)).concat(autres)
+    .sort((a, b) => rangNiveau(a.niveau) - rangNiveau(b.niveau) || poidsCat(b.cat) - poidsCat(a.cat)
+      || a.rang - b.rang || (pi.get(a.pid) || 0) - (pi.get(b.pid) || 0));
+}
+/** La planète ouverte dans le jeu : `S.cur` est le gid que chaque instantané reprend. */
+function planeteOuverte(){
+  const ps = S.planets || [];
+  return ps.find(p => S.cur != null && p.gid != null && String(p.gid) === String(S.cur)) || ps[0] || null;
+}
+function conseilHtml(l, avecPlanete){
+  const p = planetById(l.pid);
+  const st = p ? stockNow(p) : null;
+  const cout = l.cost ? ` ${costHtml(l.cost)} <span class="note">${st && l.cost.every((x, j) => x <= st[j]) ? 'payable maintenant' : 'pas encore payable'}</span>` : '';
+  const quand = l.vars && l.vars.attente ? ` <span class="note">ressources réunies vers ${esc(l.vars.attente)}</span>` : '';
+  const tete = [l.domaine ? DOMAINES[l.domaine] || l.domaine : '', avecPlanete && p && S.planets.length > 1 ? p.name : ''].filter(Boolean).join(' · ');
+  return `<li><span class="pill ${l.sev}">${SEV_LABEL[l.sev] || ''}</span><span class="what">${tete ? `<span class="note">${esc(tete)}</span> ` : ''}${esc(l.what)}${l.statut === 'a_valider' ? ' <span class="pill info">à valider</span>' : ''}</span>`
+    + `<span class="why">${esc(l.why)}${l.action ? `<br>→ <b>${esc(l.action)}</b>${cout}${quand}` : quand}`
+    /* « Scanner » ouvre la page à relire, d'un clic du joueur, comme toutes les
+       cartes : le copilote ne navigue jamais seul. */
+    + `${l.vars && l.vars.url ? ` <button class="btn sm" data-prep="${esc(l.vars.url)}">Scanner</button>` : ''}`
+    + `${l.source ? ` <a href="${esc(l.source)}" target="_blank" rel="noopener">source</a>` : ''}`
+    + `${l.regle ? ` <button class="btn sm ghost" data-ign="${esc(ignKey(l))}" title="Masqué jusqu'à ce que la situation change, ou 24 h">Ignorer</button>` : ''}</span></li>`;
+}
+/**
+ * Le bloc des conseils d'Aujourd'hui : trois lignes de la planète ouverte dans
+ * le jeu, puis l'empire entier, filtrable. Rien quand il n'y a rien à dire.
+ */
+function conseilsHtml(plan){
+  /* Le filtre de la météo vaut ici comme ailleurs : une planète choisie dans la
+     grille, et le bloc ne parle plus que d'elle. */
+  const mf = typeof meteoFiltre === 'function' ? meteoFiltre() : null;
+  const l = conseilLignes(plan).filter(x => typeof meteoVoit !== 'function' || meteoVoit(x));
+  if(!l.length) return '';
+  const cur = mf || planeteOuverte(), f = (S.ui && S.ui.cf) || {};
+  const tete = cur ? l.filter(x => x.pid === cur.id).slice(0, 3) : [];
+  /* Un critique qui n'est pas dans les trois lignes de tête ouvre « Voir tout »
+     de force, sans toucher au choix enregistré : passé, le volet revient comme
+     le joueur l'avait laissé. */
+  const critique = l.some(x => x.sev === 'bad' && !tete.includes(x));
+  const tri = l.filter(x => (!f.domaine || x.domaine === f.domaine) && (!f.niveau || x.niveau === f.niveau)
+    && (!f.planete || x.pid === f.planete) && (!f.manque || x.regle === 'FDV_DATA_MISSING'));
+  const sel = (k, vide, opts) => `<select data-cf="${k}" style="width:auto"><option value="">${esc(vide)}</option>${opts.map(([v, n]) => `<option value="${esc(v)}" ${f[k] === v ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
+  const filtres = `<div class="row" style="gap:6px;flex-wrap:wrap;margin:8px 0">`
+    + sel('domaine', 'Tous les domaines', Object.entries(DOMAINES))
+    + sel('niveau', 'Tous les niveaux', NIVEAUX.map(n => [n, SEV_LABEL[NIVEAU_SEV[n]]]))
+    + (S.planets.length > 1 && !mf ? sel('planete', 'Toutes les planètes', S.planets.map(p => [p.id, p.name])) : '')
+    + `<label class="note" style="display:flex;gap:4px;align-items:center"><input type="checkbox" data-cf="manque" ${f.manque ? 'checked' : ''} style="width:auto">Données manquantes</label></div>`;
+  return `<div class="card"><h2>Conseils${cur && S.planets.length > 1 ? ` <span class="note">${esc(cur.name)}</span>` : ''}</h2>`
+    + (tete.length ? `<ul class="advice">${tete.map(x => conseilHtml(x, false)).join('')}</ul>`
+      : `<p class="note" style="margin:0">Rien à signaler${cur ? ` sur ${esc(cur.name)}` : ''}.</p>`)
+    + `<details${fold('conseils', false, critique)}><summary class="note" data-fold="conseils">Voir tout (${l.length})</summary>${filtres}`
+    + (tri.length ? `<ul class="advice">${tri.map(x => conseilHtml(x, true)).join('')}</ul>` : '<p class="note">Aucun conseil pour ces filtres.</p>')
+    + `</details></div>`;
+}
+
+/**
+ * Réglages › Règles : une ligne par règle, groupées par domaine, dans l'ordre
+ * du fichier. Une règle à verrou garde sa case grisée et dit pourquoi : une case
+ * qui ne fait rien sans le dire est un mensonge par omission.
+ */
+function reglesCard(){
+  const ids = Object.keys(REGLES_PAR_ID);
+  if(REGLES_ERR || !ids.length) return `<div class="card"><h2>Règles du moteur</h2><p class="note" style="margin:0">${esc(REGLES_ERR || 'Aucune règle dans rules.json.')}</p></div>`;
+  const ligne = id => {
+    const r = regle(id);
+    const champs = Object.keys(r.parametres || {}).map(k => `<label class="note" style="display:flex;gap:4px;align-items:center">${esc(k)}<input type="number" step="any" data-rg-p="${esc(id)}:${esc(k)}" value="${esc(r.parametres[k])}" style="width:6em"></label>`).join('');
+    return `<li><label class="row" style="gap:8px;align-items:flex-start"><input type="checkbox" data-rg-on="${esc(id)}" ${r.on ? 'checked' : ''} ${r.verrou ? 'disabled' : ''} style="width:auto">`
+      + `<span><span class="pill ${NIVEAU_SEV[r.niveau] || 'info'}">${esc(SEV_LABEL[NIVEAU_SEV[r.niveau]] || r.niveau)}</span> <b>${esc(r.nom || id)}</b> <span class="note mono">${esc(id)}</span>`
+      + `${r.statut === 'a_valider' ? ' <span class="pill info">à valider</span>' : ''}`
+      + `${r.verrou ? `<br><span class="note">Toujours active : ${esc(r.pourquoi_verrou || 'la simulation en a besoin.')}</span>` : ''}</span></label>`
+      + `${champs ? `<span class="row" style="gap:8px">${champs}</span>` : ''}</li>`;
+  };
+  const groupes = Object.entries(DOMAINES).map(([d, n]) => {
+    const l = ids.filter(id => REGLES_PAR_ID[id].domaine === d);
+    return l.length ? `<h3 class="note" style="margin:10px 0 4px">${esc(n)}</h3><ul class="list">${l.map(ligne).join('')}</ul>` : '';
+  }).join('');
+  return `<details class="card"${fold('regles', false)}><summary data-fold="regles">Règles du moteur <span class="note">${ids.filter(id => regle(id).on).length} sur ${ids.length} actives</span></summary>
+    <p class="note" style="margin:8px 0 0">Ce que le copilote surveille sur chaque planète, et ce que le plan en fait. Décocher une règle l'éteint : sa carte ne sort plus, et elle ne compte plus sur l'icône. Les seuils se changent ici ; le reste vit dans <code>rules.json</code>.</p>
+    ${groupes}</details>`;
+}
+
+/* Les règles qu'on coupe pour une planète seulement — « pas de Terraformeur
+   sur mon coffre-fort ». Sur la planète, donc sur ce poste : un id local ne
+   voyage pas, comme le modèle de défense par planète. */
+function regOffHtml(p){
+  const ids = Object.keys(REGLES_PAR_ID).filter(id => REGLES_PAR_ID[id].parPlanete);
+  if(!ids.length) return '';
+  return `<p class="note" style="margin:10px 0 0"><b>Règles du moteur</b> — décoche celles qui ne valent pas pour cette planète.</p><div class="row" style="gap:10px;flex-wrap:wrap">${ids.map(id =>
+    `<label class="note" style="display:flex;gap:4px;align-items:center"><input type="checkbox" data-regoff="${esc(p.id)}|${esc(id)}" ${(p.regOff || {})[id] ? '' : 'checked'} style="width:auto">${esc(REGLES_PAR_ID[id].nom || id)}</label>`).join('')}</div>`;
+}
+
 function planetAlerts(p){
-  const out = [], pr = production(p), st = stockNow(p);
+  const out = [], pr = production(p);
   const where = S.planets.length>1 ? ` sur ${p.name}` : '';
   const deRegle = id => constatsDe(p, id).map(c => ({sev:NIVEAU_SEV[c.niveau], what:c.what, why:c.why, regle:c.regle, valeur:c.valeur, domaine:c.domaine, c}));
   out.push(...deRegle('RES_ENERGY_NEGATIVE'));
@@ -3172,7 +3577,9 @@ function planetAlerts(p){
   out.push(...deRegle('RES_STORAGE_FULL').concat(deRegle('RES_STORAGE_SOON')).sort((a, b) => a.valeur - b.valeur));
   return out;
 }
-const SEV_LABEL = {bad:'Urgent', warn:'Attention', good:'Prêt', info:'Conseillé'};
+/* Un seul vocabulaire de niveau dans tout le panneau : celui des règles du
+   moteur. « Urgent » ici et « Critique » là se liraient comme deux échelles. */
+const SEV_LABEL = {bad:'Critique', warn:'Important', info:'Conseil', good:'Prêt'};
 
 /* ---------- timers ---------- */
 S.timers = S.timers || [];
@@ -3910,9 +4317,12 @@ function nextResearch(){
      avant sur le centre tient le rang, et la recherche attend son tour. */
   const mienne = prioOf((labPlanet() || {}).id);
   const prio = mienne && mienne.kind === 't' ? mienne : null;
-  const rm = prio ? [[prio.k, prio.lvl, 'c']].concat(ROADMAPS[S.day.focus] || ROADMAPS.ecocol)
-    : (ROADMAPS[S.day.focus] || ROADMAPS.ecocol);
-  rm.forEach(([k,l,flag], i)=>{
+  /* Les pas que les règles du moteur poussent (RECH_PLASMA_MINER…) passent
+     derrière la priorité du joueur et devant la feuille de route, sans drapeau
+     critique : ils n'épargnent pas, ils passent à leur tour, en premier. */
+  const pousses = reglesRecherche();
+  const rm = (prio ? [[prio.k, prio.lvl, 'c']] : []).concat(pousses, ROADMAPS[S.day.focus] || ROADMAPS.ecocol);
+  rm.forEach(([k,l,flag,rid], i)=>{
     const mien = !!prio && i === 0;
     /* Ordre de priorité : un emplacement de planète libre se colonise avant de
        payer le palier suivant. Tant qu'il en reste un, Astrophysique n'ajoute
@@ -3928,8 +4338,9 @@ function nextResearch(){
        à ce que le joueur a posé — la priorité est muette. */
     if(r.lab){ labNeed = Math.max(labNeed, r.lab); if(mien) prioLab = r.lab; return; }
     const pourquoi = techWhy(r, k, l, roadmapGoal(rm, i));
-    if(!list.some(x=>x.k===r.k)) list.push({k:r.k, lvl:r.lvl, crit:flag==='c', prio:mien,
-      why:mien ? `Tu as mis ${T[k].n} ${l} en priorité. ${pourquoi}`.trim() : pourquoi});
+    const deRegle = rid ? regleTexte(rid, 'raison', '', {style:(PROFILS.styles[S.profil.style] || {}).n || '', pct:hyperCargoPct(), cible:l}) : '';
+    if(!list.some(x=>x.k===r.k)) list.push({k:r.k, lvl:r.lvl, crit:flag==='c', prio:mien, regle:rid || undefined,
+      why:mien ? `Tu as mis ${T[k].n} ${l} en priorité. ${pourquoi}`.trim() : deRegle ? `${deRegle} ${pourquoi}`.trim() : pourquoi});
   });
   /* Les deux plafonds que le joueur touche tous les jours ont chacun leur
      recherche. La feuille de route cesse de parler d'Astrophysique dès qu'on l'a
@@ -4200,7 +4611,8 @@ function pickBuildings(p, ctx){
   const add = (k, why, libre)=>{ if(!out.some(o=>o.k===k) && !refused(cardKey('b', p.id, k))) out.push({k, lvl:p.b[k]+1, why, libre:!!libre}); };
   const ranked = rankUpgrades(p).filter(u=>u.payback<Infinity && B[u.key]);
   const satsSoon = p.satPending && p.satPending > ctx.T;
-  if(pr.factor<1 && !satsSoon) add('solar', 'Énergie négative : tes mines tournent au ralenti', true);
+  if(pr.factor<1 && !satsSoon && regleActive('RES_ENERGY_NEGATIVE')) add('solar', 'Énergie négative : tes mines tournent au ralenti', true);
+  const plafond = regleParam('RES_STORAGE_FULL', 'seuil', .98), plafondOn = regleActive('RES_STORAGE_FULL'), bientotOn = regleActive('RES_STORAGE_SOON');
   /* Deux régimes, deux gestes. Avant la saturation, le hangar — mais assez tôt
      pour être MONTÉ avant le plafond : son propre temps de construction fait
      partie du délai, sinon la carte sortait le jour où il était déjà trop tard.
@@ -4208,7 +4620,7 @@ function pickBuildings(p, ctx){
      dépense, et le plus gros chantier payable passe devant. */
   for(let j=0;j<3;j++){
     if(!(rates[j]>0)) continue;
-    if(p.st[j] >= pr.cap[j]*.98){
+    if(plafondOn && p.st[j] >= pr.cap[j]*plafond){
       /* Le plan ne pose ici que des chantiers : une recherche ou une case de
          forme de vie suit sa propre file, et l'alerte de la planète, elle, les
          nomme toutes.
@@ -4232,7 +4644,7 @@ function pickBuildings(p, ctx){
       if(d && d.k && !(d.k === 'solar' && satsSoon)){ add(d.k, `Le ${NOM_RES[j]} est au plafond : ta production est arrêtée, et c'est le plus gros chantier payable tout de suite`, true); continue; }
     }
     const mont = buildTime(sk[j], (p.b[sk[j]]||0)+1, p), lead = Math.max(iv*2, iv + mont/3600);
-    if(p.st[j]+rates[j]*lead >= pr.cap[j]*.98) add(sk[j], `Hangar plein dans moins de ${dur(lead*3600)}, et il met ${dur(mont)} à sortir`, true);
+    if(bientotOn && p.st[j]+rates[j]*lead >= pr.cap[j]*plafond) add(sk[j], `Hangar plein dans moins de ${dur(lead*3600)}, et il met ${dur(mont)} à sortir`, true);
   }
   /* La priorité du joueur passe ici : derrière les deux secours — une mine au
      ralenti coûte de la production à chaque heure, une priorité repoussée ne
@@ -4245,14 +4657,18 @@ function pickBuildings(p, ctx){
      et pour une recherche l'appelant est le seul à connaître le coût du niveau
      à payer. */
   if(ctx.prio){
-    const pas = ctx.prio, deja = out.find(o=>o.k===pas.k);
+    /* Robots au-delà de 10, posés par le joueur : il est servi, et la carte
+       chiffre ce que les nanites feraient à la place (INST_NANITES_OVER_ROBOTS). */
+    const rn = ctx.prio.k === 'robot' && regleActive('INST_NANITES_OVER_ROBOTS') && robotsOuNanites(p, ctx.prio.lvl);
+    const pas = rn ? Object.assign({}, ctx.prio, {why:`${ctx.prio.why} Usine de nanites ${rn.nanite} diviserait le temps des chantiers par 2, Robots ${rn.robots} le divise par ${rn.gain}.`}) : ctx.prio;
+    const deja = out.find(o=>o.k===pas.k);
     // Un secours qui vise déjà ce bâtiment y va un niveau à la fois, et c'est
     // le même pas : les deux raisons sont vraies, elles s'ajoutent.
     if(deja){ deja.why = deja.why ? `${deja.why}. ${pas.why}` : pas.why; deja.prio = true; }
     else out.push({k:pas.k, lvl:pas.lvl, why:pas.why, libre:true, prio:true});
   }
   const best = ranked[0];
-  if(best){ const bc = best.extraSolar ? levelCost(B.solar,p.b.solar+1) : levelCost(B[best.key],best.lvl); for(let j=0;j<3;j++) if(bc[j]>pr.cap[j]) add(sk[j], 'Hangar trop petit pour la suite'); }
+  if(best){ const bc = best.extraSolar ? levelCost(B.solar,p.b.solar+1) : levelCost(B[best.key],best.lvl); for(let j=0;j<3;j++) if(bc[j]>pr.cap[j]) add(sk[j], regleTexte('RES_MINE_BLOCKED_BY_STORAGE', 'raison', 'Hangar trop petit pour la suite', {mine:upLabel(best)})); }
   for(const g of ctx.goals||[]) if(g.p===p) for(let j=0;j<3;j++) if(g.cost[j]>pr.cap[j]) add(sk[j], `Hangar trop petit pour ${g.label}`);
   if(ctx.wantColony && p===ctx.dep && p.b.shipyard<4){
     if(p.b.robot<2) add('robot', 'Prérequis du chantier spatial.' + centreNote());
@@ -4263,11 +4679,29 @@ function pickBuildings(p, ctx){
     if(p.b.robot < 2) add('robot', 'Prérequis du chantier spatial');
     else add('shipyard', 'Pour que cette colonie ait ses propres transporteurs');
   }
+  /* Les règles d'installation et l'équilibre des mines entrent comme les robots
+     juste en dessous : des candidats forcés, avant le classement par
+     amortissement, mais bornés en prix par rapport à son meilleur pas — sans
+     cette borne, une règle « conseil » réécrirait le classement que le
+     copilote a construit pour juger. Le Terraformeur n'a pas de borne : une
+     planète pleine refuse tout, et lui seul la rouvre. */
+  const borne = (c, f) => !!best && mse(...c) <= f * mse(...best.cost);
+  if(regleActive('INST_FIELDS_LOW') && !(p.regOff || {}).INST_FIELDS_LOW && casesBasses(p) != null && !reqOk(B.terra.req, p).length)
+    add('terra', `Plus que ${casesBasses(p)} cases libres : le Terraformeur en ajoute`);
+  const nr8 = regleActive('INST_NANITES_LAGGING') && naniteRetard(p);
+  if(nr8 && borne(levelCost(B.nanite, nr8.n + 1), regleParam('INST_NANITES_LAGGING', 'facteurCout', 5)))
+    add('nanite', `Nanites ${nr8.n} ici, ${nr8.max} ailleurs : chaque niveau divise par deux le temps des chantiers de la planète`);
+  const lr = regleActive('INST_LAB_NETWORK') && !ctx.researchRunning && laboEnRetard(p);
+  if(lr && borne(levelCost(B.lab, lr.niveau + 1), 3))
+    add('lab', `Laboratoire ${lr.niveau} pour ${lr.centre} au centre : avec le Réseau, ce labo compte dans la vitesse de tes recherches`);
+  const eq = regleActive('RES_MINE_BALANCE') && mineEnRetard(p);
+  if(eq && !(ranked.find(u => u.key === eq.k) || {}).extraSolar && borne(levelCost(B[eq.k], p.b[eq.k] + 1), regleParam('RES_MINE_BALANCE', 'facteurCout', 2)))
+    add(eq.k, `Cible métal − cristal : ${signe(eq.cible)}, actuel : ${signe(eq.actuel)}${mineWhy(p, eq.k)}`);
   const robotTarget = Math.min(10, Math.floor(Math.max(p.b.metal,p.b.crystal)/2));
   if(p.b.robot < robotTarget && best){ const rc = levelCost(B.robot,p.b.robot+1); if(mse(...rc) <= 3*mse(...best.cost)) add('robot', 'Accélère toutes les constructions'); }
   for(const u of ranked.slice(0,2)){
     if(u.extraSolar && satsSoon) add(u.key, `Meilleur rendement, énergie fournie par les satellites`);
-    else if(u.extraSolar) add('solar', `Énergie pour ${B_SHORT[u.key]} ${u.lvl}`);
+    else if(u.extraSolar) add('solar', regleTexte('RES_ENERGY_NEXT_MINE', 'raison', 'Énergie pour {mine}', {mine:`${B_SHORT[u.key]} ${u.lvl}`}));
     else add(u.key, `Meilleur rendement : amorti en ${dur(u.payback*3600)}${mineWhy(p, u.key)}`);
   }
   return out;
@@ -4280,7 +4714,7 @@ function simulateDay(){
      automatique pour tout le reste de la journée simulée. */
   const now = Date.now(), real = {tech:S.tech, planets:S.planets};
   const target = coloTarget(), colFlight = (coloFleet().leg1||{}).secs || 0;
-  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:projectResources(p, now), liv:livraisons(p).filter(l=>l.at>now), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, satsOk:p.satsOk, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs}));
+  const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:projectResources(p, now), liv:livraisons(p).filter(l=>l.at>now), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, satsOk:p.satsOk, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs, regOff:p.regOff, race:p.race}));
   const expoBusy = [], expoDeja = {};
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
   const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
@@ -4352,7 +4786,11 @@ function simulateDay(){
   // Trié par sévérité, l'ordre des planètes conservé à sévérité égale : sans
   // cela un Urgent de la deuxième planète se lit sous un Attention de la
   // première, et le joueur à quatre planètes balaie la carte de travers.
-  const alerts = S.planets.flatMap(p=>planetAlerts(p).map(a=>Object.assign(a, {pid:p.id}))).sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1));
+  const alerts = S.planets.flatMap(p=>planetAlerts(p).map(a=>Object.assign({pid:p.id}, a))).sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1));
+  /* Les constats des règles, sur le même état réel et pour la même raison. Ils
+     marquent plus bas les cartes de la première connexion qui leur répondent. */
+  const cs = constats();
+  const lfSusp = new Map(S.planets.map(p => [p.id, lfSuspendu(p)]));
   S.tech = sim.tech; S.planets = P;
   try{
     const startV = P.reduce((a,p)=>{ const r=production(p); return a+mse(r.m,r.c,r.d); },0);
@@ -4434,13 +4872,21 @@ function simulateDay(){
          continue de n'interroger que `epargnePrio` : c'est lui qui pose
          l'objectif de cette priorité, il ne peut pas se l'interdire. */
       const prioDevant = p => epargnePrio(p) || (p === labP && !!(nr.list[0] || {}).prio);
-      const launchR = (R, why)=>{ const c=levelCost(T[R.k],R.lvl); pay(labP,c); const d=researchTime(R.k,R.lvl), k=R.k, L=R.lvl, fin=Tm+d*1000; sim.rq=fin; sim.ev.push({at:fin, fn:()=>{ sim.tech[k]=Math.max(sim.tech[k],L); }}); acts.push({q:'Recherche · '+planetRef(labP), what:`${T[k].n} ${L}`, why: [why, R.why].filter(Boolean).join(' '), cost:c, dur:d, end:fin, kind:'t', k, lvl:L, p:labP.i}); };
+      const launchR = (R, why, payeur)=>{ const pp = payeur || labP, c=levelCost(T[R.k],R.lvl); pay(pp,c); const d=researchTime(R.k,R.lvl), k=R.k, L=R.lvl, fin=Tm+d*1000; sim.rq=fin; sim.ev.push({at:fin, fn:()=>{ sim.tech[k]=Math.max(sim.tech[k],L); }}); acts.push({q:'Recherche · '+planetRef(pp), what:`${T[k].n} ${L}`, why: [why, R.why].filter(Boolean).join(' '), cost:c, dur:d, end:fin, kind:'t', k, lvl:L, p:pp.i}); };
       const tryResearch = phase=>{
         if(sim.rq>Tm || !nr.k || labBusy) return;
         const R = nr.list[0], key='t:'+R.k+R.lvl, c = levelCost(T[R.k],R.lvl), mine = goals.find(g=>g.key===key);
         if(phase==='pre' && !R.crit && !mine) return;
         const sr = phase==='post' ? softRes(labP) : [0,0,0], rr = reserveOf(labP,Tm,mine).map((x,j)=>x+sr[j]);
         if(can(labP,c,rr)){ launchR(R, mine ? `Économisée depuis ${formatTime(mine.since)}` : ''); dropGoal(key); delete sim.rSince[key]; return; }
+        /* RECH_FUND_ELSEWHERE : le centre ne peut pas, une autre planète le
+           peut, avec un labo qui remplit le prérequis et qui n'est pas en
+           chantier. Elle paie ; la durée reste celle du centre, à défaut de
+           mieux, et la carte le dit. */
+        if(phase==='post' && regleActive('RECH_FUND_ELSEWHERE')){
+          const q = P.find(x => x !== labP && !(x.bq>Tm && x.bqKey==='lab') && labOkPour(R.k, x) && can(x, c, reserveOf(x,Tm)));
+          if(q){ launchR(R, `Depuis ${q.name} : le centre ne peut pas la payer maintenant, ${q.name} le peut. Durée estimée sur le labo du centre, celui de ${q.name} peut la changer.`, q); dropGoal(key); delete sim.rSince[key]; return; }
+        }
         if(!sim.rSince[key]) sim.rSince[key] = Tm;
         const starving = Tm - sim.rSince[key] >= Math.max(4, 4*iv)*3600e3;
         /* `mine` d'abord : un objectif déjà posé se retrouve, même sous une
@@ -4790,7 +5236,10 @@ function simulateDay(){
         if(lfMode()==='off') return;
         for(const p of P) for(const q of ['lfbuilding','lfresearch']){
           if(p.lfq[q]>Tm) continue;
-          const liste = lfCandidates(p, q).filter(c=>!refused(cardKey('lf', p.id, c.id))); if(!liste.length) continue;
+          /* FDV_DATA_MISSING : une planète sans race ne reçoit rien, une case
+             sans nom ni niveau lisible non plus — pas de conseil à l'aveugle. */
+          const susp = lfSusp.get(p.id); if(susp && susp.tout) continue;
+          const liste = lfCandidates(p, q).filter(c=>!refused(cardKey('lf', p.id, c.id)) && !(susp && susp.ids.has(c.id))); if(!liste.length) continue;
           /* Au plafond, cette file sert à vider le stock : la case la plus
              chère qu'on peut payer tout de suite y fait plus que la moins
              chère, qui laisse le plafond en place. Hors plafond, le tri de
@@ -4974,8 +5423,28 @@ function simulateDay(){
        ressources égales, ce qu'il met en avant se lit d'abord. Aucune n'est
        retirée — une étape cachée serait une étape que le plan a pourtant
        payée, et ses chiffres ne tomberaient plus. */
+    /* Un constat que la première connexion sert a trouvé sa réponse : la carte
+       prend son niveau, et le constat ne se répète pas dans le bloc des
+       conseils. Sans carte, il garde l'heure de la ligne d'attente qui lui
+       répond — « ressources réunies vers 14 h 10 » vaut mieux qu'un rouge muet. */
+    const s0 = sessions[0];
+    if(s0) for(const c of cs){
+      const i = P.findIndex(x => x.id === c.pid);
+      const a = s0.acts.find(x => repondA(c, x, i));
+      if(a){
+        c.servi = true;
+        if(rangNiveau(c.niveau) < rangNiveau(a.niveau)){ a.niveau = c.niveau; a.regle = c.regle; }
+        continue;
+      }
+      const w = s0.waits.find(x => repondA(c, x, i));
+      if(w){ c.vars.attenteQuoi = w.what; if(isFinite(w.eta)) c.vars.attente = formatTime(now + w.eta*1000); }
+    }
+    /* Le niveau se lit sur la carte, il ne la déplace pas : l'ordre des cartes
+       d'une connexion dit déjà ce que le joueur a réglé — « recherche avant les
+       bâtiments », « formes de vie avant tout » — et une file vide, critique sur
+       presque toutes les cartes de bâtiment, renverserait ces deux réglages. */
     for(const x of sessions) x.acts.sort((a, b) => poidsCat(catActe(b)) - poidsCat(catActe(a)));
-    return {now, sessions, busy, startV, endV, ups, alerts};
+    return {now, sessions, busy, startV, endV, ups, alerts, constats:cs};
   } finally { S.tech = real.tech; S.planets = real.planets; }
 }
 /* Les valeurs à retaper dans le jeu, en pastilles cliquables. Le presse-papier
@@ -5052,7 +5521,10 @@ function actHtml(a, withBtn){
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,pid:(S.planets[a.p]||{}).id,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
   if(withBtn && NO_KINDS[a.kind]) btn = `<span class="btns">${btn}${noBtn(actKey(a))}</span>`;
-  return `<li data-ck="${esc(ck)}"${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div>${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
+  /* Le niveau qu'un constat a donné à la carte : la carte du plan est la
+     réponse à la règle, c'est donc sur elle qu'il se lit. */
+  const niv = a.niveau ? `<span class="pill ${NIVEAU_SEV[a.niveau]}">${SEV_LABEL[NIVEAU_SEV[a.niveau]]}</span> ` : '';
+  return `<li data-ck="${esc(ck)}"${goAttr(actGo(a))}><div><div class="q">${niv}${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div>${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
 }
 
 /* ---------- mise à l'abri ---------- */
@@ -7963,10 +8435,16 @@ const LF_ROLE = {1:'Hébergement', 2:'Nourriture', 3:'Technologies',
    viser la mauvaise case.
    Les niveaux viennent du joueur, pas du jeu : le wiki ne documente aucun
    palier de population. Ils sont écrits ici pour être relus et changés. */
-const LF_PALIER = {nourriture:21, population:[21, 41]};
+/* Les deux premiers paliers se lisent dans rules.json (FDV_BASE_FIRST) : la
+   règle qui pousse la base et le bouton qui la pose visent le même niveau. */
+const LF_PALIER = (()=>{ const pr = (REGLES_PAR_ID.FDV_BASE_FIRST || {}).parametres || {};
+  return {nourriture:Number.isFinite(pr.nourriture) ? pr.nourriture : 21, population:[Number.isFinite(pr.habitat) ? pr.habitat : 21, 41]}; })();
 function lfPopNourriture(p){
   const ids = lfIds(p);
   if(!ids.length) return null;
+  /* La race d'abord : posée à la main, elle déplace l'habitat et la nourriture. */
+  const b = baseDe(p);
+  if(b && ids.includes(b.habitat) && ids.includes(b.nourriture)) return {pop:b.habitat, nour:b.nourriture};
   const serie = Math.floor(ids[0] / 100), pop = serie * 100 + 1, nour = serie * 100 + 2;
   return ids.includes(pop) && ids.includes(nour) ? {pop, nour} : null;
 }
@@ -8398,6 +8876,7 @@ planets(){
         <label class="f">Satellites autorisés<select data-satsok="${p.id}"><option value="">Hériter (${S.settings.sats ? 'oui' : 'non'})</option><option value="1" ${p.satsOk === true ? 'selected' : ''}>Oui</option><option value="0" ${p.satsOk === false ? 'selected' : ''}>Non</option></select></label>
       </div>
       ${lfBloc(p)}
+      ${regOffHtml(p)}
       </details>
       <details class="volet"${fold('stock:' + p.id, false)}><summary data-fold="stock:${p.id}">Stock <span class="mono note" id="pstk-${i}"></span></summary>
       <p class="note" style="margin:8px 0 0">Ce que cette planète a en magasin. Il avance tout seul avec ta production ; recale-le quand tu dépenses.</p>
@@ -8575,7 +9054,9 @@ settings(){
     <div class="card"><h2>Formes de vie découvertes</h2>
       <div class="chips">${lfSettingsHtml()}</div>
       <p class="note">Copilote s'en sert pour te conseiller la forme de vie de tes colonies.</p>
+      ${raceRows()}
     </div>
+    ${reglesCard()}
     <div class="card"><h2>Bonus</h2>
       <div class="bascules">
         ${bascule('sGeo','data-set="geo"','Géologue (+10 % production)', s.geo)}
@@ -8761,14 +9242,6 @@ today(){
   const eb = document.getElementById('expoBloc');
   if(eb){ const r = expoHtml(); eb.innerHTML = r.html; document.getElementById('expoSum').textContent = r.sum;
     RESUMES.expeditions = resumeDe(Array.from({length:r.n || 0}, ()=>({sev:'info'})), 'expeditions'); }
-  /* Les constats qui « marquent » une carte (file vide, labo à l'arrêt) n'ont
-     pas encore leur marque sur la carte : ils se disent ici, pour qu'on puisse
-     les lire — et les ignorer. Un constat ignoré ne s'affiche plus, et ne
-     colore plus la météo. */
-  const marques = constatsVus().filter(c=>c.effet === 'marquer')
-    .map(c=>({sev:NIVEAU_SEV[c.niveau], what:c.what, why:c.why, regle:c.regle, pid:c.pid, c}));
-  const alerts = plan.alerts.filter(a=>!(a.c && estIgnore(a.c))).concat(marques)
-    .sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1)).filter(meteoVoit);
   /* La sécurité se calcule même en mode nuit : une attaque ne dort pas. Les
      conseils finançables maintenant, ceux de la première connexion, nourrissent
      les dépenses d'urgence ; vidés en mode nuit, le plan retombe sur le stock. */
@@ -8777,14 +9250,12 @@ today(){
     RESUMES.attaque = resumeDe(sc.items, 'attaque');
     RESUMES.securite = sc.rappel ? {count:1, maxLevel:'imp', critiques:[]} : null; }
   catch(e){ console.error('Copilote : plan de sécurité', e); }
-  RESUMES.alertes = resumeDe(alerts.map(a=>({sev:a.sev, key:a.what})), 'alertes');
-  const ignBtn = a => a.c ? `<button class="btn sm ghost" data-ign="${esc(ignKey(a.c))}" title="Ne plus l'afficher tant que rien ne change (24 h au plus)">Ignorer</button>` : '';
-  /* Ouverte par défaut, et ouverte de force tant qu'une alerte critique y
-     figure — sans toucher au choix du joueur : l'alerte passée, la carte
-     revient à l'état où il l'avait laissée. Le menu « Afficher » vit dans le
-     corps : un <select> dans le résumé replierait la carte à chaque clic. */
-  const critique = alerts.some(a=>a.sev === 'bad');
-  document.getElementById('tdAlerts').innerHTML = alerts.length ? `<details class="card"${fold('alertes', true, critique)}><summary data-fold="alertes">Alertes <span class="note">(${alerts.length})${critique ? ' · critique' : ''}</span></summary>${cartesMenu('alertes')}${listeCartes('alertes', alerts.map(a=>({crit: a.sev === 'bad', html:`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span>${ignBtn(a)}</li>`})), 'advice')}</details>` : '';
+  /* Le bloc des conseils du moteur tient la place de l'ancienne carte
+     Alertes : les constats non servis et non ignorés, puis les alertes qui ne
+     sont pas des règles. Le compteur de l'onglet compte les mêmes lignes. */
+  RESUMES.alertes = resumeDe(conseilLignes(plan).filter(meteoVoit).map(a=>({sev:a.sev, key:a.what})), 'alertes');
+  document.getElementById('tdAlerts').innerHTML = conseilsHtml(plan);
+  publieCritiques(plan.constats);
   const later = plan.sessions.slice(1).filter(x=>actsVus(x).length || slotMs.has(x));
   const slot = x=>`<div class="slot"><div class="time">${formatTime(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${actsVus(x).map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
@@ -8812,7 +9283,7 @@ today(){
     : `<p class="note">Aucune action prévue sur la période : tes files sont occupées ou tes ressources trop faibles.</p>`)
     + `<div class="sumline" style="margin-top:14px"><span class="pill good">Production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} %</span><span class="note">en ${S.day.horizon} h, de ${fmt(plan.startV)} à ${fmt(plan.endV)} éq. métal/h</span></div>`
     + (plan.ups.length ? `<p class="note" style="margin-top:6px">${esc(plan.ups.join(' · '))}</p>` : '')
-    + `<p class="note" style="margin-top:6px">Connexions sans action masquées. Hors plan : formes de vie, flotte, défense. Avant une longue absence, dépense ou mets tes ressources à l'abri.</p>`;
+    + `<p class="note" style="margin-top:6px">Connexions sans action masquées. Avant une longue absence, dépense ou mets tes ressources à l'abri.</p>`;
   renderTimers();
   document.getElementById('tdDaySum').textContent = night ? 'mode nuit'
     : `${later.length} connexion${later.length>1?'s':''} à venir · production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${S.day.horizon} h`;
@@ -9318,6 +9789,29 @@ view.addEventListener('click', e=>{
   if(IS_EXT) chrome.runtime.sendMessage({type:'go', url});
   else window.open(url, '_blank', 'noopener');
 });
+/* Les filtres du bloc des conseils vivent dans #tdAlerts, que REFRESH réécrit
+   sans repasser par bind() : ils passent par la délégation. Sur ce poste
+   seulement — `ui` ne voyage pas. */
+view.addEventListener('change', e=>{
+  /* Réglages › Règles : n'est écrit que ce qui s'écarte du fichier. */
+  /* La race posée à la main l'emporte sur la lecture ; vide, la lecture reprend. */
+  const rc = e.target.closest && e.target.closest('[data-race]');
+  if(rc){ const p = planetById(rc.dataset.race);
+    if(p){ if(aSoi(LIFEFORMS, rc.value)) p.race = rc.value; else delete p.race; save(); render(); }
+    return; }
+  const off = e.target.closest && e.target.closest('[data-regoff]');
+  if(off){ const [pid, id] = off.dataset.regoff.split('|'), p = planetById(pid);
+    if(p && aSoi(REGLES_PAR_ID, id)){ const o = Object.assign({}, p.regOff); if(off.checked) delete o[id]; else o[id] = true; p.regOff = o; save(); render(); }
+    return; }
+  const ro = e.target.closest && e.target.closest('[data-rg-on]');
+  if(ro){ reglePose(ro.dataset.rgOn, {on:!!ro.checked}); save(); render(); return; }
+  const rp = e.target.closest && e.target.closest('[data-rg-p]');
+  if(rp){ const [id, k] = rp.dataset.rgP.split(':'), v = parseFloat(rp.value);
+    if(Number.isFinite(v)) reglePose(id, {p:{[k]: v}}); save(); render(); return; }
+  const f = e.target.closest && e.target.closest('[data-cf]'); if(!f) return;
+  S.ui.cf = Object.assign({}, S.ui.cf, {[f.dataset.cf]: f.type === 'checkbox' ? !!f.checked : f.value});
+  save(); refresh();
+});
 view.addEventListener('click', e=>{
   /* « Préparer » ouvre le formulaire de flotte du jeu, déjà rempli. Un bouton
      et non la carte entière : le clic de carte ignore les boutons exprès, pour
@@ -9354,6 +9848,10 @@ view.addEventListener('click', e=>{
     // Fait sur un espionnage : les cibles nommées sortent de la liste pour un jour.
     if(dn.dataset.mark) dn.dataset.mark.split(',').forEach(c=>{ S.raids[c] = {at:Date.now(), probe:true}; }); save(); refresh(); toast('Bien joué'); return; }
   const no = e.target.closest('[data-no]'); if(no){ S.daily.no[no.dataset.no] = Date.now(); save(); refresh(); toast('Mis de côté'); return; }
+  /* « Ignorer » ne vit que jusqu'à ce que la situation change, ou 24 h : ce
+     n'est pas « Non », qui oublie une carte du plan pour toujours. */
+  const rs = e.target.closest('[data-rescan]'); if(rs){ rescanner(); save(); render(); toast('Noms oubliés : ouvre les pages Formes de vie pour les relire'); return; }
+  const ig = e.target.closest('[data-ign]'); if(ig){ S.daily.ign = Object.assign({}, ignores(), {[ig.dataset.ign]: Date.now()}); save(); refresh(); toast('Masqué jusqu\'à ce que ça change'); return; }
   /* Les boutons du mode lune vivent dans #tdNow, que REFRESH réécrit sans
      repasser par bind() : un on('id') ne les verrait jamais. Ils passent donc
      par la délégation, comme data-done et data-launch. */
@@ -9378,8 +9876,6 @@ view.addEventListener('click', e=>{
     return; }
   const n1 = e.target.closest('[data-noone]'); if(n1){ delete S.daily.no[n1.dataset.noone]; save(); render(); toast('Carte remise'); return; }
   const nc = e.target.closest('[data-noclear]'); if(nc){ S.daily.no = {}; save(); render(); toast('Cartes refusées remises'); return; }
-  const ig = e.target.closest('[data-ign]');
-  if(ig){ const c = constats().find(x=>ignKey(x) === ig.dataset.ign); if(c){ ignore(c); save(); render(); toast('Ignoré tant que rien ne change'); } return; }
   const ctb = e.target.closest('[data-carte-tab]'); if(ctb){ carteChoisie(ctb.dataset.carteTab); return; }
   const sm = e.target.closest('summary[data-fold]');
   /* En onglets, la carte affichée reste dépliée : son titre ne la replie pas,
@@ -9770,6 +10266,7 @@ function applyGame(g){
   S.page = g.page || null;
   S.sample = false;
   S.syncAt = g.at || Date.now();
+  lfNomsRetiens(g.lfNoms); // les noms lus sur une planète servent à toutes
   prioRecoit(); // une planète vient peut-être d'être relevée
   save();
   const a = document.activeElement;
@@ -9778,6 +10275,8 @@ function applyGame(g){
   releveLu();
   // render() ne publie le plan que sur Aujourd'hui : une demande placée ici resterait muette sur la tuile
   publieLePlan();
+  // L'icône compte les critiques à chaque mise à jour des données, quel que soit l'onglet ouvert.
+  publieCritiques();
 }
 meteoBind();
 render();
@@ -9791,6 +10290,7 @@ pushLook();
    elle, même quand on regarde ailleurs : le dessin ne doit pas dépendre de
    l'onglet ouvert. */
 publieLePlan();
+publieCritiques();
 if(window.__game) applyGame(window.__game);
 /* Demandes déposées pendant que le panneau était fermé. boot.js ne transmet que
    les clés « ls: » et game/api : sans lui, la clé resterait dans le stockage. */
