@@ -23,15 +23,16 @@ const AVANT_REGEX = new Set(['return', 'typeof', 'instanceof', 'in', 'of', 'new'
  * Découpe un source en jetons : identifiants, ponctuations, chaînes, nombres,
  * expressions régulières. Les commentaires disparaissent, le texte des
  * gabarits aussi (seules leurs expressions `${…}` restent, en jetons).
- * Chaque jeton porte `nl` (une fin de ligne le précède) et `prof` (profondeur
- * de parenthèses, crochets et accolades).
+ * Chaque jeton porte `nl` (une fin de ligne le précède), `prof` (profondeur
+ * de parenthèses, crochets et accolades) et `at` (sa position dans le source).
  */
 function jetons(src) {
   const out = [];
   let i = 0, nl = false, prof = 0;
   // pile des gabarits ouverts : la profondeur où leur `${` a été ouvert
   const gabarits = [];
-  const pousse = (t, v) => { out.push({ t, v, nl, prof }); nl = false; };
+  let debut = 0;
+  const pousse = (t, v) => { out.push({ t, v, nl, prof, at: debut }); nl = false; };
   const precedent = () => out[out.length - 1];
   const regexPermise = () => {
     const p = precedent();
@@ -53,6 +54,7 @@ function jetons(src) {
   };
   while (i < src.length) {
     const c = src[i];
+    debut = i;
     if (c === '\n') { nl = true; i++; continue; }
     if (/\s/.test(c)) { i++; continue; }
     if (c === '/' && src[i + 1] === '/') { while (i < src.length && src[i] !== '\n') i++; continue; }
