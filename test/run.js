@@ -14590,6 +14590,85 @@ t('surplus : rien n\'est envoyé tout seul — un transfert ne se prépare que p
   assert.ok(s && s.mission === 3);
 });
 
+/* ENH-54, étape 2 : Réglages en sous-onglets, renvois cliquables. */
+const appReglages = (mode, modifier) => {
+  const s = fixtureState();
+  s.planets.forEach(p => { p.stock.at = SOIR; });
+  if (modifier) modifier(s);
+  if (mode) s.__win = { __cardLayout: mode };
+  return loadApp(s, SOIR, CARTES_W.concat(['cardMode', 'cardTabs', 'renvoiCible', 'allerVers', 'RENVOI_RE', 'TOOLS', 'enOnglets', 'S']));
+};
+/** Les titres de carte (h2 ou résumé) d'un groupe de Réglages, dans l'ordre. */
+const titresDuGroupe = (h, id) => {
+  const bloc = h.split(`data-carte="${id}">`)[1].split('<div class="carte"')[0];
+  return [...bloc.matchAll(/<div class="card"><h2>([^<]+)<\/h2>|<summary data-fold="[^"]+">([^<]+?)\s*<span/g)].map(m => (m[1] || m[2]).trim());
+};
+
+t('ENH-54 : Réglages se range en cinq onglets, même quand Aujourd\'hui est empilé', () => {
+  const g = appReglages();
+  assert.equal(g.cardMode, 'stacked', 'Aujourd\'hui reste empilé par défaut');
+  const h = g.VIEWS.settings();
+  assert.match(h, /<section class="panel en-onglets" data-disposition="settings"><div class="seg" role="tablist" id="carteTabs"/);
+  assert.deepEqual(ordreCartes(h), ['jeu', 'defense', 'affichage', 'moteur', 'donnees']);
+  assert.deepEqual(g.CARTES.settings.map(c => c.titre), ['Mon jeu', 'Défense et sécurité', 'Affichage', 'Moteur', 'Données']);
+  assert.ok(g.enOnglets('settings') && !g.enOnglets('today'));
+});
+
+t('ENH-54 : chaque carte de Réglages est dans son groupe, aucune ne manque', () => {
+  const h = appReglages().VIEWS.settings();
+  assert.deepEqual(titresDuGroupe(h, 'jeu'), ['Profil et plan du jour', 'Formes de vie découvertes', 'Bonus', 'Énergie']);
+  assert.deepEqual(titresDuGroupe(h, 'defense'), ['Modèle de défense', 'Sécurité et mise à l\'abri']);
+  assert.deepEqual(titresDuGroupe(h, 'affichage'), ['Allure du panneau', 'Affichage', 'Page du jeu']);
+  assert.deepEqual(titresDuGroupe(h, 'moteur'), ['Règles du moteur', 'Fiabilité des calculs']);
+  assert.deepEqual(titresDuGroupe(h, 'donnees'), ['Sauvegarde', 'Version']);
+  // Les champs lus par REFRESH.settings et bind() restent dans le DOM, masqués ou non.
+  for (const id of ['aideJour', 'daySum', 'sSkin', 'sEmpile', 'ioSave', 'sRatio']) assert.ok(h.includes(`id="${id}"`), id);
+});
+
+t('ENH-54 : passer en onglets depuis Réglages ne touche pas le sous-onglet de Réglages', () => {
+  const g = appReglages(null, s => { s.__tab = 'settings'; });
+  g.render();
+  g.cardTabs.settings = 'moteur';
+  g.setCardMode('tabs');
+  assert.equal(g.cardTabs.settings, 'moteur');
+  assert.ok(!('today' in g.cardTabs) || g.cardTabs.today !== 'jeu', 'aucun groupe de Réglages n\'atterrit sur Aujourd\'hui');
+});
+
+t('ENH-54 : un renvoi mène au bon onglet et au bon sous-onglet', () => {
+  const g = appReglages();
+  assert.equal(g.renvoiCible('Réglages', 'Affichage'), 'settings:affichage');
+  assert.equal(g.renvoiCible('Réglages', 'Plan du jour'), 'settings:jeu');
+  assert.equal(g.renvoiCible('Réglages', 'Sécurité'), 'settings:defense');
+  assert.equal(g.renvoiCible('Réglages', 'Version'), 'settings:donnees');
+  assert.equal(g.renvoiCible('Outils', 'Défense'), 'tools:defense');
+  assert.equal(g.renvoiCible('Outils', 'Colonie'), 'tools:colony');
+  assert.equal(g.renvoiCible('Outils', 'Ailleurs'), null);
+  for (const [k, l] of g.TOOLS) assert.equal(g.renvoiCible('Outils', l), 'tools:' + k, l);
+});
+
+t('ENH-54 : tout renvoi écrit dans le panneau mène quelque part', () => {
+  /* Un renvoi qui ne mène nulle part resterait du texte : le joueur ne saurait
+     pas pourquoi celui-ci ne se clique pas. Un nouveau nom de groupe ou
+     d'outil doit s'ajouter à renvoiCible. */
+  const g = appReglages();
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const perdus = [...src.matchAll(g.RENVOI_RE)].filter(m => !g.renvoiCible(m[1], m[2])).map(m => m[0]);
+  assert.deepEqual([...new Set(perdus)], []);
+});
+
+t('ENH-54 : « Modifier » et les renvois ouvrent le sous-onglet, retenu comme un clic', () => {
+  const g = appReglages();
+  g.allerVers('settings:affichage');
+  assert.equal(g.cardTabs.settings, 'affichage');
+  g.allerVers('tools:defense');
+  assert.equal(g.S.ui.tool, 'defense');
+  g.allerVers('settings:nulle-part');
+  assert.equal(g.cardTabs.settings, 'affichage', 'un sous-onglet inconnu ne change rien');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const gotos = [...src.matchAll(/data-goto="([^"]+)"/g)].map(m => m[1]);
+  assert.deepEqual(gotos, ['settings:defense', 'settings:jeu', 'settings:defense']);
+});
+
 /* ENH-54, étape 1 : une seule échelle de styles. Ces deux vérifications
    empêchent les écarts de revenir un par un, ce qui les avait fait naître. */
 const sansCommentaires = css => css.replace(/\/\*[\s\S]*?\*\//g, '');

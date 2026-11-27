@@ -547,3 +547,8 @@ input.court{width:6em}
 label.pill.choix{cursor:pointer}
 /* Les choix exclusifs d'une rangée de boutons : même largeur pour tous. */
 .btn.choix{min-width:152px}
+
+/* Un renvoi vers un autre onglet (« Outils › Défense ») : un lien, discret
+   dans une note, mais qui se voit cliquable (ENH-54). */
+a.renvoi{color:var(--accent);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+a.renvoi:hover{text-decoration-style:solid}
