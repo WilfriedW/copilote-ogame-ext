@@ -179,8 +179,8 @@ Trois réglages dans **Outils › Flotte**, parce que ces chiffres sont des
 estimations à calibrer, pas des lois du jeu :
 
 - **facteur de fret** : les ressources qu'une expédition ramène par point de
-  flotte. 200 au départ. Si tes soutes reviennent à moitié vides, baisse-le ;
-  si elles reviennent pleines à ras bord, monte-le.
+  flotte. 200 au départ. Le copilote le calibre sur tes retours (voir
+  ci-dessous) ; il ne le change jamais sans ton clic.
 - **réserve de grands transporteurs** : ceux qu'une expédition ne prendra
   jamais, parce qu'ils servent aux convois et à la mise à l'abri du soir.
   Zéro au départ.
@@ -190,6 +190,37 @@ estimations à calibrer, pas des lois du jeu :
 
 Le plafond de points, lui, se déduit des points du n°1 de l'univers, lus dans
 le classement public.
+
+### Ce que rapportent tes expéditions
+
+Chaque expédition est enregistrée à partir des mouvements que tu ouvres déjà :
+l'aller dit ce qui part (ou, faute de l'avoir vu, la composition de
+**Préparer**), le retour ce qui revient — cargaison, vaisseaux — et la
+différence ce qui a été trouvé ou perdu. Le retour n'est compté qu'une fois
+**relu pendant le vol retour** : avant l'événement, il porte encore la flotte
+envoyée et une soute vide. Une flotte dont le retour disparaît de la liste des
+vols, ou dont l'aller a été vu sans aucun retour, est comptée perdue une heure
+après l'heure prévue. Quand tu ouvres un rapport d'expédition dans ta
+messagerie, son type d'événement (pirates, trou noir, marchand…) s'y rattache ;
+un texte non reconnu reste « autre ». Le copilote ne va jamais lire la
+messagerie de lui-même.
+
+**Outils › Flotte › Expéditions : résultats** montre, sur les 50 dernières
+expéditions au résultat connu : ressources moyennes, part de la soute
+utilisée, fréquence des événements, valeur des vaisseaux trouvés et perdus, et
+le rendement par heure en équivalent métal (au ratio de tes réglages),
+carburant et pertes déduits — aussi par planète de départ et selon le nombre
+d'expéditions déjà envoyées vers le même système dans les 24 h.
+
+À partir de **10 expéditions qui ont ramené des ressources**, une carte
+propose le facteur de fret médian observé quand il s'écarte de plus de 10 % du
+tien : **Appliquer** le pose, **Ignorer** la masque jusqu'à ce que la
+proposition bouge à nouveau de plus de 10 %. Si la plupart des soutes
+reviennent pleines, la carte le dit : le facteur observé n'est alors qu'une
+borne basse.
+
+L'historique garde les 200 dernières expéditions, sur ce poste seulement.
+Carburant et durée supposent un vol à 100 % de vitesse : estimations.
 
 ## Flottes en vol et sécurité
 

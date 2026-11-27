@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk, rules) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'computeDefenseGap', 'resolveActiveModel', 'defPropositions', 'defPlancherDe', 'defEnFile', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'dayValue', 'modeNuit', 'finDeNuit', 'fmt', 'fmtLigne', 'luneMorts', 'gidDe', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES', 'missionKey', 'UI', 'uiOuvert', 'uiNote', 'uiVu', 'uiPurge', 'uiReset', 'uiEcrit', 'fold', 'garderVue', 'carteDetails', 'REGLES', 'REGLES_ERR', 'EVAL', 'regle', 'regleSaine', 'reglePose', 'regleActive', 'gabarit', 'constats', 'constatsDe', 'SEV_LABEL', 'ignore', 'ignKey', 'constatsVus', 'ignClean', 'conseilsHtml', 'reglesCard', 'planeteOuverte', 'cibleMines', 'mineEnRetard', 'naniteRetard', 'laboEnRetard', 'rechercheAilleurs', 'reglesRecherche', 'regOffHtml', 'raceDe', 'baseDe', 'lfNom', 'lfNomConnu', 'lfManques', 'rescanner', 'lfNomsRetiens', 'raceRows', 'alerteNeuve', 'ongletAffiche'], api, ext, prioAsk, rules);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'computeDefenseGap', 'resolveActiveModel', 'defPropositions', 'defPlancherDe', 'defEnFile', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'dayValue', 'modeNuit', 'finDeNuit', 'fmt', 'fmtLigne', 'luneMorts', 'gidDe', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES', 'missionKey', 'UI', 'uiOuvert', 'uiNote', 'uiVu', 'uiPurge', 'uiReset', 'uiEcrit', 'fold', 'garderVue', 'carteDetails', 'REGLES', 'REGLES_ERR', 'EVAL', 'regle', 'regleSaine', 'reglePose', 'regleActive', 'gabarit', 'constats', 'constatsDe', 'SEV_LABEL', 'ignore', 'ignKey', 'constatsVus', 'ignClean', 'conseilsHtml', 'reglesCard', 'planeteOuverte', 'cibleMines', 'mineEnRetard', 'naniteRetard', 'laboEnRetard', 'rechercheAilleurs', 'reglesRecherche', 'regOffHtml', 'raceDe', 'baseDe', 'lfNom', 'lfNomConnu', 'lfManques', 'rescanner', 'lfNomsRetiens', 'raceRows', 'alerteNeuve', 'ongletAffiche', 'expoJournal', 'expoMessages', 'expoStats', 'expoFretPropose', 'expoEvtDe', 'expoCalibHtml', 'expoStatsHtml', 'expoConnue', 'expoValeur', 'metalEq'], api, ext, prioAsk, rules);
 }
 /** L'application avec un rules.json donné — null pour un fichier illisible. */
 const appRegles = (rules, modifier, ext) => app(modifier, null, null, ext, null, rules);
@@ -3202,6 +3202,237 @@ t("l'historique se remplit sur les retours lus dans le jeu", () => {
   // relu une seconde fois, la même page ne doit rien ajouter
   g.applyGame({ meta: {}, planets: {}, moves: [{ arrival: r, dest: '1:88:16', mission: 15, origin: '1:142:8', ret: true }] });
   assert.equal(g.S.expoLog.length, 1, 'et la relecture ne double pas le compte');
+});
+
+/* ---------- le journal des expéditions ---------- */
+
+const ENVOI = { pr: 1, pf: 1, rp: 1, bs: 40, lc: 200 };
+const T0 = Math.floor(JOUR / 1000);
+/* Un aller vers 1:150:16 qui arrive dans dix minutes, un retour deux heures
+   plus tard : lu à `lu` (ms), avec la flotte et la soute du moment. */
+const vol = (ret, arrival, ships, cargo, lu) => ({ arrival, dest: '1:150:16', mission: 15, origin: '1:142:8', ret,
+  ships, cargo, lu: lu == null ? JOUR : lu, detailConnu: true });
+const ALLER = T0 + 600, RETOUR = T0 + 600 + 7200;
+
+t("un retour lu après l'événement donne cargaison, carburant et durée", () => {
+  const g = app(FLOTTE, JOUR);
+  g.expoJournal([vol(false, ALLER, ENVOI, [0, 0, 0]), vol(true, RETOUR, ENVOI, [0, 0, 0])], JOUR, 0);
+  assert.equal(g.S.expoLog.length, 1, "l'aller et le retour font une seule expédition");
+  assert.ok(!g.expoConnue(g.S.expoLog[0]), "un retour lu avant l'événement n'est pas un résultat");
+  // relu pendant le vol retour : 3,2 M de cristal
+  const apres = RETOUR * 1000 - 600e3;
+  g.expoJournal([vol(true, RETOUR, ENVOI, [0, 3200000, 0], apres)], apres, 0);
+  const e = g.S.expoLog[0];
+  assert.ok(g.expoConnue(e), 'résultat connu');
+  assert.deepEqual(e.cargaison, [0, 3200000, 0]);
+  assert.deepEqual(e.envoi.ships, ENVOI, "l'envoi vient de l'aller");
+  assert.ok(e.carburant > 0, 'carburant aller-retour : ' + e.carburant);
+  assert.ok(e.duree > 7200e3, 'durée de la mission : ' + e.duree);
+  assert.equal(e.evenement, 'ressources');
+  assert.equal(e.sys, '1:150', 'le malus de système lit toujours sys');
+  assert.equal(e.at, RETOUR * 1000, 'et at reste l\'heure du retour');
+});
+
+t('un croiseur de plus au retour est trouvé, dix VB de moins sont perdus', () => {
+  const g = app(FLOTTE, JOUR);
+  g.expoJournal([vol(false, ALLER, ENVOI, [0, 0, 0])], JOUR, 0);
+  g.expoJournal([vol(true, RETOUR, Object.assign({}, ENVOI, { cr: 1, bs: 30 }), [0, 0, 0], RETOUR * 1000 - 60e3)], RETOUR * 1000 - 60e3, 0);
+  const e = g.S.expoLog[0];
+  assert.deepEqual(e.trouves, { cr: 1 });
+  assert.deepEqual(e.pertes, { bs: 10 });
+  assert.equal(e.evenement, 'pertes', 'les pertes priment sans rapport lu');
+  assert.deepEqual(Array.from(g.expoValeur(e.pertes)), [450000, 150000, 0], 'coût de 10 VB');
+});
+
+t('sans envoi connu, trouvés et pertes restent vides', () => {
+  const g = app(FLOTTE, JOUR);
+  g.expoJournal([vol(true, RETOUR, ENVOI, [100, 0, 0], RETOUR * 1000 - 60e3)], RETOUR * 1000 - 60e3, 0);
+  const e = g.S.expoLog[0];
+  assert.ok(g.expoConnue(e));
+  assert.equal(e.envoi, null);
+  assert.equal(e.trouves, null);
+  assert.equal(e.pertes, null);
+  assert.deepEqual(e.retour.ships, ENVOI, 'les vaisseaux sont gardés tels quels');
+});
+
+t("faute d'aller vu, la composition préparée sert d'envoi", () => {
+  const g = app(s => { FLOTTE(s); s.expoPrep = [{ de: '1:142:8', dest: '1:150:16', ships: ENVOI, at: JOUR - 60e3 }]; }, JOUR);
+  g.expoJournal([vol(true, RETOUR, Object.assign({}, ENVOI, { cr: 1 }), [0, 0, 0], RETOUR * 1000 - 60e3)], RETOUR * 1000, 0);
+  const e = g.S.expoLog[0];
+  assert.equal(e.envoi.src, 'prep');
+  assert.deepEqual(e.trouves, { cr: 1 });
+});
+
+t("un retard qui déplace l'heure du retour ne crée pas une deuxième expédition", () => {
+  const g = app(FLOTTE, JOUR);
+  g.expoJournal([vol(false, ALLER, ENVOI, [0, 0, 0]), vol(true, RETOUR, ENVOI, [0, 0, 0])], JOUR, 0);
+  const tard = RETOUR + 3600;
+  g.expoJournal([vol(true, tard, ENVOI, [0, 0, 0], tard * 1000 - 600e3)], tard * 1000 - 600e3, 0);
+  assert.equal(g.S.expoLog.length, 1);
+  assert.equal(g.S.expoLog[0].retour.at, tard * 1000);
+});
+
+t("une flotte qui ne revient pas une heure après l'heure prévue est perdue", () => {
+  const g = app(FLOTTE, JOUR);
+  g.expoJournal([vol(false, ALLER, ENVOI, [0, 0, 0])], JOUR, 0);
+  const e = g.S.expoLog[0];
+  const prevu = e.at;
+  g.expoJournal([], prevu + 30 * 60e3, 0);
+  assert.ok(!e.perdue, 'une demi-heure de retard ne suffit pas');
+  g.expoJournal([], prevu + 61 * 60e3, 0);
+  assert.ok(e.perdue, 'flotte perdue');
+  assert.equal(e.evenement, 'perdue');
+  assert.deepEqual(e.pertes, ENVOI, 'toute la flotte comptée en pertes');
+});
+
+t("un retour vu puis disparu de la liste des vols est une flotte perdue, pas un retour manqué", () => {
+  const g = app(FLOTTE, JOUR);
+  g.expoJournal([vol(false, ALLER, ENVOI, [0, 0, 0]), vol(true, RETOUR, ENVOI, [0, 0, 0])], JOUR, 0);
+  const e = g.S.expoLog[0];
+  // jamais relu ensuite, l'heure passe : on ne sait pas, on ne conclut pas
+  g.expoJournal([], RETOUR * 1000 + 2 * 3600e3, 0);
+  assert.ok(!e.perdue && !g.expoConnue(e), 'un retour simplement pas relu reste inconnu');
+  // relu : la liste complète des vols, après l'événement, ne le montre plus
+  const h = app(FLOTTE, JOUR);
+  h.expoJournal([vol(false, ALLER, ENVOI, [0, 0, 0]), vol(true, RETOUR, ENVOI, [0, 0, 0])], JOUR, 0);
+  const liste = RETOUR * 1000 - 300e3;
+  h.expoJournal([], liste, liste);
+  h.expoJournal([], RETOUR * 1000 + 2 * 3600e3, liste);
+  assert.ok(h.S.expoLog[0].perdue, 'trou noir : le retour a disparu');
+});
+
+t("le rapport ouvert donne le type d'événement, un texte inconnu donne « autre »", () => {
+  const g = app(FLOTTE, JOUR);
+  g.expoJournal([vol(false, ALLER, ENVOI, [0, 0, 0])], JOUR, 0);
+  g.expoJournal([vol(true, RETOUR, Object.assign({}, ENVOI, { bs: 30 }), [0, 0, 0], RETOUR * 1000 - 60e3)], RETOUR * 1000, 0);
+  const e = g.S.expoLog[0];
+  const evt = RETOUR * 1000 - 3000e3;
+  assert.equal(g.expoMessages([{ id: '77', at: evt, coords: '1:150:16', texte: 'Votre flotte a été attaquée par des pirates.' }]), 1);
+  assert.equal(e.evenement, 'pirates');
+  // relu, le même message ne compte pas deux fois
+  assert.equal(g.expoMessages([{ id: '77', at: evt, coords: '1:150:16', texte: 'pirates' }]), 0);
+  assert.equal(g.expoEvtDe('Un texte que personne ne reconnaît'), 'autre');
+  assert.equal(g.expoEvtDe("L'expédition s'est approchée trop près d'un trou noir"), 'trounoir');
+  assert.equal(g.expoEvtDe('Votre expédition a rapporté 120.000 Métal collecté'), 'ressources');
+  assert.equal(g.expoEvtDe('Votre expédition rentre avec du retard'), 'retard');
+  // un autre système ne prend pas le rapport
+  assert.equal(g.expoMessages([{ id: '78', at: evt, coords: '1:151:16', texte: 'pirates' }]), 0);
+});
+
+/** n expéditions connues, chacune avec ce que `f(i)` ramène. */
+const journal = (n, f, ships) => Array.from({ length: n }, (_, i) => ({
+  cle: 'x' + i, at: JOUR - (n - i) * 3600e3, sys: '1:' + (100 + i % 5), de: '1:142:8', dest: '1:' + (100 + i % 5) + ':16',
+  envoi: { ships: ships || ENVOI, at: 0, src: 'aller' },
+  retour: { at: JOUR - (n - i) * 3600e3, ships: ships || ENVOI, cargo: f(i), lu: 0, final: true },
+  cargaison: f(i), trouves: {}, pertes: {}, carburant: 1000, duree: 2 * 3600e3, evenement: 'ressources' }));
+
+t("les statistiques portent sur les cinquante dernières et l'affichent", () => {
+  const g = app(s => { FLOTTE(s); s.expoLog = journal(60, () => [1000, 500, 0]); }, JOUR);
+  const st = g.expoStats(g.S.expoLog);
+  assert.equal(st.n, 50);
+  assert.deepEqual(st.res, [1000, 500, 0]);
+  // (1000 + 500×1,5 − 1000×3) / 2 h = −625 /h : le carburant compte
+  assert.equal(Math.round(st.rendement), -625);
+  assert.ok(st.parPlanete['1:142:8'], 'par planète de départ');
+  assert.ok(Object.keys(st.parSollicitation).length, 'par sollicitation du système');
+  assert.match(lu(g.expoStatsHtml()), /Sur <b>50 expéditions<\/b>/);
+});
+
+t('le rendement retire la valeur des pertes', () => {
+  const g = app(s => { FLOTTE(s); s.expoLog = journal(1, () => [0, 0, 0]); s.expoLog[0].pertes = { bs: 10 }; s.expoLog[0].carburant = 0; }, JOUR);
+  // 10 VB = 450 000 M + 150 000 C = 675 000 éq. métal, sur 2 h
+  assert.equal(Math.round(g.expoStats(g.S.expoLog).rendement), -337500);
+});
+
+t('pas de proposition à neuf expéditions, une à la dixième', () => {
+  // 200 GT + reste = 25 000 points env. ; 140 par point → 3,5 M ramenés
+  const pts = 1 * 5 + 115 + 700 + 40 * 300 + 200 * 60;
+  const g9 = app(s => { FLOTTE(s); s.expoLog = journal(9, () => [0, 140 * pts, 0]); }, JOUR);
+  assert.equal(g9.expoFretPropose(g9.S.expoLog, 200).prop, null);
+  assert.equal(g9.expoCalibHtml(), '');
+  const g = app(s => { FLOTTE(s); s.expoLog = journal(10, () => [0, 140 * pts, 0]); }, JOUR);
+  const p = g.expoFretPropose(g.S.expoLog, 200);
+  assert.equal(p.prop, 140);
+  assert.ok(p.montre);
+  assert.match(lu(g.expoCalibHtml()), /Tes 10 dernières expéditions à ressources suggèrent un facteur de <b>140<\/b> \(réglage actuel : 200\)/);
+  assert.equal(g.S.settings.expoFret, 200, 'rien ne change sans clic');
+});
+
+t('« Appliquer » met le réglage à la proposition, « Ignorer » masque la carte', () => {
+  const pts = 1 * 5 + 115 + 700 + 40 * 300 + 200 * 60;
+  const g = app(s => { FLOTTE(s); s.expoLog = journal(10, () => [0, 140 * pts, 0]); }, JOUR);
+  const bouton = attr => ({ closest: sel => (sel === '[' + attr + ']' ? { dataset: { [attr === 'data-fretapply' ? 'fretapply' : 'fretignore']: '140' } } : null) });
+  g.click('view', bouton('data-fretignore'));
+  assert.equal(g.S.expo.fretIgnore, 140);
+  assert.equal(g.S.settings.expoFret, 200, 'ignorer ne change pas le réglage');
+  assert.equal(g.expoCalibHtml(), '', 'la carte se tait');
+  g.click('view', bouton('data-fretapply'));
+  assert.equal(g.S.settings.expoFret, 140, 'appliquer, si');
+});
+
+t("un écart de moins de dix pour cent ne propose rien, « Ignorer » tient jusqu'au prochain écart", () => {
+  const pts = 1 * 5 + 115 + 700 + 40 * 300 + 200 * 60;
+  const g = app(s => { FLOTTE(s); s.expoLog = journal(12, () => [0, 190 * pts, 0]); }, JOUR);
+  assert.ok(!g.expoFretPropose(g.S.expoLog, 200).montre, '190 contre 200 : 5 %');
+  const h = app(s => { FLOTTE(s); s.expoLog = journal(12, () => [0, 140 * pts, 0]); s.expo.fretIgnore = 145; }, JOUR);
+  assert.ok(!h.expoFretPropose(h.S.expoLog, 200).montre, 'ignorée à 145 : 140 ne revient pas');
+  h.S.expo.fretIgnore = 100;
+  assert.ok(h.expoFretPropose(h.S.expoLog, 200).montre, 'ignorée à 100 : 140 revient');
+});
+
+t('la médiane, pas la moyenne : une trouvaille exceptionnelle ne déplace rien', () => {
+  const pts = 1 * 5 + 115 + 700 + 40 * 300 + 200 * 60;
+  const g = app(s => { FLOTTE(s); s.expoLog = journal(11, i => [0, (i === 5 ? 5000 : 140) * pts, 0]); }, JOUR);
+  assert.equal(g.expoFretPropose(g.S.expoLog, 200).prop, 140);
+});
+
+t('des soutes pleines la plupart du temps : la carte parle de borne basse', () => {
+  const ships = { pr: 1, lc: 10 };
+  const g = app(s => { FLOTTE(s); s.expoLog = journal(10, () => [0, 0, 0], ships); }, JOUR);
+  const plein = 10 * 25000 * 1.25 * 1; // soute effective des GT, collecteur, sans hyper
+  g.S.expoLog.forEach(e => { e.cargaison = [plein, 0, 0]; e.retour.cargo = e.cargaison; });
+  const p = g.expoFretPropose(g.S.expoLog, 200);
+  assert.ok(p.pleines, JSON.stringify(p));
+  assert.match(lu(g.expoCalibHtml()), /borne basse/);
+});
+
+t("l'historique garde les deux cents dernières", () => {
+  const g = app(s => { FLOTTE(s); s.expoLog = journal(200, () => [1, 0, 0]); }, JOUR);
+  const plusVieille = g.S.expoLog[0].cle;
+  g.expoJournal([vol(true, RETOUR, ENVOI, [0, 0, 0])], JOUR, 0);
+  assert.equal(g.S.expoLog.length, 200);
+  assert.ok(!g.S.expoLog.some(e => e.cle === plusVieille), 'la plus ancienne disparaît');
+});
+
+t('le malus de système compte toujours les nouvelles entrées', () => {
+  const g = app(FLOTTE, JOUR);
+  for (let i = 0; i < 3; i++) g.expoJournal([vol(false, ALLER + i * 60, ENVOI, [0, 0, 0]), vol(true, RETOUR + i * 60, ENVOI, [0, 0, 0])].map(m => Object.assign(m, { origin: '1:142:' + (6 + i) })), JOUR, 0);
+  assert.equal(g.S.expoLog.length, 3);
+  assert.equal(g.expoVus('1:150', JOUR), 3);
+});
+
+t("une entrée abîmée d'une sauvegarde ne casse pas les statistiques", () => {
+  const g = app(s => { FLOTTE(s); s.expoLog = journal(3, () => [1, 0, 0]); s.expoLog[0].envoi = 'cassé'; s.expoLog[1].retour.ships = { zz: 4, lc: 'x' }; s.expoLog[2].evenement = '<b>'; }, JOUR);
+  assert.equal(g.S.expoLog[0].envoi, null);
+  assert.deepEqual(g.S.expoLog[1].retour.ships, {});
+  assert.equal(g.S.expoLog[2].evenement, 'autre');
+  assert.doesNotThrow(() => g.expoStatsHtml());
+});
+
+t('la page Messagerie publie les rapports d\'expédition, et rien d\'autre', () => {
+  const HEURE_SRV = { epoch: 1794988642, horloge: '18.11.2026 08:57:22', arrivees: [] };
+  const r = runPage({ skin: null, search: '?page=ingame&component=messages', heures: HEURE_SRV, msgsJeu: [
+    { id: 'msg-901', titre: "Résultat de l'expédition [1:150:16]", date: '18.11.2026 08:50:00', texte: 'Des pirates ont attaqué.' },
+    { id: '902', titre: 'Rapport d\'espionnage de Truc [1:150:8]', date: '18.11.2026 08:51:00', texte: 'Métal 1000' }] });
+  const snap = r.envois().find(m => m.type === 'snapshot').data;
+  assert.equal(snap.expoMsgs.length, 1, JSON.stringify(snap.expoMsgs));
+  assert.equal(snap.expoMsgs[0].id, '901');
+  assert.equal(snap.expoMsgs[0].coords, '1:150:16');
+  // 08:50:00 au serveur à UTC+1 : 07:50:00 UTC
+  assert.equal(snap.expoMsgs[0].at, Date.UTC(2026, 10, 18, 7, 50, 0));
+  assert.ok(/pirates/.test(snap.expoMsgs[0].texte));
+  const ailleurs = runPage({ skin: null, search: '?page=ingame&component=overview', heures: HEURE_SRV });
+  assert.equal(ailleurs.envois().find(m => m.type === 'snapshot').data.expoMsgs, null, 'hors messagerie, rien n\'est lu');
 });
 
 t('sans Astrophysique, le bloc le dit au lieu de proposer', () => {
