@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.7.7';
+const APP_VERSION = '2.7.8';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -6565,18 +6565,31 @@ function classeEcart(){
  * @param {string} cat clé de `PROFILS.cats`, ou '' pour « sans catégorie »
  * @returns {number} 0 à 4
  */
-function poidsCat(cat){
+/** @param {string[]} [focus] liste de focus à supposer, celle du profil par défaut */
+function poidsCat(cat, focus){
   if(!cat) return PROFILS.neutre;
-  const pr = S.profil;
+  const pr = S.profil, mis = focus || pr.focus;
   /* La mise à l'abri ne se pondère pas, elle se place : chez qui passe peu,
      elle passe devant tout le reste. */
   if(cat === 'abri') return PROFILS.abri[pr.activite] || 3;
   let w = (PROFILS.poids[pr.style] || {})[cat];
   if(w == null) return PROFILS.neutre;
   // Un focus ajoute +2 une fois, pas +2 par focus qui le réclame.
-  if(pr.focus.some(f => (PROFILS.focus[f] || {cats:[]}).cats.indexOf(cat) >= 0)) w = Math.min(3, w + 2);
+  if(mis.some(f => (PROFILS.focus[f] || {cats:[]}).cats.indexOf(cat) >= 0)) w = Math.min(3, w + 2);
   const cap = (PROFILS.plafonds[pr.activite] || {})[cat];
   return cap == null ? w : Math.min(w, cap);
+}
+/* Un focus qui ne peut rien remonter doit le dire. Pour un explorateur, cocher
+   « Expéditions » n'ajoute rien : sa catégorie vaut déjà 3 pour ce style, et le
+   +2 est plafonné là. Même chose sous « Peu présent », où un plafond d'activité
+   retient la catégorie plus bas que le focus ne la pousserait. Une case qui ne
+   peut pas agir et qui n'en dit rien est un mensonge par omission — c'est ce
+   que le joueur a trouvé en la cochant, et en ne voyant rien bouger. */
+/** @returns {boolean} vrai si cocher ce focus ne changerait aucun poids. */
+function focusInerte(k){
+  const f = PROFILS.focus[k]; if(!f) return false;
+  const sans = S.profil.focus.filter(x => x !== k), avec = sans.concat(k);
+  return f.cats.every(c => poidsCat(c, sans) === poidsCat(c, avec));
 }
 /** La catégorie d'une carte du plan, '' quand elle sert tous les styles. */
 function catActe(a){
@@ -6601,8 +6614,8 @@ function profilLigne(){
 /** Les six focus ponctuels en cases à cocher. */
 function profilFocusHtml(){
   return Object.entries(PROFILS.focus).map(([k,f]) => {
-    const mis = S.profil.focus.indexOf(k) >= 0;
-    return `<label class="pill ${mis?'good':'info'}" style="cursor:pointer;padding:6px 12px"><input type="checkbox" data-pfocus="${k}" ${mis?'checked':''} style="width:auto;margin-right:6px">${esc(f.n)}</label>`;
+    const mis = S.profil.focus.indexOf(k) >= 0, inerte = focusInerte(k);
+    return `<label class="pill ${mis?'good':'info'}" style="cursor:pointer;padding:6px 12px" title="${inerte?'Ton style met déjà cette catégorie au maximum : la cocher ne changerait rien.':''}"><input type="checkbox" data-pfocus="${k}" ${mis?'checked':''} style="width:auto;margin-right:6px">${esc(f.n)}${inerte?' <span class="note">· déjà au max</span>':''}</label>`;
   }).join('');
 }
 /* Trois questions, une par écran : la deuxième dépend de la première, puisque
@@ -6647,6 +6660,7 @@ function profilBloc(){
   return `<details class="card volet"${fold('profil', false)}><summary data-fold="profil"><b>Ton profil</b> <span class="note">${esc(profilLigne())}</span></summary>
     <div class="chips" style="margin-top:8px">${profilFocusHtml()}</div>
     <p class="note" style="margin-top:8px">Un focus remonte ses cartes sans remplacer ton style, et il y reste tant que tu ne le décoches pas. Les formes de vie n'en relèvent pas : leur place se règle dans Réglages.${ec ? ' ' + esc(ec) : ''}</p>
+    <p class="note" id="pfMuets"></p>
     <div class="row" style="margin-top:10px"><button class="btn sm ghost" data-refaire="1">Refaire le questionnaire</button></div>
   </details>`;
 }
@@ -7095,6 +7109,21 @@ today(){
      Elle n'en fait rien d'autre : aucun clic, aucun envoi, ce sont des repères.
      Publié ici, après les missions, parce que la bande les porte. */
   if(IS_EXT) try{ chrome.storage.local.set({skin: gameSkin(s0.acts, missions, s0.waits)}); }catch(e){}
+  /* Les focus qui n'ont rien à déplacer en ce moment : leur catégorie existe,
+     mais aucune carte à l'écran ne la porte. C'est dit ici et non à la
+     composition de la carte, parce que seul le rafraîchissement connaît le
+     plan — et dit, parce qu'une case qui ne peut rien faire sans l'annoncer
+     laisse croire que le panneau ne répond pas. Le poids, lui, reste juste :
+     la catégorie est bien poussée, il n'y a simplement rien à pousser. */
+  const pfMuets = document.getElementById('pfMuets');
+  if(pfMuets){
+    const portees = new Set(missions.map(catMission)
+      .concat([].concat(...plan.sessions.map(x=>x.acts.map(catActe)))).filter(Boolean));
+    const muets = Object.values(PROFILS.focus)
+      .filter(f=>f.cats.every(c=>!portees.has(c))).map(f=>f.court || f.n);
+    pfMuets.textContent = muets.length
+      ? `Rien à déplacer pour l'instant, aucune carte n'en relève : ${muets.join(', ')}.` : '';
+  }
   const timed = missions.filter(m=>m.at && m.at > plan.now), slotMs = new Map();
   for(const m of timed){ let host = null; for(const x of plan.sessions) if(x.T <= m.at) host = x; if(host && host!==s0){ if(!slotMs.has(host)) slotMs.set(host, []); slotMs.get(host).push(m); } else m.at = 0; }
   const nowMs = missions.filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
