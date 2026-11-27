@@ -3758,7 +3758,11 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
     ...m.web_accessible_resources.flatMap(r => r.resources),
     ...[...lu('sidepanel.html').matchAll(/(?:src|href)="([^":]+)"/g)].map(x => x[1]),
     ...cites]);
-  for (const f of voulus)
+  /* Un nom cité n'est pas toujours un fichier chargé : `save.json` est le nom
+     du fichier que « Enregistrer » écrit chez le joueur. Il ne part pas, et
+     ne doit pas partir — ce serait l'empire de quelqu'un dans le zip. */
+  const ecrits = new Set(['save.json']);
+  for (const f of voulus) if (!ecrits.has(f))
     assert.ok(liste.includes(f), f + ' est chargé par l\'extension et pack.sh ne l\'emporte pas');
   for (const f of liste)
     assert.ok(fs.existsSync(path.join(root, f)), 'pack.sh emporte ' + f + ', qui n\'existe pas');
@@ -8635,9 +8639,15 @@ t('un changement d\'une autre clé ne touche pas aux priorités', () => {
 t('boot.js transmet prioAsk à app.js, clé sans préfixe ls:', () => {
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'boot.js'), 'utf8');
   const win = {}, ask = [D()];
-  const chrome = {storage: {local: {get(k, cb) { cb({'ls:x': '1', prioAsk: ask, game: null}); }, set() { return Promise.resolve(); }}}};
+  /* boot.js lit aussi rules.json (fetch de l'URL de l'extension) et le mode
+     des heures (storage.sync) avant de charger app.js : le faux chrome les
+     sert, et `fetch` est passé pour ne jamais toucher au réseau. */
+  const chrome = {runtime: {getURL: f => 'chrome-extension://test/' + f},
+    storage: {local: {get(k, cb) { cb({'ls:x': '1', prioAsk: ask, game: null}); }, set() { return Promise.resolve(); }},
+      sync: {get(k, cb) { cb({}); }}}};
+  const fetch = () => Promise.resolve({ok: true, json: () => ({version: 1, regles: []})});
   const document = {createElement: () => ({}), body: {appendChild() {}}};
-  new Function('window', 'chrome', 'document', src)(win, chrome, document);
+  new Function('window', 'chrome', 'document', 'fetch', src)(win, chrome, document, fetch);
   assert.deepEqual(win.__prioAsk, ask);
   assert.equal(win.__mem.x, '1');
 });

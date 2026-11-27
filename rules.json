@@ -1,6 +1,56 @@
 {
   "version": 1,
-  "regles": [],
+  "regles": [
+    {
+      "id": "RES_STORAGE_FULL",
+      "domaine": "ressources",
+      "cat": "stock",
+      "niveau": "critique",
+      "condition": "storageRatio",
+      "parametres": {
+        "seuil": 0.98
+      },
+      "effet": "pousser",
+      "message": "{hangar} plein{sur}",
+      "raison": "La production de {ressource} est arrêtée. {depense} Monter {hangar} {niveau+1} prend {montee}, et la production reste à l'arrêt jusque-là.",
+      "source": "https://ogame.fandom.com/wiki/Buildings",
+      "statut": "valide",
+      "actif_par_defaut": true,
+      "verrou": false
+    },
+    {
+      "id": "RES_STORAGE_SOON",
+      "domaine": "ressources",
+      "cat": "stock",
+      "niveau": "important",
+      "condition": "storageEta",
+      "parametres": {
+        "heures": 8
+      },
+      "effet": "pousser",
+      "message": "{hangar} plein dans {dans}{sur}",
+      "raison": "Lance {hangar} {niveau+1} maintenant : il met {montee} à sortir, et au plafond la production s'arrête.",
+      "source": "https://ogame.fandom.com/wiki/Buildings",
+      "statut": "valide",
+      "actif_par_defaut": true,
+      "verrou": false
+    },
+    {
+      "id": "RES_ENERGY_NEGATIVE",
+      "domaine": "ressources",
+      "cat": "mines",
+      "niveau": "critique",
+      "condition": "energyBalance",
+      "parametres": {},
+      "effet": "pousser",
+      "message": "Rétablir l'énergie{sur}",
+      "raison": "Tes mines tournent à {pct} %. {options}",
+      "source": "https://ogame.fandom.com/wiki/Energy",
+      "statut": "valide",
+      "actif_par_defaut": true,
+      "verrou": false
+    }
+  ],
   "mineBalance": {
     "byStyle": { "mineur": 2, "turtle": 2, "raideur": 1, "fleeter": 1, "explorateur": 1 },
     "byPosition": { "1-3": -1, "4-5": 0, "6-10": 1, "11-15": 0 }
