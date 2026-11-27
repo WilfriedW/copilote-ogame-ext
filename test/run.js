@@ -28,7 +28,7 @@ function app(modifier, now, api, ext, prioAsk) {
   // le stock avance tout seul depuis sa date : on le cale sur l'instant du test
   s.planets.forEach(p => { p.stock.at = now == null ? SOIR : now; });
   if (modifier) modifier(s);
-  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES', 'missionKey', 'UI', 'uiOuvert', 'uiNote', 'uiVu', 'uiPurge', 'uiReset', 'uiEcrit', 'fold', 'garderVue'], api, ext, prioAsk);
+  return loadApp(s, now == null ? SOIR : now, ['fleetsavePlan', 'dailyMissions', 'missionDone', 'S', 'shipList', 'flight', 'REFRESH', 'simulateDay', 'planetRef', 'qHtml', 'actGo', 'goUrl', 'lfSecs', 'lfRes', 'lfQueue', 'lfState', 'lfBloquee', 'casesTuile', 'casesLibres', 'planHints', 'prioHints', 'gameSkin', 'header', 'etaSecs', 'hms', 'copyChips', 'missionGo', 'nextResearch', 'techPayback', 'maxPlanets', 'finishTimer', 'planetAlerts', 'depensesPayables', 'storageCap', 'storageLevelFor', 'crawlerMax', 'crawlerBonus', 'levelCost', 'rangeCost', 'mse', 'T', 'POS_BONUS_M', 'expoCap', 'expoInFlight', 'goNote', 'actHtml', 'waitFor', 'raidPlan', 'production', 'rankUpgrades', 'colonyPayback', 'coloFleet', 'parseProdPanel', 'prodOf', 'bridage', 'applyGame', 'lfCost', 'lfCandidates', 'speciesOf', 'speciesOfPlanet', 'foundLifeforms', 'bestLifeform', 'lfPourPos', 'lfRaisonPos', 'lfConseilPlanete', 'satEnergy', 'satsOk', 'energyOptions', 'lfSettingsHtml', 'lfMerge', 'lfEffect', 'dayValue', 'defTarget', 'defMix', 'defNeed', 'defMixList', 'cargoGaps', 'cargoCap', 'pickCargo', 'planetById', 'forgetPlanet', 'migratePlanetIds', 'tourData', 'B', 'B_SHORT', 'terrainRates', 'vocations', 'besoinEmpire', 'mineWhy', 'centreIndex', 'centrePlanet', 'centreWhy', 'labLevel', 'labPlanet', 'labEffectif', 'researchTime', 'reqOk', 'galaxyUrl', 'cargoHomeIndex', 'VIEWS', 'coloFrom', 'raidTargets', 'parseReport', 'applyReport', 'prios', 'prioOf', 'prioClean', 'prioStep', 'prioBloque', 'prioAvant', 'prioRien', 'pickBuildings', 'prioHtml', 'prioPose', 'prioRetire', 'prioDevant', 'prioLvl', 'priosLf', 'prioDrain', 'prioDemandes', 'esc', 'poseK', 'poseLignes', 'posePartout', 'poseRetireTout', 'poseBloc', 'poseCoche', 'prioPalier', 'prioCible', 'lfPosePaliers', 'lfPopNourriture', 'LF_PALIER', 'syncOut', 'syncApply', 'releveAge', 'releveEtapes', 'lfRelance', 'RELEVE_NUIT', 'FRAIS_MS', 'scanEtat', 'lfChiffree', 'lfMetEnCommun', 'chantierFlou', 'chantierARelire', 'view', 'bind', 'appliqueSauvegarde', 'SHIPS', 'DEF', 'SHIP_COST', 'COL_SHIP_COST', 'luneTir', 'luneVaisseaux', 'luneFacture', 'luneDefense', 'luneFlotteAuSol', 'wakeTime', 'nightLen', 'absenceJour', 'nightDue', 'dayValue', 'repondNuit', 'armeNuit', 'jourCivil', 'modeNuit', 'finDeNuit', 'nightBar', 'fmt', 'fmtLigne', 'luneQuand', 'luneMorts', 'luneRepond', 'luneUrgent', 'luneDeja', 'luneDette', 'luneEnvoye', 'luneOut', 'gidDe', 'luneIn', 'DEF_MODELES', 'DEF_PALIERS', 'DEF_RATIO', 'defPlan', 'defModele', 'formatRecipe', 'packCost', 'packText', 'defModeleCarte', 'defUniteTitre', 'defRecetteHtml', 'defCarte', 'defModeleK', 'defRatio', 'defAncre', 'defPalierDe', 'defPrereq', 'sainEtat', 'syncOut', 'render', 'plusRecente', 'versionCard', 'whyLead', 'whyParts', 'PROFILS', 'profilCard', 'profilBloc', 'profilLigne', 'profilFocusHtml', 'poidsCat', 'catActe', 'catMission', 'classeSuggeree', 'classeVoulue', 'classeEcart', 'profilConnu', 'styleRepose', 'focusInerte', 'planPoseParLeStyle', 'expoFleet', 'expoPoints', 'expoPts', 'expoFret', 'expoRes', 'expoTgt', 'expoSys', 'expoScore', 'expoVus', 'expoVols', 'expoDuree', 'expoCandidats', 'expoPropose', 'expoEtat', 'expoHtml', 'expoSain', 'expoWanted', 'fleetUrl', 'top1Tier', 'EXPO_XP', 'EXPO_PTS', 'EXPO_MARGE', 'EXPO_DUREES', 'coordLink', 'expoAuSol', 'actsVus', 'colonneData', 'cardKey', 'actKey', 'noLabel', 'noListe', 'applyLimit', 'cartesMax', 'cartesGlobal', 'cartesPropre', 'cartesSain', 'cartesVal', 'listeCartes', 'cartesMenu', 'affichageCard', 'LISTES', 'missionKey', 'UI', 'uiOuvert', 'uiNote', 'uiVu', 'uiPurge', 'uiReset', 'uiEcrit', 'fold', 'garderVue', 'carteDetails'], api, ext, prioAsk);
 }
 
 /* ---------- fraîcheur du relevé ---------- */
@@ -8593,7 +8593,7 @@ t('la minuterie de 30 s republie le plan aussi sur Empire', () => {
   /* setInterval est neutralisé dans le harnais : on épingle la source. */
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
   // garderVue() enrobe le dessin pour que la carte lue ne bouge pas à l'écran
-  assert.match(src, /garderVue\(\(\)=>REFRESH\[tab\]\(\)\);\s*publieLePlan\(\);\s*finDeNuit\(\);\s*nightBar\(\);\s*\}, 30000\)/);
+  assert.match(src, /garderVue\(\(\)=>\{\s*REFRESH\[tab\]\(\);\s*cartesSync\(\);\s*\}\);\s*publieLePlan\(\);\s*finDeNuit\(\);\s*nightBar\(\);\s*\}, 30000\)/);
 });
 
 t('le changement que provoque l\'effacement lui-même ne rejoue rien', () => {
@@ -12571,6 +12571,121 @@ t('garderVue dessine même sans fenêtre qui défile', () => {
   assert.equal(n, 2);
 });
 
+/* ---------- disposition des cartes : empilées ou en onglets ---------- */
+
+const CARTES_W = ['VIEWS', 'CARTES', 'RESUMES', 'REFRESH', 'resumeDe', 'niveauDe', 'critCle', 'segTabs', 'cardLayout', 'cartesPresentes', 'setCardMode', 'header', 'render'];
+/** Le panneau avec ce que boot.js aurait lu : `mode` vaut 'tabs', 'stacked' ou rien. */
+function appCartes(mode, modifier) {
+  const s = fixtureState();
+  s.planets.forEach(p => { p.stock.at = SOIR; });
+  if (modifier) modifier(s);
+  if (mode) s.__win = { __cardLayout: mode };
+  return loadApp(s, SOIR, CARTES_W.concat(['cardMode', 'cardTabs']));
+}
+const ordreCartes = h => [...h.matchAll(/data-carte="([^"]+)"/g)].map(m => m[1]);
+
+t('cartes : le mode empilé reste le défaut, sans barre ni masquage', () => {
+  const g = appCartes();
+  const h = g.VIEWS.today();
+  assert.ok(!/en-onglets|carteTabs/.test(h), 'rien du mode onglets');
+  assert.ok(!/<div class="carte"[^>]* hidden/.test(h), 'aucune carte masquée');
+  assert.deepEqual(ordreCartes(h), ['profil', 'maintenant', 'alertes', 'expeditions', 'journee', 'minuteurs']);
+  for (const id of ['tdNow', 'tdAlerts', 'expoBloc', 'tdDay', 'tmList']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là');
+});
+t('cartes : un mode inconnu retombe sur l\'empilé', () => {
+  assert.ok(!/en-onglets/.test(appCartes('grille').VIEWS.today()));
+});
+t('cartes : en onglets, une barre .seg en tête, les cartes dans le même ordre', () => {
+  const h = appCartes('tabs').VIEWS.today();
+  assert.ok(/<section class="panel en-onglets" data-disposition="today"><div class="seg" role="tablist" id="carteTabs"/.test(h));
+  assert.deepEqual(ordreCartes(h), ['profil', 'maintenant', 'alertes', 'expeditions', 'journee', 'minuteurs']);
+});
+t('cartes : une carte ne sait pas dans quel mode elle est montrée', () => {
+  const pile = appCartes().VIEWS.today();
+  const ong = appCartes('tabs').VIEWS.today()
+    .replace(' en-onglets', '').replace('<div class="seg" role="tablist" id="carteTabs" aria-label="Sections"></div>', '');
+  assert.equal(ong, pile, 'seul le conteneur change');
+});
+t('cartes : le compteur prend le niveau le plus grave', () => {
+  const g = appCartes();
+  assert.deepEqual(g.resumeDe([{sev: 'info'}, {sev: 'warn'}, {sev: 'good'}], 'x'), {count: 3, maxLevel: 'imp', critiques: []});
+  const r = g.resumeDe([{sev: 'warn'}, {sev: 'bad', key: 'Plus un emplacement libre sur Erablis (12/12)'}], 'alertes');
+  assert.equal(r.maxLevel, 'crit');
+  assert.deepEqual(r.critiques, ['alertes:Plus un emplacement libre sur Erablis ( / )']);
+  assert.deepEqual(g.resumeDe([], 'x'), {count: 0, maxLevel: null, critiques: []});
+  assert.equal(g.niveauDe('good'), 'info', 'un « Prêt » reste un conseil');
+});
+t('cartes : une alerte dont seuls les montants bougent reste la même', () => {
+  const g = appCartes();
+  assert.equal(g.critCle('Hangar plein sur Mère : 1 200 000 métal'), g.critCle('Hangar plein sur Mère : 1 350 500 métal'));
+  assert.notEqual(g.critCle('Hangar plein sur Mère'), g.critCle('Hangar plein sur Colonie'));
+});
+t('cartes : compteurs colorés, rien quand l\'onglet est vide', () => {
+  const g = appCartes();
+  const h = g.segTabs([['securite', 'Sécurité', {count: 2, maxLevel: 'crit'}], ['defense', 'Défense', {count: 0, maxLevel: null}], ['conseils', 'Conseils', {count: 3, maxLevel: 'info'}], ['x', 'X', null]], 'data-carte-tab', 'defense');
+  assert.ok(/data-carte-tab="securite" aria-selected="false">Sécurité <span class="cpt crit"[^>]*>\(2\)<\/span>/.test(h));
+  assert.ok(/data-carte-tab="defense" aria-selected="true">Défense<\/button>/.test(h), 'pas de compteur à zéro');
+  assert.ok(/class="cpt info"[^>]*>\(3\)/.test(h), 'gris pour des conseils seuls');
+  assert.ok(/data-carte-tab="x" aria-selected="false">X<\/button>/.test(h));
+});
+t('cartes : Outils garde la même barre, construite par le même composant', () => {
+  const g = appCartes();
+  const h = g.VIEWS.tools();
+  assert.ok(/<div class="seg" role="tablist"><button role="tab" data-tool="explore" aria-selected="false">Cibles<\/button>/.test(h));
+  assert.ok(/data-tool="colony" aria-selected="true">Colonie</.test(h));
+});
+t('cartes : une carte dynamique vide n\'a pas d\'onglet, une fixe toujours', () => {
+  const g = appCartes();
+  g.RESUMES.alertes = g.resumeDe([], 'alertes');
+  g.RESUMES.maintenant = g.resumeDe([], 'maintenant');
+  let ids = g.cartesPresentes('today').map(x => x.c.cardId);
+  assert.ok(!ids.includes('alertes'), 'pas d\'alerte, pas d\'onglet');
+  assert.deepEqual(ids, ['profil', 'maintenant', 'expeditions', 'journee', 'minuteurs']);
+  g.RESUMES.alertes = g.resumeDe([{sev: 'warn'}], 'alertes');
+  ids = g.cartesPresentes('today').map(x => x.c.cardId);
+  assert.equal(ids[2], 'alertes', 'à sa place dans l\'ordre de la pile');
+});
+t('cartes : le rafraîchissement dit ce que contient chaque carte', () => {
+  // toutes les cases prises : l'alerte la plus grave que le moteur sache dire
+  const g = appCartes(null, s => { s.planets[0].cases = {max: 163, pris: 163}; });
+  g.render();
+  const r = g.RESUMES;
+  assert.ok(r.maintenant && r.alertes && r.expeditions, 'les trois cartes calculées ont leur résumé');
+  assert.equal(r.alertes.maxLevel, 'crit', JSON.stringify(r.alertes));
+  assert.ok(r.alertes.critiques.length && r.alertes.critiques.every(k => k.startsWith('alertes:') && !/\d/.test(k)), 'clé sans chiffres');
+});
+t('cartes : l\'interrupteur se retient dans le stockage partagé et redessine', () => {
+  const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; });
+  const g = loadApp(s, SOIR, ['setCardMode', 'VIEWS', 'cardMode']);
+  g.setCardMode('tabs');
+  assert.equal(g.shared().cardLayout, 'tabs');
+  assert.ok(/class="panel en-onglets"/.test(g.el('view').innerHTML), 'appliqué sans recharger');
+  assert.ok(g.el('cartesBtn').classList.contains('primary'), 'l\'en-tête le montre');
+  assert.ok(/id="sOnglets" data-onglets-mode="1" checked/.test(g.VIEWS.settings()), 'Réglages aussi');
+  g.setCardMode('stacked');
+  assert.equal(g.shared().cardLayout, 'stacked');
+  assert.ok(!/id="sOnglets" data-onglets-mode="1" checked/.test(g.VIEWS.settings()));
+  assert.ok(!g.el('cartesBtn').classList.contains('primary'));
+});
+t('cartes : un autre panneau change le mode, celui-ci suit sans le réécrire', () => {
+  const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; });
+  const g = loadApp(s, SOIR, ['VIEWS']);
+  g.fire({cardLayout: {newValue: 'tabs'}}, 'sync');
+  assert.ok(/class="panel en-onglets"/.test(g.el('view').innerHTML));
+  assert.equal(g.shared().cardLayout, undefined, 'rien de renvoyé');
+});
+t('cartes : l\'onglet choisi se relit au démarrage', () => {
+  const s = fixtureState(); s.__win = {__cardLayout: 'tabs', __cardTab: {today: 'expeditions'}};
+  const g = loadApp(s, SOIR, ['cardTabs', 'cardMode']);
+  assert.equal(g.cardMode, 'tabs');
+  assert.deepEqual(g.cardTabs, {today: 'expeditions'});
+});
+t('cartes : les onglets ne lancent rien dans le jeu', () => {
+  const g = appCartes('tabs');
+  const h = g.segTabs(g.CARTES.today.map(c => [c.cardId, c.titre, null]), 'data-carte-tab', 'maintenant');
+  assert.ok(!/data-launch|data-sent|data-prep|href/.test(h));
+});
+
 /* ---------- combien de cartes par liste ---------- */
 const carte = (i, crit) => ({html: `<li>c${i}</li>`, crit: !!crit});
 const huit = () => Array.from({length: 8}, (_, i) => carte(i));
@@ -12649,6 +12764,16 @@ t('Maintenant : le compteur compte tout, la liste coupe à la limite', () => {
   assert.ok(!/data-voirplus/.test(tout.tdNow || ''), '« Toutes » : pas de lien');
   assert.equal(lu(un.tdNow).replace(/<ul[^>]*>|<\/ul>|<button[^>]*data-voirplus[\s\S]*?<\/button>/g, '').length,
     lu(tout.tdNow).replace(/<ul[^>]*>|<\/ul>/g, '').length, 'les mêmes cartes, masquées comprises');
+});
+
+t('en onglets, le volet de la carte Alertes est trouvé sous #tdAlerts', () => {
+  const g = app();
+  const el = (tag, cls, kid) => ({tagName: tag, classList: {contains: c => c === cls}, firstElementChild: kid || null});
+  const direct = el('DETAILS', 'card');
+  assert.equal(g.carteDetails(el('DIV', 'carte', direct)), direct, 'carte fixe : enfant direct');
+  const alertes = el('DETAILS', 'card');
+  assert.equal(g.carteDetails(el('DIV', 'carte', el('DIV', '', alertes))), alertes, 'Alertes : un cran plus bas');
+  assert.equal(g.carteDetails(el('DIV', 'carte', el('DIV', 'card'))), null, 'Maintenant : pas de volet');
 });
 
 if (failures.length) {

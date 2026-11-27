@@ -427,6 +427,19 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
 :root[data-skin=arcade] .big-alert .box .btn{background:#2a1300;color:#ffd166}
 :root[data-skin=arcade] label.f.bascule input:checked{background:linear-gradient(135deg,#ff5fa2,#8b5cf6);border-color:transparent}
 :root[data-skin=arcade] label.f.bascule input:checked::after{background:#fff}
+/* Disposition des cartes. Empilées, l'enveloppe d'une carte ne compte pas
+   dans la mise en page : la pile reste exactement celle d'avant. En onglets,
+   seule la carte de l'onglet actif s'affiche, et elle reste dépliée — son
+   titre n'est plus un bouton. */
+.carte{display:contents}
+.carte[hidden]{display:none}
+.en-onglets>.carte>details.card>summary,.en-onglets>.carte>div>details.card>summary{pointer-events:none;cursor:default;list-style:none}
+.en-onglets>.carte>details.card>summary::-webkit-details-marker,.en-onglets>.carte>div>details.card>summary::-webkit-details-marker{display:none}
+.en-onglets>.carte>details.card>summary::after,.en-onglets>.carte>div>details.card>summary::after{content:none}
+.seg .cpt{font:700 11px var(--f-mono);margin-left:2px}
+.seg .cpt.crit{color:var(--bad)}
+.seg .cpt.imp{color:var(--warn)}
+.seg .cpt.info{color:var(--muted)}
 /* Le menu « Afficher : N » d'une liste, et son « Voir plus » */
 .liste-tete{gap:8px}
 .liste-tete h2{margin:0}

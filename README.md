@@ -63,6 +63,30 @@ La carte Alertes s'ouvre seule tant qu'une alerte critique y figure, puis
 revient à l'état choisi. **Réglages › Allure du panneau › Réinitialiser
 l'affichage des cartes** remet tout comme au premier jour.
 
+## Les cartes en onglets
+
+Le bouton 🗂️ de l'en-tête — ou **Réglages › Allure du panneau › Organiser les
+sections en onglets** — range les cartes d'**Aujourd'hui** (Profil,
+Maintenant, Alertes, Expéditions, Ta journée, Minuteurs) en onglets, avec la
+même barre que dans **Outils**. Une seule carte s'affiche, toujours dépliée ;
+ses sections internes gardent leur état. Empilé reste le mode par défaut.
+
+- Chaque onglet porte un compteur : **rouge** s'il contient au moins un
+  élément urgent, **orange** un élément à surveiller, **gris** des conseils
+  seulement. Pas de compteur quand l'onglet est vide.
+- Alertes n'a d'onglet que lorsqu'il y a une alerte ; les autres cartes ont
+  toujours le leur.
+- Une nouvelle alerte urgente fait basculer une fois sur son onglet. Revenir
+  sur le tien ne te ramène pas pour la même alerte ; une autre, si. Une alerte
+  déjà vue en mode empilé ne fait pas basculer.
+- L'onglet choisi est retenu sur cette machine (changement de page, de
+  planète, redémarrage). S'il n'existe plus, c'est le premier qui s'affiche,
+  et le tien revient dès qu'il réapparaît.
+- En passant en onglets, la carte où tu t'étais arrêté de défiler devient
+  l'onglet actif ; en revenant à la pile, le panneau défile jusqu'à elle.
+- Le mode suit ton compte d'un poste à l'autre, comme l'interrupteur des
+  heures.
+
 ## Combien de cartes par liste
 
 Chaque liste d'Aujourd'hui — **Maintenant**, **Alertes**, **Expéditions**,
