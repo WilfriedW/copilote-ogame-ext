@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.12.0';
+const APP_VERSION = '2.12.1';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -200,7 +200,7 @@ function sample(){
     moonCalc:{pid:'', ship:'lf', n:0, bou:null, viser:12},
     lune:{on:false, impact:null, tirs:{}, tirsAttente:{}, maj:0, rendu:{coords:'', n:0, dus:0, faits:0}},
     expo:{pf:true},
-    ui:{tool:'colony', fold:{}, pose:{k:'metal', lvl:'', hors:{}}},
+    ui:{tool:'colony', pose:{k:'metal', lvl:'', hors:{}}},
     day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false,
       /* Le joueur a-t-il dit comment il joue. Faux tant qu'il ne l'a pas dit :
          `focus` vaut alors « Équilibré » parce qu'il faut bien viser quelque
@@ -1964,15 +1964,91 @@ function flight(from, to, ships, pct){
 /* ---------- views ---------- */
 const view = document.getElementById('view');
 let tab = 'today';
-/* Un panneau latéral est étroit : tout déplié, Aujourd'hui se lit en trois
+/* ---------- ce qui est ouvert, ce qui est fermé ----------
+   Un panneau latéral est étroit : tout déplié, Aujourd'hui se lit en trois
    écrans de défilement. Les sections qui ne servent pas à chaque passage se
-   replient donc, et se souviennent : le panneau se redessine à chaque plan, et
-   une section rouverte à chaque dessin ne resterait jamais fermée. L'état vit
-   dans S.ui.fold, par nom, pas par rang — l'ordre des sections change. */
-function fold(name, def){
-  const v = (S.ui.fold||{})[name];
-  return (v==null ? def : v) ? ' open' : '';
+   replient donc, et se souviennent : le panneau se redessine en entier à chaque
+   plan (innerHTML), et toute ouverture tenue par le seul DOM se perdait au
+   passage suivant — c'est ce qui repliait « Comment faire » dès qu'une autre
+   carte apparaissait.
+
+   L'état vit donc ici, par identifiant stable, jamais par rang ni par texte :
+   - carte fixe : son nom déclaré (`expeditions`, `journee`…), le même sur
+     toutes les planètes ;
+   - carte dynamique : `missionKey()`, ce qui définit la recommandation
+     (type, règle, planète, cible) et rien de ce qui bouge sans elle ;
+   - section : `{carte}.{section}`, ex. `…:2-430-16.comment-faire`.
+   Le tout est propre au poste : chrome.storage.local, hors de S (qui part dans
+   save.json) et hors de la synchro. boot.js le lit avant le premier rendu,
+   sinon le panneau s'ouvrirait fermé puis se rouvrirait.
+   Seul un clic du joueur écrit : une ouverture forcée par une alerte passe par
+   `force`, qui ne touche pas au choix enregistré. */
+const UI_GARDE_MS = 7*24*3600e3;
+/* Une date de dernière apparition se réécrit au plus une fois l'heure : le
+   panneau se redessine toutes les 30 s, et l'âge ne compte qu'en jours. */
+const UI_VU_PAS_MS = 3600e3;
+const UI = {etats: {}, vus: {}};
+var uiT = 0;
+(function uiCharge(){
+  const e = window.__uiState, v = window.__uiSeen;
+  if(e && typeof e === 'object') for(const [k, x] of Object.entries(e)) if(x === 'open' || x === 'closed') UI.etats[k] = x;
+  if(v && typeof v === 'object') for(const [k, x] of Object.entries(v)) if(isFinite(Date.parse(x))) UI.vus[k] = x;
+  /* Les replis d'avant ce store vivaient dans S.ui.fold, en booléens : ils
+     passent ici une fois, puis S les oublie. */
+  const vieux = S.ui && S.ui.fold;
+  let migre = false;
+  if(vieux && typeof vieux === 'object'){
+    for(const [k, x] of Object.entries(vieux)) if(!(k in UI.etats) && typeof x === 'boolean'){ UI.etats[k] = x ? 'open' : 'closed'; migre = true; }
+    delete S.ui.fold;
+  }
+  if(uiPurge(Date.now()) || migre) uiEcrit();
+})();
+/**
+ * Oublie les cartes dynamiques disparues depuis plus de sept jours, avec leurs
+ * sections. Une carte revenue entre-temps a vu sa date rafraîchie : elle reste.
+ * @returns {boolean} vrai si quelque chose a été effacé
+ */
+function uiPurge(now){
+  let n = 0;
+  for(const [k, iso] of Object.entries(UI.vus)){
+    if(now - Date.parse(iso) <= UI_GARDE_MS) continue;
+    delete UI.vus[k]; n++;
+    for(const e of Object.keys(UI.etats)) if(e === k || e.startsWith(k + '.')) delete UI.etats[e];
+  }
+  return n > 0;
 }
+/** Écrit le store tout de suite. */
+function uiEcrit(){
+  clearTimeout(uiT); uiT = 0;
+  if(typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
+  try{ const r = chrome.storage.local.set({uiState: Object.assign({}, UI.etats), uiSeen: Object.assign({}, UI.vus)}); if(r && r.catch) r.catch(e=>console.error('Copilote : affichage des cartes non enregistré', e)); }
+  catch(e){ console.error('Copilote : affichage des cartes non enregistré', e); }
+}
+/* Trois clics d'affilée ne font qu'une écriture. */
+function uiPlusTard(){ clearTimeout(uiT); uiT = setTimeout(uiEcrit, 300); }
+/**
+ * Ouvert ou fermé, au moment du rendu.
+ * @param {string} id identifiant stable de la carte ou de la section
+ * @param {boolean} def l'état par défaut déclaré, pour une carte jamais touchée
+ * @param {boolean} [force] une alerte critique l'ouvre, sans rien enregistrer
+ */
+function uiOuvert(id, def, force){
+  if(force) return true;
+  const v = UI.etats[id];
+  return v ? v === 'open' : !!def;
+}
+/** Le choix du joueur, au clic. */
+function uiNote(id, ouvert){ UI.etats[id] = ouvert ? 'open' : 'closed'; uiPlusTard(); }
+/** Une carte dynamique vient d'être dessinée : sa date de dernière apparition avance. */
+function uiVu(key){
+  const now = Date.now(), d = UI.vus[key];
+  if(d && now - Date.parse(d) < UI_VU_PAS_MS) return;
+  UI.vus[key] = new Date(now).toISOString(); uiPlusTard();
+}
+/** « Réinitialiser l'affichage des cartes » : chaque carte reprend son défaut. */
+function uiReset(){ UI.etats = {}; UI.vus = {}; uiEcrit(); }
+/** L'attribut `open` d'un <details>, lu dans le store. */
+function fold(name, def, force){ return uiOuvert(name, def, force) ? ' open' : ''; }
 
 /* ---------- disposition des cartes : empilées ou en onglets ---------- */
 /* Aujourd'hui empile ses cartes, et il faut défiler pour retrouver la bonne.
@@ -2100,8 +2176,8 @@ function cartesSync(){
     /* Le contenu de l'onglet est toujours déplié, sans toucher à l'état
        enregistré du volet : revenu en mode empilé, la carte retrouve le sien.
        Les sections internes, elles, gardent le leur. */
-    const d = w.firstElementChild;
-    if(on && d && d.tagName === 'DETAILS' && !d.open) d.open = true;
+    const d = carteDetails(w);
+    if(on && d && !d.open) d.open = true;
   });
   const bar = sec.querySelector('#carteTabs');
   if(bar){
@@ -2114,6 +2190,17 @@ function cartesSync(){
       if(b && b.scrollIntoView) b.scrollIntoView({block:'nearest', inline:'nearest'});
     }
   }
+}
+/**
+ * Le volet qui fait la carte : enfant direct de son enveloppe, ou un cran plus
+ * bas quand la carte est dessinée dans un bloc rafraîchi — Alertes vit dans
+ * #tdAlerts, que REFRESH réécrit sans toucher à l'enveloppe.
+ */
+function carteDetails(w){
+  const a = w && w.firstElementChild;
+  if(a && a.tagName === 'DETAILS') return a;
+  const b = a && a.firstElementChild;
+  return b && b.tagName === 'DETAILS' && b.classList && b.classList.contains('card') ? b : null;
 }
 /** Le joueur choisit un onglet : il est retenu, et la bascule d'alerte s'efface. */
 function carteChoisie(id){
@@ -2189,8 +2276,8 @@ function setCardMode(m, distant){
    Les urgences ne se comptent pas : une carte « Urgent » cachée derrière un
    « Voir plus », c'est exactement ce que la limite ne doit jamais faire.
    Les valeurs vivent dans S.settings, donc dans la synchro entre postes ;
-   l'état « Voir plus » dans S.ui.fold, comme les volets repliés, propre au
-   poste. */
+   l'état « Voir plus » dans le store d'affichage (UI), comme les volets
+   repliés, propre au poste. */
 const CARTES_CHOIX = [1, 3, 5, 10, 'all'];
 const CARTES_DEF = 3;
 /* Les listes du panneau, dans l'ordre où Aujourd'hui les montre. L'id est la
@@ -2236,7 +2323,7 @@ function applyLimit(cartes, limite){
   return {visibles: crit.concat(autres.slice(0, n)), masquees: autres.slice(n)};
 }
 const voirPlusCle = id => id + '.voirPlus';
-function voirPlusOuvert(id){ return !!(S.ui.fold || {})[voirPlusCle(id)]; }
+function voirPlusOuvert(id){ return uiOuvert(voirPlusCle(id), false); }
 /** Le menu « Afficher : N » d'en-tête de liste. */
 function cartesMenu(id){
   const v = cartesMax(id), propre = cartesPropre(id) != null;
@@ -2614,10 +2701,53 @@ function header(){
 }
 /** Vrai tant que l'écran du relevé tient la place du contenu. */
 function enScan(){ return !!(scanEcran && releveEnCours); }
-function render(){ prioClean(); ignClean(); header(); view.innerHTML = enScan() ? VIEWS.scan() : VIEWS[tab](); bind(); refresh(); }
+/* ---------- la vue ne saute pas ----------
+   Le rendu remplace les nœuds : l'ancrage de défilement du navigateur
+   (overflow-anchor) perd son ancre avec eux et ne corrige rien. On le fait à la
+   main : avant le dessin, la carte que le joueur lit — la plus profonde à
+   chevaucher le haut de l'écran, sinon la première en dessous — et sa position ;
+   après, la même carte, retrouvée par sa clé, et le défilement corrigé de
+   l'écart. Tout en haut de la page on ne corrige rien : ce qui apparaît
+   au-dessus doit se voir, comme le fait le navigateur. */
+/* L'onglet du dernier dessin : un changement d'onglet n'a rien à garder. */
+var vueOnglet = null;
+function vueAncre(){
+  if(vueOnglet !== tab) return null;
+  if(typeof window.scrollBy !== 'function' || !(window.scrollY > 0)) return null;
+  const nav = document.getElementById('tabs'), haut = nav && nav.getBoundingClientRect ? nav.getBoundingClientRect().bottom : 0;
+  let pris = null;
+  for(const el of view.querySelectorAll('[data-ck], details > summary[data-fold]')){
+    const r = el.getBoundingClientRect(), id = el.dataset.ck || 'fold:' + el.dataset.fold;
+    if(r.height === 0) continue;
+    if(r.top <= haut && r.bottom > haut) pris = {id, top:r.top};
+    else if(r.top > haut){ if(!pris) pris = {id, top:r.top}; break; }
+  }
+  return pris && Object.assign(pris, {tab});
+}
+function vueRecale(a){
+  if(!a || a.tab !== tab) return;
+  for(const el of view.querySelectorAll('[data-ck], details > summary[data-fold]')){
+    if((el.dataset.ck || 'fold:' + el.dataset.fold) !== a.id) continue;
+    const d = el.getBoundingClientRect().top - a.top;
+    if(Math.abs(d) >= 1) window.scrollBy(0, d);
+    return;
+  }
+}
+/** Dessine sans faire bouger la carte lue. */
+var vueN = 0;
+function garderVue(fn){
+  // render() appelle refresh() : seul le dessin le plus extérieur mesure.
+  if(vueN) return fn();
+  vueN++;
+  let a = null;
+  try{ a = vueAncre(); }catch(e){}
+  try{ fn(); }
+  finally{ vueN--; try{ vueRecale(a); }catch(e){} vueOnglet = tab; }
+}
+function render(){ prioClean(); ignClean(); garderVue(()=>{ header(); view.innerHTML = enScan() ? VIEWS.scan() : VIEWS[tab](); bind(); refresh(); }); }
 /* Pendant le relevé, les REFRESH écriraient dans des éléments que l'écran du
    relevé n'a pas : ils ne rafraîchissent que ce qui est à l'écran. */
-function refresh(){ if(!enScan()){ (REFRESH[tab]||(()=>{}))(); cartesSync(); } header(); renderMeteo(); }
+function refresh(){ garderVue(()=>{ if(!enScan()){ (REFRESH[tab]||(()=>{}))(); cartesSync(); } header(); renderMeteo(); }); }
 
 /* ---------- advice ---------- */
 const MILESTONES = [
@@ -3071,7 +3201,7 @@ function tickTimers(){
     if(changed || list.dataset.count !== String(visibleTimers().length)) renderTimers();
     else S.timers.forEach(tm=>{ const el=document.getElementById('cd-'+tm.id); if(el && !tm.done) el.textContent = clock((tm.end-now)/1000); });
   }
-  if(changed && tab==='today'){ REFRESH.today(); cartesSync(); }
+  if(changed && tab==='today') garderVue(()=>{ REFRESH.today(); cartesSync(); });
 }
 function clock(sec){ sec=Math.max(0,Math.round(sec)); const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60), s=sec%60; return (d?d+'j ':'') + `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`; }
 /** Timers still worth showing: running, or finished but not yet acknowledged. */
@@ -4775,8 +4905,12 @@ function whyLead(s){
   if(out.length > 120) out = out.slice(0, 119).replace(/\s+\S*$/, '') + '…';
   return out.replace(/[\s·]+$/, '');
 }
-/** @returns {string[]} [le bouton ⓘ, le texte replié, la raison en une phrase]. */
-function whyParts(parts){
+/**
+ * @param {string[]} parts les pourquoi, le premier porte la raison
+ * @param {string} [key] la carte qui les porte : le ⓘ ouvert le reste au rendu suivant
+ * @returns {string[]} [le bouton ⓘ, le texte replié, la raison en une phrase].
+ */
+function whyParts(parts, key){
   const p = parts.filter(Boolean);
   if(!p.length) return ['', '', ''];
   const lead = whyLead(p[0]);
@@ -4789,20 +4923,25 @@ function whyParts(parts){
      qu'on l'ouvre. */
   const reste = p[0].startsWith(lead) ? p[0].slice(lead.length).replace(/^[\s·.]+/, '') : p[0];
   const corps = (reste ? [reste] : []).concat(p.slice(1));
-  return [`<button class="i" type="button" aria-expanded="false" aria-controls="${id}" aria-label="Pourquoi cette action">ⓘ</button>`,
-    `<div class="why" id="${id}" hidden>${corps.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`,
+  /* L'identifiant du DOM reste un compteur : la même carte peut se dessiner
+     deux fois (maintenant et plus tard dans la journée). L'état, lui, suit la
+     carte. */
+  const sec = key ? key + '.pourquoi' : '', ouvert = sec && uiOuvert(sec, false);
+  return [`<button class="i" type="button" aria-expanded="${ouvert ? 'true' : 'false'}" aria-controls="${id}"${sec ? ` data-ui="${esc(sec)}"` : ''} aria-label="Pourquoi cette action">ⓘ</button>`,
+    `<div class="why" id="${id}"${ouvert ? '' : ' hidden'}>${corps.map(x=>`<p>${esc(x)}</p>`).join('')}</div>`,
     lead];
 }
 function actHtml(a, withBtn){
+  const ck = actKey(a); uiVu(ck);
   const [wi, wb, lead] = whyParts([a.why,
     a.src==='estimé' ? 'Prix et durée estimés d\'après les niveaux déjà vus, pas lus sur le jeu ; la durée est probablement sous-estimée.' : a.src==='lu' && a.at ? `Prix lu à ${formatTime(a.at)}.` : '',
-    goNote(a)]);
+    goNote(a)], ck);
   const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${formatTime(a.end)}</span>` : '', copyChips(a)].filter(Boolean).join('');
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,pid:(S.planets[a.p]||{}).id,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
   if(withBtn && NO_KINDS[a.kind]) btn = `<span class="btns">${btn}${noBtn(actKey(a))}</span>`;
-  return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div>${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
+  return `<li data-ck="${esc(ck)}"${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div>${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
 }
 
 /* ---------- mise à l'abri ---------- */
@@ -5987,7 +6126,7 @@ function expoHtml(){
     if(!x.f.plein) ennuis.push(`plafond non atteint : ${fmt(x.f.pts)} points sur ${fmt(x.f.ptsCap)}, il manque des vaisseaux au sol`);
     if(!x.deut) ennuis.push(`deutérium trop juste : ${fmt(x.fuel)} demandés pour l'aller-retour`);
     const alts = x.alts.map(a=>`${esc(planetRef(a.p))} (${fmt(a.f.pts)} pts, soute ${fmt(a.f.cargo)})`).join(', ');
-    return `<li class="task">
+    return `<li class="task" data-ck="expo:${esc(x.p.id)}">
       <div>
         <div class="q">${qHtml('Expédition · '+planetRef(x.p))}</div>
         <div class="w">${esc(shipList(x.f.ships))}</div>
@@ -6394,6 +6533,25 @@ function cardKey(kind, pid, quoi){ return `${kind}:${pid||''}:${quoi||''}`; }
 function actKey(a){
   const quoi = a.dest || a.k || a.id || Object.keys(a.ships||{})[0] || '';
   return cardKey(a.kind, a.kind === 't' ? '' : (S.planets[a.p]||{}).id, quoi);
+}
+/** Un morceau de clé : minuscules sans accents, `2:430:16` devient `2-430-16`. */
+function cleBout(s){ return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+/* La règle d'une mission, quand son id ne la dit pas : la mise à l'abri de
+   tête s'appelle `night` et ses voisines `night:<planète>`, mais c'est la même
+   règle — et la tête change de planète quand les stocks bougent. */
+const REGLE_MISSION = {night:'fleetsave-nuit'};
+/**
+ * L'identité d'une recommandation pour son affichage : `{type}:{règle}:{planète}:{cible}`.
+ * Ni montant, ni heure, ni nombre de vaisseaux : ils changent sans que la
+ * recommandation change, et la carte ne doit pas se replier pour autant.
+ * La planète est son id, pas son nom (deux colonies peuvent s'appeler pareil).
+ * @param {object} m une mission de dailyMissions()
+ * @returns {string} ex. `securite:fleetsave-nuit:k3x9f1a:2-430-16`
+ */
+function missionKey(m){
+  const [base, suite] = String(m.id || '').split(/:(.*)/s);
+  const p = S.planets[m.p], pid = p ? p.id : (suite && planetById(suite) ? suite : '');
+  return [cleBout(String(m.q || 'a-faire').split('·')[0]), REGLE_MISSION[base] || cleBout(base), cleBout(pid), cleBout(m.dest || m.coords || '')].join(':');
 }
 function refused(key){ return !!S.daily.no[key]; }
 /** Combien de cartes sont mises de côté en ce moment. */
@@ -7980,16 +8138,16 @@ today(){
     maintenant: `<div class="card"><div class="row spread liste-tete"><h2>Maintenant <span class="note" id="tdNowN"></span></h2>${cartesMenu('maintenant')}</div><div id="tdNow"></div></div>`,
     alertes: `<div id="tdAlerts"></div>`,
     securite: `<div id="tdSecu"></div>`,
-    expeditions: `<details class="card"${fold('expeditions', true)}><summary data-fold="expeditions">Expéditions <span class="note" id="expoSum"></span></summary>
+    expeditions: `<details class="card"${fold('expeditions', false)}><summary data-fold="expeditions">Expéditions <span class="note" id="expoSum"></span></summary>
       <div id="expoBloc"></div>
     </details>`,
     journee: `<details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
       <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${d.nightStart}h–${d.nightEnd}h <button class="btn sm ghost" data-goto="settings">Modifier</button></p>
       <div id="tdDay"></div>
     </details>`,
-    minuteurs: `<details class="card"${fold('minuteurs', true)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
+    minuteurs: `<details class="card"${fold('minuteurs', false)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
       <ul class="timers" id="tmList"></ul>
-      <details><summary class="note">Ajouter un minuteur à la main</summary>
+      <details${fold('minuteurs.ajout', false)}><summary class="note" data-fold="minuteurs.ajout">Ajouter un minuteur à la main</summary>
         <div class="timer-form" style="margin-top:8px">
           <label class="f">Quoi<select id="tmWhat">${timerOptions()}</select></label>
           <label class="f">Temps restant (copié du jeu)<input id="tmLeft" placeholder="2h 13m 05s"></label>
@@ -8145,7 +8303,7 @@ planets(){
   </section>`;
 },
 research(){
-  return `<details class="card"><summary>Recherches et niveaux visés <span class="note">labo niveau <b id="labLv"></b></span></summary>
+  return `<details class="card"${fold('recherches', false)}><summary data-fold="recherches">Recherches et niveaux visés <span class="note">labo niveau <b id="labLv"></b></span></summary>
     <div class="tbl-wrap"><table class="tech"><thead><tr><th>Technologie</th><th class="n">Niv.</th><th class="n">Visé</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th></tr></thead><tbody>
     ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${num(S.tech[k])}"></td><td class="n"><input class="prio" type="number" min="${num(S.tech[k])+1}" data-prio="${k}" value="${prioLvl('t', null, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${T[k].n} : niveau visé"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
     </tbody></table></div>
@@ -8346,6 +8504,8 @@ settings(){
         ${bascule('sMuet','data-set="muet"','Couper le son', s.muet, 'Plus de carillon à la fin d\'un minuteur, et les notifications du navigateur arrivent sans bruit.')}
         ${bascule('sOnglets','data-onglets-mode="1"','Organiser les sections en onglets', cardMode === 'tabs', 'Les cartes d\'Aujourd\'hui se rangent en onglets, une seule affichée à la fois, au lieu de s\'empiler. Le même interrupteur est dans l\'en-tête (🗂️).')}
       </div>
+      <div class="row"><button class="btn ghost" id="uiReset">Réinitialiser l'affichage des cartes</button></div>
+      <p class="note">Les cartes et les sections que tu as ouvertes ou fermées le restent, sur ce poste, d'une page et d'une session à l'autre. Ce bouton les remet comme au premier jour : alertes ouvertes, le reste fermé.</p>
     </div>
     ${affichageCard()}
     <div class="card"><h2>Page du jeu</h2>
@@ -8436,7 +8596,8 @@ today(){
   const nowMs = missions.filter(meteoVoit).filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
   const infoMs = missions.filter(meteoVoit).filter(m=>m.info);
   const taskHtml = m=>{
-    const [wi, wb] = whyParts([m.why]);
+    const ck = missionKey(m), how = ck + '.comment-faire'; uiVu(ck);
+    const [wi, wb] = whyParts([m.why], ck);
     const meta = (m.tags||[]).map(planetTag).join('') + (m.sol ? `<span>${esc(m.sol)}</span>` : '') + copyChips(m);
     /* Les cartes Lune portent leurs propres boutons : leur état vit dans
        S.lune, pas dans une mise en sommeil, et « Fait » n'y voudrait rien
@@ -8447,7 +8608,7 @@ today(){
           ? `<button class="btn sm primary" data-lune-do="oui">Lune !</button><button class="btn sm" data-lune-do="non">Pas cette fois</button>`
           : m.id === 'lune-rend' ? `<button class="btn sm primary" data-lune-do="env">Envoyé</button>` : '')
       : `<button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${noBtn('m:'+m.id)}`;
-    return `<li class="task"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns">${btns}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"><summary>Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
+    return `<li class="task" data-ck="${esc(ck)}"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns">${btns}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"${fold(how, false)}><summary data-fold="${esc(how)}">Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   };
   /* Les cartes Lune mènent les missions ; dans l'heure qui précède l'impact
      elles passent aussi devant les chantiers. Trier la liste des missions ne
@@ -8503,7 +8664,12 @@ today(){
   catch(e){ console.error('Copilote : plan de sécurité', e); }
   RESUMES.alertes = resumeDe(alerts.map(a=>({sev:a.sev, key:a.what})), 'alertes');
   const ignBtn = a => a.c ? `<button class="btn sm ghost" data-ign="${esc(ignKey(a.c))}" title="Ne plus l'afficher tant que rien ne change (24 h au plus)">Ignorer</button>` : '';
-  document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><div class="row spread liste-tete"><h2>Alertes <span class="note">(${alerts.length})</span></h2>${cartesMenu('alertes')}</div>${listeCartes('alertes', alerts.map(a=>({crit: a.sev === 'bad', html:`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span>${ignBtn(a)}</li>`})), 'advice')}</div>` : '';
+  /* Ouverte par défaut, et ouverte de force tant qu'une alerte critique y
+     figure — sans toucher au choix du joueur : l'alerte passée, la carte
+     revient à l'état où il l'avait laissée. Le menu « Afficher » vit dans le
+     corps : un <select> dans le résumé replierait la carte à chaque clic. */
+  const critique = alerts.some(a=>a.sev === 'bad');
+  document.getElementById('tdAlerts').innerHTML = alerts.length ? `<details class="card"${fold('alertes', true, critique)}><summary data-fold="alertes">Alertes <span class="note">(${alerts.length})${critique ? ' · critique' : ''}</span></summary>${cartesMenu('alertes')}${listeCartes('alertes', alerts.map(a=>({crit: a.sev === 'bad', html:`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span>${ignBtn(a)}</li>`})), 'advice')}</details>` : '';
   const later = plan.sessions.slice(1).filter(x=>actsVus(x).length || slotMs.has(x));
   const slot = x=>`<div class="slot"><div class="time">${formatTime(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${actsVus(x).map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
@@ -8527,7 +8693,7 @@ today(){
   const mMiss = mNext ? milestoneMissing(mNext) : [];
   const debut = mNext ? `<ul class="advice" style="margin-bottom:14px"><li><span class="pill info">Début de partie · ${mDone} / ${MILESTONES.length}</span><span class="what">Prochaine étape : ${esc(milestoneLabel(mNext))}</span><span class="why">${mMiss.length?`Il manque : ${esc(mMiss.join(', '))}. `:''}${esc(mNext.why)}</span></li></ul>` : '';
   document.getElementById('tdDay').innerHTML = night ? `<p class="note">Mode nuit : seule la mise à l'abri compte. Le plan du jour revient dès que tu repasses en mode jour.</p>` : debut + strategy + (later.length
-    ? `<div class="tl">${later.slice(0,6).map(slot).join('')}</div>${later.length>6?`<details style="margin-top:12px"><summary class="note">Voir les ${later.length-6} connexions suivantes</summary><div class="tl" style="margin-top:12px">${later.slice(6).map(slot).join('')}</div></details>`:''}`
+    ? `<div class="tl">${later.slice(0,6).map(slot).join('')}</div>${later.length>6?`<details style="margin-top:12px"${fold('journee.suite', false)}><summary class="note" data-fold="journee.suite">Voir les ${later.length-6} connexions suivantes</summary><div class="tl" style="margin-top:12px">${later.slice(6).map(slot).join('')}</div></details>`:''}`
     : `<p class="note">Aucune action prévue sur la période : tes files sont occupées ou tes ressources trop faibles.</p>`)
     + `<div class="sumline" style="margin-top:14px"><span class="pill good">Production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} %</span><span class="note">en ${S.day.horizon} h, de ${fmt(plan.startV)} à ${fmt(plan.endV)} éq. métal/h</span></div>`
     + (plan.ups.length ? `<p class="note" style="margin-top:6px">${esc(plan.ups.join(' · '))}</p>` : '')
@@ -8982,6 +9148,7 @@ function bind(){
     f.text().then(t=>{ if(appliqueSauvegarde(t)) toast('Données importées'); else msg('Fichier invalide : choisis le save.json du dépôt'); })
       .catch(()=>msg('Lecture du fichier impossible')); });
   on('ioImport','click',()=>{ if(appliqueSauvegarde(document.getElementById('ioText').value)) toast('Données importées'); else msg('Texte invalide : colle une sauvegarde complète'); });
+  on('uiReset','click',()=>{ uiReset(); render(); toast('Affichage des cartes réinitialisé'); });
   on('ioReset','click',e=>{ const b=e.currentTarget; if(b.dataset.armed){ S=sample(); save(); render(); toast('Réinitialisé'); } else { b.dataset.armed='1'; b.textContent='Confirmer la réinitialisation'; b.classList.remove('ghost'); } });
 }
 // Un clic sur la carte ouvre la page du jeu. Les boutons gardent leur rôle :
@@ -9011,8 +9178,7 @@ view.addEventListener('click', e=>{
   const vp = e.target.closest('[data-voirplus]');
   if(vp){
     const id = vp.dataset.voirplus, ouvert = !voirPlusOuvert(id);
-    (S.ui.fold = S.ui.fold || {})[voirPlusCle(id)] = ouvert;
-    save();
+    uiNote(voirPlusCle(id), ouvert);
     const box = vp.parentElement && [...vp.parentElement.querySelectorAll('[data-masquees]')].find(x => x.dataset.masquees === id);
     if(box) box.hidden = !ouvert;
     vp.textContent = ouvert ? 'Voir moins' : `Voir ${vp.dataset.n} de plus`;
@@ -9054,7 +9220,7 @@ view.addEventListener('click', e=>{
   const wq = e.target.closest('button.i');
   if(wq){
     const body = document.getElementById(wq.getAttribute('aria-controls'));
-    if(body){ body.hidden = !body.hidden; wq.setAttribute('aria-expanded', String(!body.hidden)); }
+    if(body){ body.hidden = !body.hidden; wq.setAttribute('aria-expanded', String(!body.hidden)); if(wq.dataset.ui) uiNote(wq.dataset.ui, !body.hidden); }
     return;
   }
   const cp = e.target.closest('[data-copy]');
@@ -9099,9 +9265,9 @@ view.addEventListener('click', e=>{
   const sm = e.target.closest('summary[data-fold]');
   /* En onglets, la carte affichée reste dépliée : son titre ne la replie pas,
      et l'état enregistré pour le mode empilé ne bouge pas. */
-  if(sm && cardMode === 'tabs' && sm.parentElement.parentElement && sm.parentElement.parentElement.matches('.en-onglets > .carte')){ e.preventDefault(); return; }
+  if(sm && cardMode === 'tabs'){ const w = sm.parentElement.closest('.en-onglets > .carte'); if(w && carteDetails(w) === sm.parentElement){ e.preventDefault(); return; } }
   // Le repli bascule tout seul : on ne note que l'état où il va.
-  if(sm){ (S.ui.fold = S.ui.fold || {})[sm.dataset.fold] = !sm.parentElement.open; save(); return; }
+  if(sm){ uiNote(sm.dataset.fold, !sm.parentElement.open); return; }
   const rpp = e.target.closest('[data-raidprep]'); if(rpp){ S.raid = {coords:rpp.dataset.raidprep, name:rpp.dataset.raidname, m:0, c:0, d:0, safe:false}; save(); render(); return; }
   const rpc = e.target.closest('[data-raidclose]'); if(rpc){ S.raid = null; save(); render(); return; }
   const ct = e.target.closest('[data-cotarget]'); if(ct){ S.colo.target = ct.dataset.cotarget; save(); render(); toast('Destination de colonie mise à jour'); return; }
@@ -9303,7 +9469,7 @@ view.addEventListener('click', e=>{
 setInterval(tickTimers, 1000);
 /* publieLePlan est sans effet sur Aujourd'hui, qui se publie en se dessinant ;
    sur Empire, REFRESH.empire ne publie rien : sans cet appel la tuile resterait muette. */
-setInterval(()=>{ if(tab==='today'||tab==='empire'){ REFRESH[tab](); cartesSync(); } publieLePlan(); finDeNuit(); }, 30000);
+setInterval(()=>{ if(tab==='today'||tab==='empire') garderVue(()=>{ REFRESH[tab](); cartesSync(); }); publieLePlan(); finDeNuit(); }, 30000);
 /** Recalcule le plan du jour pour la page du jeu, sans rien afficher.
     `today` le publie en se dessinant ; ailleurs, c'est à nous de le faire.
     Le dessin qui suit la publication écrit dans des éléments de l'onglet

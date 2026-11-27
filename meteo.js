@@ -189,7 +189,8 @@ function meteoVoit(x){
 const METEO_CLS = {good:'mt-good', warn:'mt-warn', bad:'mt-bad'};
 function meteoHtml(elems){
   const ps = S.planets || [], rang = empireWeather(elems, ps.map(p => p.id)), e = METEO_ETATS[rang];
-  const ouvert = !!((S.ui && S.ui.fold) || {}).meteo;
+  // l'état vit dans le store d'affichage d'app.js (uiOuvert), propre au poste
+  const ouvert = uiOuvert('meteo', false);
   const ligne = p => {
     const r = planetWeather(elems, p.id), causes = meteoCauses(elems, p.id), f = filterPlanet === p.id;
     return `<tr data-meteo-p="${esc(p.id)}" title="${esc(causes)}" class="${f ? 'mt-on' : ''}" tabindex="0" aria-label="${esc(`${p.name} : ${METEO_ETATS[r].n}. ${causes}`)}">
@@ -223,7 +224,7 @@ function meteoBind(){
   if(box && box.addEventListener){
     box.addEventListener('click', e => {
       const t = e.target && e.target.closest ? e.target : null; if(!t) return;
-      if(t.closest('[data-meteo-tog]')){ (S.ui.fold = S.ui.fold || {}).meteo = !S.ui.fold.meteo; save(); renderMeteo(); return; }
+      if(t.closest('[data-meteo-tog]')){ uiNote('meteo', !uiOuvert('meteo', false)); renderMeteo(); return; }
       const tr = t.closest('[data-meteo-p]'); if(tr) choisir(tr);
     });
     box.addEventListener('keydown', e => {

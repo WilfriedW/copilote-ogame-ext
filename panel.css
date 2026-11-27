@@ -465,9 +465,9 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:12px}
    titre n'est plus un bouton. */
 .carte{display:contents}
 .carte[hidden]{display:none}
-.en-onglets>.carte>details.card>summary{pointer-events:none;cursor:default;list-style:none}
-.en-onglets>.carte>details.card>summary::-webkit-details-marker{display:none}
-.en-onglets>.carte>details.card>summary::after{content:none}
+.en-onglets>.carte>details.card>summary,.en-onglets>.carte>div>details.card>summary{pointer-events:none;cursor:default;list-style:none}
+.en-onglets>.carte>details.card>summary::-webkit-details-marker,.en-onglets>.carte>div>details.card>summary::-webkit-details-marker{display:none}
+.en-onglets>.carte>details.card>summary::after,.en-onglets>.carte>div>details.card>summary::after{content:none}
 .seg .cpt{font:700 11px var(--f-mono);margin-left:2px}
 .seg .cpt.crit{color:var(--bad)}
 .seg .cpt.imp{color:var(--warn)}
