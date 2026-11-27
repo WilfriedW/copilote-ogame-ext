@@ -10083,6 +10083,21 @@ t('« Enregistrer » écrit un save.json que le joueur place où il veut', () =>
   assert.equal(lu, 1, 'le fichier choisi doit être lu');
 });
 
+t('« Réinitialiser » repart de l\'exemple et le panneau se redessine, sur chaque onglet', () => {
+  /* sample() ne portait pas `timers` : le second clic enregistrait l'état
+     neuf, puis le redessin levait dans renderTimers et le panneau restait
+     figé jusqu'au rechargement. */
+  for (const tab of ['today', 'empire', 'tools', 'settings']) {
+    const s = fixtureState(); s.__tab = tab;
+    const g = loadApp(s, SOIR, ['S']);
+    g.click('ioReset');
+    assert.equal(g.saved().planets.length, 2, tab + ' : le premier clic ne fait qu\'armer le bouton');
+    assert.doesNotThrow(() => g.click('ioReset'), tab + ' : le redessin après réinitialisation');
+    assert.equal(g.saved().planets.length, 1, tab + ' : l\'exemple n\'a qu\'une planète');
+    assert.deepEqual(g.saved().timers, [], tab + ' : et aucun minuteur');
+  }
+});
+
 t('un fichier qui n\'est pas une sauvegarde ne remplace rien', () => {
   const g = app();
   for (const txt of ['', 'pas du json', '{}', '{"planets":[]}', '{"settings":{}}'])
