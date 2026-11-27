@@ -26,10 +26,13 @@ chrome.storage.local.get(null, d => {
   /* Les règles du moteur se lisent avant app.js, qui les consulte dès son
      premier rendu. Un fichier illisible ne bloque pas le panneau : il tourne
      avec le moteur d'avant, et l'en-tête le dit. Une seule erreur, ici. */
-  const regles = fetch(chrome.runtime.getURL('rules.json'))
-    .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
-    .then(j => { window.__rules = j; })
-    .catch(e => { window.__rules = null; console.error('Copilote : rules.json illisible, le moteur tourne sans réglages de règles', e); });
+  // Hors extension (page de démonstration, harnais) il n'y a pas de fichier à lire, et rien à signaler.
+  const regles = !(chrome.runtime && chrome.runtime.getURL && typeof fetch === 'function')
+    ? Promise.resolve().then(() => { window.__rules = null; })
+    : fetch(chrome.runtime.getURL('rules.json'))
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+      .then(j => { window.__rules = j; })
+      .catch(e => { window.__rules = null; console.error('Copilote : rules.json illisible, le moteur tourne sans réglages de règles', e); });
   const heures = new Promise(ok => {
     try { chrome.storage.sync.get('timeMode', v => { window.__timeMode = (v && v.timeMode) || null; ok(); }); }
     catch (e) { ok(); }

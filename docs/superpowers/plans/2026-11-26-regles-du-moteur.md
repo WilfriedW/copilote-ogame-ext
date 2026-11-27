@@ -715,6 +715,8 @@ là, ou passe les tâches 9 et 11 dans l'autre ordre.
   `refresh()`.
 - [ ] **Step 4 : Sous chaque planète** dans Empire, les règles dont le fichier
   dit `parPlanete: true` (INST_FIELDS_LOW pour commencer), en cases.
+  *Reporté à la tâche 11 à l'implémentation de la vague 1 : aucune règle de la
+  vague 1 ne se coupe par planète. `constatsDe` lit déjà `p.regOff`.*
 - [ ] **Step 5 : Lancer les tests** — PASS.
 - [ ] **Step 6 : Commit**
 

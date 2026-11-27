@@ -253,8 +253,9 @@ mieux qu'une phrase qui ment.
 **Le fichier se lit dans `boot.js`**, avant `app.js` : `fetch` de l'URL de
 l'extension, `JSON.parse`, `window.__rules`. Un fichier illisible écrit **une**
 erreur dans la console, et le panneau tourne avec le moteur d'avant — les
-secours, les alertes et les cartes existent sans `rules.json`, ils
-perdent seulement leurs réglages. L'en-tête le dit (« règles illisibles : le
+secours et les cartes existent sans `rules.json`, ils perdent seulement leurs
+réglages. Les alertes nées d'une règle, elles, se taisent : leur texte vit dans
+le fichier. L'en-tête le dit (« règles illisibles : le
 moteur tourne sans réglages »). Le harnais lit le fichier avec `fs` et le pose
 au même endroit.
 
@@ -287,10 +288,12 @@ simulation ne paie rien, donc rien n'est caché qu'elle aurait payé. C'est la
 seule lecture de « un domaine de poids 0 est masqué » qui ne contredise pas
 `app.js:4147`.
 
-Les cartes du plan d'une même connexion se trient aujourd'hui par poids
-(`app.js:4151`). Elles se trieront par **niveau d'abord**, poids ensuite : une
-carte marquée Critique se lit en premier. L'ordre des connexions, lui, ne
-bouge pas — c'est la simulation qui le décide.
+Les cartes du plan d'une même connexion gardent leur tri par poids
+(`app.js:4151`) : **le niveau se lit sur la carte, il ne la déplace pas.**
+L'ordre d'une connexion dit déjà ce que le joueur a réglé — « recherche avant
+les bâtiments », « formes de vie avant tout » — et une file vide, critique sur
+presque toutes les cartes de bâtiment, renverserait ces deux réglages. (Décidé
+à l'implémentation de la vague 1 : un test existant le gardait.)
 
 ### Les constats se calculent sur l'état réel, une fois par rendu
 

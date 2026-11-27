@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.8.0';
+const APP_VERSION = '2.9.0';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -2253,8 +2253,10 @@ function header(){
     : (S.syncAt ? 'synchro ' + formatTime(S.syncAt) : 'en attente du jeu');
   const cls = ({collector:'Collecteur',general:'Général',explorer:'Explorateur',none:'Sans classe'})[s.cls];
   const ub = document.getElementById('uniBadge');
-  ub.innerHTML = `${esc(quand)}<span class="cls"> · ${esc(cls)}</span>`;
-  ub.title = `${quand} · ${cls}`;
+  /* Un rules.json illisible ne bloque rien, mais il change ce que le panneau
+     sait dire : l'en-tête le dit, à côté de la fraîcheur du relevé. */
+  ub.innerHTML = `${esc(quand)}<span class="cls"> · ${esc(cls)}</span>${REGLES_ERR ? `<span class="cls"> · ${esc(REGLES_ERR)}</span>` : ''}`;
+  ub.title = `${quand} · ${cls}${REGLES_ERR ? ' · ' + REGLES_ERR : ''}`;
   /* Le mode nuit vit dans l'en-tête, à côté de l'engrenage : il tient en une
      icône, et la carte Maintenant n'a plus à le porter. */
   const nb = document.getElementById('nightBtn'), nuit = !!S.day.night;
@@ -2289,7 +2291,7 @@ function header(){
 }
 /** Vrai tant que l'écran du relevé tient la place du contenu. */
 function enScan(){ return !!(scanEcran && releveEnCours); }
-function render(){ prioClean(); header(); view.innerHTML = enScan() ? VIEWS.scan() : VIEWS[tab](); bind(); refresh(); }
+function render(){ prioClean(); ignClean(); header(); view.innerHTML = enScan() ? VIEWS.scan() : VIEWS[tab](); bind(); refresh(); }
 /* Pendant le relevé, les REFRESH écriraient dans des éléments que l'écran du
    relevé n'a pas : ils ne rafraîchissent que ce qui est à l'écran. */
 function refresh(){ if(!enScan()) (REFRESH[tab]||(()=>{}))(); header(); }
@@ -2608,7 +2610,11 @@ EVAL.researchIdle = p => {
 /* ---------- les règles du moteur : ignorer, compter ---------- */
 /** La clé d'« Ignorer » : la règle, la planète en identifiant du jeu (`daily`
     voyage), et la valeur de la condition. */
-function ignKey(c){ return `${c.regle}|${gidDe(c.pid) || c.pid}|${c.valeur}`; }
+function ignKey(c){
+  // planetById et non gidDe : celle-là est une const posée en fin de fichier, après le premier rendu
+  const p = planetById(c.pid), gid = p && p.gid != null ? String(p.gid) : null;
+  return `${c.regle}|${gid || c.pid}|${c.valeur}`;
+}
 const IGN_MS = 24 * 3600e3;
 function ignores(){ return S.daily && S.daily.ign && typeof S.daily.ign === 'object' ? S.daily.ign : {}; }
 function ignore(c){ if(!c) return; S.daily.ign = Object.assign({}, ignores(), {[ignKey(c)]: Date.now()}); }
@@ -2637,8 +2643,91 @@ function publieCritiques(cs){
   try{ chrome.storage.local.set({critiques:_critPub}); }catch(e){}
 }
 
+/* ---------- les règles du moteur : le bloc des conseils ---------- */
+/**
+ * Les lignes du bloc : les constats que le plan ne sert pas et que le joueur
+ * n'a pas ignorés, puis les alertes qui ne sont pas des règles (bridage,
+ * emplacements). Un constat servi n'y est pas : la carte du plan est sa
+ * réponse, et le bloc n'est pas une seconde liste des mêmes choses.
+ */
+function conseilLignes(plan){
+  const cs = constatsVus(plan.constats || []).filter(c => !c.servi);
+  const autres = (plan.alerts || []).filter(a => !a.regle).map(a => ({
+    niveau:SEV_NIVEAU[a.sev] || 'conseil', sev:a.sev, what:a.what, why:a.why, pid:a.pid, domaine:'', cat:'', rang:Infinity}));
+  const pi = new Map((S.planets || []).map((p, i) => [p.id, i]));
+  return cs.map(c => Object.assign({sev:NIVEAU_SEV[c.niveau]}, c)).concat(autres)
+    .sort((a, b) => rangNiveau(a.niveau) - rangNiveau(b.niveau) || poidsCat(b.cat) - poidsCat(a.cat)
+      || a.rang - b.rang || (pi.get(a.pid) || 0) - (pi.get(b.pid) || 0));
+}
+/** La planète ouverte dans le jeu : `S.cur` est le gid que chaque instantané reprend. */
+function planeteOuverte(){
+  const ps = S.planets || [];
+  return ps.find(p => S.cur != null && p.gid != null && String(p.gid) === String(S.cur)) || ps[0] || null;
+}
+function conseilHtml(l, avecPlanete){
+  const p = planetById(l.pid);
+  const st = p ? stockNow(p) : null;
+  const cout = l.cost ? ` ${costHtml(l.cost)} <span class="note">${st && l.cost.every((x, j) => x <= st[j]) ? 'payable maintenant' : 'pas encore payable'}</span>` : '';
+  const quand = l.vars && l.vars.attente ? ` <span class="note">ressources réunies vers ${esc(l.vars.attente)}</span>` : '';
+  const tete = [l.domaine ? DOMAINES[l.domaine] || l.domaine : '', avecPlanete && p && S.planets.length > 1 ? p.name : ''].filter(Boolean).join(' · ');
+  return `<li><span class="pill ${l.sev}">${SEV_LABEL[l.sev] || ''}</span><span class="what">${tete ? `<span class="note">${esc(tete)}</span> ` : ''}${esc(l.what)}${l.statut === 'a_valider' ? ' <span class="pill info">à valider</span>' : ''}</span>`
+    + `<span class="why">${esc(l.why)}${l.action ? `<br>→ <b>${esc(l.action)}</b>${cout}${quand}` : quand}`
+    + `${l.source ? ` <a href="${esc(l.source)}" target="_blank" rel="noopener">source</a>` : ''}`
+    + `${l.regle ? ` <button class="btn sm ghost" data-ign="${esc(ignKey(l))}" title="Masqué jusqu'à ce que la situation change, ou 24 h">Ignorer</button>` : ''}</span></li>`;
+}
+/**
+ * Le bloc des conseils d'Aujourd'hui : trois lignes de la planète ouverte dans
+ * le jeu, puis l'empire entier, filtrable. Rien quand il n'y a rien à dire.
+ */
+function conseilsHtml(plan){
+  const l = conseilLignes(plan);
+  if(!l.length) return '';
+  const cur = planeteOuverte(), f = (S.ui && S.ui.cf) || {};
+  const tete = cur ? l.filter(x => x.pid === cur.id).slice(0, 3) : [];
+  const tri = l.filter(x => (!f.domaine || x.domaine === f.domaine) && (!f.niveau || x.niveau === f.niveau)
+    && (!f.planete || x.pid === f.planete) && (!f.manque || x.regle === 'FDV_DATA_MISSING'));
+  const sel = (k, vide, opts) => `<select data-cf="${k}" style="width:auto"><option value="">${esc(vide)}</option>${opts.map(([v, n]) => `<option value="${esc(v)}" ${f[k] === v ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
+  const filtres = `<div class="row" style="gap:6px;flex-wrap:wrap;margin:8px 0">`
+    + sel('domaine', 'Tous les domaines', Object.entries(DOMAINES))
+    + sel('niveau', 'Tous les niveaux', NIVEAUX.map(n => [n, SEV_LABEL[NIVEAU_SEV[n]]]))
+    + (S.planets.length > 1 ? sel('planete', 'Toutes les planètes', S.planets.map(p => [p.id, p.name])) : '')
+    + `<label class="note" style="display:flex;gap:4px;align-items:center"><input type="checkbox" data-cf="manque" ${f.manque ? 'checked' : ''} style="width:auto">Données manquantes</label></div>`;
+  return `<div class="card"><h2>Conseils${cur && S.planets.length > 1 ? ` <span class="note">${esc(cur.name)}</span>` : ''}</h2>`
+    + (tete.length ? `<ul class="advice">${tete.map(x => conseilHtml(x, false)).join('')}</ul>`
+      : `<p class="note" style="margin:0">Rien à signaler${cur ? ` sur ${esc(cur.name)}` : ''}.</p>`)
+    + `<details${fold('conseils', false)}><summary class="note" data-fold="conseils">Voir tout (${l.length})</summary>${filtres}`
+    + (tri.length ? `<ul class="advice">${tri.map(x => conseilHtml(x, true)).join('')}</ul>` : '<p class="note">Aucun conseil pour ces filtres.</p>')
+    + `</details></div>`;
+}
+
+/**
+ * Réglages › Règles : une ligne par règle, groupées par domaine, dans l'ordre
+ * du fichier. Une règle à verrou garde sa case grisée et dit pourquoi : une case
+ * qui ne fait rien sans le dire est un mensonge par omission.
+ */
+function reglesCard(){
+  const ids = Object.keys(REGLES_PAR_ID);
+  if(REGLES_ERR || !ids.length) return `<div class="card"><h2>Règles du moteur</h2><p class="note" style="margin:0">${esc(REGLES_ERR || 'Aucune règle dans rules.json.')}</p></div>`;
+  const ligne = id => {
+    const r = regle(id);
+    const champs = Object.keys(r.parametres || {}).map(k => `<label class="note" style="display:flex;gap:4px;align-items:center">${esc(k)}<input type="number" step="any" data-rg-p="${esc(id)}:${esc(k)}" value="${esc(r.parametres[k])}" style="width:6em"></label>`).join('');
+    return `<li><label class="row" style="gap:8px;align-items:flex-start"><input type="checkbox" data-rg-on="${esc(id)}" ${r.on ? 'checked' : ''} ${r.verrou ? 'disabled' : ''} style="width:auto">`
+      + `<span><span class="pill ${NIVEAU_SEV[r.niveau] || 'info'}">${esc(SEV_LABEL[NIVEAU_SEV[r.niveau]] || r.niveau)}</span> <b>${esc(r.nom || id)}</b> <span class="note mono">${esc(id)}</span>`
+      + `${r.statut === 'a_valider' ? ' <span class="pill info">à valider</span>' : ''}`
+      + `${r.verrou ? `<br><span class="note">Toujours active : ${esc(r.pourquoi_verrou || 'la simulation en a besoin.')}</span>` : ''}</span></label>`
+      + `${champs ? `<span class="row" style="gap:8px">${champs}</span>` : ''}</li>`;
+  };
+  const groupes = Object.entries(DOMAINES).map(([d, n]) => {
+    const l = ids.filter(id => REGLES_PAR_ID[id].domaine === d);
+    return l.length ? `<h3 class="note" style="margin:10px 0 4px">${esc(n)}</h3><ul class="list">${l.map(ligne).join('')}</ul>` : '';
+  }).join('');
+  return `<details class="card"${fold('regles', false)}><summary data-fold="regles">Règles du moteur <span class="note">${ids.filter(id => regle(id).on).length} sur ${ids.length} actives</span></summary>
+    <p class="note" style="margin:8px 0 0">Ce que le copilote surveille sur chaque planète, et ce que le plan en fait. Décocher une règle l'éteint : sa carte ne sort plus, et elle ne compte plus sur l'icône. Les seuils se changent ici ; le reste vit dans <code>rules.json</code>.</p>
+    ${groupes}</details>`;
+}
+
 function planetAlerts(p){
-  const out = [], pr = production(p), st = stockNow(p);
+  const out = [], pr = production(p);
   const where = S.planets.length>1 ? ` sur ${p.name}` : '';
   const deRegle = id => constatsDe(p, id).map(c => ({sev:NIVEAU_SEV[c.niveau], what:c.what, why:c.why, regle:c.regle, valeur:c.valeur}));
   out.push(...deRegle('RES_ENERGY_NEGATIVE'));
@@ -2675,7 +2764,9 @@ function planetAlerts(p){
   out.push(...deRegle('RES_STORAGE_FULL').concat(deRegle('RES_STORAGE_SOON')).sort((a, b) => a.valeur - b.valeur));
   return out;
 }
-const SEV_LABEL = {bad:'Urgent', warn:'Attention', good:'Prêt', info:'Conseillé'};
+/* Un seul vocabulaire de niveau dans tout le panneau : celui des règles du
+   moteur. « Urgent » ici et « Critique » là se liraient comme deux échelles. */
+const SEV_LABEL = {bad:'Critique', warn:'Important', info:'Conseil', good:'Prêt'};
 
 /* ---------- timers ---------- */
 S.timers = S.timers || [];
@@ -3634,7 +3725,8 @@ function pickBuildings(p, ctx){
   const add = (k, why, libre)=>{ if(!out.some(o=>o.k===k) && !refused(cardKey('b', p.id, k))) out.push({k, lvl:p.b[k]+1, why, libre:!!libre}); };
   const ranked = rankUpgrades(p).filter(u=>u.payback<Infinity && B[u.key]);
   const satsSoon = p.satPending && p.satPending > ctx.T;
-  if(pr.factor<1 && !satsSoon) add('solar', 'Énergie négative : tes mines tournent au ralenti', true);
+  if(pr.factor<1 && !satsSoon && regleActive('RES_ENERGY_NEGATIVE')) add('solar', 'Énergie négative : tes mines tournent au ralenti', true);
+  const plafond = regleParam('RES_STORAGE_FULL', 'seuil', .98), plafondOn = regleActive('RES_STORAGE_FULL'), bientotOn = regleActive('RES_STORAGE_SOON');
   /* Deux régimes, deux gestes. Avant la saturation, le hangar — mais assez tôt
      pour être MONTÉ avant le plafond : son propre temps de construction fait
      partie du délai, sinon la carte sortait le jour où il était déjà trop tard.
@@ -3642,7 +3734,7 @@ function pickBuildings(p, ctx){
      dépense, et le plus gros chantier payable passe devant. */
   for(let j=0;j<3;j++){
     if(!(rates[j]>0)) continue;
-    if(p.st[j] >= pr.cap[j]*.98){
+    if(plafondOn && p.st[j] >= pr.cap[j]*plafond){
       /* Le plan ne pose ici que des chantiers : une recherche ou une case de
          forme de vie suit sa propre file, et l'alerte de la planète, elle, les
          nomme toutes.
@@ -3666,7 +3758,7 @@ function pickBuildings(p, ctx){
       if(d && d.k && !(d.k === 'solar' && satsSoon)){ add(d.k, `Le ${NOM_RES[j]} est au plafond : ta production est arrêtée, et c'est le plus gros chantier payable tout de suite`, true); continue; }
     }
     const mont = buildTime(sk[j], (p.b[sk[j]]||0)+1, p), lead = Math.max(iv*2, iv + mont/3600);
-    if(p.st[j]+rates[j]*lead >= pr.cap[j]*.98) add(sk[j], `Hangar plein dans moins de ${dur(lead*3600)}, et il met ${dur(mont)} à sortir`, true);
+    if(bientotOn && p.st[j]+rates[j]*lead >= pr.cap[j]*plafond) add(sk[j], `Hangar plein dans moins de ${dur(lead*3600)}, et il met ${dur(mont)} à sortir`, true);
   }
   /* La priorité du joueur passe ici : derrière les deux secours — une mine au
      ralenti coûte de la production à chaque heure, une priorité repoussée ne
@@ -3686,7 +3778,7 @@ function pickBuildings(p, ctx){
     else out.push({k:pas.k, lvl:pas.lvl, why:pas.why, libre:true, prio:true});
   }
   const best = ranked[0];
-  if(best){ const bc = best.extraSolar ? levelCost(B.solar,p.b.solar+1) : levelCost(B[best.key],best.lvl); for(let j=0;j<3;j++) if(bc[j]>pr.cap[j]) add(sk[j], 'Hangar trop petit pour la suite'); }
+  if(best){ const bc = best.extraSolar ? levelCost(B.solar,p.b.solar+1) : levelCost(B[best.key],best.lvl); for(let j=0;j<3;j++) if(bc[j]>pr.cap[j]) add(sk[j], regleTexte('RES_MINE_BLOCKED_BY_STORAGE', 'raison', 'Hangar trop petit pour la suite', {mine:upLabel(best)})); }
   for(const g of ctx.goals||[]) if(g.p===p) for(let j=0;j<3;j++) if(g.cost[j]>pr.cap[j]) add(sk[j], `Hangar trop petit pour ${g.label}`);
   if(ctx.wantColony && p===ctx.dep && p.b.shipyard<4){
     if(p.b.robot<2) add('robot', 'Prérequis du chantier spatial.' + centreNote());
@@ -3701,7 +3793,7 @@ function pickBuildings(p, ctx){
   if(p.b.robot < robotTarget && best){ const rc = levelCost(B.robot,p.b.robot+1); if(mse(...rc) <= 3*mse(...best.cost)) add('robot', 'Accélère toutes les constructions'); }
   for(const u of ranked.slice(0,2)){
     if(u.extraSolar && satsSoon) add(u.key, `Meilleur rendement, énergie fournie par les satellites`);
-    else if(u.extraSolar) add('solar', `Énergie pour ${B_SHORT[u.key]} ${u.lvl}`);
+    else if(u.extraSolar) add('solar', regleTexte('RES_ENERGY_NEXT_MINE', 'raison', 'Énergie pour {mine}', {mine:`${B_SHORT[u.key]} ${u.lvl}`}));
     else add(u.key, `Meilleur rendement : amorti en ${dur(u.payback*3600)}${mineWhy(p, u.key)}`);
   }
   return out;
@@ -3781,7 +3873,10 @@ function simulateDay(){
   // Trié par sévérité, l'ordre des planètes conservé à sévérité égale : sans
   // cela un Urgent de la deuxième planète se lit sous un Attention de la
   // première, et le joueur à quatre planètes balaie la carte de travers.
-  const alerts = S.planets.flatMap(p=>planetAlerts(p)).sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1));
+  const alerts = S.planets.flatMap(p=>planetAlerts(p).map(a=>Object.assign({pid:p.id}, a))).sort((a,b)=>(a.sev==='bad'?0:1)-(b.sev==='bad'?0:1));
+  /* Les constats des règles, sur le même état réel et pour la même raison. Ils
+     marquent plus bas les cartes de la première connexion qui leur répondent. */
+  const cs = constats();
   S.tech = sim.tech; S.planets = P;
   try{
     const startV = P.reduce((a,p)=>{ const r=production(p); return a+mse(r.m,r.c,r.d); },0);
@@ -4396,8 +4491,28 @@ function simulateDay(){
        ressources égales, ce qu'il met en avant se lit d'abord. Aucune n'est
        retirée — une étape cachée serait une étape que le plan a pourtant
        payée, et ses chiffres ne tomberaient plus. */
+    /* Un constat que la première connexion sert a trouvé sa réponse : la carte
+       prend son niveau, et le constat ne se répète pas dans le bloc des
+       conseils. Sans carte, il garde l'heure de la ligne d'attente qui lui
+       répond — « ressources réunies vers 14 h 10 » vaut mieux qu'un rouge muet. */
+    const s0 = sessions[0];
+    if(s0) for(const c of cs){
+      const i = P.findIndex(x => x.id === c.pid);
+      const a = s0.acts.find(x => repondA(c, x, i));
+      if(a){
+        c.servi = true;
+        if(rangNiveau(c.niveau) < rangNiveau(a.niveau)){ a.niveau = c.niveau; a.regle = c.regle; }
+        continue;
+      }
+      const w = s0.waits.find(x => repondA(c, x, i));
+      if(w){ c.vars.attenteQuoi = w.what; if(isFinite(w.eta)) c.vars.attente = formatTime(now + w.eta*1000); }
+    }
+    /* Le niveau se lit sur la carte, il ne la déplace pas : l'ordre des cartes
+       d'une connexion dit déjà ce que le joueur a réglé — « recherche avant les
+       bâtiments », « formes de vie avant tout » — et une file vide, critique sur
+       presque toutes les cartes de bâtiment, renverserait ces deux réglages. */
     for(const x of sessions) x.acts.sort((a, b) => poidsCat(catActe(b)) - poidsCat(catActe(a)));
-    return {now, sessions, busy, startV, endV, ups, alerts};
+    return {now, sessions, busy, startV, endV, ups, alerts, constats:cs};
   } finally { S.tech = real.tech; S.planets = real.planets; }
 }
 /* Les valeurs à retaper dans le jeu, en pastilles cliquables. Le presse-papier
@@ -4465,7 +4580,10 @@ function actHtml(a, withBtn){
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,pid:(S.planets[a.p]||{}).id,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
   if(withBtn && NO_KINDS[a.kind]) btn = `<span class="btns">${btn}${noBtn(actKey(a))}</span>`;
-  return `<li${goAttr(actGo(a))}><div><div class="q">${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div>${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
+  /* Le niveau qu'un constat a donné à la carte : la carte du plan est la
+     réponse à la règle, c'est donc sur elle qu'il se lit. */
+  const niv = a.niveau ? `<span class="pill ${NIVEAU_SEV[a.niveau]}">${SEV_LABEL[NIVEAU_SEV[a.niveau]]}</span> ` : '';
+  return `<li${goAttr(actGo(a))}><div><div class="q">${niv}${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div>${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
 }
 
 /* ---------- mise à l'abri ---------- */
@@ -7503,6 +7621,7 @@ settings(){
       <div class="chips">${lfSettingsHtml()}</div>
       <p class="note">Copilote s'en sert pour te conseiller la forme de vie de tes colonies.</p>
     </div>
+    ${reglesCard()}
     <div class="card"><h2>Bonus</h2>
       <div class="bascules">
         ${bascule('sGeo','data-set="geo"','Géologue (+10 % production)', s.geo)}
@@ -7662,8 +7781,8 @@ today(){
      apparaître sa recommandation sans que le joueur recharge la page. */
   const eb = document.getElementById('expoBloc');
   if(eb){ const r = expoHtml(); eb.innerHTML = r.html; document.getElementById('expoSum').textContent = r.sum; }
-  const alerts = plan.alerts;
-  document.getElementById('tdAlerts').innerHTML = alerts.length ? `<div class="card"><h2>Alertes</h2><ul class="advice">${alerts.map(a=>`<li><span class="pill ${a.sev}">${SEV_LABEL[a.sev]}</span><span class="what">${esc(a.what)}</span><span class="why">${esc(a.why)}</span></li>`).join('')}</ul></div>` : '';
+  document.getElementById('tdAlerts').innerHTML = conseilsHtml(plan);
+  publieCritiques(plan.constats);
   const later = plan.sessions.slice(1).filter(x=>actsVus(x).length || slotMs.has(x));
   const slot = x=>`<div class="slot"><div class="time">${formatTime(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${actsVus(x).map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
   const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
@@ -8144,6 +8263,20 @@ view.addEventListener('click', e=>{
   if(IS_EXT) chrome.runtime.sendMessage({type:'go', url});
   else window.open(url, '_blank', 'noopener');
 });
+/* Les filtres du bloc des conseils vivent dans #tdAlerts, que REFRESH réécrit
+   sans repasser par bind() : ils passent par la délégation. Sur ce poste
+   seulement — `ui` ne voyage pas. */
+view.addEventListener('change', e=>{
+  /* Réglages › Règles : n'est écrit que ce qui s'écarte du fichier. */
+  const ro = e.target.closest && e.target.closest('[data-rg-on]');
+  if(ro){ reglePose(ro.dataset.rgOn, {on:!!ro.checked}); save(); render(); return; }
+  const rp = e.target.closest && e.target.closest('[data-rg-p]');
+  if(rp){ const [id, k] = rp.dataset.rgP.split(':'), v = parseFloat(rp.value);
+    if(Number.isFinite(v)) reglePose(id, {p:{[k]: v}}); save(); render(); return; }
+  const f = e.target.closest && e.target.closest('[data-cf]'); if(!f) return;
+  S.ui.cf = Object.assign({}, S.ui.cf, {[f.dataset.cf]: f.type === 'checkbox' ? !!f.checked : f.value});
+  save(); refresh();
+});
 view.addEventListener('click', e=>{
   /* « Préparer » ouvre le formulaire de flotte du jeu, déjà rempli. Un bouton
      et non la carte entière : le clic de carte ignore les boutons exprès, pour
@@ -8179,6 +8312,9 @@ view.addEventListener('click', e=>{
     // Fait sur un espionnage : les cibles nommées sortent de la liste pour un jour.
     if(dn.dataset.mark) dn.dataset.mark.split(',').forEach(c=>{ S.raids[c] = {at:Date.now(), probe:true}; }); save(); refresh(); toast('Bien joué'); return; }
   const no = e.target.closest('[data-no]'); if(no){ S.daily.no[no.dataset.no] = Date.now(); save(); refresh(); toast('Mis de côté'); return; }
+  /* « Ignorer » ne vit que jusqu'à ce que la situation change, ou 24 h : ce
+     n'est pas « Non », qui oublie une carte du plan pour toujours. */
+  const ig = e.target.closest('[data-ign]'); if(ig){ S.daily.ign = Object.assign({}, ignores(), {[ig.dataset.ign]: Date.now()}); save(); refresh(); toast('Masqué jusqu\'à ce que ça change'); return; }
   /* Les boutons du mode lune vivent dans #tdNow, que REFRESH réécrit sans
      repasser par bind() : un on('id') ne les verrait jamais. Ils passent donc
      par la délégation, comme data-done et data-launch. */
@@ -8578,6 +8714,8 @@ function applyGame(g){
   releveLu();
   // render() ne publie le plan que sur Aujourd'hui : une demande placée ici resterait muette sur la tuile
   publieLePlan();
+  // L'icône compte les critiques à chaque mise à jour des données, quel que soit l'onglet ouvert.
+  publieCritiques();
 }
 render();
 /* Et à l'ouverture du panneau : le réglage peut avoir été posé avant que la
@@ -8590,6 +8728,7 @@ pushLook();
    elle, même quand on regarde ailleurs : le dessin ne doit pas dépendre de
    l'onglet ouvert. */
 publieLePlan();
+publieCritiques();
 if(window.__game) applyGame(window.__game);
 /* Demandes déposées pendant que le panneau était fermé. boot.js ne transmet que
    les clés « ls: » et game/api : sans lui, la clé resterait dans le stockage. */

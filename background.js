@@ -275,9 +275,42 @@ chrome.runtime.onMessage.addListener(msg => {
   if (msg && msg.type === 'apiRefresh') apiRefresh(!!msg.force);
 });
 
+/**
+ * Le badge de l'icône, à partir de ce que le worker sait. Dans l'ordre : version
+ * instable, critiques des règles du moteur, files finies, mise à jour. Rien
+ * quand tout est à zéro.
+ *
+ * Les critiques viennent du panneau, qui les compte à chaque rendu ; les files
+ * finies viennent des alarmes, qui sonnent panneau fermé. Un compte de critiques
+ * plus vieux que la dernière fin de file ne l'écrase donc pas : il daterait d'un
+ * panneau qui n'a pas vu la file se vider.
+ * @param {{instable?:boolean, critiques?:{n:number, at:number}, pendingAlerts?:any[], fileAt?:number, maj?:boolean}} e
+ * @returns {{text:string, color:string|null}}
+ */
+function composeBadge(e) {
+  const rouge = '#ff4d6d';
+  const files = ((e && e.pendingAlerts) || []).length;
+  const c = e && e.critiques;
+  const vieux = !!(c && e.fileAt && c.at < e.fileAt);
+  const crit = c && c.n > 0 && !(vieux && files) ? c.n : 0;
+  if (e && e.instable) return { text: '!', color: rouge };
+  if (crit) return { text: String(crit), color: rouge };
+  if (files) return { text: String(files), color: rouge };
+  if (e && e.maj) return { text: '•', color: '#3b82f6' };
+  return { text: '', color: null };
+}
+function majBadge() {
+  chrome.storage.local.get(['critiques', 'pendingAlerts', 'fileAt'], d => {
+    const b = composeBadge(d || {});
+    if (b.color) chrome.action.setBadgeBackgroundColor({ color: b.color });
+    chrome.action.setBadgeText({ text: b.text });
+  });
+}
+
 chrome.storage.onChanged.addListener(async (ch, area) => {
-  if (area !== 'local' || !ch.pendingAlerts || (ch.pendingAlerts.newValue || []).length) return;
-  chrome.action.setBadgeText({ text: '' });
+  if (area !== 'local') return;
+  if (ch.critiques || ch.pendingAlerts) majBadge();
+  if (!ch.pendingAlerts || (ch.pendingAlerts.newValue || []).length) return;
   chrome.notifications.getAll(all => Object.keys(all || {}).forEach(id => chrome.notifications.clear(id)));
 });
 
@@ -394,7 +427,7 @@ async function showAlertWindow(text) {
   const { pendingAlerts = [] } = await chrome.storage.local.get('pendingAlerts');
   if (pendingAlerts.includes(text)) return;
   pendingAlerts.push(text);
-  await chrome.storage.local.set({ pendingAlerts });
-  chrome.action.setBadgeBackgroundColor({ color: '#ff4d6d' });
-  chrome.action.setBadgeText({ text: String(pendingAlerts.length) });
+  // l'heure de la fin de file : un compte de critiques d'avant elle ne la cache pas
+  await chrome.storage.local.set({ pendingAlerts, fileAt: Date.now() });
+  majBadge();
 }
