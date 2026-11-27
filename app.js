@@ -1,5 +1,5 @@
 
-const APP_VERSION = '2.15.0';
+const APP_VERSION = '2.16.0';
 const KEY = 'ogame-copilot-v1';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
 let VERSIONS = [];
@@ -220,7 +220,6 @@ function sample(){
     planets:[newPlanet('Planète mère','1:1:8',40,{metal:1})],
     fleetCalc:{from:'1:1:8', to:'1:2:8', pct:100, ships:{sc:1}},
     moonCalc:{pid:'', ship:'lf', n:0, bou:null, viser:12},
-    lune:{on:false, impact:null, tirs:{}, tirsAttente:{}, maj:0, rendu:{coords:'', n:0, dus:0, faits:0}},
     expo:{pf:true},
     ui:{tool:'colony', pose:{k:'metal', lvl:'', hors:{}}},
     day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false,
@@ -277,14 +276,13 @@ S.tech = Object.assign(sample().tech, S.tech);
 S.day = Object.assign(sample().day, S.day);
 S.ui = Object.assign(sample().ui, S.ui);
 S.lf = Object.assign(sample().lf, S.lf);
-/* `rendu` se fusionne à part : Object.assign ne descend pas d'un niveau, et une
-   sauvegarde d'avant le mode lune n'a ni l'un ni l'autre. */
 /* `moonCalc` rejoint les clés fusionnées : une sauvegarde abîmée ou venue d'une
    autre version le laissait nul ou amputé, et `moonPlanete()` levait — ce qui
    faisait taire toute la synchro, priorités et centre compris. */
 S.moonCalc = Object.assign(sample().moonCalc, S.moonCalc);
-S.lune = Object.assign(sample().lune, S.lune);
-S.lune.rendu = Object.assign(sample().lune.rendu, S.lune.rendu);
+/* Le mode lune (la campagne de tirs croisés) a été retiré : sa campagne ne se
+   garde plus. Le calculateur d'Outils › Lune, lui, reste dans `moonCalc`. */
+delete S.lune;
 S.raids = S.raids || {};
 S.prio = Array.isArray(S.prio) ? S.prio : [];
 S.prioAsk = Array.isArray(S.prioAsk) ? S.prioAsk : [];
@@ -328,10 +326,6 @@ function forgetPlanet(id){
   S.timers = (S.timers || []).filter(t => t.pid !== id);
   if(S.colo.fromId === id) S.colo.fromId = null;
   if(S.centre === id) S.centre = null;
-  /* Le compteur de tirs de lune part avec elle. Laissé là, il n'a plus de
-     planète donc plus d'identifiant de jeu, et `luneOut` se tairait pour
-     toujours — la campagne cesserait de voyager sans que rien le dise. */
-  if(S.lune && S.lune.tirs) delete S.lune.tirs[id];
 }
 
 /* Une priorité est ce que le joueur pose : un bâtiment ou une recherche, avec
@@ -2404,6 +2398,9 @@ function affichageCard(){
     .concat(CARTES_CHOIX.map(c => `<option value="${c}"${c === v ? ' selected' : ''}>${cartesLabel(c)}</option>`)).join('');
   const propres = LISTES.filter(([id]) => cartesPropre(id) != null).length;
   return `<div class="card"><h2>Affichage</h2>
+      <div class="bascules">
+        ${bascule('sEmpile','data-empile="1"','Empiler les sections', cardMode !== 'tabs', 'Les cartes d\'Aujourd\'hui s\'affichent les unes sous les autres. Décoché, elles se rangent en onglets, une seule affichée à la fois.')}
+      </div>
       <div class="grid">
         <label class="f">Nombre de cartes par liste<select id="sCartes" data-cartesg="1">${opts(g, false)}</select><span class="note">Les cartes urgentes s'affichent toujours, en plus. Le reste se déplie avec « Voir plus ».</span></label>
       </div>
@@ -2720,12 +2717,6 @@ function header(){
   nb.title = nb.ariaLabel = nuit ? 'Mode jour' : 'Mode nuit';
   nb.classList.toggle('primary', nuit);
   nb.classList.toggle('ghost', !nuit);
-  /* Le mode lune vit à côté : même geste, même endroit. */
-  const lb = document.getElementById('luneBtn'), lune = !!S.lune.on;
-  lb.textContent = lune ? '🌕' : '🌑';
-  lb.title = lb.ariaLabel = lune ? 'Quitter le mode lune' : 'Mode lune';
-  lb.classList.toggle('primary', lune);
-  lb.classList.toggle('ghost', !lune);
   /* L'interrupteur des heures : coché = heure locale. Son libellé dit le mode
      choisi ; s'il dit « serveur ? », aucune page du jeu n'a encore donné
      l'heure du serveur et le panneau montre la locale en attendant. */
@@ -2742,29 +2733,8 @@ function header(){
     + (avert ? ' — ' + avert.charAt(0).toLowerCase() + avert.slice(1) : '');
   tzl.textContent = timeMode === 'local' ? 'Heures : locale' : (inconnu ? 'Heures : serveur ?' : 'Heures : serveur');
   tzl.title = avert || (LOCAL_TZ ? 'Fuseau local : ' + LOCAL_TZ : '');
-  /* Le masquage de la page du jeu : un bouton, et sous lui les trois cases. */
-  const mb = document.getElementById('masqueBtn'), mm = document.getElementById('masqueMenu');
-  if(mb && mm){
-    const n = MASQUE_CLES.filter(k=>masque[k]).length;
-    mb.textContent = n ? '🙈' : '👁';
-    mb.title = mb.ariaLabel = n ? `Page du jeu : ${n} élément${n>1?'s':''} masqué${n>1?'s':''}` : 'Masquer la pub, le bandeau ou le chat de la page du jeu';
-    mb.classList.toggle('primary', !!n);
-    mb.classList.toggle('ghost', !n);
-    // redessiné sous le doigt du joueur : la case qu'il vient de cocher garde le focus
-    const f = document.activeElement && mm.contains(document.activeElement) ? document.activeElement.id || 'tout' : null;
-    mm.innerHTML = `<div class="bascules">${masqueCases('hMq')}</div>`
-      + `<button class="btn sm" type="button" id="hMqtout" data-masque-tout>${toutMasque() ? 'Tout afficher' : 'Tout masquer'}</button>`;
-    if(f){ const el = document.getElementById(f === 'tout' ? 'hMqtout' : f); if(el) el.focus(); }
-  }
-  /* La disposition des cartes : allumé = en onglets. */
-  const cb = document.getElementById('cartesBtn');
-  if(cb){
-    const ong = cardMode === 'tabs';
-    cb.setAttribute('aria-checked', String(ong));
-    cb.title = cb.ariaLabel = ong ? 'Empiler les sections' : 'Organiser les sections en onglets';
-    cb.classList.toggle('primary', ong);
-    cb.classList.toggle('ghost', !ong);
-  }
+  /* Le masquage de la page du jeu et la disposition des cartes se règlent une
+     fois pour toutes : ils vivent dans les Réglages, plus dans l'en-tête. */
   /* L'engrenage est un onglet comme les autres, hors de la barre : il porte le
      même `data-tab`, donc le même état sélectionné. */
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected', String(b.dataset.tab===tab)));
@@ -4167,20 +4137,23 @@ function setTimeMode(m){
   render();
 }
 /* ---------- masquer des morceaux de la page du jeu ----------
-   Trois interrupteurs indépendants — Publicité, Bandeau supérieur, Barre de
+   Trois interrupteurs indépendants — Masquer la pub, la bannière, le
    chat — rangés dans chrome.storage.sync sous `masque`. C'est masque.js, dans
    la page, qui les applique : il écoute la même clé, donc un changement ici
    se voit dans chaque onglet ouvert, sans recharger. Le panneau n'en garde
-   qu'un miroir pour se dessiner. */
+   qu'un miroir pour se dessiner.
+   Par défaut les trois sont masqués : un choix jamais fait (clé absente)
+   vaut « masqué ». Un choix enregistré, lui, n'est jamais réécrit. masque.js
+   applique la même règle, sans quoi la page et le panneau se contrediraient. */
 const MASQUE_CLES = ['pub', 'bandeau', 'chat'];
-const MASQUE_NOMS = {pub: 'Publicité', bandeau: 'Bandeau supérieur', chat: 'Barre de chat'};
+const MASQUE_NOMS = {pub: 'Masquer la pub', bandeau: 'Masquer la bannière', chat: 'Masquer le chat'};
 const MASQUE_NOTES = {
   pub: 'Bannières publicitaires et encarts promotionnels.',
   bandeau: 'La barre Gameforge en haut de page : compte, lobby, liens externes.',
   chat: 'La barre de chat et ses fenêtres repliées. Un nouveau message fait sortir une pastille dans le coin ; un clic dessus rouvre le chat jusqu\'à la page suivante.'
 };
-/** Les trois choix ramenés à des booléens : ce qui manque vaut « visible ». */
-function masqueNorme(m){ const o = {}; for(const k of MASQUE_CLES) o[k] = !!(m && m[k]); return o; }
+/** Les trois choix ramenés à des booléens : ce qui manque vaut « masqué ». */
+function masqueNorme(m){ const o = {}; for(const k of MASQUE_CLES) o[k] = !m || m[k] === undefined ? true : !!m[k]; return o; }
 /* `var` : header() peut s'exécuter avant que cette ligne soit atteinte. */
 var masque = masqueNorme(typeof window !== 'undefined' ? window.__masque : null);
 /** Vrai quand les trois sont masqués : le raccourci dit alors « Tout afficher ». */
@@ -4196,22 +4169,22 @@ function setMasque(m, retenir){
     try{ if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){ const r = chrome.storage.sync.set({masque: m}); if(r && r.catch) r.catch(syncFailed); } }catch(e){ syncFailed(e); }
   }
   header();
-  // la carte des Réglages porte les mêmes cases : elle ne doit pas mentir
+  // la carte des Réglages porte les cases : elles ne doivent pas mentir
   if(tab === 'settings') view.querySelectorAll('[data-masque]').forEach(el=>{ el.checked = !!masque[el.dataset.masque]; });
   const tb = view.querySelector('[data-masque-tout]');
   if(tb) tb.textContent = toutMasque() ? 'Tout afficher' : 'Tout masquer';
 }
-/** Les trois cases et le raccourci, tels que l'en-tête et les Réglages les montrent. */
+/** Les trois cases, telles que les Réglages les montrent. */
 function masqueCases(prefixe){
-  return MASQUE_CLES.map(k=>bascule(prefixe + k, `data-masque="${k}"`, MASQUE_NOMS[k], masque[k], prefixe === 'sMq' ? MASQUE_NOTES[k] : '')).join('');
+  return MASQUE_CLES.map(k=>bascule(prefixe + k, `data-masque="${k}"`, MASQUE_NOMS[k], masque[k], MASQUE_NOTES[k])).join('');
 }
-/* La première fois : le joueur qui avait coché « Épurer » gardait sa page sans
-   pub ni bandeau. On lui écrit le même choix, découpé en interrupteurs. */
-function masqueMigre(d){
-  if(!d || d.masque !== undefined) return;
-  const lean = !!(S.settings && S.settings.lean);
-  if(!lean) return;
-  setMasque({pub: true, bandeau: true, chat: false});
+/* Ce que le stockage partagé garde d'une version d'avant. La campagne du mode
+   lune (`sy:lune`) n'a plus de lecteur depuis le retrait du mode : on l'efface
+   une fois, plutôt que de la laisser occuper le quota. Rien d'autre n'est
+   touché — un choix du joueur ne se réécrit pas. */
+function syncNettoie(d){
+  if(!d || d['sy:lune'] === undefined) return;
+  try{ const r = chrome.storage.sync.remove('sy:lune'); if(r && r.catch) r.catch(syncFailed); }catch(e){ syncFailed(e); }
 }
 /* L'infobulle se pose après coup, sur ce qui est déjà dans la page : les heures
    vivent dans des phrases que esc() traverse, un balisage glissé par
@@ -7081,25 +7054,13 @@ function dailyMissions(){
     out.push(m);
     for(const r of (fs && fs.rest) || []) out.push(carteLot(r, false));
   }
-  out.push(...luneCartes(), ...luneCartesDette());
-  /* La carte du tir mène la liste, et pas seulement à l'écran : la colonne
-     publiée dans la page du jeu lit cette liste-ci. Trier plus loin, dans le
-     rafraîchissement, laissait « Hangar de métal 1 » au-dessus de « sors ta
-     flotte » là où le joueur regarde vraiment. */
   /* Le profil décide ici aussi de ce qui sort : une carte de défense n'a rien
-     à dire à un raideur, un focus Expéditions remonte les siennes. Le tri de
-     la lune passe après, c'est lui qui a le dernier mot. */
+     à dire à un raideur, un focus Expéditions remonte les siennes. */
   const tri = out.filter(m => poidsCat(catMission(m)) > 0)
-    .sort((a, b) => poidsCat(catMission(b)) - poidsCat(catMission(a)))
-    .sort((a, b) => (a.id === 'lune-sors' ? 0 : 1) - (b.id === 'lune-sors' ? 0 : 1));
+    .sort((a, b) => poidsCat(catMission(b)) - poidsCat(catMission(a)));
   /* Mode nuit : le joueur va dormir. Seule la rubrique Sécurité parle de
-     mettre les ressources à l'abri ; tout le reste attendra le réveil.
-
-     Une seule carte Lune y échappe, et pour la même raison : sortir sa flotte
-     avant un impact *est* de la mise à l'abri. Un tir qui tombe à 2 h du matin
-     ferait sinon disparaître la carte la plus critique de toutes. La dette et
-     les débris, eux, attendent le réveil comme le reste. */
-  return S.day.night ? tri.filter(m=>m.q === 'Sécurité' || m.id === 'lune-sors') : tri;
+     mettre les ressources à l'abri ; tout le reste attendra le réveil. */
+  return S.day.night ? tri.filter(m=>m.q === 'Sécurité') : tri;
 }
 /* Le copilote ne voit pas ce que le joueur décide dans le jeu : une carte qu'il
    a choisi de ne pas suivre revient au plan suivant, et au suivant — cinq fois
@@ -7617,188 +7578,13 @@ function moonNom(k, n){ return n > 1 ? SHIP_PLURAL[k] : (SHIPS[k] || {n:''}).n.t
     vaut `null` quand la défense n'a jamais été relevée — on suppose alors que
     tout meurt, et l'appelant le dit plutôt que d'inventer un plafond.
 
-    La carte Lune et les cartes du mode passent toutes deux par ici : c'est la
-    combinaison qui décide de la chance, et elle n'avait pas à vivre en ligne
-    dans un rafraîchissement d'affichage. */
+    La carte Lune passe par ici : c'est la combinaison qui décide de la
+    chance, et elle n'avait pas à vivre en ligne dans un rafraîchissement
+    d'affichage. */
 function luneMorts(p, k, n, bouLvl = 0){
   const d = luneDefense(p, k, bouLvl), v = luneCoque(k);
   const tues = d && v ? Math.floor(d.tue / v) : null;
   return {tues, morts: tues == null ? n : Math.min(n, tues)};
-}
-
-/** Le tir que le joueur doit encore à son camarade, ou `null` quand il n'en
-    doit plus. `manque` est le nombre de chasseurs légers qu'il lui reste à
-    construire pour le prochain.
-
-    Le nombre par tir est saisi, jamais calculé : il faudrait la défense du
-    camarade, que le copilote ne voit pas. Et les chasseurs se comptent sur la
-    planète visée, celle qui porte déjà la flotte du joueur. */
-function luneDette(){
-  if(!S.lune.on) return null;
-  const r = S.lune.rendu || {};
-  const n = Math.max(0, +r.n || 0), dus = Math.max(0, +r.dus || 0), faits = Math.max(0, +r.faits || 0);
-  if(!n || !dus || faits >= dus) return null;
-  const p = moonPlanete(), au = ((p || {}).ships || {}).lf || 0;
-  return {du: faits + 1, dus, n, manque: Math.max(0, n - au), pid: (p || {}).id};
-}
-
-/** Un tir rendu de plus. Le compteur de la dette n'a rien à voir avec celui
-    des tirs reçus : l'un se vide, l'autre se remplit. */
-function luneEnvoye(){
-  luneTouche();
-  if(S.lune.rendu) S.lune.rendu.faits = Math.max(0, +S.lune.rendu.faits || 0) + 1;
-}
-
-/** La probabilité d'avoir déjà eu sa lune après `n` tirs, à la chance que la
-    configuration donne aujourd'hui. `null` quand cette chance est nulle : « 0 %
-    des joueurs auraient leur lune » est juste et illisible.
-
-    C'est le seul chiffre que la carte a le droit de tirer du passé, et il
-    regarde en arrière. Jamais « il reste N tirs » : chaque tir vaut ce qu'il
-    vaut, que ce soit le premier ou le neuvième, et la page Moonchance du wiki
-    renvoie elle-même au sophisme du joueur. Un joueur qui se croit dû continue
-    sur une promesse qui n'existe pas. */
-function luneDeja(p, n){
-  const k = moonShip(), df = moonDf();
-  const {morts} = luneMorts(p, k, Math.floor(Math.max(0, +S.moonCalc.n || 0)), moonBou());
-  const c = luneTir(k, morts, df).chance;
-  if(!c || !(n > 0)) return null;
-  return 100 * (1 - Math.pow(1 - c / 100, n));
-}
-
-/** Vrai dans l'heure qui précède l'impact. C'est la seule fenêtre où la carte
-    Lune passe devant les chantiers : à ce moment-là « Monte Métal 21 » n'a rien
-    à faire au-dessus de « sors ta flotte, 7 M à ta charge ». Hors fenêtre, elle
-    mène les missions et le plan garde sa forme — une campagne dure des jours. */
-function luneUrgent(){
-  const imp = S.lune.on ? S.lune.impact : null;
-  return !!imp && imp > Date.now() && imp - Date.now() <= 3600e3;
-}
-
-/** La fin d'un tir : le joueur dit si une lune est née. Une seule fonction,
-    pour que le bouton de la carte et les tests empruntent le même chemin.
-    Un oui solde la campagne de cette planète — un compteur réussi ne se lègue
-    pas à la suivante — et éteint le mode. */
-/** Marque la campagne comme venant de changer ici. C'est cette date que
-    l'autre poste compare pour ne pas écraser plus récent que lui. */
-function luneTouche(){ S.lune.maj = Date.now(); }
-
-function luneRepond(eutUneLune){
-  luneTouche();
-  const p = moonPlanete();
-  if(p) S.lune.tirs[p.id] = eutUneLune ? 0 : (S.lune.tirs[p.id] || 0) + 1;
-  S.lune.impact = null;
-  if(eutUneLune) S.lune.on = false;
-}
-
-/** Les cartes du tir de lune, du côté où le joueur reçoit. Un seul état à la
-    fois, décidé par l'heure d'impact : rien de saisi, un tir qui vient, un tir
-    qui est passé, un tir oublié.
-
-    Elles ne passent pas par la mise en sommeil des autres missions : leur état
-    vit dans S.lune, et un « Non » de réflexe ne doit pas pouvoir éteindre
-    « sors ta flotte » pour toute la campagne. */
-/** Les cartes du côté où le joueur rend : ce qu'il lui manque pour le prochain
-    tir, puis l'ordre de partir. Elles ne vivent que tant qu'une dette reste. */
-function luneCartesDette(){
-  const d = luneDette();
-  if(!d) return [];
-  /* `what` et `why` repassent par esc() dans taskHtml et whyParts : échapper
-     ici donnerait « L&#39;Oasis » sous les yeux du joueur. */
-  const p = moonPlanete(), ou = S.lune.rendu.coords || 'sa planète';
-  const rang = `tir ${d.du} sur ${d.dus}`;
-  if(d.manque > 0){
-    const c = SHIP_COST.lf, t = p ? shipTime('lf', d.manque, p) : 0;
-    return [{id:'lune-dette', q:'Lune', every:12, sev:'info',
-      what:`Il te manque ${fmt(d.manque)} ${moonNom('lf', d.manque)} pour le tir que tu lui dois (${rang})`,
-      why:`Chantier spatial : ${fmt(d.manque * c[0])} métal, ${fmt(d.manque * c[1])} cristal${t ? `, ${dur(t)}` : ''}. Tu en as ${fmt(d.n - d.manque)} sur ${fmt(d.n)}.`,
-      how:['Le copilote ne met pas ces chasseurs dans ton plan : à toi de lancer le chantier.',
-           'Ils ne servent qu\'à mourir chez lui — ne compte pas dessus pour autre chose.']}];
-  }
-  return [{id:'lune-rend', q:'Lune', every:3, sev:'good',
-    what:`Tes ${fmt(d.n)} ${moonNom('lf', d.n)} sont prêts — envoie-les sur ${ou} (${rang})`,
-    why:`Mission Attaquer. Sa défense les tuera tous, et les débris tomberont chez lui.`,
-    how:['Vérifie avec lui qu\'il a sorti sa flotte avant l\'arrivée.',
-         'Clique « Envoyé » une fois la flotte partie, pour que la dette avance.']}];
-}
-
-function luneCartes(){
-  if(!S.lune.on) return [];
-  const p = moonPlanete();
-  if(!p) return [];
-  const k = moonShip(), df = moonDf(), now = Date.now(), imp = S.lune.impact;
-  const n = Math.floor(Math.max(0, +S.moonCalc.n || 0));
-  const {tues, morts} = luneMorts(p, k, n, moonBou());
-  const vise = Math.min(20, Math.max(1, Math.round(+S.moonCalc.viser || 12)));
-  const pour = luneVaisseaux(k, vise, df);
-  const dem = tues == null ? pour : Math.min(pour, tues);
-  const ou = planetRef(p);
-
-  if(!imp) return [{id:'lune-attente', q:'Lune', every:6, sev:'info',
-    what:`Tir de lune sur ${ou} : demande-lui ${fmt(dem)} ${moonNom(k, dem)}`,
-    why:`${tues == null ? 'La défense de cette planète n\'a jamais été relevée : ouvre sa page Défense pour que le chiffre tienne.' : `Au-delà de ${fmt(tues)}, les survivants rentrent chez lui sans rien laisser.`}`,
-    how:['Quand il te donne son heure d\'arrivée, saisis-la dans Outils › Lune : le copilote ne voit pas l\'attaque venir.',
-         'Demande-lui aussi son niveau de Technologie Bouclier, qui change ce que ta défense tue.']}];
-
-  const t = luneTir(k, morts, df), sol = luneFlotteAuSol(p);
-  /* Ce que le passé autorise à dire, et rien de plus : la part des joueurs qui
-     auraient déjà leur lune après autant de tirs. Puis ce que vaut celui qui
-     vient, qui ne doit rien aux précédents. */
-  const faits = Math.max(0, S.lune.tirs[p.id] || 0), deja = luneDeja(p, faits);
-  const passe = deja == null ? ''
-    : ` Tir ${faits + 1} : après ${faits}, ${moonPct(deja)} des joueurs auraient déjà leur lune — le tien vaut toujours ${moonPct(t.chance)}, ni plus ni moins.`;
-  const quoi = sol && sol.m + sol.c > 0
-    ? `${shipList(p.ships)} au sol mourraient avec, ${fmt(sol.m)} métal et ${fmt(sol.c)} cristal à ta charge${p.shipsAt ? `, flotte relevée il y a ${dur((now - p.shipsAt)/1000)}` : ''}.`
-    : `Aucune flotte relevée au sol — vérifie quand même avant l'impact.`;
-
-  /* Ce qu'il emporte s'il gagne : la moitié du stock, plafonnée par la soute
-     des survivants. Approximation — le jeu pille chaque ressource à part et
-     remplit la soute dans un ordre — mais l'ordre de grandeur suffit à décider
-     du geste, qui est le même de toute façon : les ressources montent dans la
-     flotte qui sort déjà. Défense jamais relevée, `tues` nul : on ne dit rien
-     plutôt que de promettre que le stock ne risque rien. */
-  const stk = stockNow(p), tot = Math.floor(stk[0] + stk[1] + stk[2]);
-  const vivants = tues == null ? 0 : Math.max(0, n - tues);
-  const emporte = vivants ? Math.min(Math.floor(tot / 2), vivants * shipStats(k).cargoEff) : 0;
-  const pille = emporte > 0
-    ? ` Charge aussi tes ressources : ${fmt(vivants)} ${moonNom(k, vivants)} survivent au combat et repartent avec ${fmt(emporte)} de ton stock.`
-    : tues != null && n > 0 ? ` Ta défense les tue tous : ton stock au sol, lui, ne risque rien.` : '';
-
-  if(imp > now) return [{id:'lune-sors', q:'Lune', every:1, sev: imp - now <= 3600e3 ? 'bad' : 'warn',
-    what:`Sors ta flotte de ${ou} — impact dans ${dur((imp - now)/1000)}`,
-    why:`${quoi} ${t.chance ? `Le tir vaut ${moonPct(t.chance)} de chance de lune.` : morts * luneCoque(k) * df / 100 > 0 ? `Ce tir ne vaut rien : sous 100 000 de débris le combat ne donne aucune chance de lune. Il en faut ${fmt(luneVaisseaux(k, 1, df))} morts au moins.` : `Dis dans Outils › Lune combien de vaisseaux il envoie — sans ce nombre, le copilote ne peut rien chiffrer.`}${passe}${pille}`,
-    how:['Déploiement vers une autre de tes planètes : elle revient après le combat.']
-      .concat(emporte > 0 ? ['Charge le métal, le cristal et le deutérium dans cette même flotte : en vol, rien n\'est détruit ni pillé.'] : [])
-      .concat(['Les recycleurs partent avec : s\'ils meurent, tu n\'as plus rien pour ramasser.',
-         'Le copilote ne peut pas vérifier qu\'elle est partie — c\'est à toi de regarder.'])}];
-
-  const rec = (p.ships || {}).rec || 0, soute = shipStats('rec').cargoEff;
-  if(now - imp < 24 * 3600e3) return [{id:'lune-ramasse', q:'Lune', every:1, sev:'good',
-    what:`Le tir sur ${ou} est passé — une lune est née ?`,
-    why:`${rec && soute && t.debris ? `Ramène tes recycleurs : ${fmt(Math.ceil(t.debris / (rec * soute)))} voyages pour ${fmt(t.debris)} de débris. ` : ''}Si tu es le mieux classé de vous deux, tu ne peux pas garder ses débris : les ramasser serait du pushing, préviens un Game Operator avant.${passe}`,
-    how:['Réponds une fois que tu as vu le rapport de combat : le compteur en dépend.']}];
-
-  return [{id:'lune-perdu', q:'Lune', every:12, sev:'warn',
-    what:`Le tir sur ${ou} date de ${dur((now - imp)/1000)} — que s'est-il passé ?`,
-    why:`Les débris ne sont plus là, et le copilote ne sait pas si la lune est née. Confirme pour que le compteur reprenne.`,
-    how:['Si tu as eu ta lune, réponds oui : la campagne est soldée.',
-         'Sinon réponds non, et saisis l\'heure du prochain tir.']}];
-}
-
-/** L'instant que désigne un champ `datetime-local`, ou `null` s'il est vide ou
-    illisible. Une date-heure complète et non une heure seule : « impact à
-    00:40 » saisi à 23:50 ne dit pas quel jour, et `S.lune.impact` est un
-    instant absolu. */
-function luneQuand(txt){
-  const t = new Date(String(txt == null ? '' : txt)).getTime();
-  return isFinite(t) ? t : null;
-}
-
-/** Le même instant, dans la forme que le champ attend. */
-function luneQuandTxt(ms){
-  if(!ms) return '';
-  const d = new Date(ms), p = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 /** Une chance en pourcent, lisible : un chiffre après la virgule sous 10 %. */
@@ -8935,17 +8721,6 @@ moon(){
       <div class="res" id="moonOut"></div>
       <p class="note" id="moonNote"></p>
     </div>
-    <div class="card"><h2>Mode lune</h2>
-      <p class="note">Ces trois-là ne servent qu'au mode lune, l'interrupteur 🌑 de l'onglet Aujourd'hui. Ils vivent ici parce que la zone « Maintenant » se réécrit toute seule et perdrait ta saisie en cours de frappe.</p>
-      <div class="grid">
-        <label class="f">Heure d'impact du prochain tir<input id="lnQuand" type="datetime-local" data-lune="impact" value="${luneQuandTxt(S.lune.impact)}"><span class="note">Celle que ton camarade t'annonce. Le copilote ne voit pas l'attaque arriver.</span></label>
-        <label class="f">Sa planète, pour le tir que tu rends<input id="lnOu" data-lune="coords" value="${esc(S.lune.rendu.coords)}" placeholder="1:140:8"></label>
-      </div>
-      <div class="grid">
-        <label class="f">Chasseurs légers par tir rendu<input id="lnN" type="number" min="0" step="1" data-lune="n" value="${Math.max(0,+S.lune.rendu.n||0)}"><span class="note">Ce que <b>lui</b> te demande : le copilote ne voit pas sa défense et ne peut pas le calculer.</span></label>
-        <label class="f">Tirs promis<input id="lnDus" type="number" min="0" step="1" data-lune="dus" value="${Math.max(0,+S.lune.rendu.dus||0)}"><span class="note">${Math.max(0,+S.lune.rendu.faits||0)} déjà envoyé${(+S.lune.rendu.faits||0)>1?'s':''}.</span></label>
-      </div>
-    </div>
   </section>`;
 },
 /* Le modèle se choisit dans les Réglages, une fois pour tout l'empire ; ici
@@ -9106,7 +8881,6 @@ settings(){
       <p class="note">Relief suit le clair ou le sombre de ton système ; les trois autres sont sombres. Le changement se voit tout de suite, sur toutes les pages.</p>
       <div class="bascules">
         ${bascule('sMuet','data-set="muet"','Couper le son', s.muet, 'Plus de carillon à la fin d\'un minuteur, et les notifications du navigateur arrivent sans bruit.')}
-        ${bascule('sOnglets','data-onglets-mode="1"','Organiser les sections en onglets', cardMode === 'tabs', 'Les cartes d\'Aujourd\'hui se rangent en onglets, une seule affichée à la fois, au lieu de s\'empiler. Le même interrupteur est dans l\'en-tête (🗂️).')}
       </div>
       <div class="row"><button class="btn ghost" id="uiReset">Réinitialiser l'affichage des cartes</button></div>
       <p class="note">Les cartes et les sections que tu as ouvertes ou fermées le restent, sur ce poste, d'une page et d'une session à l'autre. Ce bouton les remet comme au premier jour : alertes ouvertes, le reste fermé.</p>
@@ -9114,15 +8888,12 @@ settings(){
     ${affichageCard()}
     <div class="card"><h2>Page du jeu</h2>
       <div class="bascules">
+        ${masqueCases('sMq')}
         ${bascule('sLean','data-set="lean"','Épurer la page du jeu', s.lean, 'En-tête et pied de page en moins ; fond sombre, menu plus grand.')}
         ${bascule('sNoShop','data-set="noshop"','Masquer les menus payants', s.noshop, 'Marchand, Mess des officiers, boutiques.')}
       </div>
-      <p class="note">Allure seulement : la page du jeu, pas ce panneau, ni les calculs.</p>
-    </div>
-    <div class="card"><h2>Masquer dans la page du jeu</h2>
-      <div class="bascules">${masqueCases('sMq')}</div>
       <div class="row"><button class="btn" type="button" data-masque-tout>${toutMasque() ? 'Tout afficher' : 'Tout masquer'}</button></div>
-      <p class="note">Masqué, pas supprimé : les éléments restent dans la page et le jeu marche comme avant. La barre de ressources, les planètes, le menu et les alertes du jeu ne se masquent jamais. Le choix vaut pour tous les onglets ouverts et se retrouve au prochain lancement ; le même est dans l'en-tête, sous 👁.</p>
+      <p class="note">Allure seulement : la page du jeu, pas ce panneau, ni les calculs. Masqué, pas supprimé : les éléments restent dans la page et le jeu marche comme avant. La barre de ressources, les planètes, le menu et les alertes du jeu ne se masquent jamais. Chaque choix s'applique tout de suite, dans tous les onglets ouverts, et se retrouve au prochain lancement.</p>
     </div>
     <div class="card"><h2>Sauvegarde</h2>
       <p class="note">Tes données restent dans ce navigateur. « Enregistrer » écrit un fichier <code>save.json</code> : mets-le dans le dossier du dépôt et pousse-le, puis « Charger » le relit sur l'autre poste.</p>
@@ -9177,10 +8948,7 @@ today(){
      le vider ici ne perd rien. */
   if(night) for(const x of plan.sessions){ x.acts = []; x.waits = []; }
   const nowParts = [], a0 = actsVus(s0);
-  /* Les cartes Lune ne se mettent pas en sommeil : leur état vient de S.lune,
-     et un « Non » de réflexe éteindrait « sors ta flotte » pour toute la
-     campagne — sur la seule carte qui vaut des millions. */
-  const missions = dailyMissions().filter(m=>m.q === 'Lune' || (!missionDone(m) && !refused('m:'+m.id)));
+  const missions = dailyMissions().filter(m=>!missionDone(m) && !refused('m:'+m.id));
   /* La page du jeu surligne ce que le plan recommande et pose la bande du bas.
      Elle n'en fait rien d'autre : aucun clic, aucun envoi, ce sont des repères.
      Publié ici, après les missions, parce que la bande les porte. */
@@ -9208,27 +8976,12 @@ today(){
     const ck = missionKey(m), how = ck + '.comment-faire'; uiVu(ck);
     const [wi, wb] = whyParts([m.why], ck);
     const meta = (m.tags||[]).map(planetTag).join('') + (m.sol ? `<span>${esc(m.sol)}</span>` : '') + copyChips(m);
-    /* Les cartes Lune portent leurs propres boutons : leur état vit dans
-       S.lune, pas dans une mise en sommeil, et « Fait » n'y voudrait rien
-       dire. Celle d'avant-impact n'en a aucun — le copilote ne peut pas
-       vérifier que la flotte est partie, donc il ne fait pas semblant. */
-    const btns = m.q === 'Lune'
-      ? (m.id === 'lune-ramasse' || m.id === 'lune-perdu'
-          ? `<button class="btn sm primary" data-lune-do="oui">Lune !</button><button class="btn sm" data-lune-do="non">Pas cette fois</button>`
-          : m.id === 'lune-rend' ? `<button class="btn sm primary" data-lune-do="env">Envoyé</button>` : '')
-      : `<button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${noBtn('m:'+m.id)}`;
+    const btns = `<button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${noBtn('m:'+m.id)}`;
     return `<li class="task" data-ck="${esc(ck)}"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns">${btns}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"${fold(how, false)}><summary data-fold="${esc(how)}">Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
   };
-  /* Les cartes Lune mènent les missions ; dans l'heure qui précède l'impact
-     elles passent aussi devant les chantiers. Trier la liste des missions ne
-     suffisait pas : l'ordre de la page se décide ici, pas dans dailyMissions. */
-  const lun = nowMs.filter(m=>m.id === 'lune-sors'), reste = nowMs.filter(m=>m.id !== 'lune-sors');
-  /* Une carte « Urgent » passe la limite, et le tir de lune dans l'heure qui
-     précède l'impact aussi : c'est celle qui vaut des millions. */
-  const tache = m => ({html: taskHtml(m), crit: m.sev === 'bad' || (m.id === 'lune-sors' && luneUrgent())});
-  const avant = luneUrgent() ? lun.map(tache) : [];
-  const apres = (luneUrgent() ? reste : lun.concat(reste)).map(tache);
-  const cartesNow = avant.concat(a0.map(a=>({html: actHtml(a,true), crit: false})), apres);
+  /* Une carte « Urgent » passe la limite. */
+  const tache = m => ({html: taskHtml(m), crit: m.sev === 'bad'});
+  const cartesNow = a0.map(a=>({html: actHtml(a,true), crit: false})).concat(nowMs.map(tache));
   /* Le compteur dit tout ce que la liste porte, cartes masquées comprises. */
   const nN = document.getElementById('tdNowN'); if(nN) nN.textContent = cartesNow.length ? `(${cartesNow.length})` : '';
   if(cartesNow.length) nowParts.push(listeCartes('maintenant', cartesNow, 'acts'));
@@ -9552,7 +9305,7 @@ function bind(){
      redessine au lieu de se rafraîchir. */
   view.querySelectorAll('[data-centre]').forEach(el=>el.addEventListener('change',()=>{ S.centre = el.checked ? el.dataset.centre : null; save(); render(); }));
   view.querySelectorAll('[data-raid]').forEach(el=>el.addEventListener(el.type==='checkbox'?'change':'input',()=>{ if(!S.raid) return; const k=el.dataset.raid; if(k==='paste'){ applyReport(el.value); save(); render(); return; } S.raid[k] = el.type==='checkbox' ? el.checked : (+el.value||0); if(k!=='safe') S.raid.at=Date.now(); save(); REFRESH.explore(); }));
-  view.querySelectorAll('[data-onglets-mode]').forEach(el=>el.addEventListener('change',()=>setCardMode(el.checked ? 'tabs' : 'stacked')));
+  view.querySelectorAll('[data-empile]').forEach(el=>el.addEventListener('change',()=>setCardMode(el.checked ? 'stacked' : 'tabs')));
   view.querySelectorAll('[data-lf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.lf, f=new Set(S.lf.found); el.checked ? f.add(k) : f.delete(k); S.lf.found=[...f]; save(); render(); }));
   /* Répondre, c'est à la fois choisir et passer à la suite : le plan entier
      change, donc la vue se redessine — et l'assistant disparaît à la dernière
@@ -9689,12 +9442,6 @@ function bind(){
   view.querySelectorAll('[data-masque-tout]').forEach(el=>el.addEventListener('click',()=>setMasque(masqueBascule(masque))));
   view.querySelectorAll('[data-expo]').forEach(el=>el.addEventListener('change',()=>{ S.expo.pf=el.checked; changed(); }));
   view.querySelectorAll('[data-mc]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{ const k=el.dataset.mc; S.moonCalc[k] = (k==='pid'||k==='ship') ? el.value : Math.max(0, parseInt(el.value, 10)||0); changed(); }));
-  /* `impact` vit à la racine de S.lune, le reste dans `rendu`. */
-  view.querySelectorAll('[data-lune]').forEach(el=>el.addEventListener('input',()=>{ const k=el.dataset.lune;
-    if(k==='impact') S.lune.impact = luneQuand(el.value);
-    else if(k==='coords') S.lune.rendu.coords = el.value.trim();
-    else S.lune.rendu[k] = Math.max(0, parseInt(el.value, 10)||0);
-    luneTouche(); changed(); }));
   /* Le modèle de défense passe tout entier par ici : le réglage global, le
      palier, chaque pièce du ratio perso, et la surcharge d'une planète, que
      `data-dp` distingue. Un menu vide retire la surcharge plutôt que de poser
@@ -9865,12 +9612,6 @@ view.addEventListener('click', e=>{
      n'est pas « Non », qui oublie une carte du plan pour toujours. */
   const rs = e.target.closest('[data-rescan]'); if(rs){ rescanner(); save(); render(); toast('Noms oubliés : ouvre les pages Formes de vie pour les relire'); return; }
   const ig = e.target.closest('[data-ign]'); if(ig){ S.daily.ign = Object.assign({}, ignores(), {[ig.dataset.ign]: Date.now()}); save(); refresh(); toast('Masqué jusqu\'à ce que ça change'); return; }
-  /* Les boutons du mode lune vivent dans #tdNow, que REFRESH réécrit sans
-     repasser par bind() : un on('id') ne les verrait jamais. Ils passent donc
-     par la délégation, comme data-done et data-launch. */
-  const ln = e.target.closest('[data-lune-do]'); if(ln){ const a = ln.dataset.luneDo;
-    if(a === 'env') luneEnvoye(); else luneRepond(a === 'oui');
-    save(); render(); toast(a === 'oui' ? 'Belle lune' : a === 'env' ? 'Tir envoyé' : 'Tir compté'); return; }
   const pu = e.target.closest('[data-prio-up]'); if(pu){ prioDevant(pu.dataset.prioUp); save(); render(); publieLePlan(); return; }
   const pd = e.target.closest('[data-prio-del]'); if(pd){ prioRetire(pd.dataset.prioDel); save(); render(); return; }
   /* publieLePlan() comme après un champ de priorité : sans lui, les tuiles du
@@ -10076,26 +9817,6 @@ document.getElementById('nightBtn').addEventListener('click',()=>{
     : `Absence jusqu'à ${S.day.backHour} h`);
 });
 document.getElementById('tzBtn').addEventListener('click',()=>setTimeMode(timeMode === 'local' ? 'server' : 'local'));
-/* Le menu du masquage : ouvert d'un clic, refermé d'un clic ailleurs ou d'Échap.
-   Ses cases changent tout de suite — pas de bouton « appliquer ». */
-(function(){
-  const mb = document.getElementById('masqueBtn'), mm = document.getElementById('masqueMenu');
-  if(!mb || !mm) return;
-  const ouvre = o => { mm.hidden = !o; mb.setAttribute('aria-expanded', String(o)); };
-  mb.addEventListener('click', e=>{ e.stopPropagation(); ouvre(mm.hidden); });
-  mm.addEventListener('click', e=>{
-    e.stopPropagation();
-    if(e.target.closest('[data-masque-tout]')) setMasque(masqueBascule(masque));
-  });
-  mm.addEventListener('change', e=>{
-    const k = e.target.dataset && e.target.dataset.masque;
-    if(k) setMasque(Object.assign({}, masque, {[k]: e.target.checked}));
-  });
-  document.addEventListener('click', ()=>ouvre(false));
-  document.addEventListener('keydown', e=>{ if(e.key === 'Escape' && !mm.hidden){ ouvre(false); mb.focus(); } });
-})();
-{ const cb = document.getElementById('cartesBtn'); if(cb) cb.addEventListener('click',()=>setCardMode(cardMode === 'tabs' ? 'stacked' : 'tabs')); }
-document.getElementById('luneBtn').addEventListener('click',()=>{ S.lune.on = !S.lune.on; luneTouche(); save(); render(); });
 view.addEventListener('click', e=>{
   if(e.target.id==='tmSound'){ unlockAudio(); chime(); }
   if(e.target.id==='tmAdd'){
@@ -10331,10 +10052,6 @@ chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioA
    Le pid est tiré au sort à la création de la planète, donc propre au poste ;
    le gid vient du jeu et vaut sur les deux. Même règle qu'à la frontière de la
    page du jeu : on traduit en sortie et en entrée, et S ne garde jamais de gid. */
-/* `lune` n'est pas ici, et ce n'est pas un oubli : sa campagne voyage, mais
-   composée à la main par `luneOut` / `luneIn`, comme `prio` et `centre`. Son
-   compteur est indexé par identifiant de planète, tiré au sort sur chaque
-   poste ; envoyé tel quel il désignait la mauvaise planète à l'arrivée. */
 const SYNC_KEYS = ['settings','day','expo','lf','raids','daily','profil'];
 /* gidDe est déclarée plus haut, près de planetIndexById : le premier rendu la lit déjà (clé d'« Ignorer »). */
 const pidDe = gid => { const p = (S.planets || []).find(x => x.gid != null && String(x.gid) === String(gid)); return p ? p.id : null; };
@@ -10364,63 +10081,6 @@ function prioIn(l){
     return o;
   });
 }
-/* La campagne de lune voyage comme les priorités : en identifiants de jeu, les
-   seuls que les deux postes nomment pareil. Elle emporte aussi les réglages de
-   la carte dont le mode dépend — la planète visée et le nombre de vaisseaux —
-   parce qu'une campagne qui voyage à moitié désigne la mauvaise planète à
-   l'arrivée, ce qui est précisément le défaut que ceci répare.
-
-   Rend `undefined` dès qu'une planète nommée n'a pas de gid : mieux vaut ne
-   rien envoyer qu'un paquet que l'autre poste lirait de travers. */
-function luneOut(){
-  if(!S.lune || !S.moonCalc) return undefined;
-  /* La cible vient de `moonPlanete()` et non du champ brut : `moonCalc.pid`
-     vaut '' tant que le joueur n'a pas touché la liste déroulante, alors que
-     celle-ci montre déjà la planète que toutes les cartes lisent. Prendre le
-     champ ne faisait rien partir dans le cas le plus courant. */
-  const p = moonPlanete(), cible = p ? gidDe(p.id) : null;
-  if(cible == null) return undefined;
-  const tirs = Object.assign({}, S.lune.tirsAttente || {});
-  for(const [pid, n] of Object.entries(S.lune.tirs || {})){
-    const g = gidDe(pid);
-    if(g == null) return undefined;
-    tirs[g] = (tirs[g] || 0) + n;
-  }
-  const m = S.moonCalc, l = S.lune;
-  return {on: !!l.on, impact: l.impact, rendu: l.rendu, tirs, cible,
-          maj: +l.maj || 0, n: m.n, ship: m.ship, bou: m.bou, viser: m.viser};
-}
-
-/** Le chemin inverse. Rend `null` — et rien n'est écrit — dès que la planète
-    visée ne se résout pas ici : une campagne qui parle d'une planète que ce
-    poste ne connaît pas est exactement ce qui faisait évacuer la mauvaise.
-
-    Un compteur dont le gid ne résout pas est laissé de côté plutôt que deviné,
-    comme `prioIn` laisse attendre une entrée dont la planète n'est pas encore
-    relevée : la planète arrivera, le compteur suivra au prochain échange. */
-function luneIn(p){
-  if(!p || p.cible == null) return null;
-  /* Une campagne plus vieille que la nôtre ne l'écrase pas. Sans ça, le poste
-     qui vient de refuser la campagne vivante (parce qu'il ne connaît pas sa
-     planète) renvoyait la sienne, périmée, et l'autre l'acceptait : la carte
-     se remettait à parler d'une planète que personne ne tire. */
-  if((+p.maj || 0) < (+((S.lune || {}).maj) || 0)) return null;
-  const pid = pidDe(p.cible);
-  if(!pid) return null;
-  const tirs = {}, attente = {};
-  for(const [gid, n] of Object.entries(p.tirs || {})){
-    const q = pidDe(gid);
-    /* Un compteur dont la planète n'est pas relevée ici est mis de côté tel
-       quel, et `luneOut` le renvoie : sans ça le prochain aller-retour
-       l'effaçait des deux postes, ce que la conception interdit. */
-    if(q) tirs[q] = n; else attente[gid] = n;
-  }
-  return {lune: {on: !!p.on, impact: p.impact == null ? null : p.impact,
-                 tirs, tirsAttente: attente, maj: +p.maj || 0,
-                 rendu: Object.assign({}, sample().lune.rendu, p.rendu)},
-          moonCalc: Object.assign({}, S.moonCalc, {pid, n: p.n, ship: p.ship, bou: p.bou, viser: p.viser})};
-}
-
 function syncOut(){
   const out = {};
   for(const k of SYNC_KEYS) out['sy:' + k] = S[k];
@@ -10430,7 +10090,6 @@ function syncOut(){
   const prio = prioOut(S.prio);
   if(prio.every(e => !e || e.kind === 't' || e.gid != null)) out['sy:prio'] = prio;
   const centre = gidDe(S.centre); if(centre != null) out['sy:centre'] = centre;
-  const lune = luneOut(); if(lune) out['sy:lune'] = lune;
   return out;
 }
 /* `var` et non `let` : save() part dès le chargement, avant que cette ligne
@@ -10459,7 +10118,6 @@ function syncApply(d){
   sainEtat();
   if(d['sy:prio'] !== undefined) met('prio', prioIn(d['sy:prio']));
   if(d['sy:centre'] != null){ const pid = pidDe(d['sy:centre']); if(pid && pid !== S.centre){ S.centre = pid; chg = true; } }
-  if(d['sy:lune'] !== undefined){ const c = luneIn(d['sy:lune']); if(c){ met('lune', c.lune); met('moonCalc', c.moonCalc); } }
   if(!chg) return;
   /* On enregistre sans repasser par save() : renvoyer ce qu'on vient de recevoir
      n'apprendrait rien à personne. */
@@ -10468,7 +10126,7 @@ function syncApply(d){
   publieLePlan();
 }
 if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){
-  chrome.storage.sync.get(null, d=>{ syncApply(d); masqueMigre(d); });
+  chrome.storage.sync.get(null, d=>{ syncApply(d); syncNettoie(d); });
   chrome.storage.onChanged.addListener((ch, area)=>{
     if(area !== 'sync') return;
     // le mode des heures choisi dans un autre panneau ouvert

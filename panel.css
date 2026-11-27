@@ -53,8 +53,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .wrap{max-width:780px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 48px}
 /* L'en-tête tient sur une ligne, panneau étroit compris : le titre rapetisse
    avec la largeur, le badge s'écourte avant tout le reste (il est en entier
-   dans son infobulle), et sous 620px la version et la classe s'effacent. Le
-   bouton et les trois icônes, eux, ne bougent jamais — ils se cliquent. */
+   dans son infobulle), et la classe puis la version s'effacent. Le bouton et
+   les icônes, eux, ne bougent jamais — ils se cliquent. */
 header.top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:nowrap}
 /* La rangée de droite s'efface (`display:contents`) : titre, badge et
    boutons se partagent directement la ligne, chacun selon sa priorité — le
@@ -66,8 +66,13 @@ header.top h1{flex:0 1 auto;margin-right:auto;min-width:0;white-space:nowrap;ove
 header.top .row{display:contents}
 header.top .uni{flex:0 8 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header.top .btn{flex:0 0 auto}
+/* Les seuils sont mesurés sur l'en-tête à trois contrôles (heures, nuit,
+   réglages) : tout tient en entier à partir de 760px ; en dessous la classe
+   part d'abord, la version sous 680px, le libellé des heures sous 580px.
+   Chaque élément est soit entier, soit absent — jamais « v2.… ». */
+@media (max-width:760px){.uni .cls{display:none}}
 @media (max-width:680px){
-  .ver,.uni .cls{display:none}
+  .ver{display:none}
   /* Et quand le bouton est sorti, le badge part aussi : il dit la même chose
      que lui — le relevé est vieux — et la ligne n'a pas la place des deux.
      L'heure, elle, reste dans l'infobulle du bouton. */
@@ -81,10 +86,10 @@ header.top .btn{flex:0 0 auto}
    dessous, alignés à droite (s'ils ne tiennent pas, ils continuent sur une
    ligne de plus — jamais par-dessus le titre ni hors de l'écran). */
 @media (max-width:460px){header.top{flex-wrap:wrap;justify-content:flex-end;row-gap:6px} header.top h1{flex:1 1 100%;margin-right:0}}
-/* Sous 520px, le libellé des heures part à son tour : l'interrupteur reste,
+/* Sous 580px, le libellé des heures part à son tour : l'interrupteur reste,
    son infobulle dit ce qu'il fait (avertissements compris). */
-@media (max-width:520px){header.top .tzlbl{display:none}}
-/* Et tout en bas, les écarts se resserrent : sept contrôles doivent tenir. */
+@media (max-width:580px){header.top .tzlbl{display:none}}
+/* Et tout en bas, les écarts se resserrent. */
 @media (max-width:360px){header.top{gap:5px}}
 @media (max-width:340px){header.top .gear{padding-inline:5px}}
 h1{font-family:var(--f-display);font-weight:700;font-size:clamp(14px,3.5vw,22px);letter-spacing:.04em;margin:0;text-transform:uppercase}
@@ -109,20 +114,6 @@ nav.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(
 .tzsw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .tzlbl{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap}
 :root[data-skin=hud] .tzsw,:root[data-skin=hud] .tzsw .knob{border-radius:0}
-/* Le menu du masquage, accroché sous son bouton dans l'en-tête. */
-.masque-hote{position:relative;flex:0 0 auto}
-.masque-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:50;min-width:220px;
-display:flex;flex-direction:column;gap:8px;padding:10px 12px;
-background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
-.masque-menu .bascule .note{display:none}
-/* Panneau étroit : le bouton, passé sous le titre, est trop à gauche pour que
-   le menu tienne aligné sur lui — il débordait de l'écran. Il s'accroche
-   alors au bord droit de l'en-tête, et ne dépasse jamais la largeur utile. */
-@media (max-width:520px){
-  header.top{position:relative}
-  .masque-hote{position:static}
-}
-.masque-menu{max-width:calc(100vw - 32px);box-sizing:border-box}
 /* Une heure du panneau : son infobulle donne l'autre fuseau. */
 time.hr{cursor:help;text-decoration:underline dotted color-mix(in srgb,currentColor 35%,transparent);text-underline-offset:3px}
 section.panel{display:flex;flex-direction:column;gap:14px}
