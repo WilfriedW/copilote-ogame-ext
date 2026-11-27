@@ -21,6 +21,25 @@ const REGLES = REGLES_ERR ? REGLES_VIDE() : Object.assign(REGLES_VIDE(), window.
 const aSoi = (o, k) => !!o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
 const REGLES_PAR_ID = {};
 REGLES.regles.forEach((r, i) => { if(r && typeof r.id === 'string' && !aSoi(REGLES_PAR_ID, r.id)) REGLES_PAR_ID[r.id] = Object.assign({}, r, {rang:i}); });
+/* Le repli : les règles qui ont remplacé une alerte du moteur d'avant. Sans
+   elles, un rules.json illisible — ou plus ancien que le code — taisait
+   l'énergie négative et le hangar plein. Le fichier passe devant : ces
+   définitions ne servent qu'aux identifiants qu'il ne connaît pas. Un test
+   vérifie qu'elles disent la même chose que rules.json. */
+const REGLES_SECOURS = {};
+[
+  {id:'RES_STORAGE_FULL', domaine:'ressources', cat:'', niveau:'critique', condition:'storageRatio', parametres:{seuil:0.98}, effet:'pousser',
+    message:'{hangar} plein{sur}',
+    raison:'La production de {ressource} est arrêtée. {depense} Monter {hangar} {niveau+1} prend {montee}, et la production reste à l\'arrêt jusque-là.'},
+  {id:'RES_STORAGE_SOON', domaine:'ressources', cat:'', niveau:'important', condition:'storageEta', parametres:{heures:8}, effet:'pousser',
+    message:'{hangar} plein dans {dans}{sur}',
+    raison:'Lance {hangar} {niveau+1} maintenant : il met {montee} à sortir, et au plafond la production s\'arrête.'},
+  {id:'RES_ENERGY_NEGATIVE', domaine:'ressources', cat:'', niveau:'critique', condition:'energyBalance', parametres:{}, effet:'pousser',
+    message:'Rétablir l\'énergie{sur}',
+    raison:'Tes mines tournent à {pct} %. {options}'},
+].forEach((r, i) => { if(!aSoi(REGLES_PAR_ID, r.id)) REGLES_SECOURS[r.id] = Object.assign({actif_par_defaut:true, verrou:false}, r, {rang:REGLES.regles.length + i}); });
+/** La définition d'une règle : le fichier, sinon le repli, sinon null. */
+const regleDef = id => aSoi(REGLES_PAR_ID, id) ? REGLES_PAR_ID[id] : aSoi(REGLES_SECOURS, id) ? REGLES_SECOURS[id] : null;
 /** Une fonction par type de condition : (planète, paramètres, ctx) → constats bruts. */
 const EVAL = {};
 const NIVEAUX = ['critique', 'important', 'conseil'];
@@ -271,7 +290,10 @@ migratePlanetIds();
    la case du volet Empire afficherait « undefined » et le joueur l'y saisirait. */
 for(const p of S.planets || []) p.b = Object.assign(Object.fromEntries(Object.keys(B).map(k=>[k,0])), p.b);
 S.daily = Object.assign(sample().daily, S.daily);
-regleSaine();
+/* Fichier illisible : on ne sait pas ce qui s'écarte de lui. Nettoyer ici
+   effacerait tous les réglages de règles du joueur, et save() les retirerait
+   de chrome.storage.sync. On les garde pour le jour où le fichier se relit. */
+if(!REGLES_ERR) regleSaine();
 /* Le profil indexe des tables par ses propres clés : une clé inconnue y lève,
    et `sainEtat` ne passe qu'à l'import d'une sauvegarde ou au retour d'une
    synchro. Il se remet donc d'aplomb ici aussi, au démarrage. */
@@ -2884,8 +2906,8 @@ function depensesPayables(p, j, st){
  * @returns {object|null} null si le fichier ne la connaît pas
  */
 function regle(id){
-  if(!aSoi(REGLES_PAR_ID, id)) return null;
-  const r = REGLES_PAR_ID[id], reg = S.settings && S.settings.regles;
+  const r = regleDef(id), reg = S.settings && S.settings.regles;
+  if(!r) return null;
   const j = aSoi(reg, id) ? reg[id] : null;
   const on = r.verrou ? true : (j && typeof j.on === 'boolean' ? j.on : r.actif_par_defaut !== false);
   const parametres = Object.assign({}, r.parametres);
@@ -2912,8 +2934,8 @@ function regleTexte(id, champ, defaut, vars){
 function regleSaine(){
   const src = S.settings && S.settings.regles, out = {};
   if(src && typeof src === 'object') for(const id of Object.keys(src)){
-    if(!aSoi(REGLES_PAR_ID, id)) continue;
-    const r = REGLES_PAR_ID[id], j = src[id];
+    const r = regleDef(id), j = src[id];
+    if(!r) continue;
     if(!j || typeof j !== 'object') continue;
     const e = {};
     if(!r.verrou && typeof j.on === 'boolean' && j.on !== (r.actif_par_defaut !== false)) e.on = j.on;
@@ -2985,7 +3007,7 @@ function constatsDe(p, id){
  */
 function constats(){
   const out = [], ps = S.planets || [];
-  for(const id of Object.keys(REGLES_PAR_ID)) for(const p of ps) out.push(...constatsDe(p, id));
+  for(const id of Object.keys(REGLES_PAR_ID).concat(Object.keys(REGLES_SECOURS))) for(const p of ps) out.push(...constatsDe(p, id));
   const pi = new Map(ps.map((p, i) => [p.id, i]));
   return out.sort((a, b) => rangNiveau(a.niveau) - rangNiveau(b.niveau)
     || poidsCat(b.cat) - poidsCat(a.cat) || a.rang - b.rang || pi.get(a.pid) - pi.get(b.pid));
