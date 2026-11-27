@@ -8709,7 +8709,7 @@ t('le volet des niveaux se donne pour ce qu\'il est : un réglage qu\'on ouvre',
   assert.match(css, /details:not\(\.defpick\)>summary\{[^}]*cursor:pointer/);
   assert.match(css, /details:not\(\.defpick\)>summary::after\{content:"\+"/, 'il dit qu\'il s\'ouvre');
   assert.match(css, /details:not\(\.defpick\)\[open\]>summary::after\{content:"–"/, 'et qu\'il se ferme');
-  assert.match(css, /details\.volet>summary\{[^}]*border:1px solid/, 'et il reste encadré');
+  assert.match(css, /details\.volet>summary[^{]*\{[^}]*border:1px solid/, 'et il reste encadré');
 });
 
 t('le compteur du niveau visé part du niveau en place, pas de 1', () => {
@@ -10913,14 +10913,14 @@ t('une heure de retour truquée par une synchro est refusée à l\'entrée', () 
 
 t('chaque planète est une carte repliée qui porte son nom et ses coordonnées', () => {
   const h = lu(app().VIEWS.planets());
-  assert.ok(/<details class="card volet"[^>]*data-pi="0"/.test(h), h.slice(0, 600));
+  assert.ok(/<details class="card ligne"[^>]*data-pi="0"/.test(h), h.slice(0, 600));
   assert.ok(/data-fold="pl:/.test(h), 'le repli se souvient, par planète');
 });
 
 t('les cartes de planète partent fermées, même sans clé de repli en mémoire', () => {
   const h = app(s => { s.ui.fold = {}; }).VIEWS.planets();
-  assert.ok(/<details class="card volet"/.test(h), 'encore faut-il que la carte soit un volet');
-  assert.ok(!/<details class="card volet"[^>]* open/.test(h));
+  assert.ok(/<details class="card ligne"/.test(h), 'encore faut-il que la carte soit un volet');
+  assert.ok(!/<details class="card ligne"[^>]* open/.test(h));
 });
 
 t('le résumé porte la production des trois ressources, sans rien déplier', () => {
@@ -14879,6 +14879,56 @@ t('ENH-54 : aucune carte de Réglages n\'affiche plus d\'un long paragraphe d\'a
       assert.ok(longs.length <= 1, `${titre} : ${longs.length} longs paragraphes visibles`);
     }
   }
+});
+
+/* ENH-54, étape 5 : les critères restés partiels. */
+/** Les volets imbriqués d'un HTML : [classe du parent, classe de l'enfant] pour chaque volet posé dans un volet. */
+function voletsDansVolets(h) {
+  const pile = [], fautes = [];
+  for (const m of h.matchAll(/<details\b([^>]*)>|<\/details>/g)) {
+    if (!m[1] && m[0] === '</details>') { pile.pop(); continue; }
+    const cls = ((m[1] || '').match(/class="([^"]*)"/) || [, ''])[1];
+    const volet = /\bvolet\b/.test(cls);
+    if (volet && pile.some(c => /\bvolet\b/.test(c))) fautes.push(cls);
+    pile.push(cls);
+  }
+  return fautes;
+}
+
+t('ENH-54 : aucun volet dans un volet, sur toutes les pages', () => {
+  /* Deux niveaux : la carte repliable (details.card, et sa forme en ligne
+     details.card.ligne pour une planète ou le profil), et le volet posé
+     dedans. La carte d'une planète portait aussi la classe volet : ses volets
+     Niveaux, Stock et « Pourquoi » étaient des volets dans un volet. */
+  const g = app(PROFIL_POSE);
+  const pages = { today: g.VIEWS.today(), empire: g.VIEWS.empire(), settings: g.VIEWS.settings(), conseils: g.conseilsHtml(g.simulateDay()) || '' };
+  for (const k of ['explore', 'colony', 'fleet', 'defense', 'moon', 'server']) { g.S.ui.tool = k; pages['tools:' + k] = g.VIEWS.tools(); }
+  for (const [nom, h] of Object.entries(pages)) assert.deepEqual(voletsDansVolets(h), [], nom);
+  assert.match(pages.empire, /<details class="card ligne" data-pi="0"/);
+  assert.deepEqual(voletsDansVolets('<details class="volet"><details class="volet"></details></details>'), ['volet'], 'le contrôle mord');
+});
+
+t('ENH-54 : un oui/non est un interrupteur ; une case reste pour choisir dans une liste', () => {
+  /* Restent des cases : choisir des éléments d'une liste (formes de vie,
+     focus, coffres-forts, jours du rappel, planètes de « Poser sur toutes »),
+     et la forme de vie lue sur les planètes, affichée cochée et grisée. */
+  const LISTES = ['data-lf=', 'data-pfocus=', 'data-secu-vault=', 'data-secu-jour=', 'data-posep=', 'checked disabled', 'id="${id}" ${attr}'];
+  const fs = require('fs'), path = require('path');
+  const src = ['app.js', 'src/flotte/cible.js', 'src/meteo.js', 'profils.js'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
+  const cases = [...src.matchAll(/<input[^>]*type="checkbox"[^>]*>/g)].map(m => m[0]);
+  const fautes = cases.filter(c => !/class="[^"]*\binterrupteur\b/.test(c) && !LISTES.some(x => c.includes(x)));
+  assert.deepEqual(fautes, []);
+  for (const a of ['data-rg-on=', 'data-regoff=', 'id="rdSafe"', 'data-cf="manque"', 'data-centre=']) assert.ok(cases.some(c => c.includes(a) && c.includes('interrupteur')), a);
+  const css = CSS();
+  assert.match(css, /label\.f\.bascule input,input\.interrupteur\{/, 'même dessin que la bascule');
+  assert.match(css, /label\.f\.bascule input:checked::after,input\.interrupteur:checked::after\{/);
+});
+
+t('ENH-54 : les aides longues d\'Outils attendent derrière « En savoir plus »', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  assert.match(src, /aide\('cotransport', '<p class="note">Les transporteurs partent après/);
+  const fl = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'flotte', 'cible.js'), 'utf8');
+  assert.match(fl, /<p class="note">Ce que chaque planète devrait avoir pour lancer une expédition et lever son stock seule le soir\.<\/p>\s*\$\{aide\('flottecible'/);
 });
 
 /* ENH-54, étape 1 : une seule échelle de styles. Ces deux vérifications

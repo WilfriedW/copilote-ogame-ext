@@ -3799,7 +3799,7 @@ function conseilsHtml(plan){
     + sel('domaine', 'Tous les domaines', Object.entries(DOMAINES))
     + sel('niveau', 'Tous les niveaux', NIVEAUX.map(n => [n, SEV_LABEL[NIVEAU_SEV[n]]]))
     + (S.planets.length > 1 && !mf ? sel('planete', 'Toutes les planètes', S.planets.map(p => [p.id, p.name])) : '')
-    + `<label class="note row gap-1"><input type="checkbox" data-cf="manque" ${f.manque ? 'checked' : ''} class="w-auto">Données manquantes</label></div>`;
+    + `<label class="note row gap-1"><input type="checkbox" data-cf="manque" ${f.manque ? 'checked' : ''} class="interrupteur">Données manquantes</label></div>`;
   return `<div class="card"><h2>Conseils${cur && S.planets.length > 1 ? ` <span class="note">${esc(cur.name)}</span>` : ''}</h2>`
     + (tete.length ? `<ul class="advice">${tete.map(x => conseilHtml(x, false)).join('')}</ul>`
       : `<p class="note">Rien à signaler${cur ? ` sur ${esc(cur.name)}` : ''}.</p>`)
@@ -3819,7 +3819,7 @@ function reglesCard(){
   const ligne = id => {
     const r = regle(id);
     const champs = Object.keys(r.parametres || {}).map(k => `<label class="note row gap-1">${esc(k)}<input type="number" step="any" data-rg-p="${esc(id)}:${esc(k)}" value="${esc(r.parametres[k])}" class="court"></label>`).join('');
-    return `<li><label class="row gap-2 items-start"><input type="checkbox" data-rg-on="${esc(id)}" ${r.on ? 'checked' : ''} ${r.verrou ? 'disabled' : ''} class="w-auto">`
+    return `<li><label class="ligne-interrupteur"><input type="checkbox" data-rg-on="${esc(id)}" ${r.on ? 'checked' : ''} ${r.verrou ? 'disabled' : ''} class="interrupteur">`
       + `<span><span class="pill ${NIVEAU_SEV[r.niveau] || 'info'}">${esc(SEV_LABEL[NIVEAU_SEV[r.niveau]] || r.niveau)}</span> <b>${esc(r.nom || id)}</b> <span class="note mono">${esc(id)}</span>`
       + `${r.statut === 'a_valider' ? ' <span class="pill info">à valider</span>' : ''}`
       + `${r.verrou ? `<br><span class="note">Toujours active : ${esc(r.pourquoi_verrou || 'la simulation en a besoin.')}</span>` : ''}</span></label>`
@@ -3842,7 +3842,7 @@ function regOffHtml(p){
   const ids = Object.keys(REGLES_PAR_ID).filter(id => REGLES_PAR_ID[id].parPlanete);
   if(!ids.length) return '';
   return `<p class="note mt-2"><b>Règles du moteur</b> — décoche celles qui ne valent pas pour cette planète.</p><div class="row gap-2">${ids.map(id =>
-    `<label class="note row gap-1"><input type="checkbox" data-regoff="${esc(p.id)}|${esc(id)}" ${(p.regOff || {})[id] ? '' : 'checked'} class="w-auto">${esc(REGLES_PAR_ID[id].nom || id)}</label>`).join('')}</div>`;
+    `<label class="note row gap-1"><input type="checkbox" data-regoff="${esc(p.id)}|${esc(id)}" ${(p.regOff || {})[id] ? '' : 'checked'} class="interrupteur">${esc(REGLES_PAR_ID[id].nom || id)}</label>`).join('')}</div>`;
 }
 
 function planetAlerts(p){
@@ -9227,7 +9227,7 @@ function profilCard(etape){
 function profilBloc(){
   if(!S.profil.set) return '';
   const ec = classeEcart();
-  return `<details class="card volet"${fold('profil', false)}><summary data-fold="profil"><b>Ton profil</b> <span class="note">${esc(profilLigne())}</span></summary>
+  return `<details class="card ligne"${fold('profil', false)}><summary data-fold="profil"><b>Ton profil</b> <span class="note">${esc(profilLigne())}</span></summary>
     <div class="chips mt-2">${profilFocusHtml()}</div>
     <p class="note mt-2">Un focus remonte ses cartes sans remplacer ton style, et il y reste tant que tu ne le décoches pas. Les formes de vie n'en relèvent pas : leur place se règle dans Réglages.${ec ? ' ' + esc(ec) : ''}</p>
     <p class="note" id="pfMuets"></p>
@@ -9325,7 +9325,7 @@ explore(){
         <label class="f">Cristal<input id="rdC" type="number" min="0" data-raid="c" value="${num(S.raid.c)}"></label>
         <label class="f">Deutérium<input id="rdD" type="number" min="0" data-raid="d" value="${num(S.raid.d)}"></label>
       </div>
-      <label class="row gap-2"><input id="rdSafe" type="checkbox" data-raid="safe" ${S.raid.safe?'checked':''} class="w-auto"> <span>Le rapport ne montre ni flotte ni défense</span></label>
+      <label class="row gap-2"><input id="rdSafe" type="checkbox" data-raid="safe" ${S.raid.safe?'checked':''} class="interrupteur"> <span>Le rapport ne montre ni flotte ni défense</span></label>
       <div id="rdPlan"></div>
     </div>` : ''}
     <div class="card"><h2>Qui piller</h2><div id="exRaid"></div></div>
@@ -9371,7 +9371,7 @@ planets(){
     <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><details class="volet"${fold('mix', false)}><summary data-fold="mix">Pourquoi ce classement</summary><p class="note mt-2" id="empireMix"></p></details></div>
     ${poseBloc()}
     ${(()=>{ const voc = vocations(), ci = centreIndex(), auto = centreIndex(true); return S.planets.map((p,i)=>`
-    <details class="card volet" data-pi="${i}"${fold('pl:' + p.id, false)}${meteoVoit(p.id) ? '' : ' hidden'}>
+    <details class="card ligne" data-pi="${i}"${fold('pl:' + p.id, false)}${meteoVoit(p.id) ? '' : ' hidden'}>
       <summary data-fold="pl:${p.id}" class="plsum"><b>${esc(p.name)}</b> <span class="note">${esc(p.coords)}</span><span class="mono" id="psum-${i}"></span></summary>
       <div class="planet-head">
         <input id="pn-${p.id}" data-p="name" value="${esc(p.name)}" aria-label="Nom de la planète">
@@ -9385,7 +9385,7 @@ planets(){
         ? `<span class="note">${FOCUS_VAISSEAU[S.day.focus]
             ? `${esc(FOCUS[S.day.focus])} : pas de centre, tes planètes doivent rester dispersées.`
             : 'Un centre se choisit entre plusieurs planètes.'}</span>`
-        : `<label class="f coche"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''}> Centre${auto===i?' (conseillé)':''}</label>`}</div>
+        : `<label class="f coche"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''} class="interrupteur"> Centre${auto===i?' (conseillé)':''}</label>`}</div>
       <p class="note" id="pfleet-${i}"></p>
       <details class="volet" id="pq-${i}"${fold('pq:' + p.id, false)}><summary data-fold="pq:${p.id}">Pourquoi cette planète</summary>
       <div class="col-notes mt-2">
@@ -10051,7 +10051,8 @@ colony(){
         <div class="row gap-2"><span class="note">Charge :</span>${costHtml(F.rest)}<span class="note mono">vol ${L2?dur(L2.secs):'–'} · ${L2?fmt(L2.fuel*2):'–'} deut aller-retour</span></div></div></li>`
         : `<li><div class="note">Tout le kit tient dans le vaisseau de colonisation (soute ${fmt(F.col.cargoEff)}).</div></li>`}
     </ul>
-    <p class="note">Les transporteurs partent après l'arrivée du vaisseau : on ne peut pas transporter vers une position encore vide. Le kit ${esc(F.kit.n.toLowerCase())} couvre ${Object.entries(F.kit.lv).map(([k,l])=>`${B_SHORT[k]} ${l}`).join(', ') || 'aucun bâtiment'}. Carburant estimé.</p>`;
+    <p class="note">Le kit ${esc(F.kit.n.toLowerCase())} couvre ${Object.entries(F.kit.lv).map(([k,l])=>`${B_SHORT[k]} ${l}`).join(', ') || 'aucun bâtiment'}. Carburant estimé.</p>
+    ${aide('cotransport', '<p class="note">Les transporteurs partent après l\'arrivée du vaisseau : on ne peut pas transporter vers une position encore vide.</p>')}`;
 
   const fpos = +S.colo.fpos || (parseC(coloTarget())||[])[2], v = coloVerdict(+S.colo.fields, fpos);
   document.getElementById('coEval').innerHTML = v ? `<ul class="advice"><li><span class="pill ${v.sev}">${v.t}</span><span class="what">Position ${fpos}</span><span class="why">${esc(v.why)}</span></li></ul>` : '';
@@ -11112,5 +11113,5 @@ export {
   EXPO_GROS, expoRes, fmtLigne, num, production, mse, stockNow, souteUtile,
   shipStats, flight, expoFleet, shipList, SHIP_COURT, shipCourt, mcd, secu,
   prochaineHeure, planeteEn, mouvements, projectResources, attaquesEntrantes,
-  aQuai, transportSuggere, expoCap, fmtCourt
+  aQuai, transportSuggere, expoCap, fmtCourt, aide
 };

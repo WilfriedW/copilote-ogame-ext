@@ -24,7 +24,7 @@ import {
   production, mse, stockNow, souteUtile, shipStats, flight, expoFleet,
   shipList, SHIP_COURT, shipCourt, mcd, secu, prochaineHeure, planeteEn,
   mouvements, projectResources, attaquesEntrantes, aQuai,
-  transportSuggere, expoCap, fmtCourt
+  transportSuggere, expoCap, fmtCourt, aide
 } from '../../app.js';
 
 /** Les transporteurs : ce qui compte dans la soute du soir. */
@@ -309,7 +309,8 @@ export function flotteCibleHtml(now){
   const carbBas = S.planets.filter(p => !r.par[p.id].carburant.ok);
   if(carbBas.length) notes.push(`<p class="note"><span class="pill bad">Carburant</span> ${carbBas.map(p => esc(p.name)).join(', ')} : pas assez de deutérium pour envoyer la flotte cible au coffre-fort ce soir.</p>`);
   return `<div class="card"><h2>Flotte cible</h2>
-    <p class="note">Ce que chaque planète devrait avoir pour lancer une expédition et lever son stock seule le soir. ${r.nKits} kit${r.nKits > 1 ? 's' : ''} complet${r.nKits > 1 ? 's' : ''} (un par emplacement d'expédition), soute calée sur le stock prévu à ${formatTime(r.fen.heure)}, combat restant à parts égales. Survole une case pour le détail.</p>
+    <p class="note">Ce que chaque planète devrait avoir pour lancer une expédition et lever son stock seule le soir.</p>
+    ${aide('flottecible', `<p class="note">${r.nKits} kit${r.nKits > 1 ? 's' : ''} complet${r.nKits > 1 ? 's' : ''} (un par emplacement d'expédition), soute calée sur le stock prévu à ${formatTime(r.fen.heure)}, combat restant à parts égales. Survole une case pour le détail.</p>`)}
     <div class="tbl-wrap"><table class="fc-tab"><thead><tr><th>Planète</th><th>Kit noyau</th><th>Kit complet</th><th class="n">Soute (cible / actuelle)</th><th>Combat (écart)</th><th>Carburant</th></tr></thead><tbody>${lignes}</tbody></table></div>
     ${notes.join('')}
     <div class="grid"><label class="f">Seuil de rééquilibrage (%)<input type="number" min="1" max="100" data-set="reeqSeuil" value="${fcSeuil()}"><span class="note">Une carte Rééquilibrer sort quand la soute d'une planète tombe sous ce pourcentage de sa cible, ou qu'il lui manque son kit noyau.</span></label></div>
