@@ -3751,7 +3751,10 @@ t('pack.sh emporte tout ce que Chrome charge', () => {
      prend tout nom de fichier local qu'il cite — un nom qu'on lit dans du code
      qui part est un fichier qui doit partir avec lui. */
   const cites = liste.filter(f => /\.(js|html|css)$/.test(f))
-    .flatMap(f => [...lu(f).matchAll(/['"]([\w-]+\.(?:js|css|html|png|woff2|json))['"]/g)].map(x => x[1]));
+    .flatMap(f => [...lu(f).matchAll(/['"]([\w-]+\.(?:js|css|html|png|woff2|json))['"]/g)].map(x => x[1]))
+    /* save.json est le fichier que le panneau fait télécharger au joueur : il
+       l'écrit, il ne le charge pas, et il n'a rien à faire dans le zip. */
+    .filter(f => f !== 'save.json');
   const voulus = new Set(['manifest.json', m.background.service_worker,
     ...m.content_scripts.flatMap(c => c.js),
     ...Object.values(m.icons),
@@ -8635,9 +8638,13 @@ t('un changement d\'une autre clé ne touche pas aux priorités', () => {
 t('boot.js transmet prioAsk à app.js, clé sans préfixe ls:', () => {
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'boot.js'), 'utf8');
   const win = {}, ask = [D()];
-  const chrome = {storage: {local: {get(k, cb) { cb({'ls:x': '1', prioAsk: ask, game: null}); }, set() { return Promise.resolve(); }}}};
+  /* boot.js lit aussi rules.json avant app.js : il lui faut l'adresse du
+     fichier et un fetch, sans quoi il casse avant d'avoir posé quoi que ce soit. */
+  const chrome = {storage: {local: {get(k, cb) { cb({'ls:x': '1', prioAsk: ask, game: null}); }, set() { return Promise.resolve(); }}},
+    runtime: {getURL: f => 'chrome-extension://test/' + f}};
+  const fetch = () => Promise.resolve({ok: true, json: () => ({version: 1, regles: []})});
   const document = {createElement: () => ({}), body: {appendChild() {}}};
-  new Function('window', 'chrome', 'document', src)(win, chrome, document);
+  new Function('window', 'chrome', 'document', 'fetch', src)(win, chrome, document, fetch);
   assert.deepEqual(win.__prioAsk, ask);
   assert.equal(win.__mem.x, '1');
 });
