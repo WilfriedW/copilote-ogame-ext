@@ -4,7 +4,7 @@
    fin de fichier). */
 import { COL_SHIP_COST } from './src/colonisation/colonisation.js';
 import { KEY, EXPO_FRET, sample, newPlanet, S, remplaceEtat } from './src/core/etat.js';
-import { nf, fmt, esc, num, planetRef, nf1, fmtCourt } from './src/core/format.js';
+import { fmt, esc, num, planetRef } from './src/core/format.js';
 import { B, levelCost, crawlerMax, CRAWLER_COST, POS } from './src/core/formules.js';
 import { IS_EXT, poseApi, ecoSpeed, buildTime } from './src/core/serveur.js';
 import {
@@ -12,9 +12,8 @@ import {
   timeTitle
 } from './src/core/temps.js';
 import {
-  DEF, DEF_ORDER, DEF_MODELES, DEF_RATIO, DEF_PALIERS, DEF_SOURCE,
-  DEF_ABR, defModele, defAncreRecette, defRecette, packCost, defLigne,
-  defsOf, defRatio, DEF_DUREES, DEF_PLANCHERS, computeDefenseGap
+  DEF, DEF_ORDER, DEF_MODELES, DEF_RATIO, DEF_PALIERS, defModele, defsOf,
+  defRatio, DEF_DUREES, DEF_PLANCHERS, computeDefenseGap
 } from './src/defense/defense.js';
 import {
   LF_READ_TTL, parseProdPanel, prodOf, bridage, production, mse, NOM_RES,
@@ -406,55 +405,6 @@ function timeExport(ms){
     serverOffsetMinutes: off == null ? null : Math.round((off/60 + loc.getTimezoneOffset()) / 15) * 15
   };
 }
-/** La même recette, chaque abréviation dans un <abbr> qui dit son nom et son prix. */
-function defRecetteHtml(m, o){
-  const d = defRecette(m, o);
-  if(!d) return o && o.per === 'PL' ? '' : 'Aucune pièce';
-  const u = k => `<abbr title="${esc(defUniteTitre(k))}">${DEF_ABR[k][0]}</abbr>`;
-  return `Pour ${nf1.format(d.q)} ${u(d.ancre)} : ${d.items.length ? d.items.map(i=>`${nf1.format(i.n)} ${u(i.k)}`).join(' / ') : 'rien d\'autre'}`;
-}
-/** « Artillerie laser lourde : 6 000 M / 2 000 C » — les ressources nulles se taisent. */
-function defUniteTitre(k){
-  return `${DEF_ABR[k][1]} : ${DEF[k].c.map((x,i)=>x > 0 ? `${nf.format(x)} ${'MCD'[i]}` : '').filter(Boolean).join(' / ')}`;
-}
-/** La carte du modèle choisi : la recette, sa version à 1 PL, le pack, la source. */
-function defModeleCarte(k){
-  const m = defModele(k), a = defAncreRecette(m), parPL = !(a === 'pt' && m.r.pt === 1) ? defRecetteHtml(m, {per:'PL'}) : '';
-  const c = packCost(m);
-  return `<div class="defmod" id="defModCarte" data-k="${esc(k)}">
-      <p><b>${esc(m.n)}</b></p>
-      <p class="mono">${defRecetteHtml(m)}</p>
-      ${parPL ? `<p class="note mono">${parPL}</p>` : ''}
-      <p class="note">Un pack : <span class="mono"><span class="c-m">${fmtCourt(c[0])} M</span> / <span class="c-c">${fmtCourt(c[1])} C</span> / <span class="c-d">${fmtCourt(c[2])} D</span></span></p>
-      <p class="note">${m.perso ? 'Ton propre ratio, saisi ci-dessous.' : `Source : <a href="${DEF_SOURCE}" target="_blank" rel="noopener noreferrer">wiki OGame, Defense Build Strategies</a>`}</p>
-    </div>`;
-}
-/**
- * Le sélecteur de modèle : un volet qui liste chaque modèle avec sa recette et
- * son pack sous le nom. Un <select> ne sait pas écrire deux lignes par option,
- * d'où ces boutons. `dp` vide = le réglage global ; sinon la planète, qui
- * garde son choix « Comme les réglages ».
- * @param {string} actuel la clé choisie, '' pour « Comme les réglages »
- * @param {string} [dp] l'id de la planète
- */
-function defPicker(actuel, dp){
-  const opt = (k, nom, ligne) => `<button type="button" class="defopt" data-defpick="${esc(k)}"${dp ? ` data-dp="${esc(dp)}"` : ''} aria-pressed="${actuel === k}">
-      <b>${esc(nom)}</b>${ligne ? `<span class="note" title="${esc(ligne)}" data-defligne="${esc(k)}">${esc(ligne)}</span>` : ''}</button>`;
-  const nom = actuel ? (DEF_MODELES[actuel] || {}).n : 'Comme les réglages';
-  return `<details class="defpick"><summary>${esc(nom || '')}</summary><div class="defopts">
-      ${dp ? opt('', 'Comme les réglages', '') : ''}
-      ${Object.keys(DEF_MODELES).map(k=>opt(k, DEF_MODELES[k].n, defLigne(defModele(k)))).join('')}
-    </div></details>`;
-}
-/** Le ratio perso a changé sous les doigts du joueur : la carte et la ligne
-    du menu suivent sans redessiner la vue, pour ne pas lui voler le focus. */
-function defPersoLive(){
-  const carte = document.getElementById('defModCarte');
-  if(carte && carte.dataset.k === 'perso') carte.outerHTML = defModeleCarte('perso');
-  const ligne = defLigne(defModele('perso'));
-  document.querySelectorAll('[data-defligne="perso"]').forEach(el=>{ el.textContent = ligne; el.title = ligne; });
-}
-
 /* Le copilote ne proposera jamais de construire une coque de combat — le wiki
    dit le marché mauvais des deux côtés, et la demande de flotte l'a écrit une
    fois pour toutes. Leurs coûts sont ici pour une seule raison : le tir de lune
@@ -1057,7 +1007,7 @@ export {
   SHIP_COST, lfNom, lfIdPour, poseLfCles, addBuilt, render, TOOLS, bascule,
   planetAlerts, cargoHomeIndex, planetIndexById, LF_MODE, defSurplus,
   tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote, aide, SEV_LABEL,
-  prioLfEtat, actsVus, defRecetteHtml, defModeleCarte, defPicker, poseNom,
-  centreWhy, VIEWS, gauge, REFRESH, toast, forgetPlanet, refresh, timeExport,
-  defPersoLive, msg, appliqueSauvegarde, publieLePlan, APP_VERSION
+  prioLfEtat, actsVus, poseNom, centreWhy, VIEWS, gauge, REFRESH, toast,
+  forgetPlanet, refresh, timeExport, msg, appliqueSauvegarde, publieLePlan,
+  APP_VERSION
 };

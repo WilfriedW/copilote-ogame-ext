@@ -4,16 +4,15 @@
    module ne fait que les dessiner.
 
    Module des vues (issue #49), calé sur l'issue #17. app.js réassemble `VIEWS` à
-   partir des morceaux de chaque onglet. Ce module emprunte encore à app.js le
-   rendu : ce cycle-là est toléré tant qu'app.js existe, et rien n'y est lu au
-   chargement. */
+   partir des morceaux de chaque onglet. Les morceaux que les Réglages
+   réemploient (`defModeleCarte`, `defPicker`, `defPersoLive`) vivent ici aussi. */
 import { S } from '../core/etat.js';
-import { fmt, esc, costHtml } from '../core/format.js';
+import { fmt, esc, costHtml, nf, nf1, fmtCourt } from '../core/format.js';
 import {
   DEF, DEF_MODELES, defModele, defRatio, defAncre, defPalierDe,
-  defBloqueTexte, defPlan, defPalierOpts
+  defBloqueTexte, defPlan, defPalierOpts, DEF_SOURCE, DEF_ABR, defAncreRecette,
+  defRecette, packCost, defLigne
 } from '../defense/defense.js';
-import { defRecetteHtml, defModeleCarte, defPicker } from '../../app.js';
 /** Une planète dans l'onglet Défense : son modèle, ses pièces, son manque.
     Les deux menus portent `data-dp` : c'est lui qui distingue la surcharge
     d'une planète du réglage global, qui n'en a pas. */
@@ -58,3 +57,51 @@ defense(){
   </section>`;
 },
 };
+/** La même recette, chaque abréviation dans un <abbr> qui dit son nom et son prix. */
+export function defRecetteHtml(m, o){
+  const d = defRecette(m, o);
+  if(!d) return o && o.per === 'PL' ? '' : 'Aucune pièce';
+  const u = k => `<abbr title="${esc(defUniteTitre(k))}">${DEF_ABR[k][0]}</abbr>`;
+  return `Pour ${nf1.format(d.q)} ${u(d.ancre)} : ${d.items.length ? d.items.map(i=>`${nf1.format(i.n)} ${u(i.k)}`).join(' / ') : 'rien d\'autre'}`;
+}
+/** « Artillerie laser lourde : 6 000 M / 2 000 C » — les ressources nulles se taisent. */
+export function defUniteTitre(k){
+  return `${DEF_ABR[k][1]} : ${DEF[k].c.map((x,i)=>x > 0 ? `${nf.format(x)} ${'MCD'[i]}` : '').filter(Boolean).join(' / ')}`;
+}
+/** La carte du modèle choisi : la recette, sa version à 1 PL, le pack, la source. */
+export function defModeleCarte(k){
+  const m = defModele(k), a = defAncreRecette(m), parPL = !(a === 'pt' && m.r.pt === 1) ? defRecetteHtml(m, {per:'PL'}) : '';
+  const c = packCost(m);
+  return `<div class="defmod" id="defModCarte" data-k="${esc(k)}">
+      <p><b>${esc(m.n)}</b></p>
+      <p class="mono">${defRecetteHtml(m)}</p>
+      ${parPL ? `<p class="note mono">${parPL}</p>` : ''}
+      <p class="note">Un pack : <span class="mono"><span class="c-m">${fmtCourt(c[0])} M</span> / <span class="c-c">${fmtCourt(c[1])} C</span> / <span class="c-d">${fmtCourt(c[2])} D</span></span></p>
+      <p class="note">${m.perso ? 'Ton propre ratio, saisi ci-dessous.' : `Source : <a href="${DEF_SOURCE}" target="_blank" rel="noopener noreferrer">wiki OGame, Defense Build Strategies</a>`}</p>
+    </div>`;
+}
+/**
+ * Le sélecteur de modèle : un volet qui liste chaque modèle avec sa recette et
+ * son pack sous le nom. Un <select> ne sait pas écrire deux lignes par option,
+ * d'où ces boutons. `dp` vide = le réglage global ; sinon la planète, qui
+ * garde son choix « Comme les réglages ».
+ * @param {string} actuel la clé choisie, '' pour « Comme les réglages »
+ * @param {string} [dp] l'id de la planète
+ */
+export function defPicker(actuel, dp){
+  const opt = (k, nom, ligne) => `<button type="button" class="defopt" data-defpick="${esc(k)}"${dp ? ` data-dp="${esc(dp)}"` : ''} aria-pressed="${actuel === k}">
+      <b>${esc(nom)}</b>${ligne ? `<span class="note" title="${esc(ligne)}" data-defligne="${esc(k)}">${esc(ligne)}</span>` : ''}</button>`;
+  const nom = actuel ? (DEF_MODELES[actuel] || {}).n : 'Comme les réglages';
+  return `<details class="defpick"><summary>${esc(nom || '')}</summary><div class="defopts">
+      ${dp ? opt('', 'Comme les réglages', '') : ''}
+      ${Object.keys(DEF_MODELES).map(k=>opt(k, DEF_MODELES[k].n, defLigne(defModele(k)))).join('')}
+    </div></details>`;
+}
+/** Le ratio perso a changé sous les doigts du joueur : la carte et la ligne
+    du menu suivent sans redessiner la vue, pour ne pas lui voler le focus. */
+export function defPersoLive(){
+  const carte = document.getElementById('defModCarte');
+  if(carte && carte.dataset.k === 'perso') carte.outerHTML = defModeleCarte('perso');
+  const ligne = defLigne(defModele('perso'));
+  document.querySelectorAll('[data-defligne="perso"]').forEach(el=>{ el.textContent = ligne; el.title = ligne; });
+}
