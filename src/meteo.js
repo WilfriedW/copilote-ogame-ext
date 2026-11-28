@@ -18,10 +18,11 @@
 
 import { S } from './core/etat.js';
 import { formatTime } from './core/temps.js';
+import { DEF, DEF_ABR, defPlan } from './defense/defense.js';
 import { SEV_NIVEAU, constatsVus } from './regles/moteur.js';
 import {
   planetById, fmt, esc, planetRef, uiOuvert, uiNote, render,
-  planetAlerts, DEF, DEF_ABR, defPlan, poidsCat
+  planetAlerts, poidsCat
 } from '../app.js';
 
 /** Les quatre domaines, dans l'ordre des colonnes. */
