@@ -14,7 +14,6 @@
    lu au chargement. */
 import { KEY, S } from '../core/etat.js';
 import { esc } from '../core/format.js';
-import { visibleTimers } from '../minuteurs/minuteurs.js';
 import { syncFailed } from '../synchro/synchro.js';
 import { bascule } from './commun.js';
 import { render, on } from '../../app.js';
@@ -166,10 +165,6 @@ export const CARTES = {
     {cardId:'alertes', titre:'Alertes', fixe:false, getSummary:()=>RESUMES.alertes},
     {cardId:'securite', titre:'Sécurité', fixe:true, getSummary:()=>RESUMES.securite},
     {cardId:'expeditions', titre:'Expéditions', fixe:true, getSummary:()=>RESUMES.expeditions},
-    {cardId:'minuteurs', titre:'Minuteurs', fixe:true, getSummary:()=>{
-      const v = visibleTimers(), now = Date.now();
-      return v.length ? {count:v.length, maxLevel: v.some(t=>t.done || t.end<=now) ? 'imp' : 'info', critiques:[]} : null;
-    }},
   ],
   /* Réglages (ENH-54) : cinq onglets, chacun un groupe de cartes. Toujours en
      onglets, quel que soit le choix d'Aujourd'hui (voir VUES_ONGLETS). */
@@ -543,7 +538,9 @@ export const HABILLAGES = {relief:'Relief — sobre (par défaut)', domaine:'Une
 export const habillage = () => HABILLAGES[S.settings.skin] ? S.settings.skin : 'relief';
 /* Un outil retiré laisse son nom dans les réglages du joueur : on ne demande à
    VIEWS que ce qu'il sait encore dessiner. */
-export const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['defense','Défense'],['moon','Lune'],['server','Serveur']];
+/* Minuteurs (ISS-72) : sortis d'Aujourd'hui pour que la barre y tienne ;
+   les alertes de fin, elles, ne dépendent pas de l'onglet ouvert. */
+export const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['defense','Défense'],['moon','Lune'],['timers','Minuteurs'],['server','Serveur']];
 /* ENH-54 : une carte de réglages ne montre qu'une phrase d'aide ; le reste
    attend derrière « En savoir plus », replié, ouvert ou fermé comme le joueur
    l'a laissé (même store que les volets). Rien n'est retiré : une partie de
