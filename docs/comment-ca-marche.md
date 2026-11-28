@@ -449,7 +449,8 @@ stockage puis ajoute `src/main.js`, qui importe `app.js`, lui-même important
 le remplacer passe par `remplaceEtat`) et `src/core/temps.js` (heures serveur
 ou locale, durées), `src/core/format.js` (nombres, coûts, échappement,
 noms de planète) et `src/core/serveur.js` (faits publiés par l'API, vitesses ;
-`API` se remplace par `poseApi`). Les domaines suivent : `src/economie/production.js` (production, stock
+`API` se remplace par `poseApi`). Les domaines suivent : `src/minuteurs/minuteurs.js` (minuteurs, fin de
+chantier, son, titre qui clignote, alertes à acquitter), `src/economie/production.js` (production, stock
 au moment présent, attente avant de payer, labo et durée d'une recherche),
 `src/economie/chantiers.js` (files de construction, retards des mines, des
 nanites et du labo), `src/economie/debordements.js` (pertes d'un hangar

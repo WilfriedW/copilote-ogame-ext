@@ -14,7 +14,8 @@
    lu au chargement. */
 import { KEY, S } from '../core/etat.js';
 import { esc } from '../core/format.js';
-import { render, visibleTimers, TOOLS, bascule, on, syncFailed } from '../../app.js';
+import { visibleTimers } from '../minuteurs/minuteurs.js';
+import { render, TOOLS, bascule, on, syncFailed } from '../../app.js';
 
 /* ---------- views ---------- */
 export const view = document.getElementById('view');

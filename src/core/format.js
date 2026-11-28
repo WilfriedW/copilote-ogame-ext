@@ -75,3 +75,6 @@ const nf3 = new Intl.NumberFormat('fr-FR', {maximumFractionDigits:3});
 /** Le format court d'un pack : « 307,5 k », « 1,305 M ». `fmt` arrondit trop
     pour comparer deux modèles — 307,5 k y devient 308 k. */
 export function fmtCourt(n){ const a = Math.abs(n); return a >= 1e6 ? `${nf3.format(n / 1e6)} M` : a >= 1e3 ? `${nf3.format(n / 1e3)} k` : nf.format(n); }
+/** Un texte comparable sans casse ni accents : « Métal » et « metal » se
+    reconnaissent dans un minuteur collé comme dans un rapport. */
+export const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');

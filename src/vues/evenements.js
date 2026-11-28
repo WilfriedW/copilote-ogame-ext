@@ -18,6 +18,10 @@ import { DEF_MODELES, DEF_RATIO, DEF_PALIERS, DEF_DUREES, DEF_PLANCHERS } from '
 import { stockNow } from '../economie/production.js';
 import { EXPO_PREP_MAX, EXPO_PREP_TTL } from '../flotte/expeditions.js';
 import { rescanner, LIFEFORMS, lfPosePaliers } from '../formes-de-vie/formes-de-vie.js';
+import {
+  parseLeft, unlockAudio, chime, stopFlash, finishTimer, clock,
+  visibleTimers, renderTimers
+} from '../minuteurs/minuteurs.js';
 import { dayValue } from '../plan/journee.js';
 import { nightLen, absenceJour } from '../plan/nuit.js';
 import {
@@ -38,11 +42,10 @@ import {
 } from './navigation.js';
 import {
   save, planetById, forgetPlanet, toast, pushLook, render, refresh,
-  parseLeft, unlockAudio, chime, stopFlash, tickTimers, clock,
-  renderTimers, COL_SHIP_COST, coloSystem, masque, masqueBascule,
-  setMasque, timeExport, colonyCandidates, defPersoLive, applyReport,
-  TOOLS, profilConnu, styleRepose, poseProfilEtape, VIEWS, REFRESH, on,
-  msg, appliqueSauvegarde, publieLePlan
+  COL_SHIP_COST, coloSystem, masque, masqueBascule, setMasque,
+  timeExport, colonyCandidates, defPersoLive, applyReport, TOOLS,
+  profilConnu, styleRepose, poseProfilEtape, VIEWS, REFRESH, on, msg,
+  appliqueSauvegarde, publieLePlan
 } from '../../app.js';
 
 /* ---------- events ---------- */
@@ -252,7 +255,6 @@ export function bind(){
 }
 export function changed(){ S.sample=false; save(); refresh(); }
 
-export const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
 export function allerOnglet(k){ poseScanEcran(false); poseOnglet(k); try{ LS.setItem(KEY+'-tab',k); }catch(err){} render(); }
 /**
  * Ouvre une page et, s'il est donné, son sous-onglet : « settings:affichage »,
@@ -503,4 +505,14 @@ export function brancheEcoutes(){
   /* publieLePlan est sans effet sur Aujourd'hui, qui se publie en se dessinant ;
      sur Empire, REFRESH.empire ne publie rien : sans cet appel la tuile resterait muette. */
   setInterval(()=>{ if(tab==='today'||tab==='empire') garderVue(()=>{ REFRESH[tab](); cartesSync(); }); publieLePlan(); finDeNuit(); }, 30000);
+}
+export function tickTimers(){
+  const now = Date.now(); let changed=false;
+  for(const tm of S.timers){ if(!tm.done && tm.end<=now){ finishTimer(tm); changed=true; } }
+  const list = document.getElementById('tmList');
+  if(list){
+    if(changed || list.dataset.count !== String(visibleTimers().length)) renderTimers();
+    else S.timers.forEach(tm=>{ const el=document.getElementById('cd-'+tm.id); if(el && !tm.done) el.textContent = clock((tm.end-now)/1000); });
+  }
+  if(changed && tab==='today') garderVue(()=>{ REFRESH.today(); cartesSync(); });
 }
