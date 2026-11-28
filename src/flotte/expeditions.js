@@ -3,7 +3,9 @@
    qu'on y envoie (`expoFleet`), les créneaux et les vols en cours
    (`expoInFlight`, `expoCap`, `expoWanted`), puis le journal : ce que chaque
    retour a rapporté, les statistiques qu'on en tire et la prochaine
-   expédition proposée (`expoJournal`, `expoStats`, `expoPropose`).
+   expédition proposée (`expoJournal`, `expoStats`, `expoPropose`), et la
+   remise d'aplomb de ce qu'une sauvegarde ou l'autre poste y pose
+   (`expoSain`).
 
    Module de domaine (issue #49). Le rendu (`expoHtml`, `expoStatsHtml`,
    `expoCalibHtml`) reste dans app.js jusqu'à l'étape des vues. Ce module
@@ -697,4 +699,45 @@ export function expoEtat(now){
   const fsLibres = fs ? Math.max(0, fs[1] - fs[0]) : libres;
   return {max, pris, libres, lancables: Math.min(libres, fsLibres), prochain: vols[0] || 0, fs,
     flotteBloquee: libres > 0 && fsLibres <= 0};
+}
+/**
+ * Remet d'aplomb ce que le framework d'expédition lit du stockage.
+ *
+ * À part, et appelée aux deux endroits — au démarrage et dans `sainEtat` —
+ * parce que le démarrage n'appelle pas `sainEtat` : une clé validée seulement
+ * là arrive telle quelle au premier `render()`. Un facteur de fret absurde
+ * envoie deux cents transporteurs, une réserve négative en rend plus qu'il
+ * n'y en a, et `expoHold` borne une boucle de durées.
+ */
+export function expoSain(){
+  const nb = (v, d, min, max) => { const x = Number(v); return Number.isFinite(x) && x >= min && x <= max ? x : d; };
+  if(!S.settings || typeof S.settings !== 'object') return;
+  S.settings.expoFret = nb(S.settings.expoFret, EXPO_FRET, 1, 1e5);
+  S.settings.expoRes  = Math.round(nb(S.settings.expoRes, 0, 0, 1e5));
+  S.settings.expoHold = Math.round(nb(S.settings.expoHold, 1, 1, 24));
+  for(const q of S.planets || []) if(q.expoRes != null) q.expoRes = Math.round(nb(q.expoRes, 0, 0, 1e5));
+  /* L'historique vient aussi d'une sauvegarde et de l'autre poste : il sert de
+     compteur, donc ce doit être une liste de dates, bornée. */
+  S.expoLog = Array.isArray(S.expoLog)
+    ? S.expoLog.filter(e=>e && typeof e === 'object' && typeof e.sys === 'string' && Number.isFinite(+e.at)).map(expoEntreeSaine).slice(-EXPO_LOG_MAX)
+    : [];
+  S.expoPrep = Array.isArray(S.expoPrep)
+    ? S.expoPrep.filter(x=>x && typeof x.de === 'string' && typeof x.dest === 'string' && Number.isFinite(+x.at) && x.ships && typeof x.ships === 'object').slice(-EXPO_PREP_MAX)
+    : [];
+}
+/** Une entrée du journal relue d'une sauvegarde : ce qui n'a pas la forme
+    attendue tombe, pour qu'un champ corrompu ne casse pas les statistiques. */
+export function expoEntreeSaine(e){
+  const flotte = o => o && typeof o === 'object' && !Array.isArray(o)
+    ? Object.fromEntries(Object.entries(o).filter(([k,n])=>SHIPS[k] && Number.isFinite(+n) && +n > 0).map(([k,n])=>[k, +n])) : null;
+  const res = c => Array.isArray(c) && c.length === 3 ? c.map(x => Math.max(0, +x || 0)) : null;
+  e.at = +e.at;
+  if(e.envoi != null) e.envoi = e.envoi && typeof e.envoi === 'object' && flotte(e.envoi.ships) ? {ships:flotte(e.envoi.ships), at:+e.envoi.at||0, src:e.envoi.src === 'aller' ? 'aller' : 'prep'} : null;
+  if(e.retour != null) e.retour = e.retour && typeof e.retour === 'object' && Number.isFinite(+e.retour.at)
+    ? {at:+e.retour.at, ships:flotte(e.retour.ships), cargo:res(e.retour.cargo), lu:+e.retour.lu||0, final:!!e.retour.final} : null;
+  for(const k of ['trouves','pertes']) if(e[k] != null) e[k] = flotte(e[k]);
+  if(e.cargaison != null) e.cargaison = res(e.cargaison);
+  for(const k of ['carburant','duree','aller']) if(e[k] != null && !Number.isFinite(+e[k])) e[k] = null;
+  if(e.evenement != null && !EXPO_EVTS[e.evenement]) e.evenement = 'autre';
+  return e;
 }
