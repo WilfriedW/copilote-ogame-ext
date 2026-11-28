@@ -16,6 +16,7 @@ import {
 import { B, B_SHORT, T } from '../core/formules.js';
 import { IS_EXT } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
+import { surplusNote, surplusCompte } from '../economie/debordements.js';
 import { NOM_RES } from '../economie/production.js';
 import { flotteCible, flotteAjout } from '../flotte/cible.js';
 import { EXPO_LABELS, top1Tier, expoPts, expoRes, expoPropose, expoEtat } from '../flotte/expeditions.js';
@@ -32,6 +33,7 @@ import {
   prios, priosLf, PRIO_ATTENTE, prioDemandes, prioAttend, prioOrdre,
   prioSuite, prioRef, FOCUS
 } from '../plan/priorites.js';
+import { surplusListe } from '../plan/surplus.js';
 import { NIVEAU_SEV, regleParam, publieCritiques } from '../regles/moteur.js';
 import { FS_MISSION, secu, espionnagesEntrants, planSecurite, fsRappelActif } from '../securite/securite.js';
 import { conseilLignes, conseilsHtml } from './conseils.js';
@@ -40,10 +42,10 @@ import {
 } from './navigation.js';
 import {
   planetById, prioLfEtat, fleetUrl, missionGo, coordLink, goAttr,
-  gameSkin, surplusNote, surplusCompte, surplusListe, ignKey, SEV_LABEL,
-  renderTimers, copyChips, whyParts, actHtml, rebours, noBtn, noListe,
-  aide, classeSuggeree, classeEcart, catActe, catMission, profilLigne,
-  profilFocusHtml, profilEtape, actsVus, on
+  gameSkin, ignKey, SEV_LABEL, renderTimers, copyChips, whyParts,
+  actHtml, rebours, noBtn, noListe, aide, classeSuggeree, classeEcart,
+  catActe, catMission, profilLigne, profilFocusHtml, profilEtape,
+  actsVus, on
 } from '../../app.js';
 const prioRangHtml = (kind, pid, k) => { const r = prioOrdre(kind, pid, k); return r ? ` <span class="note">rang ${r.i + 1} sur ${r.n}</span>` : ''; };
 /* L'état d'une ligne est celui que le plan lui a donné à la première session,

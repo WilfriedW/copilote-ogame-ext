@@ -451,6 +451,9 @@ ou locale, durées), `src/core/format.js` (nombres, coûts, échappement,
 noms de planète) et `src/core/serveur.js` (faits publiés par l'API, vitesses ;
 `API` se remplace par `poseApi`). Les domaines suivent : `src/economie/production.js` (production, stock
 au moment présent, attente avant de payer, labo et durée d'une recherche),
+`src/economie/chantiers.js` (files de construction, retards des mines, des
+nanites et du labo), `src/economie/debordements.js` (pertes d'un hangar
+plein, journal des débordements, hangar qu'ils justifient),
 `src/regles/moteur.js` (le moteur
 de règles) et `src/defense/defense.js` (pièces, modèles de défense, manque
 face au modèle), `src/flotte/vaisseaux.js` (vaisseaux, vols, flottes en
@@ -462,7 +465,8 @@ de vie), puis le plan du jour dans `src/plan/` : `priorites.js` (les
 priorités du joueur et leur pose), `nuit.js` (la nuit, l'heure de réveil),
 `vocations.js` (la vocation d'une planète, ce qui manque à l'empire),
 `journee.js` (la journée simulée, la prochaine recherche, la projection des
-ressources) et `missions.js` (les missions du jour). Les vues commencent dans
+ressources), `missions.js` (les missions du jour) et `surplus.js` (les
+règles de stockage et ce que le plan propose pour les ressources en trop). Les vues commencent dans
 `src/vues/` : `navigation.js` (l'onglet affiché, ce qui est ouvert ou fermé,
 les cartes en onglets, les renvois, le nombre de cartes par liste ; l'onglet
 se change par `poseOnglet`) et `entete.js` (le relevé et sa fraîcheur,

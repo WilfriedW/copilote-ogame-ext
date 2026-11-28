@@ -14,6 +14,8 @@
 import { S } from '../core/etat.js';
 import { IS_EXT } from '../core/serveur.js';
 import { formatTime } from '../core/temps.js';
+import { fileDe, enCours, fileBat } from '../economie/chantiers.js';
+import { debordeTexte } from '../economie/debordements.js';
 import { labPlanet, stockNow } from '../economie/production.js';
 import {
   parseC, distance, souteUtile, shipStats, flight, planeteEn, mouvements,
@@ -21,10 +23,8 @@ import {
 } from '../flotte/vaisseaux.js';
 import { depensesPayables, projectResources } from '../plan/journee.js';
 import { hhmmDe, wakeTime } from '../plan/nuit.js';
-import {
-  planetById, debordeA, debordeTexte, autreCibleAvecPlace, fileDe,
-  enCours, fileBat
-} from '../../app.js';
+import { debordeA, autreCibleAvecPlace } from '../plan/surplus.js';
+import { planetById } from '../../app.js';
 
 /* ---------- mise à l'abri ---------- */
 /* Vitesses proposées par le jeu, de la plus rapide à la plus lente. */
