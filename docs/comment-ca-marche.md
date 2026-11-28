@@ -499,6 +499,8 @@ dessin, et `brancheEcoutes`, les écoutes posées une fois, qu'`app.js` appelle
 (`litVersions`, appelée par `app.js` à l'ouverture du panneau).
 `page-du-jeu.js` prépare ce que la page du jeu reçoit pour ses marquages
 (`gameSkin` : indices, tournée, bandeau, colonne, apparence).
+`carte-action.js` dessine une carte d'action du plan, ses pourquoi repliés,
+ses pastilles à recopier et ce qui est mis de côté.
 `render` et `refresh` restent dans `app.js` : ils appellent toutes les vues,
 que toutes rappellent. `app.js` se découpe ainsi, un domaine
 par PR (issue #49), jusqu'à disparaître. `ids.js` et `profils.js` restent des

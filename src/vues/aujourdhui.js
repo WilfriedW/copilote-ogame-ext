@@ -42,15 +42,13 @@ import {
 import { surplusListe } from '../plan/surplus.js';
 import { NIVEAU_SEV, regleParam, publieCritiques } from '../regles/moteur.js';
 import { FS_MISSION, secu, espionnagesEntrants, planSecurite, fsRappelActif } from '../securite/securite.js';
+import { copyChips, whyParts, actHtml, rebours, noBtn, noListe } from './carte-action.js';
 import { conseilLignes, conseilsHtml } from './conseils.js';
 import {
   uiVu, fold, RESUMES, resumeDe, cardLayout, cartesMenu, listeCartes
 } from './navigation.js';
 import { gameSkin } from './page-du-jeu.js';
-import {
-  planetById, prioLfEtat, ignKey, SEV_LABEL, copyChips, whyParts, actHtml,
-  rebours, noBtn, noListe, aide, actsVus, on
-} from '../../app.js';
+import { planetById, prioLfEtat, ignKey, SEV_LABEL, aide, actsVus, on } from '../../app.js';
 const prioRangHtml = (kind, pid, k) => { const r = prioOrdre(kind, pid, k); return r ? ` <span class="note">rang ${r.i + 1} sur ${r.n}</span>` : ''; };
 /* L'état d'une ligne est celui que le plan lui a donné à la première session,
    jamais son rang dans la liste : une priorité que rien ne sert — labo
