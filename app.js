@@ -49,7 +49,7 @@ import { litVersions } from './src/vues/version.js';
 import './src/plan/constats.js';
 import { fondReleve } from './src/jeu/releve.js';
 
-const APP_VERSION = '2.20.0';
+const APP_VERSION = '2.20.1';
 
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
