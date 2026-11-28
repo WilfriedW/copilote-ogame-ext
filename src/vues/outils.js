@@ -11,7 +11,7 @@
 import {
   KITS, OBJECTIVES, colShipAt, colBuilt, maxPlanets, coloFrom,
   rankPositions, coloTarget, coloFleet, COLO_HORIZON_H, colonyPayback,
-  coloVerdict
+  coloVerdict, colonyCandidates
 } from '../colonisation/colonisation.js';
 import { EXPO_FRET, S } from '../core/etat.js';
 import { nf, fmt, esc, num, costHtml, planetRef } from '../core/format.js';
@@ -30,11 +30,12 @@ import {
   SHIPS, parseC, shipStats, flight, SHIP_PLURAL, shipList, planeteEn
 } from '../flotte/vaisseaux.js';
 import { LIFEFORMS, lfPourPos, lfRaisonPos } from '../formes-de-vie/formes-de-vie.js';
+import { raidTargets, exploreSystems, raidPlan } from '../pillage/pillage.js';
+import { myScore } from '../univers/univers.js';
 import { fold, segTabs } from './navigation.js';
 import {
-  planetById, actHtml, myScore, colonyCandidates, raidTargets,
-  exploreSystems, centreIndex, cargoHomeIndex, centrePlanet, raidPlan,
-  TOOLS, bascule, aide, VIEWS, gauge, REFRESH
+  planetById, actHtml, centreIndex, cargoHomeIndex, centrePlanet, TOOLS,
+  bascule, aide, VIEWS, gauge, REFRESH
 } from '../../app.js';
 /** La carte de calibrage, ou rien. */
 function expoCalibHtml(){

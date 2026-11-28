@@ -7,7 +7,7 @@
    `expoHtml`…) reste dans app.js jusqu'à l'étape des vues. Ce module
    emprunte encore à app.js ce qu'il affiche et lit : ce cycle-là est toléré
    tant qu'app.js existe, et rien n'y est lu au chargement. */
-import { colSentNow, maxPlanets, coloTarget, coloPaybackTxt } from '../colonisation/colonisation.js';
+import { colSentNow, maxPlanets, coloTarget, coloPaybackTxt, colonyCandidates } from '../colonisation/colonisation.js';
 import { S } from '../core/etat.js';
 import { coutTexte, fmt, esc, planetRef } from '../core/format.js';
 import { B, T, levelCost, rangeCost, SAT_COST } from '../core/formules.js';
@@ -26,15 +26,17 @@ import {
   lfBloquee, lfCandidates, LIFEFORMS, speciesOfPlanet, foundLifeforms,
   lfPourPos, lfRaisonPos, lfConseilPlanete
 } from '../formes-de-vie/formes-de-vie.js';
+import { raidTargets, raidPlan } from '../pillage/pillage.js';
 import { astroForPlanet, nextResearch, chantierARelire, satsOk, cardKey } from './journee.js';
 import { poseHeure, heureTxt, isNight, nightLen, absenceJour, wakeTime } from './nuit.js';
 import {
   pickCargo, FS_MISSION, FS_MISSION_N, partAbri, fleetsavePlan,
   cargoGaps, secu, prochaineHeure
 } from '../securite/securite.js';
+import { occupied } from '../univers/univers.js';
 import {
-  save, planetById, lfNom, coordLink, leverFlotte, lfMode, occupied,
-  colonyCandidates, raidTargets, raidPlan, poidsCat, catMission
+  save, planetById, lfNom, coordLink, leverFlotte, lfMode, poidsCat,
+  catMission
 } from '../../app.js';
 /**
  * Les sources d'énergie posables sur cette planète, chiffrées, de la moins
