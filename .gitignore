@@ -1,6 +1,12 @@
 .superpowers/
 .DS_Store
-.claude/
+# .claude/ : seuls les fichiers partagés de l'équipe sont suivis.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/skills/
+!.claude/rules/
+CLAUDE.local.md
 *.zip
 dist/
 save*.json
