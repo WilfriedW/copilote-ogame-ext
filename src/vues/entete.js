@@ -2,16 +2,19 @@
    La fraîcheur du relevé et le bouton « Actualiser » (`releveAge`,
    `FRAIS_MS`, `majBouton`, `boutonMaj`), le relevé page par page qu'il lance
    (`releveEtapes`, `faitLeReleve`), l'en-tête lui-même (`header`), le choix
-   heure locale ou serveur (`setTimeMode`) et le mode nuit (`modeNuit`,
-   `finDeNuit`).
+   heure locale ou serveur (`setTimeMode`) et l'infobulle posée sur les
+   heures écrites (`tagTimes`), et le mode nuit (`modeNuit`, `finDeNuit`).
 
    Module des vues (issue #49), calé sur ENH-77. `scanEcran` se change par
    `poseScanEcran`, un import ne se réassignant pas. Ce module emprunte encore
    à app.js le rendu et la sauvegarde : ce cycle-là est toléré tant qu'app.js
    existe, et rien n'y est lu au chargement. */
+import {
+  timeSeen, timeTitle, dur, LOCAL_TZ, timeMode, srvOffSec, formatTime,
+  poseModeHeure
+} from '../core/temps.js';
 import { S } from '../core/etat.js';
 import { esc } from '../core/format.js';
-import { dur, LOCAL_TZ, timeMode, srvOffSec, formatTime, poseModeHeure } from '../core/temps.js';
 import { lfBloquee, lfCost } from '../formes-de-vie/formes-de-vie.js';
 import { goUrl } from '../jeu/liens.js';
 import { wakeTime } from '../plan/nuit.js';
@@ -470,4 +473,28 @@ export function setMasque(m, retenir){
   if(tab === 'settings') view.querySelectorAll('[data-masque]').forEach(el=>{ el.checked = !!masque[el.dataset.masque]; });
   const tb = view.querySelector('[data-masque-tout]');
   if(tb) tb.textContent = toutMasque() ? 'Tout afficher' : 'Tout masquer';
+}
+/* L'infobulle se pose après coup, sur ce qui est déjà dans la page : les heures
+   vivent dans des phrases que esc() traverse, un balisage glissé par
+   formatTime y serait échappé. On cherche donc dans les textes les écritures
+   que formatTime vient de produire, et on les entoure d'un <time>. */
+export function tagTimes(root){
+  if(!root || typeof document.createTreeWalker !== 'function' || !timeSeen.size) return;
+  const keys = [...timeSeen.keys()].sort((a, b) => b.length - a.length).map(k => k.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'));
+  const re = new RegExp('(?<![\\w:])(' + keys.join('|') + ')(?![\\d:])', 'g');
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {acceptNode: n =>
+    n.parentElement && !n.parentElement.closest('time.hr,script,style,textarea,input,select,option') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT});
+  const todo = [];
+  for(let n; (n = w.nextNode());){ re.lastIndex = 0; if(re.test(n.nodeValue)) todo.push(n); }
+  for(const n of todo){
+    const f = document.createDocumentFragment(), s = n.nodeValue; let i = 0; re.lastIndex = 0;
+    for(let m; (m = re.exec(s));){
+      if(m.index > i) f.appendChild(document.createTextNode(s.slice(i, m.index)));
+      const el = document.createElement('time'); el.className = 'hr';
+      const ms = timeSeen.get(m[1]); el.dateTime = new Date(ms).toISOString(); el.title = timeTitle(ms);
+      el.textContent = m[1]; f.appendChild(el); i = m.index + m[1].length;
+    }
+    if(i < s.length) f.appendChild(document.createTextNode(s.slice(i)));
+    n.parentNode.replaceChild(f, n);
+  }
 }

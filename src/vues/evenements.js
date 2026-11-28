@@ -12,11 +12,11 @@
    rien n'y est lu au chargement. */
 import { coloSystem, colonyCandidates } from '../colonisation/colonisation.js';
 import { planetById, forgetPlanet } from '../core/planetes.js';
+import { timeExport, timeMode } from '../core/temps.js';
 import { COL_SHIP_COST } from '../flotte/coques.js';
 import { KEY, sample, newPlanet, S, remplaceEtat } from '../core/etat.js';
 import { fmt, num } from '../core/format.js';
 import { IS_EXT, API } from '../core/serveur.js';
-import { timeMode } from '../core/temps.js';
 import { DEF_MODELES, DEF_RATIO, DEF_PALIERS, DEF_DUREES, DEF_PLANCHERS } from '../defense/defense.js';
 import { stockNow } from '../economie/production.js';
 import { EXPO_PREP_MAX, EXPO_PREP_TTL } from '../flotte/expeditions.js';
@@ -48,8 +48,8 @@ import {
 } from './navigation.js';
 import { pushLook } from './page-du-jeu.js';
 import {
-  toast, render, refresh, timeExport, VIEWS, REFRESH, on, msg,
-  appliqueSauvegarde, publieLePlan
+  toast, render, refresh, VIEWS, REFRESH, on, msg, appliqueSauvegarde,
+  publieLePlan
 } from '../../app.js';
 
 /* ---------- events ---------- */

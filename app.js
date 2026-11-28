@@ -2,10 +2,11 @@
    domaine : il importe ce que les modules sortis de lui fournissent, et
    n'exporte que ce que la météo et la flotte cible lui empruntent (liste en
    fin de fichier). */
-import { migratePlanetIds } from './src/core/planetes.js';
 import {
-  releveLu, header, enScan, setTimeMode, finDeNuit, VIEWS_RELEVE, setMasque
+  tagTimes, releveLu, header, enScan, setTimeMode, finDeNuit, VIEWS_RELEVE,
+  setMasque
 } from './src/vues/entete.js';
+import { migratePlanetIds } from './src/core/planetes.js';
 import { bridage, production } from './src/economie/production.js';
 import { expoSain } from './src/flotte/expeditions.js';
 import { saveFailed, save, syncApply, syncNettoie } from './src/synchro/synchro.js';
@@ -13,9 +14,6 @@ import { sample, S, remplaceEtat } from './src/core/etat.js';
 import { esc, num } from './src/core/format.js';
 import { B } from './src/core/formules.js';
 import { IS_EXT, poseApi } from './src/core/serveur.js';
-import {
-  LOCAL_TZ, srvOffSec, clockParts, p2, timeSeen, formatTime, timeTitle
-} from './src/core/temps.js';
 import {
   DEF_MODELES, DEF_RATIO, DEF_PALIERS, defModele, DEF_DUREES, DEF_PLANCHERS
 } from './src/defense/defense.js';
@@ -173,31 +171,7 @@ S.timers = S.timers || [];
 document.getElementById('bigAlertOk').addEventListener('click', ()=>{ alertQueue.length = 0; document.getElementById('bigAlert').hidden = true; stopFlash(); ackFinished(); });
 window.addEventListener('focus', stopFlash);
 document.addEventListener('pointerdown', ()=>{ unlockAudio(); stopFlash(); });
-/* ---------- réglages du plan ---------- */
-/* L'infobulle se pose après coup, sur ce qui est déjà dans la page : les heures
-   vivent dans des phrases que esc() traverse, un balisage glissé par
-   formatTime y serait échappé. On cherche donc dans les textes les écritures
-   que formatTime vient de produire, et on les entoure d'un <time>. */
-function tagTimes(root){
-  if(!root || typeof document.createTreeWalker !== 'function' || !timeSeen.size) return;
-  const keys = [...timeSeen.keys()].sort((a, b) => b.length - a.length).map(k => k.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'));
-  const re = new RegExp('(?<![\\w:])(' + keys.join('|') + ')(?![\\d:])', 'g');
-  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {acceptNode: n =>
-    n.parentElement && !n.parentElement.closest('time.hr,script,style,textarea,input,select,option') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT});
-  const todo = [];
-  for(let n; (n = w.nextNode());){ re.lastIndex = 0; if(re.test(n.nodeValue)) todo.push(n); }
-  for(const n of todo){
-    const f = document.createDocumentFragment(), s = n.nodeValue; let i = 0; re.lastIndex = 0;
-    for(let m; (m = re.exec(s));){
-      if(m.index > i) f.appendChild(document.createTextNode(s.slice(i, m.index)));
-      const el = document.createElement('time'); el.className = 'hr';
-      const ms = timeSeen.get(m[1]); el.dateTime = new Date(ms).toISOString(); el.title = timeTitle(ms);
-      el.textContent = m[1]; f.appendChild(el); i = m.index + m[1].length;
-    }
-    if(i < s.length) f.appendChild(document.createTextNode(s.slice(i)));
-    n.parentNode.replaceChild(f, n);
-  }
-}
+
 if(typeof MutationObserver !== 'undefined' && typeof Node !== 'undefined' && document.body instanceof Node){
   /* Directement dans le rappel, pas dans une image d'animation : un panneau
      caché n'en dessine pas, et ses heures restaient sans infobulle. Nos
@@ -206,18 +180,6 @@ if(typeof MutationObserver !== 'undefined' && typeof Node !== 'undefined' && doc
     try{ tagTimes(document.querySelector('.wrap')); tagTimes(document.querySelector('.alertes')); }
     catch(e){ console.error('Copilote : infobulle des heures', e); }
   }).observe(document.body, {childList: true, subtree: true, characterData: true});
-}
-/** Les quatre champs horaires de l'export : les deux heures, toujours, quel que soit le mode. */
-function timeExport(ms){
-  const off = srvOffSec(), loc = new Date(ms);
-  const full = c => `${c.y}-${p2(c.mo+1)}-${p2(c.d)} ${p2(c.h)}:${p2(c.mi)}:${p2(c.s)}`;
-  return {
-    serverTime: off == null ? null : full(clockParts(ms, 'server')),
-    localTime: full(clockParts(ms, 'local')),
-    localTimeZone: LOCAL_TZ,
-    // heure serveur − heure locale, en minutes : les fuseaux vont par quart d'heure
-    serverOffsetMinutes: off == null ? null : Math.round((off/60 + loc.getTimezoneOffset()) / 15) * 15
-  };
 }
 const VIEWS = {...VIEWS_AUJOURDHUI, ...VIEWS_RELEVE, ...VIEWS_EMPIRE, ...VIEWS_OUTILS, ...VIEWS_DEFENSE, ...VIEWS_REGLAGES};
 
@@ -434,6 +396,6 @@ litVersions();
 export {
   sainEtat, raceDe, on,
   render, 
-  planetAlerts, VIEWS, REFRESH, toast, refresh, timeExport, msg, appliqueSauvegarde,
+  planetAlerts, VIEWS, REFRESH, toast, refresh, msg, appliqueSauvegarde,
   publieLePlan, APP_VERSION
 };
