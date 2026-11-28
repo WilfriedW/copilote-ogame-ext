@@ -16,7 +16,8 @@ import { dur, formatTime } from '../core/temps.js';
 import { DEF, defsOf, defPropositions } from '../defense/defense.js';
 import { labOkPour } from '../economie/chantiers.js';
 import { pertesParHeure, hangarSiJustifie } from '../economie/debordements.js';
-import { labPlanet, production, mse, NOM_RES, stockNow } from '../economie/production.js';
+import { production, mse, NOM_RES, stockNow } from '../economie/production.js';
+import { labPlanet } from '../economie/centre.js';
 import { expoRes, expoFleet } from '../flotte/expeditions.js';
 import { parseC, distance, shipStats, flight, shipList } from '../flotte/vaisseaux.js';
 import {

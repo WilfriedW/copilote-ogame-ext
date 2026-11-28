@@ -4,7 +4,7 @@
    fin de fichier). */
 import { KEY, EXPO_FRET, sample, newPlanet, S, remplaceEtat } from './src/core/etat.js';
 import { esc, num } from './src/core/format.js';
-import { B, levelCost, crawlerMax, CRAWLER_COST, POS } from './src/core/formules.js';
+import { B, levelCost, crawlerMax, CRAWLER_COST } from './src/core/formules.js';
 import { IS_EXT, poseApi, buildTime } from './src/core/serveur.js';
 import {
   dur, LOCAL_TZ, srvOffSec, clockParts, p2, timeSeen, formatTime,
@@ -19,7 +19,7 @@ import {
 } from './src/economie/production.js';
 import { shipReqOk, shipTime } from './src/flotte/coques.js';
 import { EXPO_LOG_MAX, EXPO_PREP_MAX, EXPO_EVTS, expoJournal, expoMessages } from './src/flotte/expeditions.js';
-import { SHIPS, parseC } from './src/flotte/vaisseaux.js';
+import { SHIPS } from './src/flotte/vaisseaux.js';
 import {
   lfMetEnCommun, lfMerge, lfCandidates, raceDeSerie, lfNomConnu, lfNomsRetiens,
   LIFEFORMS, speciesOfPlanet, lfIds, LF_ROLE
@@ -31,9 +31,7 @@ import {
 } from './src/minuteurs/minuteurs.js';
 import { casesSaines, casesLibres } from './src/plan/journee.js';
 import { energyOptions, energyLine } from './src/plan/missions.js';
-import {
-  prioClean, prioRecoit, lfCle, poseKind, FOCUS, FOCUS_VAISSEAU
-} from './src/plan/priorites.js';
+import { prioClean, prioRecoit, lfCle, poseKind, FOCUS } from './src/plan/priorites.js';
 import { besoinEmpire, mseW } from './src/plan/vocations.js';
 import {
   REGLES_ERR, aSoi, NIVEAU_SEV, regleActive, regleSaine, constatsDe, ignClean,
@@ -53,7 +51,7 @@ import {
   garderVue
 } from './src/vues/navigation.js';
 import { VIEWS_OUTILS, REFRESH_OUTILS } from './src/vues/outils.js';
-import { donorsOf, pushLook } from './src/vues/page-du-jeu.js';
+import { pushLook } from './src/vues/page-du-jeu.js';
 import { VIEWS_REGLAGES, REFRESH_REGLAGES } from './src/vues/reglages.js';
 import { litVersions } from './src/vues/version.js';
 /* Les constats d'économie s'inscrivent dans EVAL au chargement : rien d'autre
@@ -403,85 +401,6 @@ function timeExport(ms){
     serverOffsetMinutes: off == null ? null : Math.round((off/60 + loc.getTimezoneOffset()) / 15) * 15
   };
 }
-/** Ce que cette planète produit entre deux connexions, en métal. */
-function tournee(p){ const r = production(p); return mse(r.m, r.c, r.d) * Math.max(15,+S.day.interval||90)/60; }
-function hubIndex(){ let best=0; S.planets.forEach((p,i)=>{ if(p.b.lab+p.b.shipyard > S.planets[best].b.lab+S.planets[best].b.shipyard) best=i; }); return best; }
-/* ---------- le centre ---------- */
-/* La planète où vivent le labo et le chantier. Le wiki l'appelle Vault Planet
-   et dit ce qu'on y fait : « should build most of your fleets, defenses, and
-   do most of the research ». Il en donne aussi les trois règles, et ce sont
-   elles qu'on applique ici : c'est la plus grande planète ; ce n'est pas la
-   planète mère, dont le nombre de cases est borné ; et un joueur de flotte
-   n'en veut pas, ses planètes devant rester dispersées.
-   Ce que ça corrige : `labP` prenait la planète au plus haut labo, donc, sur
-   un empire neuf où toutes sont à zéro, la première de la liste — la mère.
-   Le premier labo de la partie atterrissait par accident et y restait, la
-   règle se nourrissant d'elle-même. */
-/** L'index du centre dans S.planets, ou -1 quand l'empire n'en a pas. */
-function centreIndex(auto){
-  const P = S.planets;
-  /* Une planète seule n'est le centre de rien, et le joueur de flotte n'en
-     veut pas : dans les deux cas tout le reste retombe sur l'ancien
-     comportement. */
-  if(P.length < 2 || FOCUS_VAISSEAU[S.day.focus]) return -1;
-  if(!auto && S.centre){ const i = planetIndexById(S.centre); if(i >= 0) return i; }
-  /* Les cases décident tant que rien n'est bâti, le bâti décide ensuite : un
-     bâtiment payé est payé, et en déplacer un coûterait tout ce qu'il a déjà
-     coûté. Le centre ne bouge donc jamais de lui-même. */
-  /* Seul le labo décide. Le chantier n'a aucune prétention sur le centre : le
-     laisser derrière ne coûte rien, puisqu'une colonie monte le sien dès
-     qu'elle en a besoin. Le labo, lui, est suivi par `labP` et `labLevel()` :
-     un centre posé ailleurs ferait repayer un labo déjà payé, et c'est le pire
-     conseil que le copilote puisse donner. Le faire décider par le chantier
-     faisait exactement ça — une colonie au chantier plus haut que le labo de
-     la mère emportait la recherche — et faisait bouger le centre tout seul au
-     premier chantier de transporteur. */
-  const cases = p => ((POS[(parseC(p.coords)||[])[2]] || {}).avg) || 0;
-  const pose = P.some(p => (p.b.lab||0) > 0);
-  const note = p => pose ? (p.b.lab||0) : cases(p);
-  const valeur = p => { const r = production(p); return mse(r.m, r.c, r.d); };
-  let best = 0;
-  for(let i = 1; i < P.length; i++){
-    const a = note(P[i]), b = note(P[best]);
-    /* À note égale la production départage ; à production égale, l'index le
-       plus grand l'emporte, c'est-à-dire une colonie plutôt que la mère. */
-    if(a > b || (a === b && valeur(P[i]) >= valeur(P[best]))) best = i;
-  }
-  return best;
-}
-/** L'index du centre, ou celui que `hubIndex` désignait avant lui : les liens
-    de page n'ont besoin que d'une planète, et sans centre rien ne change. */
-function centreOrHub(){ const i = centreIndex(); return i >= 0 ? i : hubIndex(); }
-/** L'index de la planète qui porte la plus grosse soute — la même mesure que
-    `donorsOf` pour choisir sa base. 0 quand aucune n'a de transporteur. */
-function cargoHomeIndex(){
-  const cargo = p => (((p.ships||{}).lc)||0)*25000 + (((p.ships||{}).sc)||0)*5000;
-  let best = 0;
-  S.planets.forEach((p,i)=>{ if(cargo(p) > cargo(S.planets[best])) best = i; });
-  return best;
-}
-/** Ce qu'on ajoute à la raison d'un bâtiment d'empire : pourquoi là et pas
-    ailleurs. Vide quand l'empire n'a pas de centre. */
-/* La même phrase sur la carte du plan et sur celle de pickBuildings : écrite
-   deux fois, elles auraient dérivé. */
-const POURQUOI_LABO = 'Débloque la recherche suivante.';
-function centreNote(){ return centreIndex() >= 0 ? ' Ton centre : c\'est de là que partent tes recherches et tes vaisseaux.' : ''; }
-/** Le centre, ou null. */
-function centrePlanet(){ const i = centreIndex(); return i >= 0 ? S.planets[i] : null; }
-/** Pourquoi le copilote a désigné cette planète, ou '' quand c'est le joueur
-    qui l'a désignée : une raison qu'on n'a pas donnée ne se conteste pas. */
-function centreWhy(){
-  const i = centreIndex();
-  /* Elle ne se tait que si le joueur a choisi autrement que le conseil :
-     confirmer le conseil ne doit pas faire disparaître sa raison au moment
-     même où il est d'accord avec elle. */
-  if(i < 0 || i !== centreIndex(true)) return '';
-  const p = S.planets[i];
-  if((p.b.lab||0) > 0) return `elle porte déjà le labo ${p.b.lab} : le déplacer coûterait tout ce qu'il a coûté`;
-  const pos = (parseC(p.coords) || [])[2], avg = ((POS[pos] || {}).avg) || 0;
-  return avg ? `position ${pos}, ${avg} cases en moyenne : un centre est d'abord de la place` : '';
-}
-
 /* Un outil retiré laisse son nom dans les réglages du joueur : on ne demande à
    VIEWS que ce qu'il sait encore dessiner. */
 const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['defense','Défense'],['moon','Lune'],['server','Serveur']];
@@ -899,11 +818,9 @@ litVersions();
 /* Ce que les modules sortis d'app.js lui empruntent encore. Rien de plus :
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
-  saveFailed, gidDe, sainEtat, planetById, centreOrHub, centrePlanet,
-  rankUpgrades, save, raceDe, ignKey, lfMode, on, lfNom, lfIdPour,
-  poseLfCles, addBuilt, render, TOOLS, bascule, planetAlerts, cargoHomeIndex,
-  planetIndexById, LF_MODE, tournee, hubIndex, centreIndex, POURQUOI_LABO,
-  centreNote, aide, SEV_LABEL, prioLfEtat, actsVus, poseNom, centreWhy,
-  VIEWS, gauge, REFRESH, toast, forgetPlanet, refresh, timeExport, msg,
-  appliqueSauvegarde, publieLePlan, APP_VERSION
+  saveFailed, gidDe, sainEtat, planetById, rankUpgrades, save, raceDe,
+  ignKey, lfMode, on, lfNom, lfIdPour, poseLfCles, addBuilt, render, TOOLS,
+  bascule, planetAlerts, planetIndexById, LF_MODE, aide, SEV_LABEL,
+  prioLfEtat, actsVus, poseNom, VIEWS, gauge, REFRESH, toast, forgetPlanet,
+  refresh, timeExport, msg, appliqueSauvegarde, publieLePlan, APP_VERSION
 };

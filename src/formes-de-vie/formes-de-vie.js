@@ -18,7 +18,8 @@ import { fileDe, enCours } from '../economie/chantiers.js';
 import { LF_READ_TTL, prodOf, mse } from '../economie/production.js';
 import { parseC } from '../flotte/vaisseaux.js';
 import { goUrl } from '../jeu/liens.js';
-import { priosLf, prioPalier, FOCUS_VAISSEAU } from '../plan/priorites.js';
+import { priosLf, prioPalier } from '../plan/priorites.js';
+import { FOCUS_VAISSEAU } from '../economie/centre.js';
 import {
   REGLES, aSoi, REGLES_PAR_ID, EVAL, regle, regleActive, regleTexte
 } from '../regles/moteur.js';

@@ -16,7 +16,8 @@ import { IS_EXT } from '../core/serveur.js';
 import { formatTime } from '../core/temps.js';
 import { fileDe, enCours, fileBat } from '../economie/chantiers.js';
 import { debordeTexte } from '../economie/debordements.js';
-import { labPlanet, stockNow } from '../economie/production.js';
+import { stockNow } from '../economie/production.js';
+import { labPlanet } from '../economie/centre.js';
 import {
   parseC, distance, souteUtile, shipStats, flight, planeteEn, mouvements,
   aQuai

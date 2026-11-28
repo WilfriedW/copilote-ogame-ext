@@ -461,7 +461,8 @@ page du jeu surligne),
 revient),
 `src/minuteurs/minuteurs.js` (minuteurs, fin de
 chantier, son, titre qui clignote, alertes à acquitter), `src/economie/production.js` (production, stock
-au moment présent, attente avant de payer, labo et durée d'une recherche),
+au moment présent, attente avant de payer), `src/economie/centre.js` (le
+centre, son labo, la durée d'une recherche, les prérequis qui manquent),
 `src/economie/chantiers.js` (files de construction, retards des mines, des
 nanites et du labo), `src/economie/debordements.js` (pertes d'un hangar
 plein, journal des débordements, hangar qu'ils justifient),

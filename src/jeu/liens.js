@@ -6,13 +6,14 @@
    faire (`goNote`). Aussi les indices que la page du jeu surligne
    (`planHints`, `prioHints`).
 
-   Domaine de l'issue #49. Le centre (`centreOrHub`) reste emprunté à app.js. */
+   Domaine de l'issue #49. La planète d'un lien sans planète est le centre
+   (`centreOrHub`, src/economie/centre.js). */
 import { S } from '../core/etat.js';
 import { esc, planetRef } from '../core/format.js';
-import { labPlanet } from '../economie/production.js';
+import { labPlanet, centreOrHub } from '../economie/centre.js';
 import { parseC } from '../flotte/vaisseaux.js';
 import { prios, priosLf } from '../plan/priorites.js';
-import { planetById, centreOrHub } from '../../app.js';
+import { planetById } from '../../app.js';
 /* Le copilote n'ouvre que des pages du jeu : il ne remplit aucun formulaire,
    ne clique sur rien et ne lance rien à ta place. Un lien, pas un robot. */
 export const GO_KIND = {t:'research', ship:'shipyard', shipbuild:'shipyard', sats:'shipyard', def:'defenses',

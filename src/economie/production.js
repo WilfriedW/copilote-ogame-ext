@@ -3,14 +3,11 @@
    retirent le bridage et ce qu'ajoute la forme de vie (`bridage`,
    `lfBonusOf`, `LF_READ_TTL`), sa valeur en métal (`mse`, `NOM_RES`), le
    stock au moment présent et l'attente avant de pouvoir payer (`stockNow`,
-   `waitFor`, `storageShort`, `storageNote`, `reqOk`, `upLabel`), le labo et
-   la durée d'une recherche (`labPlanet`, `labLevel`, `labEffectif`,
-   `researchTime`).
+   `waitFor`, `storageShort`, `storageNote`, `upLabel`).
 
-   Domaine de l'issue #49. Il n'importe que le noyau, la flotte pour lire des
-   coordonnées, et deux noms d'app.js (`planetById`, `centrePlanet`), lus à
-   l'appel et jamais au chargement : ce cycle-là est toléré tant qu'app.js
-   existe. `LF_READ_TTL` vit ici et non dans les formes de vie, qui emploient
+   Domaine de l'issue #49. Il n'importe que le noyau et la flotte pour lire des
+   coordonnées ; le labo et le centre, qui le lisent, sont dans centre.js.
+   `LF_READ_TTL` vit ici et non dans les formes de vie, qui emploient
    la production : l'inverse fermerait une boucle. */
 import { S } from '../core/etat.js';
 import { num } from '../core/format.js';
@@ -21,60 +18,10 @@ import {
 } from '../core/formules.js';
 import { ecoSpeed, researchDiv } from '../core/serveur.js';
 import { parseC } from '../flotte/vaisseaux.js';
-import { planetById, centrePlanet } from '../../app.js';
 /* Le bonus de forme de vie lu dans le panneau décrit les niveaux du moment :
    au-delà de sept jours on le laisse, mieux vaut sous-estimer que décrire un
    empire qui n'existe plus. */
 export const LF_READ_TTL = 7*86400e3;
-/* Le centre d'abord : une recherche se lance depuis une planète, et c'est son
-   labo à elle qui en fixe la durée et les prérequis. Sans centre — joueur de
-   flotte, planète unique — on retombe sur le plus haut labo de l'empire,
-   c'est-à-dire sur le comportement d'avant. */
-/** La planète de recherche habituelle : celle d'où la dernière recherche est
-    partie, sinon le centre. C'est à elle que « recherche à l'arrêt » se rattache. */
-export function planeteRecherche(){ return planetById(S.rechPid) || labPlanet(); }
-export function labPlanet(){ return centrePlanet() || S.planets.reduce((a,p)=>(!a || p.b.lab>a.b.lab) ? p : a, null); }
-/* Le labo du centre, et non plus le maximum de l'empire : les deux
-   coïncidaient tant que le centre était par construction la planète du plus
-   haut labo, et ils divergent dès que le joueur reprend la main. Annoncer le
-   maximum ferait promettre une durée que le jeu ne tiendra pas, et lancer une
-   recherche depuis un labo trop petit. */
-export function labLevel(){ const p = labPlanet(); return p ? (p.b.lab || 0) : 0; }
-/**
- * Le niveau de labo qui décide de la VITESSE d'une recherche, Réseau compris.
- * Le Réseau de recherche intergalactique relie les N meilleurs labos des autres
- * planètes à celui d'où part la recherche, N étant son niveau : la durée se
- * calcule sur la somme. Page officielle de Gameforge : « Effective Lab Level =
- * Main Lab Level + Sum of N highest Colony Lab Levels (N = IRN Level) », avec
- * l'exemple 15 + 4×12 = 63.
- *
- * Il ne faut pas confondre avec `labLevel()`, qui décide de ce qui est
- * DÉBLOQUÉ : un prérequis est une propriété de la planète, et le Réseau n'aide
- * jamais à le remplir. Les deux questions passaient par la même fonction, donc
- * les labos des autres planètes ne servaient à rien.
- *
- * ponytail: aucune source lisible ne donne de niveau minimum pour qu'un labo
- * compte, ni le sort des lunes (le wiki fandom répond 402) ; on somme les N
- * plus hauts tels quels. À reprendre si le jeu dit autre chose.
- * Lit `S.planets`, donc marche aussi sur l'empire simulé que `simulateDay`
- * met à la place : ses copies portent `b`, le seul champ touché ici.
- * @returns {number} niveau de labo effectif
- */
-export function labEffectif(){
-  const p = labPlanet(); if(!p) return 0;
-  const mien = p.b.lab || 0;
-  const n = Math.max(0, Math.trunc(+S.tech.irn) || 0);
-  if(!n) return mien;
-  const autres = S.planets.filter(x => x !== p).map(x => x.b.lab || 0).sort((a,b) => b-a);
-  return mien + autres.slice(0, n).reduce((a,b) => a+b, 0);
-}
-/** Research time in seconds. */
-export function researchTime(key, L){
-  const c = levelCost(T[key], L);
-  let h = (c[0]+c[1]) / (1000 * (1+labEffectif()) * ecoSpeed() * researchDiv());
-  if(S.settings.cls==='explorer') h *= .75;
-  return Math.max(1, h*3600);
-}
 /**
  * Lit le texte du panneau « Paramétrage de la production » publié par content.js.
  * Le texte vient de la page : tout nombre qui pourrait borner une boucle ou
@@ -237,14 +184,6 @@ export function storageNote(w){
   const l = storageShort(w);
   return l ? `Hangar trop petit : ${l}, ou fais arriver le transport juste avant de lancer — une livraison n'est pas plafonnée.`
            : 'Hangar trop petit pour ce coût.';
-}
-export function reqOk(req, p){
-  const miss=[];
-  if(!req) return miss;
-  if(req.lab && labLevel()<req.lab) miss.push(`Labo ${req.lab}`);
-  if(req.b) for(const [k,v] of Object.entries(req.b)) if(!p || p.b[k]<v) miss.push(`${B_SHORT[k]} ${v}`);
-  if(req.t) for(const [k,v] of Object.entries(req.t)) if(S.tech[k]<v) miss.push(`${T[k].n.replace('Technologie ','')} ${v}`);
-  return miss;
 }
 
 /** Le libellé d'une option du classement : une mine a un niveau, les foreuses un nombre. */
