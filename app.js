@@ -7,7 +7,7 @@ import {
 } from './src/core/etat.js';
 import {
   nf, fmt, esc, num, costHtml, planetRef, PLANET_COLORS, planetHue,
-  qHtml, fmtK, majus, nf1, fmtCourt
+  qHtml, nf1, fmtCourt
 } from './src/core/format.js';
 import {
   B, B_SHORT, T, levelCost, rangeCost, crawlerMax, CRAWLER_COST
@@ -22,21 +22,21 @@ import {
 import {
   DEF, DEF_ORDER, DEF_MODELES, DEF_RATIO, DEF_PALIERS, DEF_SOURCE,
   DEF_ABR, defModele, defAncreRecette, defRecette, packCost, defLigne,
-  defsOf, defRatio, DEF_DUREES, DEF_PLANCHERS, computeDefenseGap,
-  defPropositions
+  defsOf, defRatio, DEF_DUREES, DEF_PLANCHERS, computeDefenseGap
 } from './src/defense/defense.js';
 import {
-  LF_READ_TTL, planeteRecherche, labPlanet, labLevel, labEffectif,
-  researchTime, parseProdPanel, prodOf, bridage, production, mse,
-  NOM_RES, stockNow, waitFor, storageNote, reqOk, upLabel
+  fileDe, enCours, fileBat, mineEnRetard, signe, naniteRetard,
+  robotsOuNanites, laboEnRetard, labOkPour, profilVise, reglesRecherche
+} from './src/economie/chantiers.js';
+import { surplusNote, surplusCompte, hangarSiJustifie, debordeTexte } from './src/economie/debordements.js';
+import {
+  LF_READ_TTL, planeteRecherche, labPlanet, parseProdPanel, prodOf,
+  bridage, production, mse, NOM_RES, stockNow, waitFor, reqOk, upLabel
 } from './src/economie/production.js';
+import { EXPO_LOG_MAX, EXPO_PREP_MAX, EXPO_EVTS, expoJournal, expoMessages } from './src/flotte/expeditions.js';
 import {
-  EXPO_LOG_MAX, EXPO_PREP_MAX, EXPO_EVTS, expoRes, expoFleet,
-  expoJournal, expoMessages
-} from './src/flotte/expeditions.js';
-import {
-  SHIPS, parseC, distance, souteUtile, shipStats, flight, SHIP_PLURAL,
-  SHIP_ONE, shipList
+  SHIPS, parseC, souteUtile, shipStats, flight, SHIP_PLURAL, SHIP_ONE,
+  shipList
 } from './src/flotte/vaisseaux.js';
 import {
   lfMetEnCommun, lfMerge, lfCost, lfCandidates, raceDeSerie, lfNomConnu,
@@ -44,19 +44,19 @@ import {
 } from './src/formes-de-vie/formes-de-vie.js';
 import { meteoVoit, renderMeteo, meteoBind } from './src/meteo.js';
 import {
-  casesSaines, casesLibres, rechercheEnCours, depensesPayables, dayValue,
-  nextResearch, whyLead, livraisons, projectResources, cardKey, refused
+  casesSaines, casesLibres, rechercheEnCours, dayValue, nextResearch,
+  whyLead, cardKey, refused
 } from './src/plan/journee.js';
 import { energyOptions, energyLine, dailyMissions, NO_KINDS, actKey, noLabel } from './src/plan/missions.js';
 import {
   prios, priosLf, prioClean, prioRecoit, lfCle, poseKind, FOCUS,
   FOCUS_VAISSEAU
 } from './src/plan/priorites.js';
+import { SURPLUS_REGLES, debordeA, autreCibleAvecPlace, surplusListe } from './src/plan/surplus.js';
 import { besoinEmpire, mseW } from './src/plan/vocations.js';
 import {
-  REGLES_ERR, REGLES, aSoi, REGLES_PAR_ID, EVAL, NIVEAU_SEV, regle,
-  regleActive, regleParam, regleSaine, constatsDe, HANGARS, constatsVus,
-  ignClean, publieCritiques
+  REGLES_ERR, aSoi, EVAL, NIVEAU_SEV, regleActive, regleParam,
+  regleSaine, constatsDe, HANGARS, ignClean, publieCritiques
 } from './src/regles/moteur.js';
 import { FS_RAPPEL_ON, poseRappel, armeRappel } from './src/securite/securite.js';
 import { VIEWS_AUJOURDHUI, REFRESH_AUJOURDHUI } from './src/vues/aujourdhui.js';
@@ -637,357 +637,6 @@ function render(){ prioClean(); ignClean(); garderVue(()=>{ header(); view.inner
 /* Pendant le relevé, les REFRESH écriraient dans des éléments que l'écran du
    relevé n'a pas : ils ne rafraîchissent que ce qui est à l'écran. */
 function refresh(){ garderVue(()=>{ if(!enScan()){ (REFRESH[tab]||(()=>{}))(); cartesSync(); lierRenvois(view); } header(); renderMeteo(); }); }
-/* ---------- les règles du moteur : stockage ---------- */
-/* Au plafond, la production s'arrête. Ce qui la relance, dans l'ordre :
-   dépenser sur place ce que le plan juge déjà utile, sinon envoyer l'excédent
-   là où il manque, sinon — et seulement si le débordement revient — monter le
-   hangar (solutionsSurplus). Baisser la production n'est jamais une réponse :
-   c'est la perte même qu'on cherche à éviter. */
-EVAL.storageRatio = (p, prm) => {
-  const pr = production(p), st = stockNow(p), out = [];
-  for(let k = 0; k < 3; k++){
-    if(!(st[k] >= pr.cap[k] * prm.seuil)) continue;
-    const [name, bk] = HANGARS[k], sol = solutionsSurplus(p, k, null)[0] || null;
-    out.push({valeur:k, cost:sol && sol.cost ? sol.cost : null,
-      repond:sol && sol.type === 'hangar' ? {kinds:['b'], ks:[bk]} : {kinds:['b']},
-      vars:Object.assign(surplusVars(p, k, st, pr), {hangar:name, niveau:p.b[bk], montee:dur(buildTime(bk, p.b[bk] + 1, p)),
-        quoi:sol ? sol.what : 'Un transport', depense:solutionPhrase(sol, k)})});
-  }
-  return out;
-};
-/* Le plafond qui approche : par la production, avec un délai qui couvre au
-   moins `heures` ; ou par une livraison — un retour d'expédition ne se
-   détourne pas, et il peut remplir le hangar d'un coup. Les livraisons
-   comptent sur 24 h : la plus lointaine est celle qu'on peut encore préparer. */
-EVAL.storageEta = (p, prm) => {
-  const pr = production(p), st = stockNow(p), rates = [pr.m, pr.c, pr.d], out = [];
-  const plein = regleParam('RES_STORAGE_FULL', 'seuil', .98), now = Date.now();
-  const livs = livraisons(p).filter(l => l.at > now && l.at <= now + 24 * 3600e3);
-  for(let k = 0; k < 3; k++){
-    if(st[k] >= pr.cap[k] * plein) continue;
-    const [name, bk] = HANGARS[k], mont = buildTime(bk, p.b[bk] + 1, p);
-    let dans = rates[k] > 0 ? (pr.cap[k] - st[k]) / rates[k] * 3600 : Infinity, cause = '';
-    if(!(dans < Math.max(prm.heures, mont / 3600) * 3600)) dans = Infinity;
-    const l = livs.find(x => x.cargo[k] > 0 && projectResources(p, x.at)[k] >= pr.cap[k] * plein);
-    if(l && (l.at - now) / 1000 < dans){
-      dans = (l.at - now) / 1000;
-      const v = l.mv || {}, de = (v.sens === 'retour' ? v.cible : v.origine) || {};
-      cause = (v.mission === 15 ? `Retour d'expédition à ${formatTime(l.at)}` : `Convoi ${de.nom || de.coords || ''} à ${formatTime(l.at)}`.replace('  ', ' '))
-        + ` : +${fmt(l.cargo[k])} ${NOM_RES[k]}. `;
-    }
-    if(!isFinite(dans)) continue;
-    const sol = solutionsSurplus(p, k, null)[0] || null;
-    out.push({valeur:k, cost:sol && sol.cost ? sol.cost : null,
-      repond:sol && sol.type === 'hangar' ? {kinds:['b'], ks:[bk]} : null,
-      vars:Object.assign(surplusVars(p, k, st, pr), {hangar:name, niveau:p.b[bk], dans:dur(dans), montee:dur(mont), cause,
-        quoi:sol ? sol.what : 'Un transport', depense:solutionPhrase(sol, k), secs:dans})});
-  }
-  return out;
-};
-
-/* ---------- ressources en trop ---------- */
-/**
- * Ce qu'un plafond coûte : la production horaire arrêtée, et sa valeur en
- * métal au ratio du joueur — c'est elle qui classe les débordements entre eux,
- * un cristal arrêté valant plus qu'autant de métal.
- * @returns {{res:number, eqM:number}}
- */
-function pertesParHeure(p, k, pr){
-  pr = pr || production(p);
-  const r = Math.max(0, [pr.m, pr.c, pr.d][k] || 0), ratio = S.settings.ratio || [3, 2, 1];
-  return {res:r, eqM:r * ratio[0] / ratio[k]};
-}
-/** Les variables communes aux deux règles de hangar. */
-function surplusVars(p, k, st, pr){
-  const l = pertesParHeure(p, k, pr), e = st[k] - pr.cap[k];
-  return {ressource:NOM_RES[k], Ressource:majus(NOM_RES[k]), pertes:`${fmtK(l.res)} ${NOM_RES[k]}/h`,
-    excedent:e > 0 ? `${fmt(e)} au-dessus de la capacité (${fmt(pr.cap[k])})` : `${Math.floor(st[k] / pr.cap[k] * 100)} % de la capacité (${fmt(pr.cap[k])})`};
-}
-/** La première solution en une phrase, pour le texte de la règle. */
-function solutionPhrase(s, k){
-  if(!s) return `Rien d'utile n'est finançable ici avec le ${NOM_RES[k]} : envoie-le là où il manque.`;
-  if(s.type === 'depense') return `${s.what} : ${fmt(s.cost[k])} de ${NOM_RES[k]} d'un coup, pour une dépense utile — pas un achat pour vider.`;
-  if(s.type === 'transfert') return `Envoie ${fmt(s.charge[k])} de ${NOM_RES[k]} à ${s.dest.name} : ${s.pour}.`;
-  return `${s.what} : ${s.pourquoi}.`;
-}
-
-/* L'historique des débordements, propre au poste (chrome.storage.local, hors
-   de S et de la synchro). Une entrée par débordement : planète, ressource,
-   début, fin — fin vide tant qu'il dure. Sept jours glissants : c'est ce qui
-   dit si le hangar est trop petit pour de bon, ou si une livraison ponctuelle
-   l'a rempli une fois. `var` : un rendu peut passer avant cette ligne. */
-var SURPLUS_GARDE_MS = 7 * 864e5;
-var SURPLUS_REGLES = ['RES_STORAGE_FULL', 'RES_STORAGE_SOON'];
-var SURPLUS_LOG = (() => {
-  const v = typeof window !== 'undefined' ? window.__surplusLog : null;
-  return Array.isArray(v) ? v.filter(e => e && typeof e.pid === 'string' && [0, 1, 2].includes(e.k) && Number.isFinite(e.d)) : [];
-})();
-/**
- * Note les débordements de l'instant : en ouvre un pour chaque ressource au
- * plafond qui n'en a pas, ferme ceux qui sont redescendus, oublie ce qui a
- * plus de sept jours. N'écrit que si quelque chose a changé.
- * @returns {boolean} vrai si l'historique a changé
- */
-function surplusNote(now){
-  if(S.sample) return false;
-  const seuil = regleParam('RES_STORAGE_FULL', 'seuil', .98);
-  let change = false;
-  for(const p of S.planets || []){
-    if(!p || !p.stock) continue;
-    const pr = production(p), st = stockNow(p);
-    for(let k = 0; k < 3; k++){
-      const ouvert = SURPLUS_LOG.find(e => e.pid === p.id && e.k === k && e.f == null), plein = st[k] >= pr.cap[k] * seuil;
-      if(plein && !ouvert){ SURPLUS_LOG.push({pid:p.id, k, d:now, f:null}); change = true; }
-      else if(!plein && ouvert){ ouvert.f = now; change = true; }
-    }
-  }
-  const garde = SURPLUS_LOG.filter(e => (e.f == null ? now : e.f) >= now - SURPLUS_GARDE_MS && planetById(e.pid));
-  if(garde.length !== SURPLUS_LOG.length){ SURPLUS_LOG = garde; change = true; }
-  if(change && typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local)
-    try{ const r = chrome.storage.local.set({surplusLog: SURPLUS_LOG.map(e => Object.assign({}, e))}); if(r && r.catch) r.catch(e => console.error('Copilote : historique des débordements non enregistré', e)); }
-    catch(e){ console.error('Copilote : historique des débordements non enregistré', e); }
-  return change;
-}
-/** Combien de fois cette ressource a débordé sur cette planète en sept jours, celui en cours compris. */
-function surplusCompte(pid, k, now){
-  now = now == null ? Date.now() : now;
-  return SURPLUS_LOG.filter(e => e.pid === pid && e.k === k && (e.f == null ? now : e.f) >= now - SURPLUS_GARDE_MS).length;
-}
-
-/**
- * Ce que le plan met de côté sur `p` au début de la journée : la même règle
- * que `reserveOf` dans simulateDay — le coût d'un objectif, moins ce que la
- * production y apporte d'ici son échéance.
- */
-function reservePlan(plan, p){
-  const s0 = plan && plan.sessions && plan.sessions[0], out = [0, 0, 0], pi = S.planets.indexOf(p);
-  if(!s0 || pi < 0) return out;
-  const pr = production(p), r = [pr.m, pr.c, pr.d];
-  for(const g of s0.goals || []){
-    if(g.p !== pi || !g.cost) continue;
-    const h = Math.max(0, (g.deadline - s0.T) / 3600e3);
-    g.cost.forEach((x, j) => { out[j] += Math.max(0, x - r[j] * h); });
-  }
-  return out;
-}
-/**
- * Ce qui, sur `p`, est déjà utile au plan : ses chantiers, cases de forme de
- * vie, vaisseaux et défenses, qu'ils partent aujourd'hui ou attendent ; les
- * recherches du plan quand cette planète peut les payer (son labo est le
- * centre, ou RECH_FUND_ELSEWHERE la laisse payer) ; les pièces que le modèle
- * de défense réclame. Sans plan — une règle se lit avant lui — les mines,
- * centrales, cases de forme de vie et recherches payables ici.
- * Jamais un achat « pour vider » : les puits de PUITS n'y sont pas.
- * @returns {{kind:string, what:string, cost:number[], depuis?:boolean}[]}
- */
-function utilesSurPlace(p, plan, dispo, k){
-  const out = [], pi = S.planets.indexOf(p), lab = labPlanet(), rech = rechercheEnCours();
-  const ici = lab && lab.id === p.id, ailleurs = !ici && regleActive('RECH_FUND_ELSEWHERE');
-  const rechOk = t => !rech && T[t] && (ici || (ailleurs && labOkPour(t, p)));
-  if(plan){
-    for(const x of plan.sessions || []) for(const a of (x.acts || []).concat(x.waits || [])){
-      if(!a || !Array.isArray(a.cost)) continue;
-      if(a.kind === 't'){ if(rechOk(a.k)) out.push({kind:'t', what:a.what, cost:a.cost, depuis:!ici}); }
-      else if(a.p === pi && ['b', 'lf', 'def', 'shipbuild'].includes(a.kind)) out.push({kind:a.kind, what:a.what, cost:a.cost});
-    }
-  } else {
-    for(const d of depensesPayables(p, k, dispo)) if(!d.puits && d.kind !== 't') out.push(d);
-    if(!rech) for(const t of (nextResearch().list || []).slice(0, 3)) if(rechOk(t.k)) out.push({kind:'t', what:`${T[t.k].n} ${t.lvl}`, cost:levelCost(T[t.k], t.lvl), depuis:!ici});
-  }
-  /* Un lot de défense du modèle : autant de pièces que le stock libre en
-     paie, jamais plus que ce qui manque au palier. Page Défense jamais lue :
-     rien, on doublerait ce qui existe. */
-  const props = defsOf(p) ? defPropositions(p) : null;
-  for(const l of (props && props.ordre) || []){
-    const u = DEF[l.k].c, n = Math.min(l.manque, ...u.map((x, j) => x > 0 ? Math.floor(Math.max(0, dispo[j]) / x) : Infinity));
-    if(n >= 1 && !refused(cardKey('def', p.id, l.k))) out.push({kind:'def', what:`Construire ${shipList({[l.k]:n})}`, cost:u.map(x => x * n)});
-  }
-  return out;
-}
-/**
- * La dépense utile qui vide le plus la ressource en trop, payable maintenant
- * sur `p` après les réserves du plan. Le choix se fait sur la part de la
- * ressource dans le prix (au ratio du joueur) : on veut vider le cristal, pas
- * le métal qui manque peut-être ailleurs.
- */
-function depenseSurPlace(p, k, plan){
-  const st = stockNow(p), res = reservePlan(plan, p), dispo = st.map((x, j) => x - res[j]), ratio = S.settings.ratio || [3, 2, 1];
-  const part = c => c[k] * ratio[0] / ratio[k] / Math.max(1e-9, mse(...c));
-  const vus = new Set(), cands = [];
-  for(const c of utilesSurPlace(p, plan, dispo, k)){
-    if(vus.has(c.what) || !(c.cost[k] > 0) || !c.cost.every((x, j) => x <= dispo[j] + 1e-6)) continue;
-    vus.add(c.what); cands.push(c);
-  }
-  /* La part décide, mais pas seule : 1 000 de cristal dans une sonde, c'est
-     du cristal pur et ça ne vide rien quand 2 M dépassent. Une dépense qui
-     absorbe au moins un dixième de l'excédent (au-dessus de 90 %) passe
-     devant ; sous le plafond, toutes se valent. */
-  const exces = Math.max(0, st[k] - 0.9 * production(p).cap[k]), pese = c => c.cost[k] >= 0.1 * exces ? 1 : 0;
-  cands.sort((a, b) => pese(b) - pese(a) || part(b.cost) - part(a.cost) || b.cost[k] - a.cost[k]);
-  const c = cands[0];
-  if(!c) return null;
-  const quoi = c.kind === 't' ? `Lancer ${c.what}${c.depuis && S.planets.length > 1 ? ` depuis ${p.name}` : ''}` : c.kind === 'def' || /^Construire /.test(c.what) ? c.what : `Lancer ${c.what}`;
-  return {type:'depense', kind:c.kind, what:quoi, cost:c.cost};
-}
-
-/** Les transporteurs que `p` peut prêter : ni le kit d'expédition, ni la réserve de GT (expoRes). */
-function flotteLibre(p){
-  const sh = {lc:(p.ships || {}).lc || 0, sc:(p.ships || {}).sc || 0};
-  sh.lc = Math.max(0, sh.lc - expoRes(p));
-  const kit = expoFleet(p.ships, p);
-  if(kit) for(const k of ['lc', 'sc']) sh[k] = Math.max(0, sh[k] - (kit.ships[k] || 0));
-  return sh;
-}
-/** Les transporteurs libres pour lever `amount`, les grands d'abord. */
-function soutePour(libres, amount){
-  const ships = {};
-  let cargo = 0;
-  for(const k of ['lc', 'sc']){
-    const u = shipStats(k).cargoEff, n = Math.min(libres[k] || 0, u ? Math.ceil(Math.max(0, amount - cargo) / u) : 0);
-    if(n > 0){ ships[k] = n; cargo += n * u; }
-  }
-  return ships;
-}
-/** Le moins qu'un transfert vaille : sous ce tonnage, le vol coûte plus d'attention qu'il ne rend. */
-var SURPLUS_MIN = 5000;
-/**
- * Ce que chaque planète attend de cette ressource : ce qui manque aux
- * éléments du plan qu'elle bloque (« En attente de ressources »), et à ses
- * objectifs. La planète de recherche y est par ses recherches en attente.
- * @returns {Map<number, {besoin:number, pour:string[]}>} par indice de planète
- */
-function besoinsDe(plan, k){
-  const out = new Map(), s0 = plan && plan.sessions && plan.sessions[0];
-  if(!s0) return out;
-  const note = (i, x, what) => {
-    if(!(x > 0) || !S.planets[i]) return;
-    const e = out.get(i) || {besoin:0, pour:[]};
-    e.besoin = Math.max(e.besoin, x);
-    if(what && !e.pour.includes(what)) e.pour.push(what);
-    out.set(i, e);
-  };
-  for(const w of s0.waits || []) if(w.miss) note(w.p, w.miss[k], w.what);
-  for(const g of s0.goals || []) if(g.cost && S.planets[g.p]) note(g.p, g.cost[k] - stockNow(S.planets[g.p])[k], g.label);
-  return out;
-}
-/** Ce qui se pose encore sur `q` après `at` : la place d'aujourd'hui est la place de toute la journée. */
-function livreApres(q, at, k){ return livraisons(q).filter(l => l.at > at).reduce((a, l) => a + (l.cargo[k] || 0), 0); }
-/**
- * L'excédent de `p` envoyé à une planète qui en manque et qui a la place.
- * La quantité est le plus petit de : ce qui ramène `p` sous 90 %, le besoin
- * de la cible, sa place libre jusqu'à 95 %, la soute des transporteurs libres.
- * Cible : le plus gros besoin, puis la plus proche.
- * @returns {object|null} au format de transportHtml, plus `pour` et `besoin`
- */
-function transfertVersBesoin(p, k, plan){
-  const pr = production(p), st = stockNow(p), cp = parseC(p.coords), pi = S.planets.indexOf(p);
-  const exces = st[k] - 0.9 * pr.cap[k];
-  if(!cp || !(exces >= SURPLUS_MIN)) return null;
-  const libres = flotteLibre(p);
-  if(!libres.lc && !libres.sc) return null;
-  const now = Date.now(), cands = [];
-  for(const [i, b] of besoinsDe(plan, k)){
-    const q = S.planets[i];
-    if(i === pi || !q || !parseC(q.coords) || refused(cardKey('transfer', p.id, q.coords))) continue;
-    let ships = soutePour(libres, Math.min(exces, b.besoin)), fl = flight(p.coords, q.coords, ships, 100);
-    if(!fl) continue;
-    const arrivee = now + fl.secs * 1000, cq = production(q).cap[k];
-    const place = 0.95 * cq - projectResources(q, arrivee)[k] - livreApres(q, arrivee, k);
-    const qte = Math.floor(Math.min(exces, b.besoin, place, fl.cargo, k === 2 ? st[2] - fl.fuel : Infinity));
-    if(qte < SURPLUS_MIN) continue;
-    /* La flotte retaillée à la quantité : moins de vaisseaux, moins de deutérium. */
-    ships = soutePour(libres, qte); fl = flight(p.coords, q.coords, ships, 100) || fl;
-    const charge = [0, 0, 0]; charge[k] = Math.min(qte, fl.cargo);
-    cands.push({q, b, ships, fl, charge, arrivee:now + fl.secs * 1000, d:distance(cp, parseC(q.coords))});
-  }
-  cands.sort((a, b) => b.b.besoin - a.b.besoin || a.d - b.d);
-  const c = cands[0];
-  if(!c) return null;
-  const pour = `${c.b.pour.slice(0, 2).join(', ')} y attend${c.b.pour.length > 1 ? 'ent' : ''} ${fmt(c.b.besoin)} de ${NOM_RES[k]}`;
-  return {type:'transfert', what:`Transférer ${fmt(c.charge[k])} de ${NOM_RES[k]} vers ${c.q.name}`, p, pi, ships:c.ships, dest:c.q,
-    mission:3, missionNom:'Transport', pct:100, depart:now, arrivee:c.arrivee, retour:c.arrivee + c.fl.secs * 1000, fuel:c.fl.fuel,
-    charge:c.charge, pour, besoin:c.b.besoin, pourquoi:`${majus(pour)}, et la place pour la recevoir.`, note:'Kit d\'expédition et réserve de GT laissés à quai.', gt:0};
-}
-/**
- * Le hangar, en dernier recours : seulement si la ressource a débordé au
- * moins `recurrence` fois en sept jours, ou si la prochaine mine coûte plus
- * que le hangar ne contient (RES_MINE_BLOCKED_BY_STORAGE). Un débordement de
- * livraison ponctuelle ne le justifie pas : il coûte cher, met des heures, et
- * ne sert plus une fois le stock redescendu.
- */
-function hangarSiJustifie(p, k){
-  const pr = production(p), n = surplusCompte(p.id, k), seuil = regleParam('RES_STORAGE_FULL', 'recurrence', 3);
-  const best = rankUpgrades(p).filter(u => u.payback < Infinity && B[u.key])[0];
-  const bc = best ? (best.extraSolar ? levelCost(B.solar, p.b.solar + 1) : levelCost(B[best.key], best.lvl)) : null;
-  const bloque = !!bc && bc[k] > pr.cap[k];
-  if(n < seuil && !bloque) return null;
-  const [name, bk] = HANGARS[k], lvl = (p.b[bk] || 0) + 1, duree = buildTime(bk, lvl, p);
-  return {type:'hangar', what:`${name} ${lvl}`, k:bk, lvl, cost:levelCost(B[bk], lvl), duree,
-    pourquoi:bloque ? `${upLabel(best)} coûte plus que la capacité actuelle` : `${n} débordements de ${NOM_RES[k]} en 7 jours`};
-}
-/**
- * Jusqu'à trois solutions pour une ressource au plafond, dans l'ordre :
- * dépenser sur place, transférer vers un besoin, monter le hangar. Sans plan
- * (une règle se lit avant lui), pas de transfert : les besoins sont ceux du plan.
- */
-function solutionsSurplus(p, k, plan){
-  const out = [], d = depenseSurPlace(p, k, plan);
-  if(d) out.push(d);
-  const t = plan ? transfertVersBesoin(p, k, plan) : null;
-  if(t) out.push(t);
-  const h = hangarSiJustifie(p, k);
-  if(h) out.push(h);
-  return out.slice(0, 3);
-}
-
-/**
- * Les ressources qu'une cargaison ferait passer au-dessus du hangar de `q` à
- * son arrivée : la livraison n'est pas plafonnée, la production si — elle
- * s'arrête tant que le stock reste au-dessus.
- * @returns {number[]} indices de ressource
- */
-function debordeA(q, cargo, at){
-  if(!q || !q.stock || !cargo) return [];
-  const pr = production(q), proj = projectResources(q, at);
-  return [0, 1, 2].filter(j => cargo[j] > 0 && proj[j] + cargo[j] > pr.cap[j]);
-}
-/** « À l'arrivée, Erablis dépassera sa capacité en cristal : la mine s'arrêtera. » */
-function debordeTexte(nom, js){
-  if(!js || !js.length) return '';
-  const mines = js.filter(j => j < 2).length, synth = js.includes(2);
-  const sujet = [mines > 1 ? 'les mines' : mines ? 'la mine' : '', synth ? 'le synthétiseur' : ''].filter(Boolean);
-  return `À l'arrivée, ${nom} dépassera sa capacité en ${js.map(j => NOM_RES[j]).join(' et ')} : ${sujet.join(' et ')} s'arrêter${sujet.length > 1 || mines > 1 ? 'ont' : 'a'}.`;
-}
-/** Une autre de mes planètes qui prendrait cette cargaison sous 95 % de ses hangars, la plus proche. */
-function autreCibleAvecPlace(from, cargo, at, exclus){
-  const c = parseC(from && from.coords);
-  if(!c) return null;
-  return S.planets.filter(q => q !== from && !(exclus || []).includes(q) && q.stock && parseC(q.coords)).filter(q => {
-    const pr = production(q), proj = projectResources(q, at);
-    return [0, 1, 2].every(j => !(cargo[j] > 0) || proj[j] + cargo[j] <= 0.95 * pr.cap[j]);
-  }).sort((a, b) => distance(c, parseC(a.coords)) - distance(c, parseC(b.coords)))[0] || null;
-}
-
-/**
- * Les ressources au plafond, ou qui vont l'atteindre, une ligne par planète et
- * ressource, la plus coûteuse en production perdue d'abord (en équivalent
- * métal au ratio du joueur). Lit les constats du plan : une règle éteinte ou
- * un constat ignoré n'y est pas.
- */
-function surplusListe(plan){
-  const cs = constatsVus((plan && plan.constats) || []).filter(c => c.regle === 'RES_STORAGE_FULL' || c.regle === 'RES_STORAGE_SOON');
-  const vus = new Set(), out = [];
-  for(const c of cs){
-    const p = planetById(c.pid), k = c.valeur, cle = `${c.pid}:${k}`;
-    if(!p || ![0, 1, 2].includes(k) || vus.has(cle)) continue;
-    vus.add(cle);
-    const pr = production(p), st = stockNow(p), l = pertesParHeure(p, k, pr);
-    out.push({c, p, k, plein:c.regle === 'RES_STORAGE_FULL', st, cap:pr.cap[k], pertes:l, solutions:solutionsSurplus(p, k, plan)});
-  }
-  /* Un plafond atteint passe devant un plafond à venir ; à état égal, la
-     perte horaire décide. */
-  return out.sort((a, b) => (b.plein - a.plein) || b.pertes.eqM - a.pertes.eqM);
-}
 /* L'option satellites est respectée par energyOptions : un satellite écarté
    ne sort pas comme la solution, il se dit à part dans planetAlerts. */
 EVAL.energyBalance = p => {
@@ -1021,11 +670,6 @@ EVAL.nextMineEnergy = p => {
   return [{valeur:`${u.key}${u.lvl}`, cost:levelCost(B.solar, p.b.solar + 1), repond:{kinds:['b', 'sats'], ks:['solar']},
     vars:{mine:`${B_SHORT[u.key]} ${u.lvl}`, niveau:p.b.solar}}];
 };
-/* Une file est occupée quand le jeu y montre un chantier, nommé ou non : même
-   lecture que simulateDay. */
-const fileDe = (p, test) => (S.timers || []).filter(t => t && t.pid === p.id && test(t));
-const enCours = t => !t.done && t.end > Date.now();
-const fileBat = t => t.kind === 'b' || (t.kind === 'x' && t.queue === 'building');
 /* La valeur du constat est la fin du dernier chantier connu : une file revidée
    plus tard est une autre occurrence, et un « Ignorer » d'hier ne la cache pas. */
 EVAL.queueEmpty = p => {
@@ -1040,53 +684,16 @@ EVAL.researchIdle = p => {
   if(l.some(enCours)) return [];
   return [{valeur:l.reduce((m, t) => Math.max(m, +t.end || 0), 0), repond:{kinds:['t'], partout:true}, vars:{}}];
 };
-
-/* La cible d'écart entre la mine de métal et celle de cristal : le style du
-   profil, ajusté par la position. Lue dans rules.json, jamais saisie. Rien sans
-   style ni position lisible : une cible inventée serait pire que pas de cible. */
-function cibleMines(p){
-  const st = S.profil && S.profil.style, mb = REGLES.mineBalance || {};
-  if(!st || !aSoi(mb.byStyle, st) || !Number.isFinite(+mb.byStyle[st])) return null;
-  const c = parseC(p && p.coords); if(!c) return null;
-  let adj = null;
-  for(const [k, v] of Object.entries(mb.byPosition || {})){
-    const m = /^(\d+)-(\d+)$/.exec(k);
-    if(m && c[2] >= +m[1] && c[2] <= +m[2] && Number.isFinite(+v)){ adj = +v; break; }
-  }
-  if(adj == null) return null;
-  return {cible:+mb.byStyle[st] + adj, actuel:(p.b.metal || 0) - (p.b.crystal || 0), position:c[2]};
-}
-/* La mine en retard sur la cible. Une tolérance d'un niveau au-dessus évite que
-   la planète oscille d'une mine à l'autre à chaque session. */
-function mineEnRetard(p){
-  const r = cibleMines(p); if(!r) return null;
-  const k = r.actuel < r.cible ? 'metal' : r.actuel > r.cible + regleParam('RES_MINE_BALANCE', 'tolerance', 1) ? 'crystal' : null;
-  return k ? Object.assign({k}, r) : null;
-}
-const signe = n => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n);
 EVAL.mineBalanceTarget = p => {
   const r = mineEnRetard(p); if(!r) return [];
   return [{valeur:`${r.k}:${r.cible}:${r.actuel}`, cost:levelCost(B[r.k], p.b[r.k] + 1), repond:{kinds:['b'], ks:[r.k]},
     vars:{cible:signe(r.cible), actuel:signe(r.actuel), mine:B[r.k].n, niveau:p.b[r.k], position:r.position,
       style:(PROFILS.styles[S.profil.style] || {}).n || ''}}];
 };
-/* Ce qu'une règle d'installation pousse dans pickBuildings, calculé au même
-   endroit pour le constat et pour le plan : sinon les deux finiraient par ne
-   plus dire la même chose. */
-function naniteRetard(p){
-  const max = Math.max(0, ...S.planets.map(x => x.b.nanite || 0)), n = p.b.nanite || 0;
-  return n < max - regleParam('INST_NANITES_LAGGING', 'ecart', 2) && !reqOk(B.nanite.req, p).length ? {n, max} : null;
-}
 EVAL.nanitesLagging = p => {
   const r = naniteRetard(p); if(!r) return [];
   return [{valeur:`${r.n}:${r.max}`, cost:levelCost(B.nanite, r.n + 1), repond:{kinds:['b'], ks:['nanite']}, vars:{niveau:r.n, max:r.max}}];
 };
-/* Le plan ne propose jamais de robots au-delà de 10 : ce cas ne naît que d'une
-   priorité du joueur. Le copilote la sert, et chiffre l'autre chemin. */
-function robotsOuNanites(p, lvl){
-  if(!(lvl > 10) || (p.b.robot || 0) < 10 || reqOk(B.nanite.req, p).length) return null;
-  return {robots:lvl, nanite:(p.b.nanite || 0) + 1, gain:((lvl + 1) / lvl).toFixed(2).replace('.', ',')};
-}
 EVAL.nanitesOverRobots = p => {
   const pr = prios().find(x => x.kind === 'b' && x.pid === p.id && x.k === 'robot');
   const r = pr && robotsOuNanites(p, (p.b.robot || 0) + 1);
@@ -1104,15 +711,6 @@ EVAL.fieldsFree = p => {
     vars:{libres:l, pris:p.cases.pris, max:p.cases.max, niveau:p.b.terra || 0,
       terra:manque.length ? `Le Terraformeur en ajouterait, mais il demande ${manque.join(', ')}.` : 'Le Terraformeur en ajoute à chaque niveau.'}}];
 };
-/* Les labos que le Réseau fait compter : celui du centre, et les N meilleurs
-   des autres planètes, N étant le niveau du Réseau (labEffectif). */
-function laboEnRetard(p){
-  const n = S.tech.irn || 0, c = labPlanet();
-  if(!n || !c || c.id === p.id || !((p.b.lab || 0) >= 1)) return null;
-  const comptes = S.planets.filter(x => x.id !== c.id).sort((a, b) => (b.b.lab || 0) - (a.b.lab || 0)).slice(0, n);
-  return comptes.some(x => x.id === p.id) && p.b.lab <= (c.b.lab || 0) - regleParam('INST_LAB_NETWORK', 'ecart', 3)
-    ? {niveau:p.b.lab, centre:c.b.lab || 0} : null;
-}
 EVAL.labNetworkGap = p => {
   if(rechercheEnCours()) return [];
   const r = laboEnRetard(p); if(!r) return [];
@@ -1135,20 +733,11 @@ function rechercheAilleurs(){
   const q = S.planets.find(x => x.id !== lab.id && labOkPour(R.k, x) && peut(x));
   return q ? {R, c, q} : null;
 }
-/* Le prérequis de labo d'une recherche, sur CETTE planète. `reqOk` lit le labo
-   du centre (labLevel) : juste pour ce qui est débloqué, faux pour dire d'où on
-   peut la lancer — un prérequis est une propriété de la planète. Les
-   prérequis de technologie, eux, sont ceux de l'empire, et nextResearch ne rend
-   que des pas déjà débloqués. */
-const labOkPour = (k, p) => (p.b.lab || 0) >= ((T[k].req || {}).lab || 0) && (p.b.lab || 0) >= 1;
 EVAL.researchElsewhere = p => {
   const r = rechercheAilleurs(); if(!r || r.q.id !== p.id) return [];
   return [{valeur:`${r.R.k}${r.R.lvl}`, cost:r.c, repond:{kinds:['t'], partout:true},
     vars:{recherche:`${T[r.R.k].n} ${r.R.lvl}`, depuis:p.name}}];
 };
-/* Une recherche que le profil réclame : le style, ou un focus. */
-const profilVise = r => (Array.isArray(r.styles) && r.styles.includes(S.profil.style))
-  || (Array.isArray(r.focus) && r.focus.some(f => (S.profil.focus || []).includes(f)));
 EVAL.techBelow = (p, prm, r) => {
   const lab = labPlanet();
   if(!lab || lab.id !== p.id || !aSoi(T, r.tech) || !profilVise(r)) return [];
@@ -1157,18 +746,6 @@ EVAL.techBelow = (p, prm, r) => {
   return [{valeur:String(n), cost:levelCost(T[r.tech], n + 1), repond:{kinds:['t'], partout:true, tk:r.tech},
     vars:{niveau:n, cible:prm.niveauCible, style:(PROFILS.styles[S.profil.style] || {}).n || '', pct:hyperCargoPct()}}];
 };
-/* Les pas de recherche que les règles poussent en tête de la feuille de route,
-   derrière les priorités du joueur. Toute règle de condition techBelow y entre :
-   en ajouter une au fichier ne demande pas de code. */
-function reglesRecherche(){
-  const out = [];
-  for(const id of Object.keys(REGLES_PAR_ID)){
-    const r = regle(id);
-    if(r.condition !== 'techBelow' || !regleActive(id) || !aSoi(T, r.tech) || !profilVise(r)) continue;
-    if((S.tech[r.tech] || 0) < r.parametres.niveauCible) out.push([r.tech, r.parametres.niveauCible, '', id]);
-  }
-  return out;
-}
 /* ---------- la race d'une planète ---------- */
 /**
  * La race d'une planète : posée à la main, sinon déduite des identifiants de
@@ -2980,22 +2557,18 @@ if(IS_EXT && chrome.runtime.getURL) (function(){
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
   planetById, centrePlanet, shipReqOk, save, raceDe, ignKey, lfMode,
-  poidsCat, on, SHIP_COST, lfNom, lfIdPour, poseLfCles, goUrl, fileDe,
-  enCours, POS, render, visibleTimers, TOOLS, bascule, syncFailed,
-  planetAlerts, addBuilt, planetIndexById, rankUpgrades, hangarSiJustifie,
-  debordeTexte, mineEnRetard, signe, naniteRetard, robotsOuNanites,
-  casesBasses, laboEnRetard, labOkPour, reglesRecherche, timerLabel,
-  COL_SHIP_COST, KITS, colShipAt, colSentNow, colBuilt, maxPlanets,
-  coloTarget, coloFleet, LF_MODE, shipTime, defSurplus, tournee, hubIndex,
-  centreIndex, POURQUOI_LABO, centreNote, catActe, debordeA,
-  autreCibleAvecPlace, fileBat, aide, coordLink, leverFlotte, coloPaybackTxt,
-  occupied, colonyCandidates, raidTargets, raidPlan, catMission,
-  SURPLUS_REGLES, SEV_LABEL, prioLfEtat, fleetUrl, missionGo, goAttr,
-  gameSkin, surplusNote, surplusCompte, surplusListe, renderTimers,
-  copyChips, whyParts, actHtml, rebours, noBtn, noListe, classeSuggeree,
-  classeEcart, profilLigne, profilFocusHtml, profilEtape, actsVus,
-  defRecetteHtml, defModeleCarte, defPicker, poseNom, centreWhy, VIEWS,
-  gauge, REFRESH, toast, habillage, forgetPlanet, pushLook, refresh,
+  poidsCat, on, rankUpgrades, SHIP_COST, lfNom, lfIdPour, poseLfCles, goUrl,
+  POS, render, visibleTimers, TOOLS, bascule, syncFailed, planetAlerts,
+  addBuilt, planetIndexById, casesBasses, timerLabel, COL_SHIP_COST, KITS,
+  colShipAt, colSentNow, colBuilt, maxPlanets, coloTarget, coloFleet,
+  LF_MODE, shipTime, defSurplus, tournee, hubIndex, centreIndex,
+  POURQUOI_LABO, centreNote, catActe, aide, coordLink, leverFlotte,
+  coloPaybackTxt, occupied, colonyCandidates, raidTargets, raidPlan,
+  catMission, SEV_LABEL, prioLfEtat, fleetUrl, missionGo, goAttr, gameSkin,
+  renderTimers, copyChips, whyParts, actHtml, rebours, noBtn, noListe,
+  classeSuggeree, classeEcart, profilLigne, profilFocusHtml, profilEtape,
+  actsVus, defRecetteHtml, defModeleCarte, defPicker, poseNom, centreWhy,
+  VIEWS, gauge, REFRESH, toast, habillage, forgetPlanet, pushLook, refresh,
   parseLeft, unlockAudio, chime, stopFlash, tickTimers, clock, coloSystem,
   masque, masqueBascule, setMasque, timeExport, defPersoLive, applyReport,
   profilConnu, styleRepose, poseProfilEtape, msg, appliqueSauvegarde,

@@ -22,6 +22,11 @@ import { ecoSpeed, hyperCargoPct, buildTime } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
 import { DEF, defPropositions, defPhrase, defBloqueTexte } from '../defense/defense.js';
 import {
+  mineEnRetard, signe, naniteRetard, robotsOuNanites, laboEnRetard,
+  labOkPour, reglesRecherche
+} from '../economie/chantiers.js';
+import { hangarSiJustifie, debordeTexte } from '../economie/debordements.js';
+import {
   labPlanet, labLevel, researchTime, production, mse, NOM_RES,
   storageNote, reqOk, upLabel
 } from '../economie/production.js';
@@ -36,9 +41,7 @@ import { prios, prioOf, prioDevant, FOCUS, FOCUS_FLOTTE } from './priorites.js';
 import { besoinEmpire, VOC_KEYS, VOC_NOM, vocations } from './vocations.js';
 import { regleActive, regleParam, regleTexte, rangNiveau, constats, repondA } from '../regles/moteur.js';
 import {
-  addBuilt, planetIndexById, rankUpgrades, hangarSiJustifie,
-  debordeTexte, mineEnRetard, signe, naniteRetard, robotsOuNanites,
-  casesBasses, laboEnRetard, labOkPour, reglesRecherche, planetAlerts,
+  addBuilt, planetIndexById, rankUpgrades, casesBasses, planetAlerts,
   timerLabel, COL_SHIP_COST, KITS, colShipAt, colSentNow, colBuilt,
   maxPlanets, coloTarget, coloFleet, LF_MODE, lfMode, SHIP_COST,
   shipReqOk, shipTime, defSurplus, tournee, hubIndex, centreIndex,

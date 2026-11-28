@@ -13,6 +13,7 @@ import { B, T, levelCost, rangeCost, SAT_COST } from '../core/formules.js';
 import { IS_EXT, API } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
 import { DEF, defMixList } from '../defense/defense.js';
+import { debordeTexte } from '../economie/debordements.js';
 import { labPlanet, production, mse, stockNow, reqOk } from '../economie/production.js';
 import { flotteCible, reequilibreCartes, flotteAjout } from '../flotte/cible.js';
 import { expoFleet, expoCap, astroForExpo, expoWanted } from '../flotte/expeditions.js';
@@ -31,8 +32,8 @@ import {
   cargoGaps, secu, prochaineHeure
 } from '../securite/securite.js';
 import {
-  save, planetById, lfNom, coordLink, leverFlotte, debordeTexte,
-  colSentNow, maxPlanets, coloTarget, coloPaybackTxt, lfMode, occupied,
+  save, planetById, lfNom, coordLink, leverFlotte, colSentNow,
+  maxPlanets, coloTarget, coloPaybackTxt, lfMode, occupied,
   colonyCandidates, raidTargets, raidPlan, poidsCat, catMission
 } from '../../app.js';
 /**
