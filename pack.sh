@@ -31,8 +31,15 @@ cp -R src dist/src
 # un `versions.tsv` de zéro octet, sans un mot. La carte Version affichait
 # alors un historique vide comme s'il n'y avait rien à montrer. Un dépôt sans
 # git doit pouvoir construire, mais pas en silence.
+#
+# `--first-parent` : la ligne de main seule, une fusion pour une PR. Sans lui,
+# les commits d'une branche fusionnée se mêlent à ceux de main par date, et une
+# branche partie avant un changement de numéro y glisse l'ancien numéro entre
+# deux occurrences du nouveau : le test « un numéro de version ne ressert
+# jamais » y voyait une réutilisation qui n'avait pas eu lieu (2.19.1 entre deux
+# 2.20.0, le 2026-11-28).
 TSV=$(mktemp)
-{ git log -n 40 --date=short --pretty=format:'%h%x09%ad%x09%s' | while IFS="$(printf '\t')" read -r h d s; do
+{ git log --first-parent -n 40 --date=short --pretty=format:'%h%x09%ad%x09%s' | while IFS="$(printf '\t')" read -r h d s; do
     v=$(git show "$h:manifest.json" 2>/dev/null | sed -n 's/.*"version" *: *"\([^"]*\)".*/\1/p' | head -1)
     printf '%s\t%s\t%s\t%s\n' "${v:-?}" "$d" "$h" "$s"
   done; } > "$TSV" 2>/dev/null || :
