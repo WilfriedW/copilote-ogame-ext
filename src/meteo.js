@@ -18,9 +18,10 @@
 
 import { S } from './core/etat.js';
 import { formatTime } from './core/temps.js';
+import { SEV_NIVEAU, constatsVus } from './regles/moteur.js';
 import {
-  SEV_NIVEAU, planetById, fmt, esc, planetRef, uiOuvert, uiNote, render,
-  constatsVus, planetAlerts, DEF, DEF_ABR, defPlan, poidsCat
+  planetById, fmt, esc, planetRef, uiOuvert, uiNote, render,
+  planetAlerts, DEF, DEF_ABR, defPlan, poidsCat
 } from '../app.js';
 
 /** Les quatre domaines, dans l'ordre des colonnes. */
