@@ -5,13 +5,25 @@
    `ROADMAPS`), ce qu'une priorité demande (`prioStep`, `prioBloque`), la
    projection des ressources et le moment où une dépense devient payable
    (`projectResources`, `whenAffordable`, `depensesPayables`), et les jalons
-   du début de partie (`MILESTONES`).
+   du début de partie (`MILESTONES`), et la défense qui absorbe un hangar
+   plein une fois le palier tenu (`defSurplus`, ici parce que la journée est
+   seule à la lire et qu'elle tient les refus).
 
-   Module du plan du jour (issue #49). Le rendu des actions (`actHtml`,
-   `whyParts`, `copyChips`) reste dans app.js jusqu'à l'étape des vues. Ce
-   module emprunte encore à app.js la production, les stocks, les liens vers
-   le jeu et le profil : ce cycle-là est toléré tant qu'app.js existe, et
-   rien n'y est lu au chargement. */
+   Module du plan du jour (issue #49). Il emprunte encore à app.js le centre et
+   quelques outils de planète :
+   ce cycle-là est toléré tant qu'app.js existe, et rien n'y est lu au
+   chargement. */
+import {
+  DEF_ORDER, defRatio, computeDefenseGap, DEF, defPropositions, defPhrase,
+  defBloqueTexte
+} from '../defense/defense.js';
+import {
+  stockNow, labPlanet, labLevel, researchTime, production, mse, NOM_RES,
+  storageNote, reqOk, upLabel
+} from '../economie/production.js';
+import {
+  HANGARS, regleActive, regleParam, regleTexte, rangNiveau, constats, repondA
+} from '../regles/moteur.js';
 import { KITS, colShipAt, colSentNow, colBuilt, maxPlanets, coloTarget, coloFleet } from '../colonisation/colonisation.js';
 import { COL_SHIP_COST, SHIP_COST, shipReqOk, shipTime } from '../flotte/coques.js';
 import { S, sample } from '../core/etat.js';
@@ -22,16 +34,11 @@ import {
 } from '../core/formules.js';
 import { ecoSpeed, hyperCargoPct, buildTime } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
-import { DEF, defPropositions, defPhrase, defBloqueTexte } from '../defense/defense.js';
 import {
   mineEnRetard, signe, naniteRetard, robotsOuNanites, laboEnRetard,
   labOkPour, reglesRecherche
 } from '../economie/chantiers.js';
 import { hangarSiJustifie, debordeTexte } from '../economie/debordements.js';
-import {
-  labPlanet, labLevel, researchTime, production, mse, NOM_RES,
-  storageNote, reqOk, upLabel
-} from '../economie/production.js';
 import {
   expoFind, expoFleet, EXPO_READ_TTL, expoInFlight, expoCap,
   astroForExpo, expoWanted, expoTgt, expoSys, expoDuree, expoScore
@@ -43,10 +50,9 @@ import { poseHeure, isNight } from './nuit.js';
 import { prios, prioOf, prioDevant, FOCUS, FOCUS_FLOTTE } from './priorites.js';
 import { poidsCat, catActe } from './profil.js';
 import { besoinEmpire, VOC_KEYS, VOC_NOM, vocations } from './vocations.js';
-import { regleActive, regleParam, regleTexte, rangNiveau, constats, repondA } from '../regles/moteur.js';
 import {
   addBuilt, planetIndexById, rankUpgrades, planetAlerts, LF_MODE, lfMode,
-  defSurplus, tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote
+  tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote
 } from '../../app.js';
 
 /* ---------- advice ---------- */
@@ -1702,4 +1708,85 @@ export function refused(key){ return !!S.daily.no[key]; }
 export function casesBasses(p){
   const l = casesLibres(p), seuil = regleParam('INST_FIELDS_LOW', 'seuil', 10);
   return l != null && l >= 2 && l < seuil ? l : null;
+}
+/* Le niveau sous lequel un surplus est résorbé : assez bas pour que le plafond
+   ne revienne pas à la tournée suivante, assez haut pour ne pas vider le stock. */
+const DEF_SURPLUS_VISE = 0.9;
+/**
+ * Le palier tenu, la défense ne monte plus que pour ne pas perdre de
+ * production. Une ressource au plafond (règle RES_STORAGE_FULL) ou qui va
+ * l'atteindre (RES_STORAGE_SOON) part en packs du modèle — la recette à son
+ * ancre, au ratio du modèle, jamais une pièce qu'il ne nomme pas.
+ *
+ *   packs = min(ce qui ramène la ressource sous 90 % du hangar,
+ *               ce que les autres ressources paient, réserves du plan déduites)
+ *
+ * Moins d'un pack payable : la pièce de la recette qui mange le plus la
+ * ressource en trop (les lanceurs pour le métal), seule.
+ * Lecture seule : la fonction propose, l'appelant décide.
+ *
+ * @param {object} p planète (réelle ou simulée)
+ * @param {{st?:number[], res?:number[], servies?:boolean[]}} [o] le stock,
+ *   les réserves du plan, et les ressources qu'un chantier ou une recherche de
+ *   la session consomme déjà (celles-là ne déclenchent rien)
+ * @returns {{k:string, ships:object, n:number, pack:boolean, j:number,
+ *   plein:boolean, why:string}|null}
+ */
+export function defSurplus(p, o = {}){
+  const g = computeDefenseGap(p);
+  /* Sous le palier, c'est le manque qui parle, pas le surplus. */
+  if(!g || g.lignes.some(l=>l.manque > 0)) return null;
+  const r = defRatio(g.modele) || {};
+  const recette = DEF_ORDER.filter(k=>!DEF[k].un && num(r[k], 0) > 0);
+  if(!recette.length) return null;
+  const pr = production(p), st = o.st || stockNow(p), res = o.res || [0,0,0], servies = o.servies || [];
+  const rates = [pr.m, pr.c, pr.d];
+  const seuil = regleParam('RES_STORAGE_FULL', 'seuil', .98), heures = regleParam('RES_STORAGE_SOON', 'heures', 8);
+  /* Active sur la planète : allumée dans les réglages, et pas coupée ici. */
+  const actif = id => regleActive(id) && !(p.regOff || {})[id];
+  const pleinOn = actif('RES_STORAGE_FULL'), bientotOn = actif('RES_STORAGE_SOON');
+  const cands = [];
+  for(let j = 0; j < 3; j++){
+    const cap = pr.cap[j];
+    if(!(cap > 0) || servies[j]) continue;
+    const plein = pleinOn && st[j] >= cap * seuil;
+    let bientot = false;
+    if(!plein && bientotOn && rates[j] > 0){
+      const bk = HANGARS[j][1];
+      bientot = (cap - st[j]) / rates[j] < Math.max(heures, buildTime(bk, num(p.b[bk], 0) + 1, p) / 3600);
+    }
+    const exces = st[j] - cap * DEF_SURPLUS_VISE;
+    if((plein || bientot) && exces > 0) cands.push({j, plein, exces, taux:st[j] / cap});
+  }
+  cands.sort((a, b)=>(b.plein - a.plein) || (b.taux - a.taux));
+  const libre = j => [0,1,2].map(i=>Math.max(0, st[i] - (i === j ? 0 : res[i])));
+  const paie = (c, L) => Math.min(...c.map((x, i)=>x > 0 ? Math.floor(L[i] / x) : Infinity));
+  const nom = p.name || planetRef(p);
+  const Res = j => NOM_RES[j][0].toUpperCase() + NOM_RES[j].slice(1);
+  const recetteTxt = shipList(Object.fromEntries(recette.map(k=>[k, r[k]])));
+  for(const c of cands){
+    const j = c.j, L = libre(j), etat = c.plein ? 'au plafond' : 'bientôt au plafond';
+    const cadre = `${g.nom}, palier ${fmt(g.palier)} tenu`;
+    const packC = [0,1,2].map(i=>recette.reduce((a, k)=>a + r[k] * DEF[k].c[i], 0));
+    if(packC[j] > 0 && recette.every(k=>shipReqOk(k, p)) && !refused(cardKey('def', p.id, 'pack'))){
+      const n = Math.min(Math.ceil(c.exces / packC[j]), paie(packC, L));
+      if(n >= 1){
+        const ships = Object.fromEntries(recette.map(k=>[k, r[k] * n]));
+        return {k:'pack', ships, n, pack:true, j, plein:c.plein,
+          why:`${Res(j)} ${etat} sur ${nom} : ${fmt(n)} pack${n > 1 ? 's' : ''} du modèle pour ne pas perdre la production (${cadre} ; un pack = ${recetteTxt}).`};
+      }
+    }
+    /* Pas un pack entier : la pièce qui mange le plus cette ressource dans la
+       recette, et à égalité la plus pure — elle ne touche pas aux autres. */
+    const part = k => DEF[k].c[j] / mse(...DEF[k].c);
+    const pieces = recette.filter(k=>DEF[k].c[j] > 0 && shipReqOk(k, p) && !refused(cardKey('def', p.id, k)))
+      .sort((a, b)=>(r[b] * DEF[b].c[j] - r[a] * DEF[a].c[j]) || (part(b) - part(a)));
+    for(const k of pieces){
+      const n = Math.min(Math.ceil(c.exces / DEF[k].c[j]), paie(DEF[k].c, L));
+      if(n < 1) continue;
+      return {k, ships:{[k]:n}, n, pack:false, j, plein:c.plein,
+        why:`${Res(j)} ${etat} sur ${nom} : pas de quoi payer un pack du modèle, ${shipList({[k]:n})} pour ne pas perdre la production (${cadre}).`};
+    }
+  }
+  return null;
 }
