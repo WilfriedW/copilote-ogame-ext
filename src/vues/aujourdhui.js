@@ -8,6 +8,8 @@
    `REFRESH` à partir des morceaux de chaque onglet. Ce module emprunte encore
    à app.js le rendu et les calculs qui n'ont pas de module : ce cycle-là est
    toléré tant qu'app.js existe, et rien n'y est lu au chargement. */
+import { LF_MODE, lfMode } from '../plan/place-formes-de-vie.js';
+import { lfCandidates } from '../formes-de-vie/formes-de-vie.js';
 import { EXPO_FRET, S } from '../core/etat.js';
 import {
   fmtLigne, fmt, esc, num, costHtml, planetRef, planetTag, qHtml, fmtK,
@@ -22,7 +24,7 @@ import { NOM_RES } from '../economie/production.js';
 import { flotteCible, flotteAjout } from '../flotte/cible.js';
 import { EXPO_LABELS, top1Tier, expoPts, expoRes, expoPropose, expoEtat } from '../flotte/expeditions.js';
 import { shipList, shipCourt, mcd, mouvements, aQuai } from '../flotte/vaisseaux.js';
-import { LF_NAMES } from '../formes-de-vie/formes-de-vie.js';
+import { LF_NAMES } from '../formes-de-vie/cases.js';
 import { fleetUrl, missionGo, coordLink, goAttr } from '../jeu/liens.js';
 import { meteoVoit } from '../meteo.js';
 import { renderTimers } from '../minuteurs/minuteurs.js';
@@ -49,7 +51,37 @@ import {
   uiVu, fold, RESUMES, resumeDe, cardLayout, cartesMenu, listeCartes
 } from './navigation.js';
 import { gameSkin } from './page-du-jeu.js';
-import { prioLfEtat, ignKey, SEV_LABEL, aide, actsVus, on } from '../../app.js';
+import { ignKey, SEV_LABEL, aide, actsVus, on } from '../../app.js';
+
+/* Ce qu'une ligne de forme de vie dit d'elle-même. Cinq états, et aucun ne se
+   confond avec un autre : le relevé n'a jamais vu la case (le joueur a posé
+   avant que la page de sa forme de vie soit parcourue), elle est verrouillée,
+   elle n'est pas encore chiffrée (état normal juste après la pose : le prix ne
+   vient qu'en ouvrant la case dans le jeu), elle est en tête de sa file, ou
+   elle attend son tour. Dans les deux derniers, le réglage des formes de vie
+   est nommé : c'est lui qui décide du moment, et le taire laisserait croire
+   à une priorité ignorée. Un sixième, la population trop faible, dit où aller
+   la chercher : rien d'autre dans le panneau ne relie cette case au bouton des
+   paliers. */
+export function prioLfEtat(p, x, nuit){
+  const v = (p.lf || {})[x.k];
+  if(!v) return 'Le relevé n\'a jamais vu cette case : ouvre la page de ta forme de vie dans le jeu pour qu\'elle apparaisse.';
+  if(v.state === 'locked') return 'Verrouillée : un prérequis manque dans le jeu.';
+  if(v.state === 'pop') return 'La population de la planète est trop faible : le jeu refuse de la construire, et le plan ne sait pas dire quand ça changera. Monte la nourriture puis le logement — le bouton « Poser les paliers de population », sous les niveaux de cette planète, pose les deux.';
+  const l = lfCandidates(p, lfQueue(x.k));
+  if(!l.some(c => c.id === x.k)) return 'Pas encore chiffrée : ouvre-la dans le jeu pour que le plan connaisse son prix.';
+  if(nuit) return '';
+  const reglage = `Formes de vie : « ${LF_MODE[lfMode()]} », à changer dans Réglages › Plan du jour`;
+  if(lfMode() === 'off') return `${reglage} — le plan n'y touche pas.`;
+  /* Le planificateur saute une file de forme de vie tant qu'un chantier y
+     tourne (même lecture que simulateDay : minuteur de jeu 'x', file, pas fini) :
+     annoncer « servie » par-dessus serait promettre ce qu'il ne fait pas. */
+  const fin = (S.timers || []).reduce((m, t) => t.kind === 'x' && t.queue === lfQueue(x.k) && t.pid === p.id && !t.done && t.end > Date.now() ? Math.max(m, t.end) : m, 0);
+  if(fin) return `Sa file de forme de vie est occupée : le plan la lancera quand le chantier en cours finira, dans ${dur((fin - Date.now())/1000)}. ${reglage}.`;
+  if(l[0].id !== x.k) return `Attend son tour dans sa file : une case posée avant elle passe d'abord. ${reglage}.`;
+  return lfMode() === 'first' ? `En tête de sa file : le plan la sert avant les bâtiments. ${reglage}.`
+    : `En tête de sa file, mais le réglage la fait passer après les bâtiments. ${reglage}.`;
+}
 const prioRangHtml = (kind, pid, k) => { const r = prioOrdre(kind, pid, k); return r ? ` <span class="note">rang ${r.i + 1} sur ${r.n}</span>` : ''; };
 /* L'état d'une ligne est celui que le plan lui a donné à la première session,
    jamais son rang dans la liste : une priorité que rien ne sert — labo

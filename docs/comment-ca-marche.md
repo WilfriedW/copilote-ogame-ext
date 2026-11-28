@@ -476,8 +476,10 @@ facture), `src/flotte/coques.js` (prix, prérequis et durée au chantier d'un
 vaisseau ; la défense y recopie ses pièces), `src/securite/securite.js` (mise à l'abri, attaques
 entrantes, plan de sécurité) et `src/formes-de-vie/formes-de-vie.js`
 (espèces, coût des cases, paliers de population, règles propres aux formes
-de vie), puis le plan du jour dans `src/plan/` : `priorites.js` (les
-priorités du joueur et leur pose), `profil.js` (le profil de jeu et le poids
+de vie), avec `src/formes-de-vie/cases.js` sous lui (ce qui désigne et
+nomme une case, les rangs relevés), puis le plan du jour dans `src/plan/` :
+`priorites.js` (les priorités du joueur et leur pose),
+`place-formes-de-vie.js` (avant ou après les bâtiments, ou pas du tout), `profil.js` (le profil de jeu et le poids
 qu'il donne aux cartes), `nuit.js` (la nuit, l'heure de réveil),
 `vocations.js` (la vocation d'une planète, ce qui manque à l'empire),
 `journee.js` (la journée simulée, la prochaine recherche, la projection des

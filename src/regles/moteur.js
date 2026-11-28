@@ -12,8 +12,9 @@
    style de jeu…) : ce cycle-là est toléré tant qu'app.js existe. */
 import { S } from '../core/etat.js';
 import { IS_EXT } from '../core/serveur.js';
+import { lfMode } from '../plan/place-formes-de-vie.js';
 import { poidsCat } from '../plan/profil.js';
-import { save, raceDe, ignKey, lfMode, on } from '../../app.js';
+import { save, raceDe, ignKey, on } from '../../app.js';
 
 /* ---------- les règles du moteur ----------
    Décrites dans rules.json, que boot.js lit avant ce fichier et pose dans

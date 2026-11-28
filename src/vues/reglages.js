@@ -13,7 +13,9 @@ import {
   DEF, DEF_RATIO, defRatio, defAncre, DEF_DUREES, DEF_PLANCHERS,
   defPalierOpts
 } from '../defense/defense.js';
-import { RACE_SRC, nomRace, LIFEFORMS, readLifeforms, lfIds } from '../formes-de-vie/formes-de-vie.js';
+import { LF_MODE, lfMode } from '../plan/place-formes-de-vie.js';
+import { RACE_SRC, nomRace, LIFEFORMS, readLifeforms } from '../formes-de-vie/formes-de-vie.js';
+import { lfIds } from '../formes-de-vie/cases.js';
 import { RESEARCH_MODE, researchMode, simulateDay } from '../plan/journee.js';
 import { hhmmDe, heureTxt, nightLen } from '../plan/nuit.js';
 import { FOCUS } from '../plan/priorites.js';
@@ -25,9 +27,7 @@ import { defModeleCarte, defPicker } from './defense.js';
 import { MASQUE_CLES, masque, toutMasque } from './entete.js';
 import { fold, cardLayout, affichageCard, HABILLAGES, habillage } from './navigation.js';
 import { VERSIONS, MAJ, plusRecente } from './version.js';
-import {
-  APP_VERSION, raceDe, SEV_LABEL, LF_MODE, lfMode, bascule, aide, actsVus
-} from '../../app.js';
+import { APP_VERSION, raceDe, SEV_LABEL, bascule, aide, actsVus } from '../../app.js';
 /** Réglages › Formes de vie : la race de chaque planète, d'où elle vient, et de quoi la corriger. */
 function raceRows(){
   const ps = (S.planets || []).filter(p => lfIds(p).length || p.race);

@@ -8,8 +8,7 @@ import { B, levelCost, crawlerMax, CRAWLER_COST } from './src/core/formules.js';
 import { planetById, gidDe } from './src/core/planetes.js';
 import { IS_EXT, poseApi, buildTime } from './src/core/serveur.js';
 import {
-  dur, LOCAL_TZ, srvOffSec, clockParts, p2, timeSeen, formatTime,
-  timeTitle
+  LOCAL_TZ, srvOffSec, clockParts, p2, timeSeen, formatTime, timeTitle
 } from './src/core/temps.js';
 import {
   DEF, DEF_MODELES, DEF_RATIO, DEF_PALIERS, defModele, defsOf, DEF_DUREES,
@@ -22,9 +21,10 @@ import { shipReqOk, shipTime } from './src/flotte/coques.js';
 import { EXPO_LOG_MAX, EXPO_PREP_MAX, EXPO_EVTS, expoJournal, expoMessages } from './src/flotte/expeditions.js';
 import { SHIPS } from './src/flotte/vaisseaux.js';
 import {
-  lfMetEnCommun, lfMerge, lfCandidates, raceDeSerie, lfNomConnu, lfNomsRetiens,
-  LIFEFORMS, speciesOfPlanet, lfIds, LF_ROLE
+  lfMetEnCommun, lfMerge, raceDeSerie, lfNomsRetiens, LIFEFORMS,
+  speciesOfPlanet
 } from './src/formes-de-vie/formes-de-vie.js';
+import { lfIds } from './src/formes-de-vie/cases.js';
 import { profilSain } from './src/plan/profil.js';
 import { meteoVoit, renderMeteo, meteoBind } from './src/meteo.js';
 import {
@@ -32,7 +32,7 @@ import {
 } from './src/minuteurs/minuteurs.js';
 import { casesSaines, casesLibres } from './src/plan/journee.js';
 import { energyOptions, energyLine } from './src/plan/missions.js';
-import { prioClean, prioRecoit, lfCle, poseKind, FOCUS } from './src/plan/priorites.js';
+import { prioClean, prioRecoit, FOCUS } from './src/plan/priorites.js';
 import { besoinEmpire, mseW } from './src/plan/vocations.js';
 import {
   REGLES_ERR, aSoi, NIVEAU_SEV, regleActive, regleSaine, constatsDe, ignClean,
@@ -100,65 +100,6 @@ function saveFailed(e){ console.error('Copilote : sauvegarde impossible', e); tr
 window.__saveFailed = saveFailed;
 function save(){ try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){ saveFailed(e); } syncPush(); }
 
-/* Le nom d'une case. Celui du relevé d'abord : il vient de la partie en cours,
-   et le jeu peut le traduire autrement que notre table. */
-function lfNom(p, id){
-  return lfNomConnu(p, id) || ('Forme de vie ' + id);
-}
-/* La case de cette planète à ce rang, ou rien : l'espèce diffère d'une planète
-   à l'autre, et le jeu n'ouvre pas tous les rangs d'un coup. */
-function lfIdPour(p, cle){ return lfIds(p).find(id => lfCle(id) === cle); }
-/* Les rangs que l'empire a relevés, les bâtiments avant les recherches —
-   'lfbuilding' passe avant 'lfresearch' dans l'ordre des lettres. */
-function poseLfCles(){
-  return [...new Set(S.planets.flatMap(p => lfIds(p).map(lfCle)))]
-    .sort((a, b) => a.split(':')[0].localeCompare(b.split(':')[0]) || +a.split(':')[1] - +b.split(':')[1]);
-}
-/* Ce que la liste écrit sur un rang : les noms que le relevé lui connaît, une
-   fois chacun — « Secteur résidentiel / Enclave de méditation » pour un empire
-   à deux espèces. Pas de nom de rôle à la place : au-delà du logement et de la
-   nourriture, documentés chez les quatre espèces, le jeu ne donne pas le même
-   rôle au même rang, et un intitulé inventé ferait croire le contraire. */
-function poseNom(k){
-  if(poseKind(k) === 'b') return B[k].n;
-  const noms = new Set();
-  for(const p of S.planets) for(const id of lfIds(p)) if(lfCle(id) === k) noms.add(lfNom(p, id));
-  const vus = [...noms].join(' / ') || k;
-  /* Les trois rôles communs devant les noms, quand le rang en a un. Les
-     recherches n'en ont pas : leur rang 1 est « Ambassadeurs intergalactiques »,
-     pas l'hébergement. */
-  const role = k.startsWith('lfbuilding:') ? LF_ROLE[+k.split(':')[1]] : null;
-  return role ? `${role} — ${vus}` : vus;
-}
-/* Ce qu'une ligne de forme de vie dit d'elle-même. Cinq états, et aucun ne se
-   confond avec un autre : le relevé n'a jamais vu la case (le joueur a posé
-   avant que la page de sa forme de vie soit parcourue), elle est verrouillée,
-   elle n'est pas encore chiffrée (état normal juste après la pose : le prix ne
-   vient qu'en ouvrant la case dans le jeu), elle est en tête de sa file, ou
-   elle attend son tour. Dans les deux derniers, le réglage des formes de vie
-   est nommé : c'est lui qui décide du moment, et le taire laisserait croire
-   à une priorité ignorée. Un sixième, la population trop faible, dit où aller
-   la chercher : rien d'autre dans le panneau ne relie cette case au bouton des
-   paliers. */
-function prioLfEtat(p, x, nuit){
-  const v = (p.lf || {})[x.k];
-  if(!v) return 'Le relevé n\'a jamais vu cette case : ouvre la page de ta forme de vie dans le jeu pour qu\'elle apparaisse.';
-  if(v.state === 'locked') return 'Verrouillée : un prérequis manque dans le jeu.';
-  if(v.state === 'pop') return 'La population de la planète est trop faible : le jeu refuse de la construire, et le plan ne sait pas dire quand ça changera. Monte la nourriture puis le logement — le bouton « Poser les paliers de population », sous les niveaux de cette planète, pose les deux.';
-  const l = lfCandidates(p, lfQueue(x.k));
-  if(!l.some(c => c.id === x.k)) return 'Pas encore chiffrée : ouvre-la dans le jeu pour que le plan connaisse son prix.';
-  if(nuit) return '';
-  const reglage = `Formes de vie : « ${LF_MODE[lfMode()]} », à changer dans Réglages › Plan du jour`;
-  if(lfMode() === 'off') return `${reglage} — le plan n'y touche pas.`;
-  /* Le planificateur saute une file de forme de vie tant qu'un chantier y
-     tourne (même lecture que simulateDay : minuteur de jeu 'x', file, pas fini) :
-     annoncer « servie » par-dessus serait promettre ce qu'il ne fait pas. */
-  const fin = (S.timers || []).reduce((m, t) => t.kind === 'x' && t.queue === lfQueue(x.k) && t.pid === p.id && !t.done && t.end > Date.now() ? Math.max(m, t.end) : m, 0);
-  if(fin) return `Sa file de forme de vie est occupée : le plan la lancera quand le chantier en cours finira, dans ${dur((fin - Date.now())/1000)}. ${reglage}.`;
-  if(l[0].id !== x.k) return `Attend son tour dans sa file : une case posée avant elle passe d'abord. ${reglage}.`;
-  return lfMode() === 'first' ? `En tête de sa file : le plan la sert avant les bâtiments. ${reglage}.`
-    : `En tête de sa file, mais le réglage la fait passer après les bâtiments. ${reglage}.`;
-}
 
 /* Les rangs enregistrés deviennent des identités. Un rang écrit hier ne
    désigne plus la même planète après un réordonnancement : il désigne la
@@ -329,15 +270,6 @@ document.getElementById('bigAlertOk').addEventListener('click', ()=>{ alertQueue
 window.addEventListener('focus', stopFlash);
 document.addEventListener('pointerdown', ()=>{ unlockAudio(); stopFlash(); });
 /* ---------- réglages du plan ---------- */
-/* Place des formes de vie dans la journée. Par défaut elles passent après les
-   bâtiments et s'effacent devant ce qu'un chantier proche épargne. */
-/* « Avant tout le reste » laissait entendre que les cases passent aussi devant
-   la recherche : vrai quand la recherche est « À son tour », faux dès qu'elle
-   est « Avant les bâtiments », où le plan la sert d'abord. Les deux menus
-   parlent de la même chose — la place par rapport aux bâtiments — et un seul
-   des deux le disait. */
-const LF_MODE = {after:'Après les bâtiments', first:'Avant les bâtiments', off:'Ne pas s\'en occuper'};
-function lfMode(){ return LF_MODE[S.day.lf] ? S.day.lf : 'after'; }
 /* L'infobulle se pose après coup, sur ce qui est déjà dans la page : les heures
    vivent dans des phrases que esc() traverse, un balisage glissé par
    formatTime y serait échappé. On cherche donc dans les textes les écritures
@@ -800,9 +732,8 @@ litVersions();
 /* Ce que les modules sortis d'app.js lui empruntent encore. Rien de plus :
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
-  saveFailed, sainEtat, rankUpgrades, save, raceDe, ignKey, lfMode, on,
-  lfNom, lfIdPour, poseLfCles, addBuilt, render, TOOLS, bascule,
-  planetAlerts, LF_MODE, aide, SEV_LABEL, prioLfEtat, actsVus, poseNom,
-  VIEWS, gauge, REFRESH, toast, refresh, timeExport, msg, appliqueSauvegarde,
+  saveFailed, sainEtat, rankUpgrades, save, raceDe, ignKey, on,
+  addBuilt, render, TOOLS, bascule,
+  planetAlerts, aide, SEV_LABEL, actsVus, VIEWS, gauge, REFRESH, toast, refresh, timeExport, msg, appliqueSauvegarde,
   publieLePlan, APP_VERSION
 };
