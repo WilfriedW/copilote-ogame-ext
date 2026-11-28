@@ -17,6 +17,7 @@ import { raceDe, LIFEFORMS, lfIds } from '../formes-de-vie/cases.js';
 import { LF_MODE, lfMode } from '../plan/place-formes-de-vie.js';
 import { RACE_SRC, nomRace, readLifeforms } from '../formes-de-vie/formes-de-vie.js';
 import { RESEARCH_MODE, researchMode, simulateDay } from '../plan/journee.js';
+import { LIVRAISON, livraisonMode } from '../plan/palier.js';
 import { hhmmDe, heureTxt, nightLen } from '../plan/nuit.js';
 import { FOCUS } from '../plan/priorites.js';
 import { planPoseParLeStyle, classeEcart, profilLigne, profilFocusHtml } from '../plan/profil.js';
@@ -148,6 +149,7 @@ settings(){
         <label class="f">Ce que le plan vise<select id="dFocus" data-day="focus">${Object.entries(FOCUS).map(([k,l])=>`<option value="${k}" ${d.focus===k?'selected':''}>${l}</option>`).join('')}</select>${planPoseParLeStyle() ? `<span class="note">Posé par ton style (${esc(PROFILS.styles[S.profil.style].n)}).</span>` : ''}</label>
         <label class="f">Place de la recherche<select id="dRes" data-day="research">${Object.entries(RESEARCH_MODE).map(([k,l])=>`<option value="${k}" ${researchMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
         <label class="f">Place des formes de vie<select id="dLf" data-day="lf">${Object.entries(LF_MODE).map(([k,l])=>`<option value="${k}" ${lfMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
+        <label class="f">Livraison d'une cible de bâtiment<select id="dLiv" data-day="livraison">${Object.entries(LIVRAISON).map(([k,l])=>`<option value="${k}" ${livraisonMode(d)===k?'selected':''}>${l}</option>`).join('')}</select><span class="note">Le palier part en un convoi ; à la dernière connexion avant la nuit, seul le niveau suivant part.</span></label>
         <label class="f">Je me connecte toutes les<select id="dInt" data-day="interval">${[30,60,90,120,180].map(v=>`<option value="${v}" ${+d.interval===v?'selected':''}>${v} min</option>`).join('')}</select></label>
         <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
         <label class="f">Nuit : de (heure) — coucher<input id="dNs" type="time" data-day="nightStart" value="${hhmmDe(d.nightStart)}"></label>
