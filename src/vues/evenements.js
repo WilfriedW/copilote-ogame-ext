@@ -43,13 +43,12 @@ import {
 } from './entete.js';
 import {
   view, tab, poseOnglet, uiNote, uiReset, cardMode, cardTabs, cardForce,
-  CARTES, cartesSync, carteDetails, carteChoisie, carteRetiens,
-  setCardMode, CARTES_DEF, cartesVal, voirPlusCle, voirPlusOuvert,
-  garderVue
+  CARTES, cartesSync, carteDetails, carteChoisie, carteRetiens, setCardMode,
+  CARTES_DEF, cartesVal, voirPlusCle, voirPlusOuvert, garderVue, TOOLS
 } from './navigation.js';
 import { pushLook } from './page-du-jeu.js';
 import {
-  toast, render, refresh, timeExport, TOOLS, VIEWS, REFRESH, on, msg,
+  toast, render, refresh, timeExport, VIEWS, REFRESH, on, msg,
   appliqueSauvegarde, publieLePlan
 } from '../../app.js';
 
