@@ -24,10 +24,10 @@ import {
   SHIPS, souteUtile, shipStats, flight, shipList, SHIP_COURT, shipCourt,
   mcd, planeteEn, mouvements, aQuai
 } from './vaisseaux.js';
+import { secu, prochaineHeure, attaquesEntrantes, transportSuggere } from '../securite/securite.js';
 import {
   fmtLigne, fmt, esc, num, planetRef, production, mse, stockNow, tab,
-  secu, prochaineHeure, projectResources, attaquesEntrantes,
-  transportSuggere, fmtCourt, aide
+  projectResources, fmtCourt, aide
 } from '../../app.js';
 
 /** Les transporteurs : ce qui compte dans la soute du soir. */
