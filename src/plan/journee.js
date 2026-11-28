@@ -53,6 +53,7 @@ import { timerLabel } from '../minuteurs/minuteurs.js';
 import { poseHeure, isNight } from './nuit.js';
 import { prios, prioOf, prioDevant, FOCUS, FOCUS_FLOTTE } from './priorites.js';
 import { poidsCat, catActe } from './profil.js';
+import { palierDe, besoinPalier, choisirSources, livraisonMode, LIVRAISON, flotteLibre, soutePour, SURPLUS_MIN } from './palier.js';
 import { planetAlerts } from '../../app.js';
 
 
@@ -272,7 +273,7 @@ export function dayValue(k, v, prev){
     const x = m ? +m[1] + +m[2] / 60 : String(v).trim() === '' ? NaN : Number(v);
     return Number.isFinite(x) && x >= 0 && x < 24 && (!m || +m[2] < 60) ? Math.round(x * 60) / 60 : prev;
   }
-  const t = {focus:FOCUS, lf:LF_MODE, research:RESEARCH_MODE}[k];
+  const t = {focus:FOCUS, lf:LF_MODE, research:RESEARCH_MODE, livraison:LIVRAISON}[k];
   return t ? (t[v] ? v : prev) : Math.max(0, parseInt(v) || 0);
 }
 /* Les deux réglages que le style pose, et qu'il ne reprend jamais : ce que le
@@ -767,7 +768,7 @@ export function simulateDay(){
   const P = S.planets.map((p,i)=>({i, id:p.id, name:p.name, coords:p.coords, tmax:p.tmax, cases:p.cases, sats:p.sats, b:Object.assign({},p.b), ships:Object.assign({},p.ships||{}), st:projectResources(p, now), liv:livraisons(p).filter(l=>l.at>now), bq:now, bqKey:null, sq:now, flou:chantierFlou(p), lf:Object.assign({},p.lf||{}), lfq:{lfbuilding:now, lfresearch:now}, gid:p.gid, crawlers:p.crawlers, overload:p.overload, satsOk:p.satsOk, def:p.def, defs:p.defs ? Object.assign({},p.defs) : p.defs, defModele:p.defModele, defPalier:p.defPalier, regOff:p.regOff, race:p.race}));
   const expoBusy = [], expoDeja = {};
   const fleetReturns = (S.timers||[]).filter(t=>t.kind==='x' && (t.k==='fleet'||t.k==='expo') && !t.done && t.end>now).map(t=>t.end).sort((a,b)=>a-b);
-  const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}};
+  const sim = {tech:Object.assign({},S.tech), rq:now, ev:[], colShip:colBuilt(), colReady:colBuilt()?now:Infinity, colSent:colSentNow(), rSince:{}, away:{}, paliers:new Set()};
   const busy = [];
   for(const t of S.timers||[]){
     if(t.done || t.end<=now) continue;
@@ -867,7 +868,12 @@ export function simulateDay(){
        de journée fait descendre les suivantes sans changer leur ordre. */
     let prioRang = new Map();
     const RES = ['métal','cristal','deutérium'];
-    const reserveOf = (p, Tm, skip, only)=>{ const pr=production(p), r=[pr.m,pr.c,pr.d], out=[0,0,0]; for(const g of goals){ if(g.p!==p || g===skip || (only && g!==only)) continue; const h=Math.max(0,(g.deadline-Tm)/3600e3); g.cost.forEach((x,j)=>out[j]+=Math.max(0, x - r[j]*h)); } return out; };
+    /* Un palier livré (ENH-70) se retient en entier sur la destination, et pas
+       seulement le pas du moment : sans quoi, entre Robots 7 et Robots 8, le
+       reste du convoi partait dans une mine et il fallait un second
+       transport. La retenue s'arrête au stock présent : elle protège ce qui
+       est arrivé, elle ne gèle pas ce qui n'est pas encore là. */
+    const reserveOf = (p, Tm, skip, only)=>{ const pr=production(p), r=[pr.m,pr.c,pr.d], out=[0,0,0]; for(const g of goals){ if(g.p!==p || g===skip || (only && g!==only)) continue; const h=Math.max(0,(g.deadline-Tm)/3600e3), livre = g.palier && sim.paliers.has(g.palier.id); g.cost.forEach((x,j)=>{ const pas = Math.max(0, x - r[j]*h); out[j] += livre ? Math.max(pas, Math.min(g.palier.cost[j], p.st[j])) : pas; }); } return out; };
     /* Les objectifs qui retiennent quelque chose sur la planète, nommés : le
        joueur qui voit une carte attendre doit pouvoir lire pour quoi la
        planète épargne. `skip` est celui que la carte sert elle-même, qui ne
@@ -1063,7 +1069,17 @@ export function simulateDay(){
         const g = setGoal(key, `${B_SHORT[pas.k]} ${pas.lvl}`, c, pp, Tm);
         if(g){
           prioClefs.add(key);
-          prioEtat.push({id, key, pi:pp.i, bk:pas.k});
+          const etat = {id, key, pi:pp.i, bk:pas.k};
+          prioEtat.push(etat);
+          /* ENH-70 : le palier jusqu'au niveau visé, que la boucle des
+             rapatriements livrera d'un convoi. Seulement quand le pas est le
+             bâtiment visé : un détour par un hangar se paie sur place. À la
+             dernière connexion avant la nuit, le niveau suivant seulement :
+             un palier entier resterait des heures à quai, exposé. */
+          const veut = livraisonMode(S.day), avantNuit = veut === 'palier' && isNight(Tm + iv*3600e3);
+          const pal = pas.k === but.k ? palierDe(pp.b[but.k], pp.bq > Tm && pp.bqKey === but.k, but.k, but.lvl, avantNuit ? 'niveau' : veut) : null;
+          g.palier = pal ? Object.assign(pal, {id:`${pr.pid}:${but.k}:${but.lvl}`, avantNuit, etat}) : null;
+          if(pal && (pp.liv||[]).length) sim.paliers.add(g.palier.id);
           /* Une échéance dit « quand on pense pouvoir payer », et `setGoal` ne
              la calcule qu'à la première pose. Une priorité vit des jours : la
              nuit passe, l'échéance expire, `h` retombe à zéro et `reserveOf`
@@ -1153,10 +1169,98 @@ export function simulateDay(){
          déplacer ce qu'on a déjà : tant qu'une expédition est possible, le
          dernier emplacement lui revient. */
       const garde = expoBusy.filter(e=>e>Tm).length < maxExpo && P.some(p=>expoFleet(p.ships)) ? 1 : 0;
+      /* ENH-70 : chaque destination qui porte un palier choisit ses sources,
+         au lieu que chaque source envoie sa part vers `destOf` : un convoi
+         quand une planète a tout, deux au plus sinon, et les autres
+         n'envoient rien vers elle à cette session. Dans l'ordre de pose. Le
+         secours d'une planète bridée garde un emplacement : elle perd de la
+         production à chaque heure. Rend les destinations servies. */
+      const livrePaliers = () => {
+        const servies = new Set(), lcC = shipStats('lc').cargoEff, scC = shipStats('sc').cargoEff;
+        const somme = x => x[0]+x[1]+x[2];
+        /* Une seule destination : celle que `destOf` donne à une planète sans
+           objectif, la première posée. Les suivantes ne reçoivent pas plus
+           qu'avant — sans quoi deux priorités se nourrissaient l'une l'autre
+           d'une session à la suivante (voir `croise`). */
+        const tete = goals.filter(x=>isFinite(x.rang)).sort((a,b)=>a.rang-b.rang)[0];
+        for(const g of tete && tete.palier && tete.p.coords ? [tete] : []){
+          const dst = g.p, pal = g.palier, cible = `${B[pal.k].n} ${pal.de} → ${pal.a}`;
+          const resD = reserveOf(dst, Tm, g), libreD = dst.st.map((x,j)=>x-resD[j]);
+          const enRoute = [0,1,2].map(j=>(dst.liv||[]).reduce((t,l)=>t+((l.cargo||[])[j]||0), 0));
+          /* Le vol se chiffre avec les vaisseaux qu'il faudra, pas avec toute la
+             flotte libre : un petit transporteur de trop ralentit le convoi. */
+          const estime = somme(pal.cost.map((x,j)=>Math.max(0, x-libreD[j]-enRoute[j])));
+          const cands = [];
+          for(const q of P){
+            if(q===dst || !q.coords || (q.transferAt||0)>Tm || croise(q, dst)) continue;
+            if(refused(cardKey('transfer', (real.planets[q.i]||{}).id, dst.coords))) continue;
+            /* Ce que la source garde : le même `keep` que les rapatriements,
+               son prochain chantier et ses propres réserves. */
+            const mise = reserveOf(q, Tm), suivant = pickBuildings(q, {T:Tm, iv, goals:[]})[0];
+            const keep = (suivant ? levelCost(B[suivant.k], suivant.lvl) : [0,0,0]).map((x,j)=>x+mise[j]);
+            const fl0 = flotteLibre(q), soute = (fl0.lc||0)*lcC + (fl0.sc||0)*scC;
+            const ships = soutePour(fl0, Math.min(soute, estime)), fl = Object.keys(ships).length ? flight(q.coords, dst.coords, ships, 100) : null;
+            const libre = q.st.map((x,j)=>Math.max(0, x-keep[j] - (j===2 && fl ? fl.fuel : 0)));
+            cands.push({q, libre, soute:fl ? soute : 0, dist:fl ? fl.secs : Infinity, fuel:fl ? fl.fuel : 0, fl0, secs:fl ? fl.secs : 0});
+          }
+          const avecSoute = cands.filter(c=>c.soute>0);
+          const heures = avecSoute.length ? Math.min(...avecSoute.map(c=>c.secs))/3600 : 0;
+          const prD = production(dst);
+          const {besoin, plafond} = besoinPalier(pal.cost, libreD, enRoute, [prD.m,prD.c,prD.d], heures, livraisonMode(S.day) === 'palier' ? prD.cap : null);
+          /* Servie même sans convoi à poser quand ce qui est en route couvre le
+             palier : la boucle par source enverrait le pas une seconde fois. */
+          if(somme(besoin) < SURPLUS_MIN){ if(somme(enRoute) > 0) servies.add(dst); continue; }
+          const valeur = x=>mse(...x);
+          const picks = choisirSources(besoin, avecSoute, valeur).filter(x=>somme(x.charge) >= SURPLUS_MIN);
+          const attente = why => { waits.push({q:'Flotte · '+planetRef(dst), what:`Transport pour ${B_SHORT[pal.k]} ${pal.a}`, why, eta:Infinity, miss:besoin, kind:'transfer', p:dst.i}); pal.etat.convoi = why; };
+          if(!picks.length){
+            if(choisirSources(besoin, cands.map(c=>Object.assign({}, c, {soute:Infinity, dist:0})), valeur).some(x=>somme(x.charge) >= SURPLUS_MIN))
+              attente(`Transport pour ${B_SHORT[pal.k]} ${pal.a} prêt, mais aucun transporteur libre sur les planètes qui ont les ressources : ni kit d'expédition, ni réserve de GT ne partent.`);
+            continue;
+          }
+          const secours = bridees.length ? 1 : 0;
+          if(libres - garde - secours <= 0){
+            const retour = fleetReturns.find(e=>e>Tm);
+            attente(`Transport pour ${B_SHORT[pal.k]} ${pal.a} prêt, mais aucun emplacement de flotte libre${retour ? ` avant ${formatTime(retour)}` : ''}.`);
+            continue;
+          }
+          const parts = [], noms = ['métal','cristal','deutérium'];
+          let livre = [0,0,0];
+          for(const [n, pk] of picks.entries()){
+            if(libres - garde - secours <= 0) break;
+            const q = pk.q, ships = soutePour(cands.find(c=>c.q===q).fl0, somme(pk.charge));
+            const fl = flight(q.coords, dst.coords, ships, 100); if(!fl) continue;
+            const k = Math.min(1, fl.cargo/somme(pk.charge)), sent = pk.charge.map(x=>Math.floor(x*k));
+            const arrive = Tm + fl.secs*1000, back = arrive + fl.secs*1000;
+            sent.forEach((x,j)=>q.st[j]-=x); q.st[2] = Math.max(0, q.st[2]-fl.fuel); q.transferAt = back;
+            for(const [kk,nn] of Object.entries(ships)) q.ships[kk]-=nn;
+            /* La cargaison s'inscrit dans les livraisons de la destination :
+               `wait` la compte pour son épargne, et la session suivante la
+               voit en route au lieu de renvoyer un convoi. */
+            const l = {at:arrive, cargo:sent}; (dst.liv = dst.liv || []).push(l);
+            sim.ev.push({at:arrive, fn:()=>{ sent.forEach((x,j)=>dst.st[j]+=x); dst.liv = dst.liv.filter(e=>e!==l); }});
+            sim.ev.push({at:back, fn:()=>{ for(const [kk,nn] of Object.entries(ships)) q.ships[kk]=(q.ships[kk]||0)+nn; }});
+            livre = livre.map((x,j)=>x+sent[j]);
+            const dernier = n === picks.length-1;
+            const reste = besoin.map((x,j)=>Math.max(0, x-livre[j]));
+            const avis = (pal.avantNuit ? ` La nuit approche : seul le niveau suivant part, pour ne pas laisser tout le palier à quai sur ${planetRef(dst)} pendant la nuit.` : '')
+              + (plafond.length ? ` Le palier dépasse ce que les hangars de ${planetRef(dst)} logent en ${plafond.map(j=>noms[j]).join(' et ')} : la livraison s'arrête à leur capacité, le reste suivra.` : '')
+              + (dernier && somme(reste) >= SURPLUS_MIN ? ` Il restera ${fmt(reste[0])} M, ${fmt(reste[1])} C, ${fmt(reste[2])} D à réunir par la production de ${planetRef(dst)}.` : '');
+            acts.push({q:'Flotte · '+planetRef(q), what:`Transporter ${fmt(sent[0])} M, ${fmt(sent[1])} C, ${fmt(sent[2])} D vers ${planetRef(dst)}`,
+              why:`De quoi monter ${cible}${pal.a < pal.vise ? `, vers ta cible ${pal.vise}` : ''}. ${shipList(ships)} · mission Transporter · arrivée vers ${formatTime(arrive)}.${avis}`,
+              dur:fl.secs, end:arrive, kind:'transfer', ships, p:q.i, dest:dst.coords, res:sent, mission:3});
+            parts.push(planetRef(q));
+            libres--;
+          }
+          if(parts.length){ servies.add(dst); sim.paliers.add(pal.id); pal.etat.convoi = `Transport depuis ${parts.join(' et ')} : de quoi monter ${cible}.`; }
+        }
+        return servies;
+      };
+      const servies = P.length > 1 ? livrePaliers() : new Set();
       if(P.length>1) for(const q of P){
         const dst = destOf(q);
         if(libres-garde<=0) break;
-        if(!dst || q===dst || (q.transferAt||0)>Tm) continue;
+        if(!dst || q===dst || (q.transferAt||0)>Tm || servies.has(dst)) continue;
         const pr = production(q), want = [0,0,0];
         /* Les objectifs servis sont nommés : sans eux la carte annonçait un
            tonnage sans dire à quoi il allait. */
@@ -1478,9 +1582,9 @@ export function simulateDay(){
         if(e.etat != null) continue;
         const parti = acts.find(a => (e.bk && a.kind==='b' && a.k===e.bk && a.p===e.pi) || (e.tk && a.kind==='t' && a.k===e.tk));
         const g = goals.find(x=>x.key===e.key);
-        e.etat = parti ? `Elle avance : ${parti.what} part maintenant.`
+        e.etat = (parti ? `Elle avance : ${parti.what} part maintenant.`
           : g ? `Elle épargne pour ${g.label}.`
-          : `Rien ne part pour elle à cette session.`;
+          : `Rien ne part pour elle à cette session.`) + (e.convoi ? ` ${e.convoi}` : '');
       }
       /* Les rapatriements de l'empire vont à la première posée qui épargne :
          la seconde moitié de la promesse de `destOf`, dite là où le joueur

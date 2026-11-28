@@ -6389,6 +6389,7 @@ const prePlasma = s => { s.tech.energy = 8; s.tech.laser = 10; s.tech.ion = 5; }
 const POSE = (k, lvl, hors) => s => { s.ui.pose = {k, lvl, hors: hors || {}}; };
 
 require('./plan.test')({ t, assert, app, lu, SOIR, prioLabo, prePlasma, POSE });
+require('./palier.test')({ t, assert, loadApp, fixtureState, JOUR, SOIR });
 
 /* ---------- une carte en attente dit ce qui la retient ---------- */
 

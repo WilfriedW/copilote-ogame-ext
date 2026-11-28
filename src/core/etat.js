@@ -56,7 +56,7 @@ export function sample(){
     moonCalc:{pid:'', ship:'lf', n:0, bou:null, viser:12},
     expo:{pf:true},
     ui:{tool:'colony', pose:{k:'metal', lvl:'', hors:{}}},
-    day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false,
+    day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false, livraison:'palier',
       /* Le joueur a-t-il dit comment il joue. Faux tant qu'il ne l'a pas dit :
          `focus` vaut alors « Équilibré » parce qu'il faut bien viser quelque
          chose, pas parce qu'on le lui a demandé — et c'est la différence que

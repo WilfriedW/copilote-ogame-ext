@@ -25,6 +25,7 @@ import {
   rechercheEnCours, depensesPayables, nextResearch, livraisons,
   projectResources, cardKey, refused
 } from './journee.js';
+import { flotteLibre, soutePour, SURPLUS_MIN } from './palier.js';
 import { EVAL, regleActive, regleParam, HANGARS, constatsVus } from '../regles/moteur.js';
 /* ---------- les règles du moteur : stockage ---------- */
 /* Au plafond, la production s'arrête. Ce qui la relance, dans l'ordre :
@@ -164,26 +165,6 @@ function depenseSurPlace(p, k, plan){
   return {type:'depense', kind:c.kind, what:quoi, cost:c.cost};
 }
 
-/** Les transporteurs que `p` peut prêter : ni le kit d'expédition, ni la réserve de GT (expoRes). */
-function flotteLibre(p){
-  const sh = {lc:(p.ships || {}).lc || 0, sc:(p.ships || {}).sc || 0};
-  sh.lc = Math.max(0, sh.lc - expoRes(p));
-  const kit = expoFleet(p.ships, p);
-  if(kit) for(const k of ['lc', 'sc']) sh[k] = Math.max(0, sh[k] - (kit.ships[k] || 0));
-  return sh;
-}
-/** Les transporteurs libres pour lever `amount`, les grands d'abord. */
-function soutePour(libres, amount){
-  const ships = {};
-  let cargo = 0;
-  for(const k of ['lc', 'sc']){
-    const u = shipStats(k).cargoEff, n = Math.min(libres[k] || 0, u ? Math.ceil(Math.max(0, amount - cargo) / u) : 0);
-    if(n > 0){ ships[k] = n; cargo += n * u; }
-  }
-  return ships;
-}
-/** Le moins qu'un transfert vaille : sous ce tonnage, le vol coûte plus d'attention qu'il ne rend. */
-var SURPLUS_MIN = 5000;
 /**
  * Ce que chaque planète attend de cette ressource : ce qui manque aux
  * éléments du plan qu'elle bloque (« En attente de ressources »), et à ses
