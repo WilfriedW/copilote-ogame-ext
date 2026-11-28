@@ -13,7 +13,7 @@
    jeu : ce cycle-là est toléré tant qu'app.js existe, et rien n'y est lu au
    chargement. */
 import { S } from '../core/etat.js';
-import { satEnergy } from '../core/formules.js';
+import { satEnergy, POS } from '../core/formules.js';
 import { fileDe, enCours } from '../economie/chantiers.js';
 import { LF_READ_TTL, prodOf, mse } from '../economie/production.js';
 import { parseC } from '../flotte/vaisseaux.js';
@@ -21,7 +21,7 @@ import { priosLf, prioPalier, FOCUS_VAISSEAU } from '../plan/priorites.js';
 import {
   REGLES, aSoi, REGLES_PAR_ID, EVAL, regle, regleActive, regleTexte
 } from '../regles/moteur.js';
-import { lfNom, goUrl, raceDe, POS } from '../../app.js';
+import { lfNom, goUrl, raceDe } from '../../app.js';
 /* Noms relevés sur le jeu ; le panneau de détail en apporte d'autres au fil
    des visites, et ceux-là priment puisqu'ils viennent de la partie en cours. */
 /* Les noms par défaut viennent de rules.json, toutes races confondues : un nom

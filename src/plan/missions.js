@@ -7,6 +7,7 @@
    `expoHtml`…) reste dans app.js jusqu'à l'étape des vues. Ce module
    emprunte encore à app.js ce qu'il affiche et lit : ce cycle-là est toléré
    tant qu'app.js existe, et rien n'y est lu au chargement. */
+import { colSentNow, maxPlanets, coloTarget, coloPaybackTxt } from '../colonisation/colonisation.js';
 import { S } from '../core/etat.js';
 import { coutTexte, fmt, esc, planetRef } from '../core/format.js';
 import { B, T, levelCost, rangeCost, SAT_COST } from '../core/formules.js';
@@ -32,8 +33,7 @@ import {
   cargoGaps, secu, prochaineHeure
 } from '../securite/securite.js';
 import {
-  save, planetById, lfNom, coordLink, leverFlotte, colSentNow,
-  maxPlanets, coloTarget, coloPaybackTxt, lfMode, occupied,
+  save, planetById, lfNom, coordLink, leverFlotte, lfMode, occupied,
   colonyCandidates, raidTargets, raidPlan, poidsCat, catMission
 } from '../../app.js';
 /**

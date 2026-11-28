@@ -8,6 +8,11 @@
    partir des morceaux de chaque onglet. Ce module emprunte encore à app.js le
    rendu et les calculs qui n'ont pas de module : ce cycle-là est toléré tant
    qu'app.js existe, et rien n'y est lu au chargement. */
+import {
+  KITS, OBJECTIVES, colShipAt, colBuilt, maxPlanets, coloFrom,
+  rankPositions, coloTarget, coloFleet, COLO_HORIZON_H, colonyPayback,
+  coloVerdict
+} from '../colonisation/colonisation.js';
 import { EXPO_FRET, S } from '../core/etat.js';
 import { nf, fmt, esc, num, costHtml, planetRef } from '../core/format.js';
 import { B, B_SHORT, T, rangeCost } from '../core/formules.js';
@@ -26,12 +31,10 @@ import {
 import { LIFEFORMS, lfPourPos, lfRaisonPos } from '../formes-de-vie/formes-de-vie.js';
 import { fold, segTabs } from './navigation.js';
 import {
-  planetById, KITS, OBJECTIVES, colShipAt, colBuilt, maxPlanets,
-  coloFrom, rankPositions, coloTarget, coloFleet, COLO_HORIZON_H,
-  colonyPayback, coloVerdict, actHtml, myScore, colonyCandidates,
-  raidTargets, exploreSystems, luneTir, luneVaisseaux, luneFacture,
-  luneFlotteAuSol, moonDf, luneMorts, centreIndex, cargoHomeIndex,
-  centrePlanet, raidPlan, TOOLS, bascule, aide, VIEWS, gauge, REFRESH
+  planetById, actHtml, myScore, colonyCandidates, raidTargets,
+  exploreSystems, luneTir, luneVaisseaux, luneFacture, luneFlotteAuSol,
+  moonDf, luneMorts, centreIndex, cargoHomeIndex, centrePlanet, raidPlan,
+  TOOLS, bascule, aide, VIEWS, gauge, REFRESH
 } from '../../app.js';
 /** La carte de calibrage, ou rien. */
 function expoCalibHtml(){

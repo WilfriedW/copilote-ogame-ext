@@ -12,6 +12,10 @@
    module emprunte encore à app.js la production, les stocks, les liens vers
    le jeu et le profil : ce cycle-là est toléré tant qu'app.js existe, et
    rien n'y est lu au chargement. */
+import {
+  COL_SHIP_COST, KITS, colShipAt, colSentNow, colBuilt, maxPlanets,
+  coloTarget, coloFleet
+} from '../colonisation/colonisation.js';
 import { S } from '../core/etat.js';
 import { fmt, num, planetRef, majus } from '../core/format.js';
 import {
@@ -42,11 +46,9 @@ import { prios, prioOf, prioDevant, FOCUS, FOCUS_FLOTTE } from './priorites.js';
 import { besoinEmpire, VOC_KEYS, VOC_NOM, vocations } from './vocations.js';
 import { regleActive, regleParam, regleTexte, rangNiveau, constats, repondA } from '../regles/moteur.js';
 import {
-  addBuilt, planetIndexById, rankUpgrades, planetAlerts, COL_SHIP_COST,
-  KITS, colShipAt, colSentNow, colBuilt, maxPlanets, coloTarget,
-  coloFleet, LF_MODE, lfMode, SHIP_COST, shipReqOk, shipTime, defSurplus,
-  tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote, poidsCat,
-  catActe
+  addBuilt, planetIndexById, rankUpgrades, planetAlerts, LF_MODE, lfMode,
+  SHIP_COST, shipReqOk, shipTime, defSurplus, tournee, hubIndex,
+  centreIndex, POURQUOI_LABO, centreNote, poidsCat, catActe
 } from '../../app.js';
 
 /* ---------- advice ---------- */
