@@ -20,12 +20,12 @@ import { FOCUS } from '../plan/priorites.js';
 import { planPoseParLeStyle, classeEcart, profilLigne, profilFocusHtml } from '../plan/profil.js';
 import { REGLES_ERR, REGLES_PAR_ID, NIVEAU_SEV, DOMAINES, regle } from '../regles/moteur.js';
 import { secu } from '../securite/securite.js';
-import { fold, cardLayout, affichageCard } from './navigation.js';
+import { MASQUE_CLES, masque, toutMasque } from './entete.js';
+import { fold, cardLayout, affichageCard, HABILLAGES, habillage } from './navigation.js';
 import { VERSIONS, MAJ, plusRecente } from './version.js';
 import {
-  APP_VERSION, raceDe, SEV_LABEL, LF_MODE, lfMode, HABILLAGES, habillage,
-  MASQUE_CLES, masque, toutMasque, noListe, defModeleCarte, defPicker, bascule,
-  aide, actsVus
+  APP_VERSION, raceDe, SEV_LABEL, LF_MODE, lfMode, noListe, defModeleCarte,
+  defPicker, bascule, aide, actsVus
 } from '../../app.js';
 /** Réglages › Formes de vie : la race de chaque planète, d'où elle vient, et de quoi la corriger. */
 function raceRows(){

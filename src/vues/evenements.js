@@ -34,8 +34,8 @@ import { profilConnu, poseProfilEtape } from '../plan/profil.js';
 import { aSoi, REGLES_PAR_ID, reglePose, ignores } from '../regles/moteur.js';
 import { secu, fsRappelVu, armeRappel } from '../securite/securite.js';
 import {
-  RELEVE_NUIT, poseScanEcran, faitLeReleve, boutonMaj, header,
-  setTimeMode, modeNuit, finDeNuit
+  RELEVE_NUIT, poseScanEcran, faitLeReleve, boutonMaj, header, setTimeMode,
+  modeNuit, finDeNuit, masque, masqueBascule, setMasque
 } from './entete.js';
 import {
   view, tab, poseOnglet, uiNote, uiReset, cardMode, cardTabs, cardForce,
@@ -44,9 +44,9 @@ import {
   garderVue
 } from './navigation.js';
 import {
-  save, planetById, forgetPlanet, toast, pushLook, render, refresh, masque,
-  masqueBascule, setMasque, timeExport, defPersoLive, TOOLS, VIEWS, REFRESH,
-  on, msg, appliqueSauvegarde, publieLePlan
+  save, planetById, forgetPlanet, toast, pushLook, render, refresh, timeExport,
+  defPersoLive, TOOLS, VIEWS, REFRESH, on, msg, appliqueSauvegarde,
+  publieLePlan
 } from '../../app.js';
 
 /* ---------- events ---------- */
