@@ -62,15 +62,12 @@ import {
 } from './src/vues/navigation.js';
 import { VIEWS_OUTILS, REFRESH_OUTILS } from './src/vues/outils.js';
 import { VIEWS_REGLAGES, REFRESH_REGLAGES } from './src/vues/reglages.js';
+import { litVersions } from './src/vues/version.js';
 /* Les constats d'économie s'inscrivent dans EVAL au chargement : rien d'autre
    n'en est importé. */
 import './src/plan/constats.js';
 
 const APP_VERSION = '2.20.0';
-/** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
-let VERSIONS = [];
-/** La version du dépôt, quand on a pu la lire. */
-let MAJ = null;
 
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
@@ -1376,79 +1373,21 @@ if(IS_EXT) try{
 }catch(e){}
 setInterval(majRebours, 1000);
 
-/* ---------- version, historique, mise à jour ---------- */
-
-/* Deux choses que le dépôt sait et que le panneau ignorait : d'où il vient, et
-   s'il est en retard. L'historique est écrit par ./pack.sh dans `versions.tsv`,
-   une ligne par commit : c'est son empreinte qu'on passe à `git checkout` pour
-   revenir en arrière. La version du dépôt se lit sur son manifeste public.
-   Ni l'un ni l'autre n'installe quoi que ce soit : une extension ne peut pas
-   écrire dans son propre dossier, et le manifeste v3 lui interdit d'exécuter du
-   code distant. Le panneau dit donc quoi taper, et s'arrête là. */
-
-const DEPOT_MANIFEST = 'https://raw.githubusercontent.com/WilfriedW/copilote-ogame-ext/main/manifest.json';
-/** On ne redemande pas la version du dépôt plus souvent que ça. */
-const MAJ_TTL = 6 * 3600e3;
-
-/**
- * Vrai si `b` est une version plus récente que `a`. Nombre par nombre :
- * l'ordre des chaînes mettrait « 2.10.0 » avant « 2.9.0 ».
- * @param {string} a @param {string} b
- */
-function plusRecente(a, b){
-  const n = v => String(v).split('.').map(x => parseInt(x, 10) || 0);
-  const x = n(a), y = n(b);
-  for(let i = 0; i < Math.max(x.length, y.length); i++){
-    const xi = x[i] || 0, yi = y[i] || 0;
-    if(yi !== xi) return yi > xi;
-  }
-  return false;
-}
-
-/** Ce que la version du dépôt change à l'écran, qu'elle sorte du réseau ou du
-    stockage. Le numéro vit dans l'en-tête, que le panneau étroit cache : sans
-    le toast, une version neuve ne se verrait qu'en ouvrant les réglages. */
-function annonceMaj(){
-  if(plusRecente(APP_VERSION, MAJ)) toast(`v${MAJ} disponible`);
-  if(tab === 'settings') render();
-}
-
-/* Les deux lectures se font une fois, à l'ouverture du panneau. Hors de
-   l'extension — la page de démonstration, le harnais de test — `getURL`
-   n'existe pas et il n'y a rien à lire. */
-if(IS_EXT && chrome.runtime.getURL) (function(){
-  fetch(chrome.runtime.getURL('versions.tsv')).then(r => r.ok ? r.text() : '').then(t => {
-    VERSIONS = t.split('\n').map(l => l.split('\t')).filter(c => c.length >= 4);
-    if(VERSIONS.length && tab === 'settings') render();
-  }).catch(()=>{});
-  /* Le fichier est public et demandé sans identifiant ni cookie, mais une
-     requête à chaque ouverture du panneau dirait quand même à GitHub à quelle
-     heure ce joueur joue, jour après jour. La réponse est donc gardée six
-     heures, et le reste du temps le panneau affiche ce qu'il sait déjà. */
-  chrome.storage.local.get(['majAt', 'majVer'], d => {
-    if(d.majVer){ MAJ = d.majVer; annonceMaj(); }
-    if(d.majAt && Date.now() - d.majAt < MAJ_TTL) return;
-    fetch(DEPOT_MANIFEST, {credentials:'omit'}).then(r => r.ok ? r.json() : null).then(m => {
-      if(!m || !m.version) return;
-      MAJ = m.version;
-      try{ chrome.storage.local.set({majAt: Date.now(), majVer: MAJ}); }catch(e){}
-      annonceMaj();
-    }).catch(()=>{});
-  });
-})();
+/* Les deux lectures de version se font une fois, à l'ouverture du panneau. */
+litVersions();
 
 /* Ce que les modules sortis d'app.js lui empruntent encore. Rien de plus :
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
-  saveFailed, gidDe, sainEtat, planetById, centreOrHub, centrePlanet, rankUpgrades, shipTime, shipReqOk,
-  save, raceDe, ignKey, lfMode, on, SHIP_COST, lfNom, lfIdPour, poseLfCles,
-  addBuilt, render, TOOLS, bascule, planetAlerts, cargoHomeIndex,
-  planetIndexById, LF_MODE, defSurplus, tournee, hubIndex, centreIndex,
-  POURQUOI_LABO, centreNote, aide, SEV_LABEL, prioLfEtat, gameSkin,
-  copyChips, whyParts, actHtml, rebours, noBtn, noListe, actsVus,
-  defRecetteHtml, defModeleCarte, defPicker, poseNom, centreWhy, VIEWS,
-  gauge, REFRESH, toast, habillage, forgetPlanet, pushLook, refresh, masque,
-  masqueBascule, setMasque, timeExport, defPersoLive, msg,
-  appliqueSauvegarde, publieLePlan, APP_VERSION, VERSIONS, MAJ, HABILLAGES,
-  MASQUE_CLES, toutMasque, plusRecente
+  saveFailed, gidDe, sainEtat, planetById, centreOrHub, centrePlanet,
+  rankUpgrades, shipTime, shipReqOk, save, raceDe, ignKey, lfMode, on,
+  SHIP_COST, lfNom, lfIdPour, poseLfCles, addBuilt, render, TOOLS, bascule,
+  planetAlerts, cargoHomeIndex, planetIndexById, LF_MODE, defSurplus,
+  tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote, aide, SEV_LABEL,
+  prioLfEtat, gameSkin, copyChips, whyParts, actHtml, rebours, noBtn,
+  noListe, actsVus, defRecetteHtml, defModeleCarte, defPicker, poseNom,
+  centreWhy, VIEWS, gauge, REFRESH, toast, habillage, forgetPlanet, pushLook,
+  refresh, masque, masqueBascule, setMasque, timeExport, defPersoLive, msg,
+  appliqueSauvegarde, publieLePlan, APP_VERSION, HABILLAGES, MASQUE_CLES,
+  toutMasque
 };
