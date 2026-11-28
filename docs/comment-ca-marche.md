@@ -449,8 +449,12 @@ stockage puis ajoute `src/main.js`, qui importe `app.js`, lui-même important
 le remplacer passe par `remplaceEtat`) et `src/core/temps.js` (heures serveur
 ou locale, durées), `src/core/format.js` (nombres, coûts, échappement,
 noms de planète) et `src/core/serveur.js` (faits publiés par l'API, vitesses ;
-`API` se remplace par `poseApi`). Les domaines suivent : `src/colonisation/colonisation.js` (vaisseau et kits,
-planètes permises, départ et position visée, flotte, retour sur mise),
+`API` se remplace par `poseApi`). Les domaines suivent : `src/univers/univers.js` (ce que l'API publique dit
+des systèmes, des positions occupées et des joueurs),
+`src/colonisation/colonisation.js` (vaisseau et kits, planètes permises,
+départ et position visée, flotte, retour sur mise, positions libres),
+`src/pillage/pillage.js` (cibles, systèmes à explorer, rapport d'espionnage
+et flotte du pillage),
 `src/minuteurs/minuteurs.js` (minuteurs, fin de
 chantier, son, titre qui clignote, alertes à acquitter), `src/economie/production.js` (production, stock
 au moment présent, attente avant de payer, labo et durée d'une recherche),

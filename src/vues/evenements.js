@@ -10,7 +10,7 @@
    Module des vues (issue #49). Il emprunte encore à app.js presque tout ce
    que les clics changent : ce cycle-là est toléré tant qu'app.js existe, et
    rien n'y est lu au chargement. */
-import { COL_SHIP_COST, coloSystem } from '../colonisation/colonisation.js';
+import { COL_SHIP_COST, coloSystem, colonyCandidates } from '../colonisation/colonisation.js';
 import { KEY, sample, newPlanet, S, remplaceEtat } from '../core/etat.js';
 import { fmt, num } from '../core/format.js';
 import { IS_EXT, API } from '../core/serveur.js';
@@ -23,6 +23,7 @@ import {
   parseLeft, unlockAudio, chime, stopFlash, finishTimer, clock,
   visibleTimers, renderTimers
 } from '../minuteurs/minuteurs.js';
+import { applyReport } from '../pillage/pillage.js';
 import { dayValue } from '../plan/journee.js';
 import { nightLen, absenceJour } from '../plan/nuit.js';
 import {
@@ -43,10 +44,9 @@ import {
 } from './navigation.js';
 import {
   save, planetById, forgetPlanet, toast, pushLook, render, refresh,
-  masque, masqueBascule, setMasque, timeExport, colonyCandidates,
-  defPersoLive, applyReport, TOOLS, profilConnu, styleRepose,
-  poseProfilEtape, VIEWS, REFRESH, on, msg, appliqueSauvegarde,
-  publieLePlan
+  masque, masqueBascule, setMasque, timeExport, defPersoLive, TOOLS,
+  profilConnu, styleRepose, poseProfilEtape, VIEWS, REFRESH, on, msg,
+  appliqueSauvegarde, publieLePlan
 } from '../../app.js';
 
 /* ---------- events ---------- */
