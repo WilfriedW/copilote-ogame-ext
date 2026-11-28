@@ -61,6 +61,13 @@ module.exports = ({ t, assert, loadApp, fixtureState, JOUR, SOIR }) => {
     assert.deepEqual(r[0].charge, [400, 400, 400]);
   });
 
+  t('ENH-70 : de deux sources qui couvrent seules, la plus proche, même plus gourmande', () => {
+    const g = charge(JOUR), v = x => x[0] + x[1] + x[2];
+    const pres = { q: 'pres', libre: [500, 0, 0], soute: 1e6, dist: 5, fuel: 50 };
+    const loin = { q: 'loin', libre: [500, 0, 0], soute: 1e6, dist: 10, fuel: 10 };
+    assert.deepEqual(g.choisirSources([400, 0, 0], [loin, pres], v).map(x => x.q), ['pres']);
+  });
+
   t('ENH-70 : sans source qui couvre seule, deux au plus, la plus grosse part en premier', () => {
     const g = charge(JOUR), v = x => x[0] + x[1] + x[2];
     const a = { q: 'a', libre: [100, 0, 0], soute: 1e6, dist: 1, fuel: 1 };
@@ -153,6 +160,13 @@ module.exports = ({ t, assert, loadApp, fixtureState, JOUR, SOIR }) => {
     assert.ok(a, 'une carte');
     assert.ok(a.res[0] <= 25600, 'Robots 7 seulement : ' + a.res);
     assert.match(a.why, /nuit/);
+  });
+
+  t('ENH-70 : une cargaison déjà en vol vers la destination se retire du convoi', () => {
+    const g = charge(JOUR, s => { s.arrived = [{ mission: 3, origin: '1:142:8', dest: '1:142:6', arrival: JOUR / 1000 + 1800, cargo: [300000, 100000, 150000] }]; });
+    const a = versColonie(g.simulateDay().sessions[0])[0];
+    assert.ok(a, 'il reste à livrer');
+    assert.ok(a.res[0] <= 384000 - 9000 - 300000, 'le vol en cours est compté : ' + a.res);
   });
 
   t('ENH-70 : un palier en route ne repart pas à la session suivante', () => {
