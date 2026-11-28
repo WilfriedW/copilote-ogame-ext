@@ -465,8 +465,10 @@ de vie), puis le plan du jour dans `src/plan/` : `priorites.js` (les
 priorités du joueur et leur pose), `nuit.js` (la nuit, l'heure de réveil),
 `vocations.js` (la vocation d'une planète, ce qui manque à l'empire),
 `journee.js` (la journée simulée, la prochaine recherche, la projection des
-ressources), `missions.js` (les missions du jour) et `surplus.js` (les
-règles de stockage et ce que le plan propose pour les ressources en trop). Les vues commencent dans
+ressources), `missions.js` (les missions du jour), `surplus.js` (les
+règles de stockage et ce que le plan propose pour les ressources en trop) et
+`constats.js` (les évaluateurs des règles du moteur sur l'empire, qui
+s'inscrivent dans `EVAL` au chargement). Les vues commencent dans
 `src/vues/` : `navigation.js` (l'onglet affiché, ce qui est ouvert ou fermé,
 les cartes en onglets, les renvois, le nombre de cartes par liste ; l'onglet
 se change par `poseOnglet`) et `entete.js` (le relevé et sa fraîcheur,

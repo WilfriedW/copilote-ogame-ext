@@ -9,12 +9,8 @@ import {
   nf, fmt, esc, num, costHtml, planetRef, PLANET_COLORS, planetHue,
   qHtml, nf1, fmtCourt
 } from './src/core/format.js';
-import {
-  B, B_SHORT, T, levelCost, rangeCost, crawlerMax, CRAWLER_COST
-} from './src/core/formules.js';
-import {
-  IS_EXT, API, poseApi, srv, ecoSpeed, hyperCargoPct, buildTime
-} from './src/core/serveur.js';
+import { B, T, levelCost, rangeCost, crawlerMax, CRAWLER_COST } from './src/core/formules.js';
+import { IS_EXT, API, poseApi, srv, ecoSpeed, buildTime } from './src/core/serveur.js';
 import {
   dur, LOCAL_TZ, srvOffSec, clockParts, p2, timeSeen, formatTime,
   timeTitle
@@ -25,13 +21,8 @@ import {
   defsOf, defRatio, DEF_DUREES, DEF_PLANCHERS, computeDefenseGap
 } from './src/defense/defense.js';
 import {
-  fileDe, enCours, fileBat, mineEnRetard, signe, naniteRetard,
-  robotsOuNanites, laboEnRetard, labOkPour, profilVise, reglesRecherche
-} from './src/economie/chantiers.js';
-import { surplusNote, surplusCompte, hangarSiJustifie, debordeTexte } from './src/economie/debordements.js';
-import {
-  LF_READ_TTL, planeteRecherche, labPlanet, parseProdPanel, prodOf,
-  bridage, production, mse, NOM_RES, stockNow, waitFor, reqOk, upLabel
+  LF_READ_TTL, labPlanet, parseProdPanel, prodOf, bridage, production,
+  mse, NOM_RES, stockNow, waitFor
 } from './src/economie/production.js';
 import { EXPO_LOG_MAX, EXPO_PREP_MAX, EXPO_EVTS, expoJournal, expoMessages } from './src/flotte/expeditions.js';
 import {
@@ -44,19 +35,18 @@ import {
 } from './src/formes-de-vie/formes-de-vie.js';
 import { meteoVoit, renderMeteo, meteoBind } from './src/meteo.js';
 import {
-  casesSaines, casesLibres, rechercheEnCours, dayValue, nextResearch,
-  whyLead, cardKey, refused
+  casesSaines, casesLibres, dayValue, whyLead, cardKey, refused,
+  casesBasses
 } from './src/plan/journee.js';
 import { energyOptions, energyLine, dailyMissions, NO_KINDS, actKey, noLabel } from './src/plan/missions.js';
 import {
   prios, priosLf, prioClean, prioRecoit, lfCle, poseKind, FOCUS,
   FOCUS_VAISSEAU
 } from './src/plan/priorites.js';
-import { SURPLUS_REGLES, debordeA, autreCibleAvecPlace, surplusListe } from './src/plan/surplus.js';
 import { besoinEmpire, mseW } from './src/plan/vocations.js';
 import {
-  REGLES_ERR, aSoi, EVAL, NIVEAU_SEV, regleActive, regleParam,
-  regleSaine, constatsDe, HANGARS, ignClean, publieCritiques
+  REGLES_ERR, aSoi, NIVEAU_SEV, regleActive, regleParam, regleSaine,
+  constatsDe, HANGARS, ignClean, publieCritiques
 } from './src/regles/moteur.js';
 import { FS_RAPPEL_ON, poseRappel, armeRappel } from './src/securite/securite.js';
 import { VIEWS_AUJOURDHUI, REFRESH_AUJOURDHUI } from './src/vues/aujourdhui.js';
@@ -71,6 +61,9 @@ import {
 } from './src/vues/navigation.js';
 import { VIEWS_OUTILS, REFRESH_OUTILS } from './src/vues/outils.js';
 import { VIEWS_REGLAGES, REFRESH_REGLAGES } from './src/vues/reglages.js';
+/* Les constats d'économie s'inscrivent dans EVAL au chargement : rien d'autre
+   n'en est importé. */
+import './src/plan/constats.js';
 
 const APP_VERSION = '2.20.0';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
@@ -637,115 +630,6 @@ function render(){ prioClean(); ignClean(); garderVue(()=>{ header(); view.inner
 /* Pendant le relevé, les REFRESH écriraient dans des éléments que l'écran du
    relevé n'a pas : ils ne rafraîchissent que ce qui est à l'écran. */
 function refresh(){ garderVue(()=>{ if(!enScan()){ (REFRESH[tab]||(()=>{}))(); cartesSync(); lierRenvois(view); } header(); renderMeteo(); }); }
-/* L'option satellites est respectée par energyOptions : un satellite écarté
-   ne sort pas comme la solution, il se dit à part dans planetAlerts. */
-EVAL.energyBalance = p => {
-  const pr = production(p);
-  if(!(pr.factor < 1)) return [];
-  const ok = energyOptions(p).filter(o => o.prete), best = ok[0];
-  return [{valeur:0, repond:{kinds:['b', 'sats'], ks:['solar', 'fusion']},
-    vars:{pct:Math.round(pr.factor * 100), quoi:best ? best.label : B.solar.n,
-      options:best ? `Le moins cher par point d'énergie : ${energyLine(best)}.${ok.length > 1 ? ` Sinon ${ok.slice(1).map(energyLine).join(', ')}.` : ''}`
-        : 'Monte la centrale solaire.'}}];
-};
-/* Le meilleur pas du classement ne tient pas dans le hangar : le plan monte le
-   hangar d'abord (pickBuildings). Sans cette règle l'attente serait infinie et
-   setGoal la tairait, d'où son verrou. */
-EVAL.nextLevelCost = p => {
-  const best = rankUpgrades(p).filter(u => u.payback < Infinity && B[u.key])[0];
-  if(!best) return [];
-  const pr = production(p), bc = best.extraSolar ? levelCost(B.solar, p.b.solar + 1) : levelCost(B[best.key], best.lvl), out = [];
-  for(let j = 0; j < 3; j++) if(bc[j] > pr.cap[j]){
-    const [name, bk] = HANGARS[j];
-    out.push({valeur:`${best.key}${best.lvl}:${j}`, cost:levelCost(B[bk], p.b[bk] + 1), repond:{kinds:['b'], ks:[bk]},
-      vars:{mine:upLabel(best), hangar:name, niveau:p.b[bk]}});
-  }
-  return out;
-};
-/* La mine conseillée ferait passer l'énergie en négatif : la centrale d'abord,
-   et son prix est compté dans celui de la mine (rankUpgrades). */
-EVAL.nextMineEnergy = p => {
-  const u = rankUpgrades(p).filter(x => x.payback < Infinity && B[x.key]).slice(0, 2).find(x => x.extraSolar);
-  if(!u || p.satPending) return [];
-  return [{valeur:`${u.key}${u.lvl}`, cost:levelCost(B.solar, p.b.solar + 1), repond:{kinds:['b', 'sats'], ks:['solar']},
-    vars:{mine:`${B_SHORT[u.key]} ${u.lvl}`, niveau:p.b.solar}}];
-};
-/* La valeur du constat est la fin du dernier chantier connu : une file revidée
-   plus tard est une autre occurrence, et un « Ignorer » d'hier ne la cache pas. */
-EVAL.queueEmpty = p => {
-  const l = fileDe(p, fileBat);
-  if(l.some(enCours)) return [];
-  return [{valeur:l.reduce((m, t) => Math.max(m, +t.end || 0), 0), repond:{kinds:['b']}, vars:{}}];
-};
-EVAL.researchIdle = p => {
-  const lab = planeteRecherche();
-  if(!lab || lab.id !== p.id || !(p.b.lab >= 1)) return [];
-  const l = (S.timers || []).filter(t => t && (t.kind === 't' || (t.kind === 'x' && t.queue === 'research')));
-  if(l.some(enCours)) return [];
-  return [{valeur:l.reduce((m, t) => Math.max(m, +t.end || 0), 0), repond:{kinds:['t'], partout:true}, vars:{}}];
-};
-EVAL.mineBalanceTarget = p => {
-  const r = mineEnRetard(p); if(!r) return [];
-  return [{valeur:`${r.k}:${r.cible}:${r.actuel}`, cost:levelCost(B[r.k], p.b[r.k] + 1), repond:{kinds:['b'], ks:[r.k]},
-    vars:{cible:signe(r.cible), actuel:signe(r.actuel), mine:B[r.k].n, niveau:p.b[r.k], position:r.position,
-      style:(PROFILS.styles[S.profil.style] || {}).n || ''}}];
-};
-EVAL.nanitesLagging = p => {
-  const r = naniteRetard(p); if(!r) return [];
-  return [{valeur:`${r.n}:${r.max}`, cost:levelCost(B.nanite, r.n + 1), repond:{kinds:['b'], ks:['nanite']}, vars:{niveau:r.n, max:r.max}}];
-};
-EVAL.nanitesOverRobots = p => {
-  const pr = prios().find(x => x.kind === 'b' && x.pid === p.id && x.k === 'robot');
-  const r = pr && robotsOuNanites(p, (p.b.robot || 0) + 1);
-  return r ? [{valeur:`${r.robots}:${r.nanite}`, cost:levelCost(B.nanite, r.nanite), vars:r}] : [];
-};
-/* À 0 et 1 case libre, planetAlerts dit déjà le mur ; la règle parle avant. */
-function casesBasses(p){
-  const l = casesLibres(p), seuil = regleParam('INST_FIELDS_LOW', 'seuil', 10);
-  return l != null && l >= 2 && l < seuil ? l : null;
-}
-EVAL.fieldsFree = p => {
-  const l = casesBasses(p); if(l == null) return [];
-  const manque = reqOk(B.terra.req, p);
-  return [{valeur:l, cost:manque.length ? null : levelCost(B.terra, (p.b.terra || 0) + 1), repond:{kinds:['b'], ks:['terra']},
-    vars:{libres:l, pris:p.cases.pris, max:p.cases.max, niveau:p.b.terra || 0,
-      terra:manque.length ? `Le Terraformeur en ajouterait, mais il demande ${manque.join(', ')}.` : 'Le Terraformeur en ajoute à chaque niveau.'}}];
-};
-EVAL.labNetworkGap = p => {
-  if(rechercheEnCours()) return [];
-  const r = laboEnRetard(p); if(!r) return [];
-  return [{valeur:`${r.niveau}:${r.centre}`, cost:levelCost(B.lab, r.niveau + 1), repond:{kinds:['b'], ks:['lab']}, vars:r}];
-};
-EVAL.colonySlotFree = p => {
-  const f = coloFrom();
-  if(!f || f.id !== p.id || S.planets.length >= maxPlanets() || colSentNow()) return [];
-  return [{valeur:`${S.planets.length}/${maxPlanets()}`, repond:{kinds:['ship', 'fleet'], partout:true},
-    vars:{planetes:S.planets.length, max:maxPlanets(), astro:S.tech.astro,
-      note:S.day.focus === 'eco' ? ' Avec « Économie pure », le plan ne colonise pas de lui-même : c\'est à toi de lancer le vaisseau.' : ''}}];
-};
-/* La recherche de tête, impayable au centre, payable ici avec un labo qui
-   remplit le prérequis. Une seule planète le dit : la première qui peut. */
-function rechercheAilleurs(){
-  const lab = labPlanet(); if(!lab || rechercheEnCours()) return null;
-  const R = nextResearch().list[0]; if(!R) return null;
-  const c = levelCost(T[R.k], R.lvl), peut = q => { const st = stockNow(q); return c.every((x, j) => x <= st[j]); };
-  if(peut(lab)) return null;
-  const q = S.planets.find(x => x.id !== lab.id && labOkPour(R.k, x) && peut(x));
-  return q ? {R, c, q} : null;
-}
-EVAL.researchElsewhere = p => {
-  const r = rechercheAilleurs(); if(!r || r.q.id !== p.id) return [];
-  return [{valeur:`${r.R.k}${r.R.lvl}`, cost:r.c, repond:{kinds:['t'], partout:true},
-    vars:{recherche:`${T[r.R.k].n} ${r.R.lvl}`, depuis:p.name}}];
-};
-EVAL.techBelow = (p, prm, r) => {
-  const lab = labPlanet();
-  if(!lab || lab.id !== p.id || !aSoi(T, r.tech) || !profilVise(r)) return [];
-  const n = S.tech[r.tech] || 0;
-  if(!(n < prm.niveauCible)) return [];
-  return [{valeur:String(n), cost:levelCost(T[r.tech], n + 1), repond:{kinds:['t'], partout:true, tk:r.tech},
-    vars:{niveau:n, cible:prm.niveauCible, style:(PROFILS.styles[S.profil.style] || {}).n || '', pct:hyperCargoPct()}}];
-};
 /* ---------- la race d'une planète ---------- */
 /**
  * La race d'une planète : posée à la main, sinon déduite des identifiants de
@@ -2557,24 +2441,23 @@ if(IS_EXT && chrome.runtime.getURL) (function(){
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
   planetById, centrePlanet, shipReqOk, save, raceDe, ignKey, lfMode,
-  poidsCat, on, rankUpgrades, SHIP_COST, lfNom, lfIdPour, poseLfCles, goUrl,
-  POS, render, visibleTimers, TOOLS, bascule, syncFailed, planetAlerts,
-  addBuilt, planetIndexById, casesBasses, timerLabel, COL_SHIP_COST, KITS,
-  colShipAt, colSentNow, colBuilt, maxPlanets, coloTarget, coloFleet,
-  LF_MODE, shipTime, defSurplus, tournee, hubIndex, centreIndex,
-  POURQUOI_LABO, centreNote, catActe, aide, coordLink, leverFlotte,
-  coloPaybackTxt, occupied, colonyCandidates, raidTargets, raidPlan,
-  catMission, SEV_LABEL, prioLfEtat, fleetUrl, missionGo, goAttr, gameSkin,
-  renderTimers, copyChips, whyParts, actHtml, rebours, noBtn, noListe,
-  classeSuggeree, classeEcart, profilLigne, profilFocusHtml, profilEtape,
-  actsVus, defRecetteHtml, defModeleCarte, defPicker, poseNom, centreWhy,
-  VIEWS, gauge, REFRESH, toast, habillage, forgetPlanet, pushLook, refresh,
-  parseLeft, unlockAudio, chime, stopFlash, tickTimers, clock, coloSystem,
-  masque, masqueBascule, setMasque, timeExport, defPersoLive, applyReport,
-  profilConnu, styleRepose, poseProfilEtape, msg, appliqueSauvegarde,
-  publieLePlan, OBJECTIVES, coloFrom, rankPositions, COLO_HORIZON_H,
-  colonyPayback, coloVerdict, myScore, exploreSystems, luneTir,
-  luneVaisseaux, luneFacture, luneFlotteAuSol, moonDf, luneMorts,
-  cargoHomeIndex, APP_VERSION, VERSIONS, MAJ, HABILLAGES, MASQUE_CLES,
-  toutMasque, planPoseParLeStyle, plusRecente
+  poidsCat, on, SHIP_COST, lfNom, lfIdPour, poseLfCles, goUrl, POS, render,
+  visibleTimers, TOOLS, bascule, syncFailed, planetAlerts, rankUpgrades,
+  addBuilt, planetIndexById, timerLabel, COL_SHIP_COST, KITS, colShipAt,
+  colSentNow, colBuilt, maxPlanets, coloTarget, coloFleet, LF_MODE, shipTime,
+  defSurplus, tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote,
+  catActe, aide, coordLink, leverFlotte, coloPaybackTxt, occupied,
+  colonyCandidates, raidTargets, raidPlan, catMission, SEV_LABEL, prioLfEtat,
+  fleetUrl, missionGo, goAttr, gameSkin, renderTimers, copyChips, whyParts,
+  actHtml, rebours, noBtn, noListe, classeSuggeree, classeEcart, profilLigne,
+  profilFocusHtml, profilEtape, actsVus, defRecetteHtml, defModeleCarte,
+  defPicker, poseNom, centreWhy, VIEWS, gauge, REFRESH, toast, habillage,
+  forgetPlanet, pushLook, refresh, parseLeft, unlockAudio, chime, stopFlash,
+  tickTimers, clock, coloSystem, masque, masqueBascule, setMasque,
+  timeExport, defPersoLive, applyReport, profilConnu, styleRepose,
+  poseProfilEtape, msg, appliqueSauvegarde, publieLePlan, OBJECTIVES,
+  coloFrom, rankPositions, COLO_HORIZON_H, colonyPayback, coloVerdict,
+  myScore, exploreSystems, luneTir, luneVaisseaux, luneFacture,
+  luneFlotteAuSol, moonDf, luneMorts, cargoHomeIndex, APP_VERSION, VERSIONS,
+  MAJ, HABILLAGES, MASQUE_CLES, toutMasque, planPoseParLeStyle, plusRecente
 };
