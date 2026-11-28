@@ -691,9 +691,9 @@ module.exports = ({ t, assert, app, lu, SOIR, prioLabo, prePlasma, POSE }) => {
     assert.ok(lu(g.poseBloc()).includes('déjà visé 50'));
   });
 
-  t('la carte est dans Empire', () => {
+  t('la carte est dans Recherche / Cibles', () => {  // ENH-75 : elle a quitté Empire
     const g = app(POSE('metal', 43));
-    assert.ok(lu(g.VIEWS.planets()).includes('Cible sur plusieurs planètes'));
+    assert.ok(lu(g.VIEWS.niveaux()).includes('Cible sur plusieurs planètes'));
   });
 
   t('le bouton de la carte pose vraiment', () => {

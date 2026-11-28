@@ -44,17 +44,17 @@ import { VIEWS, REFRESH } from '../../app.js';
 function expoCalibHtml(){
   const p = expoFretPropose(S.expoLog, S.settings.expoFret);
   if(!p.montre) return '';
-  return `<div class="card" data-ck="expo-calib"><h2>Facteur de fret calibré</h2>
+  return `<details class="card" data-ck="expo-calib"${fold('fl:calib', true)}><summary data-fold="fl:calib">Facteur de fret calibré</summary>
     <p>Tes ${p.n} dernières expéditions à ressources suggèrent un facteur de <b>${fmt(p.prop)}</b> (réglage actuel : ${fmt(p.cur)}).</p>
     ${p.pleines ? `<p class="note">⚠ Plus de la moitié de ces soutes sont revenues pleines : ${fmt(p.prop)} est une <b>borne basse</b>, le vrai gain est peut-être plus haut.</p>` : ''}
     <p class="note">Médiane de (ressources ramenées ÷ points envoyés ÷ vitesse éco), sur les ${EXPO_STATS_N} dernières au plus. Rien ne change sans ton clic.</p>
     <span class="btns"><button class="btn sm primary" data-fretapply="${p.prop}">Appliquer</button><button class="btn sm" data-fretignore="${p.prop}">Ignorer</button></span>
-  </div>`;
+  </details>`;
 }
 /** Le bloc « Expéditions : résultats ». */
 function expoStatsHtml(){
   const st = expoStats(S.expoLog);
-  if(!st.n) return `<div class="card"><h2>Expéditions : résultats</h2><p class="note">Aucun retour d'expédition lu pour l'instant. Le copilote les enregistre quand tu ouvres la vue d'ensemble ou les mouvements de flotte pendant le vol retour, et lit le type d'événement des rapports que tu ouvres dans ta messagerie.</p></div>`;
+  if(!st.n) return `<details class="card"${fold('fl:stats', false)}><summary data-fold="fl:stats">Expéditions : résultats</summary><p class="note">Aucun retour d'expédition lu pour l'instant. Le copilote les enregistre quand tu ouvres la vue d'ensemble ou les mouvements de flotte pendant le vol retour, et lit le type d'événement des rapports que tu ouvres dans ta messagerie.</p></details>`;
   const r = (S.settings.ratio || [3,2,1]).join(' / ');
   const rend = x => x == null ? '–' : `${fmt(x)}/h`;
   const evts = Object.entries(st.evts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(EXPO_EVTS[k]||k)} ${Math.round(100*v/st.n)} %`).join(' · ');
@@ -62,7 +62,7 @@ function expoStatsHtml(){
   const pl = Object.entries(st.parPlanete).map(([c,a]) => { const p = planeteEn(c); return ligne(p ? esc(planetRef(p)) : `<span class="mono">${esc(c)}</span>`, a); }).join('');
   const so = Object.entries(st.parSollicitation).sort((a,b)=>a[0]-b[0]).map(([k,a]) => ligne(+k >= 3 ? '3 ou plus' : +k === 0 ? 'aucune' : `${k}`, a)).join('');
   const tete = `<thead><tr><th></th><th class="n">Exp.</th><th class="n">M / C / D moyens</th><th class="n">Rendement</th></tr></thead>`;
-  return `<div class="card"><h2>Expéditions : résultats</h2>
+  return `<details class="card"${fold('fl:stats', false)}><summary data-fold="fl:stats">Expéditions : résultats</summary>
     <p class="note">Sur <b>${st.n} expédition${st.n>1?'s':''}</b> au résultat connu (les ${EXPO_STATS_N} dernières au plus).</p>
     <div class="res">
       ${gauge('m','m','Métal moyen',fmt(st.res[0]))}${gauge('c','c','Cristal moyen',fmt(st.res[1]))}${gauge('d','d','Deut. moyen',fmt(st.res[2]))}
@@ -74,7 +74,7 @@ function expoStatsHtml(){
     <h3>Par planète de départ</h3><div class="tbl-wrap"><table>${tete}<tbody>${pl}</tbody></table></div>
     <h3>Selon les expéditions vers le même système dans les 24 h précédentes</h3><div class="tbl-wrap"><table>${tete}<tbody>${so}</tbody></table></div>
     <p class="note"><b>Estimation.</b> Carburant et durée supposent un vol à 100 % de vitesse. Sans aller vu ni composition préparée, les vaisseaux trouvés et perdus restent inconnus. Le type d'événement vient du rapport quand tu l'as ouvert, sinon des mouvements.</p>
-  </div>`;
+  </details>`;
 }
 /* Le tableau des positions libres sert deux onglets : Cibles le montre parmi
    les cibles, Colonie en a besoin pour que « choisir la position » désigne une
@@ -188,15 +188,15 @@ function timerOptions(){
 function toolTab(){ return TOOLS.some(([k])=>k===S.ui.tool) ? S.ui.tool : 'colony'; }
 export const VIEWS_OUTILS = {
 explore(){
-  if(!IS_EXT) return `<div class="card"><h2>Cibles</h2><p class="note">Cette partie utilise les données publiques officielles d'OGame. Elle ne fonctionne que dans l'extension Copilote.</p></div>`;
+  if(!IS_EXT) return `<details class="card"${fold('px:info', true)}><summary data-fold="px:info">Pillage</summary><p class="note">Cette partie utilise les données publiques officielles d'OGame. Elle ne fonctionne que dans l'extension Copilote.</p></details>`;
   const a = API, ok = a && a.planets && a.players;
   const age = k => a && a.at && a.at[k] ? formatTime(a.at[k]) : '–';
   return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Données de l'univers</h2><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>
+    <details class="card"${fold('px:univers', true)}><summary data-fold="px:univers">Données de l'univers</summary><div class="row"><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>
       <p class="note">${ok ? `${fmt(a.planets.length)} planètes, ${fmt(Object.keys(a.players).length)} joueurs. Classement mis à jour à ${age('scores')}, univers à ${age('universe')}. Les positions libres peuvent dater de quelques jours : vérifie toujours dans Galaxie.` : (a && a.error ? `Erreur de téléchargement : ${esc(a.error)}.` : 'Téléchargement en cours… ouvre une page du jeu si rien ne vient.')}${myScore()!=null ? ` Tes points : <b>${fmt(myScore())}</b>.` : ''}</p>
-    </div>
-    <div class="card"><h2>Où coloniser</h2><div id="exColo"></div></div>
-    ${S.raid ? `<div class="card"><div class="row spread"><h2>Pillage de ${esc(S.raid.coords)}</h2><button class="btn sm ghost" data-raidclose="1">Fermer</button></div>
+    </details>
+    <details class="card"${fold('px:colo', false)}><summary data-fold="px:colo">Où coloniser</summary><div id="exColo"></div></details>
+    ${S.raid ? `<details class="card"${fold('px:raid', true)}><summary data-fold="px:raid">Pillage de ${esc(S.raid.coords)}</summary><div class="row"><button class="btn sm ghost" data-raidclose="1">Fermer</button></div>
       <p class="note">${esc(S.raid.name||'')} · 1. Espionne la cible depuis Galaxie. 2. Colle le rapport <b>en entier</b> ici : flotte et défense comprises, pas seulement les ressources. Ce que le rapport ne montre pas, le copilote le dira comme manquant plutôt que de le prendre pour zéro.</p>
       <textarea id="rdPaste" data-raid="paste" placeholder="Colle ici le rapport d'espionnage entier (texte)"></textarea>
       <div class="grid tight">
@@ -206,19 +206,19 @@ explore(){
       </div>
       <label class="row gap-2"><input id="rdSafe" type="checkbox" data-raid="safe" ${S.raid.safe?'checked':''} class="interrupteur"> <span>Le rapport ne montre ni flotte ni défense</span></label>
       <div id="rdPlan"></div>
-    </div>` : ''}
-    <div class="card"><h2>Qui piller</h2><div id="exRaid"></div></div>
-    <div class="card"><h2>Où explorer</h2><div id="exExplore"></div></div>
+    </details>` : ''}
+    <details class="card"${fold('px:cibles', false)}><summary data-fold="px:cibles">Qui piller</summary><div id="exRaid"></div></details>
+    <details class="card"${fold('px:explore', false)}><summary data-fold="px:explore">Où explorer</summary><div id="exExplore"></div></details>
   </section>`;
 },
 server(){
   const sv = API && API.server, at = API && API.at && API.at.server;
-  if(!sv) return `<section class="panel"><div class="card"><h2>Ton serveur</h2>
+  if(!sv) return `<section class="panel"><details class="card"${fold('srv:tete', true)}><summary data-fold="srv:tete">Ton serveur</summary>
     <p class="note">${!IS_EXT ? 'Cette carte lit les paramètres publics officiels du serveur. Elle ne fonctionne que dans l\'extension Copilote.'
       : API && API.error ? `Erreur de téléchargement : ${esc(API.error)}.`
       : 'Rien encore : ouvre une page du jeu, le copilote lira les paramètres publics du serveur.'}</p>
     ${IS_EXT ? '<div class="row"><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>' : ''}
-  </div></section>`;
+  </details></section>`;
   const cards = SRV_ROWS.map(([titre, lignes])=>{
     const li = lignes.map(([k, lib, f, note, mien])=>{
       const v = sv[k]; if(v == null) return '';
@@ -231,12 +231,12 @@ server(){
     /* Quatre lignes montrées, le reste replié : la carte disait vingt faits
        d'affilée, et les quatre qui changent le plan s'y perdaient. */
     const vues = li.slice(0, 4), reste = li.slice(4);
-    return vues.length ? `<div class="card"><h2>${titre}</h2><ul class="list">${vues.join('')}</ul>${reste.length ? `<details class="volet"${fold('srv:'+titre, false)}><summary class="note" data-fold="${esc('srv:'+titre)}">Le reste (${reste.length})</summary><ul class="list mt-2">${reste.join('')}</ul></details>` : ''}</div>` : '';
+    return vues.length ? `<details class="card"${fold('srv:' + titre, false)}><summary data-fold="${esc('srv:' + titre)}">${titre}</summary><ul class="list">${vues.join('')}</ul>${reste.length ? `<details class="volet"${fold('srv:'+titre, false)}><summary class="note" data-fold="${esc('srv:'+titre)}">Le reste (${reste.length})</summary><ul class="list mt-2">${reste.join('')}</ul></details>` : ''}</details>` : '';
   }).join('');
   return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Ton serveur</h2><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>
+    <details class="card"${fold('srv:tete', true)}><summary data-fold="srv:tete">Ton serveur</summary><div class="row"><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>
       <p class="note">Les paramètres publics de <b>${esc(sv.name||'ton univers')}</b>${sv.number?` (n°${esc(String(sv.number))})`:''}, lus dans <span class="mono">serverData.xml</span>${at?` à ${formatTime(at)}`:''}. Ce sont des faits du serveur, pas des réglages : ce que le copilote calcule en part — vitesses, carburant, débris, soute — sans que tu aies à le recopier nulle part.</p>
-    </div>
+    </details>
     ${cards}
   </section>`;
 },
@@ -245,7 +245,7 @@ tools(){
   return `<section class="panel"><div class="seg" role="tablist">${segTabs(TOOLS, 'data-tool', sub)}</div>${VIEWS[sub]()}</section>`;
 },
 timers(){
-  return `<section class="panel"><div class="card"><h2>Minuteurs <span class="note" id="tmSum"></span></h2>
+  return `<section class="panel"><details class="card"${fold('tm', true)}><summary data-fold="tm">Minuteurs <span class="note" id="tmSum"></span></summary>
       <ul class="timers" id="tmList"></ul>
       <details class="volet"${fold('minuteurs.ajout', false)}><summary class="note" data-fold="minuteurs.ajout">Ajouter un minuteur à la main</summary>
         <div class="timer-form mt-2">
@@ -255,7 +255,7 @@ timers(){
         </div>
       </details>
       <div class="row"><button class="btn sm ghost" id="tmSound">Tester le son</button></div>
-    </div></section>`;
+    </details></section>`;
 },
 moon(){
   const m = S.moonCalc, p = moonPlanete(), k = moonShip();
@@ -264,7 +264,7 @@ moon(){
      champs de la carte Flotte ; le jour où quelqu'un en envoie une, elle est là
      à copier. */
   return `<section class="panel">
-    <div class="card"><h2>Tir de lune</h2>
+    <details class="card"${fold('lune', true)}><summary data-fold="lune">Tir de lune</summary>
       <p class="note">Ton camarade envoie une flotte sur ta planète, ta défense la détruit, et les débris de <b>ses</b> vaisseaux tombent chez toi. Cette carte chiffre le tir avant qu'il parte.</p>
       <div class="grid">
         <label class="f">Planète visée<select id="mnP" data-mc="pid">${S.planets.map(q=>`<option value="${q.id}" ${p && p.id===q.id?'selected':''}>${esc(q.name)} [${esc(q.coords)}]</option>`).join('')}</select></label>
@@ -280,14 +280,14 @@ moon(){
       </div>
       <div class="res" id="moonOut"></div>
       <p class="note" id="moonNote"></p>
-    </div>
+    </details>
   </section>`;
 },
 fleet(){
   const ex=S.expo, fc=S.fleetCalc;
   return `<section class="panel">
     ${flotteCibleHtml()}
-    <div class="card"><h2>Taille d'expédition</h2>
+    <details class="card"${fold('fl:expo', false)}><summary data-fold="fl:expo">Taille d'expédition</summary>
       <div class="grid">
         <label class="f">Points du n°1 de l'univers<select id="top1" data-set="top1">${EXPO_LABELS.map((l,i)=>`<option value="${i}" ${S.settings.top1==i?'selected':''}>${l}</option>`).join('')}</select>${API && API.scores ? `<span class="note">Lu dans le classement public : ${EXPO_LABELS[top1Tier()]}. Ce réglage ne sert plus.</span>` : '<span class="note">Sera lu dans le classement public dès que l\'extension aura joint l\'API du serveur.</span>'}</label>
       </div>
@@ -301,10 +301,10 @@ fleet(){
       </div>
       <div class="res" id="expoOut"></div>
       <p class="note" id="expoNote"></p>
-    </div>
+    </details>
     ${expoCalibHtml()}
     ${expoStatsHtml()}
-    <div class="card"><h2>Temps de vol et carburant</h2>
+    <details class="card"${fold('fl:vol', false)}><summary data-fold="fl:vol">Temps de vol et carburant</summary>
       <div class="grid">
         <label class="f">Départ<input id="fFrom" data-fc="from" value="${esc(fc.from)}" placeholder="1:1:8"></label>
         <label class="f">Arrivée<input id="fTo" data-fc="to" value="${esc(fc.to)}" placeholder="1:2:8"></label>
@@ -313,8 +313,8 @@ fleet(){
       <div class="grid tight">${Object.keys(SHIPS).map(k=>`<label class="f">${SHIPS[k].n}<input id="fs-${k}" type="number" min="0" data-ship="${k}" value="${num(fc.ships[k])}"></label>`).join('')}</div>
       <div class="res" id="flightOut"></div>
       <p class="note">Pour un aller-retour, double la durée et le carburant. Une expédition ajoute son temps de stationnement (1 h par défaut) et un peu de carburant de maintien non compté ici.</p>
-    </div>
-    <div class="card"><h2>Vaisseaux avec tes technologies</h2><div class="tbl-wrap"><table><thead><tr><th>Vaisseau</th><th>Propulsion</th><th class="n">Vitesse</th><th class="n">Soute</th></tr></thead><tbody id="shipTbl"></tbody></table></div></div>
+    </details>
+    <details class="card"${fold('fl:vaisseaux', false)}><summary data-fold="fl:vaisseaux">Vaisseaux avec tes technologies</summary><div class="tbl-wrap"><table><thead><tr><th>Vaisseau</th><th>Propulsion</th><th class="n">Vitesse</th><th class="n">Soute</th></tr></thead><tbody id="shipTbl"></tbody></table></div></details>
   </section>`;
 },
 colony(){
@@ -326,7 +326,7 @@ colony(){
      de la page. */
   const choixDep = colShipAt()<0 && !centrePlanet() && S.planets.length>1;
   return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Choisir la position</h2><span id="coSlots"></span></div>
+    <details class="card"${fold('co:pos', true)}><summary data-fold="co:pos">Choisir la position</summary><div class="row"><span id="coSlots"></span></div>
       <ul class="advice" id="coReq"></ul>
       <div class="grid">
         <label class="f">Objectif<select id="coObj" data-colo="objective">${Object.entries(OBJECTIVES).map(([k,o])=>`<option value="${k}" ${c.objective===k?'selected':''}>${o.n}</option>`).join('')}</select></label>
@@ -337,8 +337,8 @@ colony(){
       <p class="note mt-2">Dans OGame, chaque système porte <b>quinze emplacements numérotés de 1 à 15</b>, et ce numéro décide de tout : la taille de la planète, sa température, son bonus de production. Le tableau dit ce que vaudrait ta colonie à chaque numéro, dans n'importe quel système — c'est un barème, pas une liste de cases libres : celle-là est au-dessus. Les trois meilleurs numéros pour ton objectif portent leur rang.</p>
       <div class="tbl-wrap mt-2"><table><thead><tr><th>#</th><th class="n">Pos.</th><th>Cases (min–max)</th><th class="n">Temp.</th><th>Bonus</th><th class="n">Éq. métal/h</th><th class="n">Deut/h</th><th></th></tr></thead><tbody id="coPos"></tbody></table></div>
       <p class="note">Production simulée avec les niveaux de mines de ta planète de départ, à la température moyenne de l'emplacement ; les cases réelles varient dans la fourchette indiquée. Les lignes grisées demandent plus d'Astrophysique. « Choisir » prend la meilleure case <b>libre</b> à ce numéro autour de toi.</p></details>
-    </div>
-    <div class="card"><h2>Flotte et ressources à emporter</h2>
+    </details>
+    <details class="card"${fold('co:flotte', false)}><summary data-fold="co:flotte">Flotte et ressources à emporter</summary>
       <div class="grid">
         ${choixDep?`<label class="f">Planète de départ<select id="coFrom" data-colo="fromId">${S.planets.map(p=>`<option value="${p.id}" ${c.fromId===p.id?'selected':''}>${esc(p.name)} [${esc(p.coords)}]</option>`).join('')}</select></label>`:''}
         <label class="f">Vaisseau de colonisation<select id="coBuilt" data-colo="built"><option value="0" ${!colBuilt()?'selected':''}>À construire</option><option value="1" ${colBuilt()?'selected':''}>Déjà construit${colShipAt()>=0?' (vu dans ta flotte)':''}</option></select></label>
@@ -347,8 +347,8 @@ colony(){
         <label class="f">Transporteurs<select id="coTr" data-colo="tr"><option value="sc" ${c.tr==='sc'?'selected':''}>Petits</option><option value="lc" ${c.tr==='lc'?'selected':''}>Grands</option></select></label>
       </div>
       <div id="coFleet"></div>
-    </div>
-    <div class="card"><h2>Après l'arrivée</h2>
+    </details>
+    <details class="card"${fold('co:apres', false)}><summary data-fold="co:apres">Après l'arrivée</summary>
       <div class="grid">
         <label class="f">Cases de la nouvelle planète<input id="coFields" type="number" min="1" data-colo="fields" value="${esc(c.fields)}" placeholder="ex. 187"></label>
         <label class="f">Position<input id="coFpos" type="number" min="1" max="15" data-colo="fpos" value="${esc(c.fpos)}" placeholder="${(parseC(coloTarget())||[])[2]||''}"></label>
@@ -360,7 +360,7 @@ colony(){
         <li>Ordre de construction : solaire, puis métal et cristal en alternance, deutérium ensuite, robots 2 dès que possible.</li>
         <li>L'extension ajoute la colonie toute seule dès que tu la visites dans le jeu.</li>
       </ol>
-    </div>
+    </details>
   </section>`;
 },
 };

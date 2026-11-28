@@ -353,6 +353,8 @@ summary.posesum{justify-content:flex-start} summary.posesum>.note{margin-left:au
   --p0:#74b9ff;--p1:#ffa94d;--p2:#63e6a8;--p3:#ff8fb1;--p4:#ffe066;--p5:#c4a0ff}
 :root[data-skin=domaine][data-page=today]{--dom:#ffb155}
 :root[data-skin=domaine][data-page=empire]{--dom:#5ec9ff}
+:root[data-skin=domaine][data-page=niveaux]{--dom:#ffd84f}
+:root[data-skin=domaine][data-page=defense]{--dom:#ff7a8a}
 :root[data-skin=domaine][data-page=tools]{--dom:#c4a0ff}
 :root[data-skin=domaine][data-page=settings]{--dom:#4fdeb0}
 :root[data-skin=domaine] header.top{background:linear-gradient(120deg,color-mix(in srgb,var(--dom) 22%,transparent),transparent 72%);border-radius:var(--r);padding:var(--sp-2);margin:calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) 0}
@@ -463,6 +465,10 @@ summary.posesum{justify-content:flex-start} summary.posesum>.note{margin-left:au
 .en-onglets>.carte>details.card>summary,.en-onglets>.carte>div>details.card>summary{pointer-events:none;cursor:default;list-style:none}
 .en-onglets>.carte>details.card>summary::-webkit-details-marker,.en-onglets>.carte>div>details.card>summary::-webkit-details-marker{display:none}
 .en-onglets>.carte>details.card>summary::after,.en-onglets>.carte>div>details.card>summary::after{content:none}
+/* Une carte pliable reste repliable seule dans son onglet (ENH-75) : Maintenant fermé laisse voir Tes priorités. */
+.en-onglets>.carte>details.card.pliable>summary{pointer-events:auto;cursor:pointer}
+.en-onglets>.carte>details.card.pliable>summary::after{content:"+"}
+.en-onglets>.carte>details.card.pliable[open]>summary::after{content:"–"}
 .seg .cpt{font:700 var(--fs-xs) var(--f-mono);margin-left:var(--sp-05)}
 .seg .cpt.crit{color:var(--bad)}
 .seg .cpt.imp{color:var(--warn)}

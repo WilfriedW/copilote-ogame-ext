@@ -282,7 +282,7 @@ module.exports = ({ t, assert, app, appRegles, lu, SOIR, prioLabo, prio2, CASE_O
     const g = app(s2 => { s2.planets[0].lf = {
       12101: { lvl: 38, state: 'ok', nom: 'Enclave de méditation' },
       12103: { lvl: 4, state: 'ok' } }; });
-    const h = g.VIEWS.planets();
+    const h = g.VIEWS.niveaux();
     assert.match(h, /Enclave de méditation<span class="lv"/);
     assert.match(h, /Forme de vie 12103<span class="lv"/, 'et se rabat sur le numéro quand il l\'ignore');
   });
@@ -350,7 +350,7 @@ module.exports = ({ t, assert, app, appRegles, lu, SOIR, prioLabo, prio2, CASE_O
 
   t('le bouton des paliers paraît dès que les deux cases sont là', () => {
     const g = app(vie(CASES_1_2));
-    assert.match(g.VIEWS.planets(), /data-lfpaliers="mere"/);
+    assert.match(g.VIEWS.niveaux(), /data-lfpaliers="mere"/); // ENH-75
   });
 
   t('le bloc dit le palier qui attend derrière', () => {
@@ -400,7 +400,8 @@ module.exports = ({ t, assert, app, appRegles, lu, SOIR, prioLabo, prio2, CASE_O
   t('Aujourd\'hui affiche le bloc sous les cartes', () => {
     const g = app(prioLabo);
     g.REFRESH.today();
-    assert.match(g.html().tdNow, /Tes priorités/);
+    // ENH-75 : sa propre carte, sous Maintenant
+    assert.match(g.html().tdPrios, /Tes priorités/);
   });
 
   t('poser : une cible au-dessus du niveau s\'ajoute en fin de liste', () => {

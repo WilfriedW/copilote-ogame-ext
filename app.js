@@ -38,7 +38,7 @@ import { bind, brancheEcoutes } from './src/vues/evenements.js';
 import {
   view, tab, UI, uiPurge, uiEcrit, fold, cardMode, VUES_ONGLETS, cartesSection,
   cartesSync, carteEnHaut, cardLue, lierRenvois, setCardMode, cartesSain,
-  garderVue
+  garderVue, barreHtml
 } from './src/vues/navigation.js';
 import { VIEWS_OUTILS, REFRESH_OUTILS } from './src/vues/outils.js';
 import { pushLook } from './src/vues/page-du-jeu.js';
@@ -49,7 +49,7 @@ import { litVersions } from './src/vues/version.js';
 import './src/plan/constats.js';
 import { fondReleve } from './src/jeu/releve.js';
 
-const APP_VERSION = '2.24.0';
+const APP_VERSION = '2.25.0';
 
 
 
@@ -180,6 +180,8 @@ const VIEWS = {...VIEWS_AUJOURDHUI, ...VIEWS_RELEVE, ...VIEWS_EMPIRE, ...VIEWS_O
  * flotte, qu'elle sert encore.
  */
 const REFRESH = {...REFRESH_AUJOURDHUI, ...REFRESH_EMPIRE, ...REFRESH_OUTILS, ...REFRESH_REGLAGES};
+/* La barre principale s'écrit avant les écoutes : son clic est délégué à #tabs. */
+document.getElementById('tabs').innerHTML = barreHtml();
 /* Les écoutes déléguées du panneau : à leur place d'avant, pour garder leur ordre. */
 brancheEcoutes();
 function on(id,ev,fn){ const el=document.getElementById(id); if(el) el.addEventListener(ev,fn); }

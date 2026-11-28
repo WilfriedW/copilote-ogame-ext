@@ -20,9 +20,25 @@ import { render, on } from '../../app.js';
 
 /* ---------- views ---------- */
 export const view = document.getElementById('view');
+/* ---------- la barre principale (ENH-75) ----------
+   Un onglet, un rôle : le quotidien, l'état des planètes, ce que le joueur
+   vise, la défense, puis les outils. La barre est écrite d'ici, et nulle part
+   ailleurs : sidepanel.html et le code ne peuvent plus diverger. */
+export const ONGLETS = [['today',"Aujourd'hui"],['empire','Empire'],['niveaux','Recherche / Cibles'],['defense','Défense'],['tools','Outils']];
+/**
+ * Les onglets principaux dans l'ordre de la barre : Outils toujours le plus à
+ * droite, quel que soit l'ordre où la liste est écrite. Un onglet ajouté demain
+ * se range donc à sa gauche sans qu'on y pense.
+ * @param {Array<[string,string]>} [liste]
+ */
+export function ongletsPrincipaux(liste = ONGLETS){ return [...liste.filter(([k])=>k!=='tools'), ...liste.filter(([k])=>k==='tools')]; }
+/** Le HTML de la barre principale. */
+export function barreHtml(liste){ return ongletsPrincipaux(liste).map(([k, l])=>`<button role="tab" data-tab="${esc(k)}">${esc(l)}</button>`).join(''); }
+/** Un onglet retenu qui n'existe plus (une version d'avant, un autre poste) rouvre sur Aujourd'hui. */
+export function ongletValide(k){ return k === 'settings' || ONGLETS.some(([x])=>x===k) ? k : 'today'; }
 export let tab = 'today';
 try{ tab = LS.getItem(KEY+'-tab') || 'today'; }catch(e){}
-if(!['today','empire','tools','settings'].includes(tab)) tab='today';
+tab = ongletValide(tab);
 export function poseOnglet(v){ tab = v; }
 /* ---------- ce qui est ouvert, ce qui est fermé ----------
    Un panneau latéral est étroit : tout déplié, Aujourd'hui se lit en trois
@@ -95,6 +111,21 @@ export function uiVu(key){
 export function uiReset(){ UI.etats = {}; UI.vus = {}; uiEcrit(); }
 /** L'attribut `open` d'un <details>, lu dans le store. */
 export function fold(name, def, force){ return uiOuvert(name, def, force) ? ' open' : ''; }
+/**
+ * Une carte titrée, repliable (ENH-75) : le titre ouvre et ferme, l'état se
+ * retient par `cle`. Une carte qui porte un critique ne part pas fermée, et
+ * fermée elle montre son compteur, de la couleur du plus grave.
+ * @param {string} cle clé de repli
+ * @param {string} titre HTML du titre
+ * @param {string} corps HTML du contenu
+ * @param {{ouvert?:boolean, resume?:{count:number,maxLevel:string}|null, pliable?:boolean, note?:string}} [o]
+ *   `pliable` : la carte reste repliable même quand elle est seule dans son onglet
+ */
+export function carteHtml(cle, titre, corps, o = {}){
+  const r = o.resume, crit = r && r.maxLevel === 'crit';
+  const cpt = r && r.count ? ` <span class="cpt ${r.maxLevel || 'info'}">(${r.count})</span>` : '';
+  return `<details class="card${o.pliable ? ' pliable' : ''}"${fold(cle, !!o.ouvert || !!crit)}><summary data-fold="${esc(cle)}">${titre}${o.note || ''}${cpt}</summary>${corps}</details>`;
+}
 
 /* ---------- disposition des cartes : empilées ou en onglets ---------- */
 /* Aujourd'hui empile ses cartes, et il faut défiler pour retrouver la bonne.
@@ -154,9 +185,9 @@ export function resumeDe(items, cardId){
    toujours son onglet ; une carte dynamique n'en a que si elle contient
    quelque chose. `getSummary` dit combien d'éléments et le plus grave. */
 export const CARTES = {
+  /* Le profil est un réglage : il vit dans l'onglet Mon jeu des Réglages (ENH-75), et
+     Maintenant y renvoie tant qu'il n'est pas posé. */
   today: [
-    {cardId:'profil', titre:'Profil', fixe:true,
-      getSummary:()=> S.profil.set ? null : {count:1, maxLevel:'info', critiques:[]}},
     /* Une attaque ou un espionnage entrants : la carte n'existe que tant qu'il y en a. */
     {cardId:'attaque', titre:'Attaque', fixe:false, getSummary:()=>RESUMES.attaque},
     {cardId:'maintenant', titre:'Maintenant', fixe:true, getSummary:()=>RESUMES.maintenant},
@@ -168,10 +199,10 @@ export const CARTES = {
   ],
   /* Réglages (ENH-54) : cinq onglets, chacun un groupe de cartes. Toujours en
      onglets, quel que soit le choix d'Aujourd'hui (voir VUES_ONGLETS). */
-  /* Empire (ENH-54) : la recherche ne passe plus sous huit planètes. */
+  /* Empire : l'état des planètes, rien d'autre. La recherche et les niveaux
+     visés ont leur onglet, Recherche / Cibles (ENH-75). */
   empire: [
     {cardId:'planetes', titre:'Planètes', fixe:true},
-    {cardId:'recherche', titre:'Recherche', fixe:true},
   ],
   settings: [
     {cardId:'jeu', titre:'Mon jeu', fixe:true},
@@ -184,13 +215,14 @@ export const CARTES = {
 /* Les vues toujours rangées en onglets : « Empiler les sections » ne vaut que
    pour Aujourd'hui. Treize cartes de réglages empilées, c'est la page qu'on
    ne veut plus. */
-export const VUES_ONGLETS = new Set(['settings', 'empire']);
+export const VUES_ONGLETS = new Set(['settings']);
 /* L'onglet ouvert quand le joueur n'en a choisi aucun. Pour Aujourd'hui, ce
    n'est pas le premier : une fois le profil posé, l'onglet Profil n'en montre
    que le résumé, et le joueur vient chercher Maintenant. */
-const CARTE_DEFAUT = {today: ()=> S.profil.set ? 'maintenant' : 'profil'};
+const CARTE_DEFAUT = {today: ()=> 'maintenant'};
 /** La vue se range-t-elle en onglets ? */
-function enOnglets(vue){ return cardMode === 'tabs' || VUES_ONGLETS.has(vue); }
+/* Une vue d'une seule carte n'a pas de barre : Empire n'a plus que Planètes (ENH-75). */
+function enOnglets(vue){ return VUES_ONGLETS.has(vue) || (cardMode === 'tabs' && CARTES[vue] && CARTES[vue].length > 1); }
 const CPT_TITRE = {crit:'dont au moins un urgent', imp:'dont au moins un important', info:'des conseils'};
 /**
  * La barre d'onglets du panneau, la même partout (Outils, cartes en onglets) :
@@ -281,7 +313,9 @@ export function cartesSync(){
  */
 export function carteDetails(w){
   const a = w && w.firstElementChild;
-  if(a && a.tagName === 'DETAILS') return a;
+  /* Une carte pliable se replie même seule dans son onglet : Maintenant fermé
+     laisse voir Tes priorités juste dessous (ENH-75). */
+  if(a && a.tagName === 'DETAILS') return a.classList && a.classList.contains('pliable') ? null : a;
   const b = a && a.firstElementChild;
   return b && b.tagName === 'DETAILS' && b.classList && b.classList.contains('card') ? b : null;
 }
@@ -329,7 +363,10 @@ const RENVOI_RE = /(Réglages|Outils) › (Plan du jour|Formes de vie|Page du je
  * @returns {string|null} « settings:jeu », « tools:defense »…
  */
 function renvoiCible(zone, nom){
-  if(zone === 'Outils'){ const t = TOOLS.find(([, l])=>l === nom); return t ? 'tools:' + t[0] : null; }
+  /* Les noms d'avant ENH-75 restent dans de vieux textes et de vieilles
+     habitudes : Défense est devenu un onglet, Cibles s'appelle Pillage. */
+  const ancien = {'Défense':'defense', 'Cibles':'tools:explore'};
+  if(zone === 'Outils'){ const t = TOOLS.find(([, l])=>l === nom); return t ? 'tools:' + t[0] : ancien[nom] || null; }
   const g = {'Profil':'jeu', 'Plan du jour':'jeu', 'Formes de vie':'jeu', 'Bonus':'jeu', 'Énergie':'jeu',
     'Sécurité':'defense', 'Défense':'defense', 'Affichage':'affichage', 'Page du jeu':'affichage',
     'Règles':'moteur', 'Sauvegarde':'donnees', 'Version':'donnees'}[nom];
@@ -540,7 +577,9 @@ export const habillage = () => HABILLAGES[S.settings.skin] ? S.settings.skin : '
    VIEWS que ce qu'il sait encore dessiner. */
 /* Minuteurs (ISS-72) : sortis d'Aujourd'hui pour que la barre y tienne ;
    les alertes de fin, elles, ne dépendent pas de l'onglet ouvert. */
-export const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['defense','Défense'],['moon','Lune'],['timers','Minuteurs'],['server','Serveur']];
+/* ENH-75 : la Défense est un onglet principal, et « Cibles » devient Pillage
+   pour ne plus se confondre avec Recherche / Cibles. */
+export const TOOLS = [['explore','Pillage'],['colony','Colonie'],['fleet','Flotte'],['moon','Lune'],['timers','Minuteurs'],['server','Serveur']];
 /* ENH-54 : une carte de réglages ne montre qu'une phrase d'aide ; le reste
    attend derrière « En savoir plus », replié, ouvert ou fermé comme le joueur
    l'a laissé (même store que les volets). Rien n'est retiré : une partie de
