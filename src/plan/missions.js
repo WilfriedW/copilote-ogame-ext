@@ -13,6 +13,7 @@ import { B, T, levelCost, rangeCost, SAT_COST } from '../core/formules.js';
 import { IS_EXT, API } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
 import { DEF, defMixList } from '../defense/defense.js';
+import { labPlanet, production, mse, stockNow, reqOk } from '../economie/production.js';
 import { flotteCible, reequilibreCartes, flotteAjout } from '../flotte/cible.js';
 import { expoFleet, expoCap, astroForExpo, expoWanted } from '../flotte/expeditions.js';
 import {
@@ -30,10 +31,9 @@ import {
   cargoGaps, secu, prochaineHeure
 } from '../securite/securite.js';
 import {
-  save, planetById, lfNom, coordLink, leverFlotte, labPlanet, production,
-  mse, stockNow, reqOk, debordeTexte, colSentNow, maxPlanets, coloTarget,
-  coloPaybackTxt, lfMode, occupied, colonyCandidates, raidTargets,
-  raidPlan, poidsCat, catMission
+  save, planetById, lfNom, coordLink, leverFlotte, debordeTexte,
+  colSentNow, maxPlanets, coloTarget, coloPaybackTxt, lfMode, occupied,
+  colonyCandidates, raidTargets, raidPlan, poidsCat, catMission
 } from '../../app.js';
 /**
  * Les sources d'énergie posables sur cette planète, chiffrées, de la moins

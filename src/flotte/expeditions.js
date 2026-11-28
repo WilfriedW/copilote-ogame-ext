@@ -13,10 +13,11 @@
 import { EXPO_FRET, S } from '../core/etat.js';
 import { num } from '../core/format.js';
 import { API, ecoSpeed } from '../core/serveur.js';
+import { stockNow } from '../economie/production.js';
 import { SHIPS, parseC, shipStats, flight, fleetSlots } from './vaisseaux.js';
 import { wakeTime } from '../plan/nuit.js';
 import { regle } from '../regles/moteur.js';
-import { stockNow, SHIP_COST } from '../../app.js';
+import { SHIP_COST } from '../../app.js';
 
 const EXPO_CAPS = [[1e4,40000],[1e5,500000],[1e6,1200000],[5e6,1800000],[25e6,2400000],[50e6,3000000],[75e6,3600000],[1e8,4200000],[Infinity,5000000]];
 export const EXPO_LABELS = ['< 10 000','< 100 000','< 1 M','< 5 M','< 25 M','< 50 M','< 75 M','< 100 M','≥ 100 M'];
