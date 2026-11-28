@@ -449,7 +449,9 @@ stockage puis ajoute `src/main.js`, qui importe `app.js`, lui-même important
 le remplacer passe par `remplaceEtat`) et `src/core/temps.js` (heures serveur
 ou locale, durées). Les domaines suivent : `src/regles/moteur.js` (le moteur
 de règles) et `src/defense/defense.js` (pièces, modèles de défense, manque
-face au modèle). `app.js` se découpe ainsi, un domaine
+face au modèle), `src/flotte/vaisseaux.js` (vaisseaux, vols, flottes en
+mouvement) et `src/flotte/expeditions.js` (cadre, créneaux et journal des
+expéditions). `app.js` se découpe ainsi, un domaine
 par PR (issue #49), jusqu'à disparaître. `ids.js` et `profils.js` restent des
 scripts classiques. Les tests mettent les modules à plat dans une seule portée
 (`test/modules.js`) et vérifient à part les imports, les doublons, les cycles

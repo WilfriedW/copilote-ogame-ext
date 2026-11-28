@@ -11,8 +11,9 @@
    qu'app.js existe, et rien n'y est lu au chargement. */
 import { S } from '../core/etat.js';
 import { B, T } from '../core/formules.js';
+import { shipList } from '../flotte/vaisseaux.js';
 import {
-  IS_EXT, fmt, num, mse, stockNow, shipList, nf1, fmtCourt, shipReqOk
+  IS_EXT, fmt, num, mse, stockNow, nf1, fmtCourt, shipReqOk
 } from '../../app.js';
 
 /* Un tas d'un seul type ne défend rien, quelle que soit la somme dépensée :
