@@ -6,8 +6,8 @@ import {
   KEY, LUNE_DF, EXPO_FRET, sample, newPlanet, S, remplaceEtat
 } from './src/core/etat.js';
 import {
-  nf, fmtLigne, fmt, esc, num, costHtml, planetRef, PLANET_COLORS,
-  planetTag, planetHue, qHtml, fmtK, majus, nf1, fmtCourt
+  nf, fmt, esc, num, costHtml, planetRef, PLANET_COLORS, planetHue,
+  qHtml, fmtK, majus, nf1, fmtCourt
 } from './src/core/format.js';
 import {
   B, B_SHORT, T, levelCost, rangeCost, storageCap, storageLevelFor,
@@ -25,72 +25,57 @@ import {
 import {
   DEF, DEF_ORDER, DEF_MODELES, DEF_RATIO, DEF_PALIERS, DEF_SOURCE,
   DEF_ABR, defModele, defAncreRecette, defRecette, packCost, defLigne,
-  defsOf, defRatio, defAncre, defPalierDe, DEF_DUREES, DEF_PLANCHERS,
-  computeDefenseGap, defPropositions, defBloqueTexte, defPlan,
-  defPalierOpts
+  defsOf, defRatio, DEF_DUREES, DEF_PLANCHERS, computeDefenseGap,
+  defPropositions
 } from './src/defense/defense.js';
-import { flotteCible, flotteCibleHtml, flotteAjout } from './src/flotte/cible.js';
 import {
-  EXPO_LABELS, EXPO_LOG_MAX, EXPO_STATS_N, EXPO_CALIB_MIN, EXPO_PREP_MAX,
-  EXPO_PREP_TTL, EXPO_EVTS, top1Tier, expoFind, expoPts, expoFret,
-  expoRes, expoFleet, expoCap, expoJournal, expoMessages, expoStats,
-  expoFretPropose, expoPropose, expoEtat
+  EXPO_LOG_MAX, EXPO_PREP_MAX, EXPO_PREP_TTL, EXPO_EVTS, expoRes,
+  expoFleet, expoJournal, expoMessages
 } from './src/flotte/expeditions.js';
 import {
   SHIPS, parseC, distance, souteUtile, shipStats, flight, SHIP_PLURAL,
-  SHIP_ONE, shipList, shipCourt, mcd, planeteEn, mouvements, aQuai
+  SHIP_ONE, shipList
 } from './src/flotte/vaisseaux.js';
 import {
-  LF_NAMES, lfMetEnCommun, lfMerge, lfCost, lfCandidates, raceDeSerie,
-  RACE_SRC, nomRace, lfNomConnu, rescanner, lfNomsRetiens, LIFEFORMS,
-  speciesOfPlanet, readLifeforms, lfPourPos, lfRaisonPos, LF_READ_TTL,
-  lfIds, LF_ROLE, LF_PALIER, lfPopNourriture, lfPosePaliers
+  lfMetEnCommun, lfMerge, lfCost, lfCandidates, raceDeSerie, lfNomConnu,
+  rescanner, lfNomsRetiens, LIFEFORMS, speciesOfPlanet, LF_READ_TTL,
+  lfIds, LF_ROLE, lfPosePaliers
 } from './src/formes-de-vie/formes-de-vie.js';
-import { meteoFiltre, meteoVoit, renderMeteo, meteoBind } from './src/meteo.js';
+import { meteoVoit, renderMeteo, meteoBind } from './src/meteo.js';
 import {
-  MILESTONES, milestoneDone, milestoneLabel, milestoneMissing,
-  casesSaines, casesLibres, rechercheEnCours, depensesPayables,
-  RESEARCH_MODE, researchMode, dayValue, nextResearch, simulateDay,
-  whyLead, livraisons, projectResources, statutFinancement, cardKey,
-  refused
+  casesSaines, casesLibres, rechercheEnCours, depensesPayables, dayValue,
+  nextResearch, whyLead, livraisons, projectResources, cardKey, refused
 } from './src/plan/journee.js';
+import { energyOptions, energyLine, dailyMissions, NO_KINDS, actKey, noLabel } from './src/plan/missions.js';
+import { nightLen, absenceJour } from './src/plan/nuit.js';
 import {
-  energyOptions, energyLine, dailyMissions, NO_KINDS, actKey, missionKey,
-  noLabel, missionDone
-} from './src/plan/missions.js';
-import { poseHeure, hhmmDe, heureTxt, nightLen, absenceJour } from './src/plan/nuit.js';
-import {
-  prios, priosLf, prioClean, PRIO_ATTENTE, prioDemandes, prioAttend,
-  prioRecoit, lvLu, prioCount, prioLvl, prioPose, poseK, lfCle, poseKind,
-  poseVise, poseLignes, posePartout, poseRetireTout, poseRien, poseCoche,
-  poseChamp, prioOrdre, prioDevant, prioSuite, prioRef, prioRetire,
-  FOCUS, FOCUS_VAISSEAU
+  prios, priosLf, prioClean, prioRecoit, prioLvl, prioPose, lfCle,
+  poseKind, posePartout, poseRetireTout, poseCoche, poseChamp,
+  prioDevant, prioRetire, FOCUS, FOCUS_VAISSEAU
 } from './src/plan/priorites.js';
-import { besoinEmpire, mseW, VOC_NOM, vocations } from './src/plan/vocations.js';
+import { besoinEmpire, mseW } from './src/plan/vocations.js';
 import {
-  REGLES_ERR, REGLES, aSoi, REGLES_PAR_ID, EVAL, NIVEAUX, NIVEAU_SEV,
-  SEV_NIVEAU, DOMAINES, regle, regleActive, regleParam, regleSaine,
-  reglePose, rangNiveau, constatsDe, HANGARS, ignores, constatsVus,
-  ignClean, publieCritiques
+  REGLES_ERR, REGLES, aSoi, REGLES_PAR_ID, EVAL, NIVEAU_SEV, regle,
+  regleActive, regleParam, regleSaine, reglePose, constatsDe, HANGARS,
+  ignores, constatsVus, ignClean, publieCritiques
 } from './src/regles/moteur.js';
+import { secu, FS_RAPPEL_ON, poseRappel, fsRappelVu, armeRappel } from './src/securite/securite.js';
+import { VIEWS_AUJOURDHUI, REFRESH_AUJOURDHUI } from './src/vues/aujourdhui.js';
+import { VIEWS_DEFENSE } from './src/vues/defense.js';
+import { VIEWS_EMPIRE, REFRESH_EMPIRE } from './src/vues/empire.js';
 import {
-  FS_MISSION, secu, espionnagesEntrants, planSecurite, FS_RAPPEL_ON,
-  poseRappel, fsRappelActif, fsRappelVu, armeRappel
-} from './src/securite/securite.js';
-import {
-  RELEVE_NUIT, scanEtat, RELEVE_NOMS, poseScanEcran, releveEnCours,
-  releveLu, faitLeReleve, boutonMaj, header, enScan, setTimeMode,
-  modeNuit, finDeNuit
+  RELEVE_NUIT, poseScanEcran, releveLu, faitLeReleve, boutonMaj, header,
+  enScan, setTimeMode, modeNuit, finDeNuit, VIEWS_RELEVE
 } from './src/vues/entete.js';
 import {
   view, tab, poseOnglet, UI, uiPurge, uiEcrit, uiOuvert, uiNote, uiVu,
-  uiReset, fold, cardMode, cardTabs, cardForce, RESUMES, resumeDe,
-  CARTES, VUES_ONGLETS, segTabs, cardLayout, cartesSection, cartesSync,
-  carteDetails, carteChoisie, carteRetiens, carteEnHaut, cardLue,
-  lierRenvois, setCardMode, CARTES_DEF, cartesVal, cartesSain,
-  voirPlusCle, voirPlusOuvert, cartesMenu, listeCartes, affichageCard,
-  garderVue
+  uiReset, fold, cardMode, cardTabs, cardForce, CARTES, VUES_ONGLETS,
+  cartesSection, cartesSync, carteDetails, carteChoisie, carteRetiens,
+  carteEnHaut, cardLue, lierRenvois, setCardMode, CARTES_DEF, cartesVal,
+  cartesSain, voirPlusCle, voirPlusOuvert, garderVue
 } from './src/vues/navigation.js';
+import { VIEWS_OUTILS, REFRESH_OUTILS } from './src/vues/outils.js';
+import { VIEWS_REGLAGES, REFRESH_REGLAGES } from './src/vues/reglages.js';
 
 const APP_VERSION = '2.20.0';
 /** L'historique tel que ./pack.sh l'écrit : [version, date, empreinte, sujet]. */
@@ -186,7 +171,6 @@ function poseNom(k){
   const role = k.startsWith('lfbuilding:') ? LF_ROLE[+k.split(':')[1]] : null;
   return role ? `${role} — ${vus}` : vus;
 }
-const prioRangHtml = (kind, pid, k) => { const r = prioOrdre(kind, pid, k); return r ? ` <span class="note">rang ${r.i + 1} sur ${r.n}</span>` : ''; };
 /* Ce qu'une ligne de forme de vie dit d'elle-même. Cinq états, et aucun ne se
    confond avec un autre : le relevé n'a jamais vu la case (le joueur a posé
    avant que la page de sa forme de vie soit parcourue), elle est verrouillée,
@@ -215,46 +199,6 @@ function prioLfEtat(p, x, nuit){
   if(l[0].id !== x.k) return `Attend son tour dans sa file : une case posée avant elle passe d'abord. ${reglage}.`;
   return lfMode() === 'first' ? `En tête de sa file : le plan la sert avant les bâtiments. ${reglage}.`
     : `En tête de sa file, mais le réglage la fait passer après les bâtiments. ${reglage}.`;
-}
-/* L'état d'une ligne est celui que le plan lui a donné à la première session,
-   jamais son rang dans la liste : une priorité que rien ne sert — labo
-   manquant, prérequis absent, tour pas venu — l'annonçait quand même en
-   premier, ce qui est le contraire de ce que ce bloc doit dire.
-   Le bloc ne promet rien la nuit : le plan du jour ne tourne pas. */
-/* Le bloc reste là même vide. Les deux champs où l'on pose vivent dans des
-   volets repliés — « Niveaux des bâtiments » sur la carte d'une planète,
-   « Recherches » plus bas — et un panneau fraîchement ouvert ne montrait donc
-   rien de cette fonctionnalité, nulle part : ni champ, ni bloc, ni mot. Dire
-   où aller coûte trois lignes ; un joueur qui ne trouve pas le champ ne pose
-   jamais rien, et tout le reste de ce travail ne sert à personne. */
-function prioHtml(plan){
-  const l = prios(), lf = priosLf(), at = prioDemandes(), loin = prioAttend();
-  if(!l.length && !lf.length && !at.length && !loin.length) return `<div class="card"><h2>Tes priorités</h2><p class="note">Aucune pour l'instant. Dans le jeu, fais un <b>clic droit</b> sur la case d'un bâtiment, d'une recherche ou d'une forme de vie : elle devient une priorité, et le plan la sert. Ici, dans <b>Empire</b>, déplie les niveaux d'une planète — ou les recherches — et écris le niveau que tu vises dans le petit champ <b>→</b>, à droite du niveau actuel. Le plan épargnera pour l'atteindre, et le dira sur ses cartes.</p></div>`;
-  const nuit = !!S.day.night;
-  const dits = new Map((((plan || simulateDay()).sessions[0] || {}).prio || []).map(e => [e.id, e]));
-  /* « Passer devant » n'apparaît que sur une ligne qui attend : sur la
-     première de sa file, il ne ferait rien, et un bouton qui ne fait rien est
-     un bouton qu'on essaie une fois puis qu'on cesse de croire. */
-  const li = (pill, what, why, ref, attend) => `<li><span class="pill">${pill}</span><span class="what">${what}</span>${why ? `<span class="why">${esc(why)}</span>` : ''}<span class="actes">${attend ? `<button class="btn sm ghost" data-prio-up="${esc(ref)}" title="Met cette priorité en tête de la file de sa planète. Celle qui épargnait aujourd'hui lui cède la place et passe derrière.">En tête</button>` : ''}<button class="btn sm ghost" data-prio-del="${esc(ref)}">Retirer</button></span></li>`;
-  const attendSonTour = (kind, pid, k) => ((prioOrdre(kind, pid, k) || {}).i || 0) > 0;
-  const lignes = l.map(x => {
-    const p = planetById(x.pid), d = dits.get(`${x.kind}:${x.pid}:${x.k}`) || {};
-    const nom = x.kind === 'b' ? B_SHORT[x.k] : T[x.k].n;
-    const etat = nuit ? '' : [d.etat, d.recoit ? 'Les rapatriements de l\'empire vont vers elle.' : ''].filter(Boolean).join(' ');
-    return li(x.kind === 'b' ? esc(p.name) : 'Recherche', `${esc(nom)} ${x.lvl}${prioSuite(x.kind, x.pid, x.k, x.lvl)}${prioRangHtml(x.kind, x.pid, x.k)}`, etat, x.kind === 'b' ? prioRef('b', x.pid, x.k) : prioRef('t', x.k), attendSonTour(x.kind, x.pid, x.k));
-  }).concat(lf.map(x => {
-    const p = planetById(x.pid), v = (p.lf || {})[x.k] || {};
-    const nom = v.nom || v.name || LF_NAMES[x.k] || `Forme de vie ${x.k}`;
-    return li(esc(p.name), `${esc(nom)} ${x.lvl}${prioSuite('lf', x.pid, x.k, x.lvl)}${prioRangHtml('lf', x.pid, x.k)}`, prioLfEtat(p, x, nuit), prioRef('lf', x.pid, x.k), attendSonTour('lf', x.pid, x.k));
-  }), at.map(d => {
-    /* nom est du texte lu dans le DOM du jeu : il passe par esc, comme tout ce qui vient de là. */
-    const quoi = d.lvl === 0 ? 'Retrait demandé' : `Niveau ${d.lvl} demandé`;
-    return li('En attente', esc(d.nom || `Case ${d.tech}`), `${quoi}, mais aucune de tes planètes relevées ne porte cette case. Si c'est une colonie jamais parcourue, ouvre-la dans le jeu : la demande sera placée alors. Si c'est une lune, le panneau n'en gère pas : la demande n'aboutira pas. Sinon elle s'efface dans ${dur((d.at + PRIO_ATTENTE - Date.now())/1000)}.`, prioRef('ask', d.gid, d.tech));
-  }), loin.map(e => {
-    const nom = e.kind === 'b' ? (B_SHORT[e.k] || e.k) : e.kind === 'lf' ? (LF_NAMES[e.k] || `Forme de vie ${e.k}`) : ((T[e.k] || {}).n || e.k);
-    return li('Autre poste', `${esc(String(nom))} ${e.lvl}`, `Posée sur ton autre ordinateur, sur une planète que celui-ci n'a pas encore relevée. Ouvre-la dans le jeu : elle rejoindra la liste et le plan la servira.`, prioRef('gid', e.gid, e.k));
-  }));
-  return `<div class="card"><h2>Tes priorités</h2><ul class="advice prios">${lignes.join('')}</ul></div>`;
 }
 
 /* Les rangs enregistrés deviennent des identités. Un rang écrit hier ne
@@ -1272,41 +1216,6 @@ function surplusListe(plan){
      perte horaire décide. */
   return out.sort((a, b) => (b.plein - a.plein) || b.pertes.eqM - a.pertes.eqM);
 }
-/**
- * La carte Ressources en trop : une entrée par ressource au plafond ou qui va
- * l'atteindre, la production perdue en tête, puis jusqu'à trois solutions
- * dans l'ordre — dépenser sur place, transférer, monter le hangar. Rien ne
- * part tout seul : « Préparer » ouvre le formulaire du jeu, l'envoi reste le
- * clic du joueur. Baisser la production n'y figure jamais.
- * @returns {{html:string, items:{sev:string, key:string}[]}}
- */
-function surplusHtml(plan){
-  const l = surplusListe(plan).filter(x => typeof meteoVoit !== 'function' || meteoVoit({pid:x.p.id}));
-  if(!l.length) return {html:'', items:[]};
-  const solHtml = (s, x) => {
-    if(s.type === 'depense') return `<li><b>Dépenser sur place</b> · ${esc(s.what)} ${costHtml(s.cost)} <span class="note">${fmt(s.cost[x.k])} de ${NOM_RES[x.k]} d'un coup, déjà dans ton plan.</span></li>`;
-    if(s.type === 'transfert') return `<li><b>Transférer vers un besoin</b> · ${esc(s.what)}${transportHtml(s)}</li>`;
-    return `<li><b>Monter le hangar</b> · ${esc(s.what)} ${costHtml(s.cost)} <span class="note">${dur(s.duree)} de chantier · ${esc(s.pourquoi)}.</span></li>`;
-  };
-  const ligne = x => {
-    const c = x.c, sev = NIVEAU_SEV[c.niveau] || 'warn', where = S.planets.length > 1 ? ` sur ${x.p.name}` : '';
-    const titre = x.plein ? `${majus(NOM_RES[x.k])} au plafond${where} : ${fmtK(x.pertes.res)} ${NOM_RES[x.k]}/h perdus`
-      : `${majus(NOM_RES[x.k])} au plafond dans ${c.vars.dans}${where} : ${fmtK(x.pertes.res)} ${NOM_RES[x.k]}/h en jeu`;
-    const e = x.st[x.k] - x.cap;
-    const detail = (e > 0 ? `${fmt(e)} au-dessus de la capacité (${fmt(x.cap)})` : `${Math.floor(x.st[x.k] / x.cap * 100)} % de la capacité (${fmt(x.cap)})`)
-      + (x.k ? ` · ≈ ${fmtK(x.pertes.eqM)} métal/h au ratio` : '') + '.';
-    const n = surplusCompte(x.p.id, x.k), recur = regleParam('RES_STORAGE_FULL', 'recurrence', 3);
-    const sols = x.solutions.length ? `<ol class="surplus-sol">${x.solutions.map(s => solHtml(s, x)).join('')}</ol>`
-      : `<p class="note">Rien d'utile à financer ici, et aucune planète qui en manque n'a la place. Le hangar ne se propose qu'après ${recur} débordements en 7 jours (${n} pour l'instant) : un plafond ponctuel redescend avec la prochaine dépense.</p>`;
-    return `<li><span class="pill ${sev}">${SEV_LABEL[sev] || ''}</span><span class="what">${esc(titre)}</span>`
-      + `<span class="why">${c.vars.cause ? esc(c.vars.cause) : ''}${esc(detail)}${sols}`
-      + ` <button class="btn sm ghost" data-ign="${esc(ignKey(c))}" title="Masqué jusqu'à ce que la situation change, ou 24 h">Ignorer</button></span></li>`;
-  };
-  return {items:l.map(x => ({sev:NIVEAU_SEV[x.c.niveau] || 'warn', key:x.c.what})),
-    html:`<div class="card"><h2>Ressources en trop <span class="note">${l.length}</span></h2>`
-      + `<p class="note mb-2">Au plafond, la mine ou le synthétiseur s'arrête tant que le stock ne redescend pas. Dans l'ordre : le dépenser ici, sinon l'envoyer où il manque, et le hangar seulement si ça revient.</p>`
-      + `<ul class="advice">${l.map(ligne).join('')}</ul></div>`};
-}
 /* L'option satellites est respectée par energyOptions : un satellite écarté
    ne sort pas comme la solution, il se dit à part dans planetAlerts. */
 EVAL.energyBalance = p => {
@@ -1504,15 +1413,6 @@ function raceDe(p){
   if(nom) return {race:nom, src:'nom', conflit:false};
   return {race:null, src:'', conflit:false};
 }
-/** Réglages › Formes de vie : la race de chaque planète, d'où elle vient, et de quoi la corriger. */
-function raceRows(){
-  const ps = (S.planets || []).filter(p => lfIds(p).length || p.race);
-  if(!ps.length) return '';
-  return `<p class="note mt-2 mb-1"><b>Race par planète</b> — corrige-la si la lecture se trompe : la valeur posée à la main l'emporte.</p><ul class="list">${ps.map(p => {
-    const r = raceDe(p), etat = r.conflit ? 'contradictoire' : r.race ? `${nomRace(r.race)} · ${RACE_SRC[r.src] || ''}` : 'inconnue';
-    return `<li><span><b>${esc(p.name)}</b> <span class="note">${esc(etat)}</span></span><select data-race="${esc(p.id)}" class="w-auto"><option value="">Lire dans le jeu</option>${Object.entries(LIFEFORMS).map(([k, l]) => `<option value="${k}" ${p.race === k ? 'selected' : ''}>${esc(l.n)}</option>`).join('')}</select></li>`;
-  }).join('')}</ul><div class="row mt-2"><button class="btn sm ghost" data-rescan="1" title="Oublie les noms lus et relance les conseils : utile après une mise à jour du jeu">Rescanner</button><span class="note">Les noms se relisent à la prochaine visite des pages Formes de vie.</span></div>`;
-}
 
 /* ---------- les règles du moteur : ignorer, compter ---------- */
 /** La clé d'« Ignorer » : la règle, la planète en identifiant du jeu (`daily`
@@ -1521,112 +1421,6 @@ function ignKey(c){
   // planetById et non gidDe : celle-là est une const posée en fin de fichier, après le premier rendu
   const p = planetById(c.pid), gid = p && p.gid != null ? String(p.gid) : null;
   return `${c.regle}|${gid || c.pid}|${c.valeur}`;
-}
-
-/* ---------- les règles du moteur : le bloc des conseils ---------- */
-/**
- * Les lignes du bloc : les constats que le plan ne sert pas et que le joueur
- * n'a pas ignorés, puis les alertes qui ne sont pas des règles (bridage,
- * emplacements). Un constat servi n'y est pas : la carte du plan est sa
- * réponse, et le bloc n'est pas une seconde liste des mêmes choses.
- */
-function conseilLignes(plan){
-  /* Les débordements ont leur carte, Ressources en trop, qui dit la perte et
-     les solutions : les répéter ici ferait deux listes des mêmes choses. */
-  const cs = constatsVus(plan.constats || []).filter(c => !c.servi && !SURPLUS_REGLES.includes(c.regle));
-  const autres = (plan.alerts || []).filter(a => !a.regle).map(a => ({
-    niveau:SEV_NIVEAU[a.sev] || 'conseil', sev:a.sev, what:a.what, why:a.why, pid:a.pid, domaine:'', cat:'', rang:Infinity}));
-  const pi = new Map((S.planets || []).map((p, i) => [p.id, i]));
-  return cs.map(c => Object.assign({sev:NIVEAU_SEV[c.niveau]}, c)).concat(autres)
-    .sort((a, b) => rangNiveau(a.niveau) - rangNiveau(b.niveau) || poidsCat(b.cat) - poidsCat(a.cat)
-      || a.rang - b.rang || (pi.get(a.pid) || 0) - (pi.get(b.pid) || 0));
-}
-/** La planète ouverte dans le jeu : `S.cur` est le gid que chaque instantané reprend. */
-function planeteOuverte(){
-  const ps = S.planets || [];
-  return ps.find(p => S.cur != null && p.gid != null && String(p.gid) === String(S.cur)) || ps[0] || null;
-}
-function conseilHtml(l, avecPlanete){
-  const p = planetById(l.pid);
-  const st = p ? stockNow(p) : null;
-  const cout = l.cost ? ` ${costHtml(l.cost)} <span class="note">${st && l.cost.every((x, j) => x <= st[j]) ? 'payable maintenant' : 'pas encore payable'}</span>` : '';
-  const quand = l.vars && l.vars.attente ? ` <span class="note">ressources réunies vers ${esc(l.vars.attente)}</span>` : '';
-  const tete = [l.domaine ? DOMAINES[l.domaine] || l.domaine : '', avecPlanete && p && S.planets.length > 1 ? p.name : ''].filter(Boolean).join(' · ');
-  return `<li><span class="pill ${l.sev}">${SEV_LABEL[l.sev] || ''}</span><span class="what">${tete ? `<span class="note">${esc(tete)}</span> ` : ''}${esc(l.what)}${l.statut === 'a_valider' ? ' <span class="pill info">à valider</span>' : ''}</span>`
-    + `<span class="why">${esc(l.why)}${l.action ? `<br>→ <b>${esc(l.action)}</b>${cout}${quand}` : quand}`
-    /* « Scanner » ouvre la page à relire, d'un clic du joueur, comme toutes les
-       cartes : le copilote ne navigue jamais seul. */
-    + `${l.vars && l.vars.url ? ` <button class="btn sm" data-prep="${esc(l.vars.url)}">Scanner</button>` : ''}`
-    + `${l.source ? ` <a href="${esc(l.source)}" target="_blank" rel="noopener">source</a>` : ''}`
-    + `${l.regle ? ` <button class="btn sm ghost" data-ign="${esc(ignKey(l))}" title="Masqué jusqu'à ce que la situation change, ou 24 h">Ignorer</button>` : ''}</span></li>`;
-}
-/**
- * Le bloc des conseils d'Aujourd'hui : trois lignes de la planète ouverte dans
- * le jeu, puis l'empire entier, filtrable. Rien quand il n'y a rien à dire.
- */
-function conseilsHtml(plan){
-  /* Le filtre de la météo vaut ici comme ailleurs : une planète choisie dans la
-     grille, et le bloc ne parle plus que d'elle. */
-  const mf = typeof meteoFiltre === 'function' ? meteoFiltre() : null;
-  const l = conseilLignes(plan).filter(x => typeof meteoVoit !== 'function' || meteoVoit(x));
-  if(!l.length) return '';
-  const cur = mf || planeteOuverte(), f = (S.ui && S.ui.cf) || {};
-  const tete = cur ? l.filter(x => x.pid === cur.id).slice(0, 3) : [];
-  /* Un critique qui n'est pas dans les trois lignes de tête ouvre « Voir tout »
-     de force, sans toucher au choix enregistré : passé, le volet revient comme
-     le joueur l'avait laissé. */
-  const critique = l.some(x => x.sev === 'bad' && !tete.includes(x));
-  const tri = l.filter(x => (!f.domaine || x.domaine === f.domaine) && (!f.niveau || x.niveau === f.niveau)
-    && (!f.planete || x.pid === f.planete) && (!f.manque || x.regle === 'FDV_DATA_MISSING'));
-  const sel = (k, vide, opts) => `<select data-cf="${k}" class="w-auto"><option value="">${esc(vide)}</option>${opts.map(([v, n]) => `<option value="${esc(v)}" ${f[k] === v ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
-  const filtres = `<div class="row gap-2 m-0 mt-2 mb-2">`
-    + sel('domaine', 'Tous les domaines', Object.entries(DOMAINES))
-    + sel('niveau', 'Tous les niveaux', NIVEAUX.map(n => [n, SEV_LABEL[NIVEAU_SEV[n]]]))
-    + (S.planets.length > 1 && !mf ? sel('planete', 'Toutes les planètes', S.planets.map(p => [p.id, p.name])) : '')
-    + `<label class="note row gap-1"><input type="checkbox" data-cf="manque" ${f.manque ? 'checked' : ''} class="interrupteur">Données manquantes</label></div>`;
-  return `<div class="card"><h2>Conseils${cur && S.planets.length > 1 ? ` <span class="note">${esc(cur.name)}</span>` : ''}</h2>`
-    + (tete.length ? `<ul class="advice">${tete.map(x => conseilHtml(x, false)).join('')}</ul>`
-      : `<p class="note">Rien à signaler${cur ? ` sur ${esc(cur.name)}` : ''}.</p>`)
-    + `<details class="volet"${fold('conseils', false, critique)}><summary class="note" data-fold="conseils">Voir tout (${l.length})</summary>${filtres}`
-    + (tri.length ? `<ul class="advice">${tri.map(x => conseilHtml(x, true)).join('')}</ul>` : '<p class="note">Aucun conseil pour ces filtres.</p>')
-    + `</details></div>`;
-}
-
-/**
- * Réglages › Règles : une ligne par règle, groupées par domaine, dans l'ordre
- * du fichier. Une règle à verrou garde sa case grisée et dit pourquoi : une case
- * qui ne fait rien sans le dire est un mensonge par omission.
- */
-function reglesCard(){
-  const ids = Object.keys(REGLES_PAR_ID);
-  if(REGLES_ERR || !ids.length) return `<div class="card"><h2>Règles du moteur</h2><p class="note">${esc(REGLES_ERR || 'Aucune règle dans rules.json.')}</p></div>`;
-  const ligne = id => {
-    const r = regle(id);
-    const champs = Object.keys(r.parametres || {}).map(k => `<label class="note row gap-1">${esc(k)}<input type="number" step="any" data-rg-p="${esc(id)}:${esc(k)}" value="${esc(r.parametres[k])}" class="court"></label>`).join('');
-    return `<li><label class="ligne-interrupteur"><input type="checkbox" data-rg-on="${esc(id)}" ${r.on ? 'checked' : ''} ${r.verrou ? 'disabled' : ''} class="interrupteur">`
-      + `<span><span class="pill ${NIVEAU_SEV[r.niveau] || 'info'}">${esc(SEV_LABEL[NIVEAU_SEV[r.niveau]] || r.niveau)}</span> <b>${esc(r.nom || id)}</b> <span class="note mono">${esc(id)}</span>`
-      + `${r.statut === 'a_valider' ? ' <span class="pill info">à valider</span>' : ''}`
-      + `${r.verrou ? `<br><span class="note">Toujours active : ${esc(r.pourquoi_verrou || 'la simulation en a besoin.')}</span>` : ''}</span></label>`
-      + `${champs ? `<span class="row gap-2">${champs}</span>` : ''}</li>`;
-  };
-  const groupes = Object.entries(DOMAINES).map(([d, n]) => {
-    const l = ids.filter(id => REGLES_PAR_ID[id].domaine === d);
-    return l.length ? `<h3 class="note mt-2 mb-1">${esc(n)}</h3><ul class="list">${l.map(ligne).join('')}</ul>` : '';
-  }).join('');
-  return `<details class="card"${fold('regles', false)}><summary data-fold="regles">Règles du moteur <span class="note">${ids.filter(id => regle(id).on).length} sur ${ids.length} actives</span></summary>
-    <p class="note mt-2">Ce que le copilote surveille sur chaque planète, et ce que le plan en fait.</p>
-    ${aide('regles', '<p class="note">Décocher une règle l\'éteint : sa carte ne sort plus, et elle ne compte plus sur l\'icône. Les seuils se changent ici ; le reste vit dans <code>rules.json</code>.</p>')}
-    ${groupes}</details>`;
-}
-
-/* Les règles qu'on coupe pour une planète seulement — « pas de Terraformeur
-   sur mon coffre-fort ». Sur la planète, donc sur ce poste : un id local ne
-   voyage pas, comme le modèle de défense par planète. */
-function regOffHtml(p){
-  const ids = Object.keys(REGLES_PAR_ID).filter(id => REGLES_PAR_ID[id].parPlanete);
-  if(!ids.length) return '';
-  return `<p class="note mt-2"><b>Règles du moteur</b> — décoche celles qui ne valent pas pour cette planète.</p><div class="row gap-2">${ids.map(id =>
-    `<label class="note row gap-1"><input type="checkbox" data-regoff="${esc(p.id)}|${esc(id)}" ${(p.regOff || {})[id] ? '' : 'checked'} class="interrupteur">${esc(REGLES_PAR_ID[id].nom || id)}</label>`).join('')}</div>`;
 }
 
 function planetAlerts(p){
@@ -1682,11 +1476,6 @@ function parseLeft(txt){
   while((m=re.exec(t))){ hit=true; const v=+m[1]; sec += v*({sem:604800,w:604800,j:86400,d:86400,h:3600,m:60,min:60,s:1}[m[2]]); }
   if(!hit && /^\s*\d+\s*$/.test(t)) return +t*60;
   return hit ? sec : null;
-}
-function timerOptions(){
-  const r = Object.keys(T).map(k=>`<option value="t:${k}">${T[k].n} ${num(S.tech[k])+1}</option>`).join('');
-  const b = S.planets.map(p=>`<optgroup label="Bâtiments · ${esc(p.name)}">${Object.keys(B).map(k=>`<option value="b:${p.id}:${k}">${B[k].n} ${num(p.b[k])+1}</option>`).join('')}</optgroup>`).join('');
-  return `<optgroup label="Recherche">${r}</optgroup>${b}<optgroup label="Autre"><option value="x:fleet">Retour de flotte</option><option value="x:expo">Retour d'expédition</option><option value="x:other">Autre</option></optgroup>`;
 }
 function timerLabel(tm){
   if(tm.kind==='t') return `${T[tm.k].n} ${tm.lvl}`;
@@ -1919,30 +1708,6 @@ function lfMode(){ return LF_MODE[S.day.lf] ? S.day.lf : 'after'; }
    pour toutes les pages, écran de relevé et bandeaux compris. */
 const HABILLAGES = {relief:'Relief — sobre (par défaut)', domaine:'Une couleur par page', hud:'Console de bord', arcade:'Arcade'};
 const habillage = () => HABILLAGES[S.settings.skin] ? S.settings.skin : 'relief';
-/* Les trois menus du haut se ressemblent et ne disent pas la même chose : le
-   premier dit ce que le plan vise, les deux autres seulement quand la recherche
-   et les formes de vie passent dans la journée. Rien à l'écran ne le disait, et
-   on cherchait la recherche dans la priorité. Chaque menu porte donc, sous lui,
-   ce que le choix en place fait vraiment — c'est la phrase, pas l'étiquette,
-   qui répond à « c'est quoi ce réglage ». */
-const AIDE_JOUR = {
-  focus: {t:'Ce que le plan vise', v:{
-    equi: 'Les paliers qui servent l\'économie et la flotte à la fois, et d\'abord les plafonds que tu touches tous les jours : expéditions, emplacements de flotte.',
-    ecocol: 'Des mines, et une planète de plus dès qu\'Astrophysique l\'autorise : une colonie rapporte alors plus qu\'un niveau de recherche.',
-    eco: 'Des mines, rien d\'autre : le plan ne colonise pas, et la recherche vise la production — Énergie, Laser, Ion, Plasma.',
-    fleet: 'Combustion, Impulsion, Ordinateur, Hyperespace : de quoi faire voler plus d\'expéditions et de pillages. Le plan colonise encore.',
-    raid: 'Espionnage, Combustion, Impulsion 5 et Ordinateur : voir les inactifs, y aller vite, en mener plusieurs à la fois. Pas de technologie de combat — l\'onglet Cibles ne pille que ce qui ne tire pas. Le plan colonise encore.',
-  }},
-  research: {t:'Place de la recherche', v:{
-    normal: 'La recherche attend son tour : le plan n\'épargne pour elle que si la feuille de route la juge critique.',
-    first: 'La prochaine recherche passe devant les chantiers : les bâtiments de la planète du labo attendent.',
-  }},
-  lf: {t:'Place des formes de vie', v:{
-    after: 'Les formes de vie passent après les bâtiments, et s\'effacent devant un chantier proche.',
-    first: 'Les formes de vie passent avant les bâtiments. La recherche garde sa place : réglée « Avant les bâtiments », elle est servie avant elles.',
-    off: 'Le plan ne propose aucune forme de vie.',
-  }},
-};
 /* ---------- masquer des morceaux de la page du jeu ----------
    Trois interrupteurs indépendants — Masquer la pub, la bannière, le
    chat — rangés dans chrome.storage.sync sous `masque`. C'est masque.js, dans
@@ -1953,12 +1718,6 @@ const AIDE_JOUR = {
    vaut « masqué ». Un choix enregistré, lui, n'est jamais réécrit. masque.js
    applique la même règle, sans quoi la page et le panneau se contrediraient. */
 const MASQUE_CLES = ['pub', 'bandeau', 'chat'];
-const MASQUE_NOMS = {pub: 'Masquer la pub', bandeau: 'Masquer la bannière', chat: 'Masquer le chat'};
-const MASQUE_NOTES = {
-  pub: 'Bannières publicitaires et encarts promotionnels.',
-  bandeau: 'La barre Gameforge en haut de page : compte, lobby, liens externes.',
-  chat: 'La barre de chat et ses fenêtres repliées. Un nouveau message fait sortir une pastille dans le coin ; un clic dessus rouvre le chat jusqu\'à la page suivante.'
-};
 /** Les trois choix ramenés à des booléens : ce qui manque vaut « masqué ». */
 function masqueNorme(m){ const o = {}; for(const k of MASQUE_CLES) o[k] = !m || m[k] === undefined ? true : !!m[k]; return o; }
 /* `var` : header() peut s'exécuter avant que cette ligne soit atteinte. */
@@ -1980,10 +1739,6 @@ function setMasque(m, retenir){
   if(tab === 'settings') view.querySelectorAll('[data-masque]').forEach(el=>{ el.checked = !!masque[el.dataset.masque]; });
   const tb = view.querySelector('[data-masque-tout]');
   if(tb) tb.textContent = toutMasque() ? 'Tout afficher' : 'Tout masquer';
-}
-/** Les trois cases, telles que les Réglages les montrent. */
-function masqueCases(prefixe){
-  return MASQUE_CLES.map(k=>bascule(prefixe + k, `data-masque="${k}"`, MASQUE_NOMS[k], masque[k], MASQUE_NOTES[k])).join('');
 }
 /* Ce que le stockage partagé garde d'une version d'avant. La campagne du mode
    lune (`sy:lune`) n'a plus de lecteur depuis le retrait du mode : on l'efface
@@ -2107,202 +1862,10 @@ function actHtml(a, withBtn){
   return `<li data-ck="${esc(ck)}"${goAttr(actGo(a))}><div><div class="q">${niv}${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div>${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
 }
 
-/* ---------- la sécurité : réglages ---------- */
-/** Réglages › Sécurité : coffres-forts, rappel de mise à l'abri, mission. */
-function secuCard(){
-  const c = secu(), J = ['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'];
-  return `<div class="card"><h2>Sécurité et mise à l'abri</h2>
-    <p class="note">Coffres-forts : les planètes où mettre ta flotte à l'abri. Le plan choisit le plus proche, même galaxie d'abord, jamais un coffre-fort attaqué.</p>
-    <div class="chips">${S.planets.map(p=>`<label class="chip"><input type="checkbox" data-secu-vault="${esc(p.id)}" ${c.vaults.includes(p.id)?'checked':''}> ${esc(p.name)} <span class="note">${esc(p.coords||'')}</span></label>`).join('')}</div>
-    <div class="grid mt-2">
-      <label class="f">Heure du rappel<input type="time" data-secu="rappel" value="${esc(c.rappel)}"></label>
-      <label class="f">Réveil = fin de nuit (heure)<input type="time" data-day="nightEnd" value="${hhmmDe(S.day.nightEnd)}"><span class="note">La même que « Nuit : à » du plan du jour.</span></label>
-    </div>
-    <div class="chips mt-2">${[1,2,3,4,5,6,0].map(j=>`<label class="chip"><input type="checkbox" data-secu-jour="${j}" ${c.jours.includes(j)?'checked':''}> ${J[j]}</label>`).join('')}</div>
-    ${aide('secu', '<p class="note">À l\'heure du rappel, les jours cochés, l\'icône du Copilote affiche « FS » jusqu\'à ce que tu ouvres le plan de la nuit. Aucune notification. Heures en heure locale du navigateur.</p>')}
-  </div>`;
-}
-
-/* ---------- la sécurité : le bloc ---------- */
-/** Le tableau Source / Vaisseaux / Cible / Mission / M-C-D, sa ligne d'arrivée et « Préparer ». */
-function transportHtml(t){
-  if(!t) return '';
-  const url = fleetUrl({dest: t.dest.coords, mission: t.mission, ships: t.ships, p: t.pi});
-  const chips = copyChips({res: t.charge});
-  return `<table class="fs-tab"><thead><tr><th>Source</th><th>Vaisseaux</th><th>Cible</th><th>Mission</th><th>M / C / D</th></tr></thead>
-    <tbody><tr><td>${esc(t.p.name)}</td><td>${esc(shipCourt(t.ships))}</td><td>${esc(t.dest.name)}</td><td>${t.missionNom}</td><td class="mono">${mcd(t.charge)}</td></tr></tbody></table>
-    <p class="note">Arrivée ${formatTime(t.arrivee)} à ${t.pct} %${t.retour ? ` · retour ${formatTime(t.retour)}` : ''} · ${fmt(t.fuel)} deutérium · ${esc(t.pourquoi)}${t.note ? ' ' + esc(t.note) : ''}${t.gt ? ` Il faut ${fmtLigne(t.gt)} GT pour tout lever.` : ''}</p>
-    ${url ? `<div class="row"><button class="btn sm primary" data-prep="${esc(url)}">Préparer</button><span class="note">Ouvre le formulaire du jeu avec vaisseaux, cible et mission. Ressources et vitesse à régler, l'envoi reste ton clic.</span></div>` : ''}${chips}`;
-}
-
-/** Une flotte en vol, en une ligne. */
-function mouvementLigne(v){
-  const camp = v.hostile ? '<span class="pill bad">Hostile</span>' : v.camp === 'neutral' ? '<span class="pill info">Autre joueur</span>' : '';
-  const nom = OG_MISSIONS[v.mission] || `mission ${v.mission}`;
-  const carg = v.cargaison && v.cargaison.some(x => x > 0) ? ` · ${mcd(v.cargaison)}` : '';
-  return `<li>${camp}<span class="what">${esc(majus(nom))} ${v.sens === 'retour' ? '(retour)' : ''} · ${esc(v.origine.nom || v.origine.coords)} → ${esc(v.cible.nom || v.cible.coords)}</span><span class="why">Arrivée ${formatTime(v.arrivee)}${v.retour ? `, retour ${formatTime(v.retour)}` : ''} · ${esc(shipCourt(v.vaisseaux))}${carg}</span></li>`;
-}
-
 /** Le compte à rebours, « 1 h 02 min 05 s », relu chaque seconde. */
 function rebours(ms){ const s = Math.max(0, Math.round((ms - Date.now()) / 1000)); return clock(s); }
 function majRebours(){
   try{ document.querySelectorAll('[data-impact]').forEach(el => { el.textContent = rebours(+el.dataset.impact); }); }catch(e){}
-}
-
-/**
- * Le bloc Sécurité d'Aujourd'hui : l'alerte d'attaque en tête, l'espionnage,
- * le plan de la nuit, et les flottes en vol.
- * @returns {{alerte:string, bloc:string, sum:string}}
- */
-function securiteHtml(acts){
-  const now = Date.now();
-  const att = planSecurite('attaque', now, acts), esp = espionnagesEntrants(now);
-  const alerte = att.map(a => `<div class="card secu-crit"><h2><span class="pill bad">Critique</span> Attaque sur ${esc(a.p.name)} <span class="mono" data-impact="${a.impact}">${rebours(a.impact)}</span></h2>
-    <p class="note">Impact ${formatTime(a.impact)}${a.groupee ? ' · attaque groupée' : ''}${a.nb > 1 ? ` · ${a.nb} flottes` : ''}.</p>
-    <h3>Ressources exposées</h3><p class="mono">${mcd(a.expose)}</p>
-    <h3>Constructions à lancer pour dépenser</h3>${a.depenses.length ? `<ul class="advice">${a.depenses.map(d => `<li><span class="pill good">Finançable maintenant</span><span class="what">${esc(d.what)}</span><span class="why">${costHtml(d.cost)}</span></li>`).join('')}</ul>` : '<p class="note">Rien de finançable avec le stock présent.</p>'}
-    <h3>Vaisseaux à mettre à l'abri</h3>${a.transport ? transportHtml(a.transport) : `<p class="note">${Object.keys(aQuai(a.p)).length ? 'Aucune destination : il faut une autre planète.' : 'Aucun vaisseau à quai.'}</p>`}
-    ${a.aRisque.length ? `<h3>Convois entrants à risque</h3><ul class="advice">${a.aRisque.map(v => `<li><span class="pill warn">À rappeler ou à laisser</span>${mouvementLigne(v).replace(/^<li>|<\/li>$/g, '')}</li>`).join('')}</ul><p class="note">Ils arrivent entre maintenant et dix minutes après l'impact. La décision te revient.</p>` : ''}
-  </div>`).join('') + esp.map(e => `<div class="card"><p><span class="pill warn">Important</span> Espionnage en cours sur ${esc(e.p.name)}, attaque possible <span class="note">(arrivée ${formatTime(e.v.arrivee)})</span>.</p></div>`).join('');
-
-  const r = planSecurite('routine', now, acts), on = fsRappelActif();
-  const ligne = x => {
-    const parts = [];
-    parts.push(`<li><span class="what">${esc(x.p.name)}${x.coffre ? ' <span class="pill info">coffre-fort</span>' : ''}</span><span class="why">Exposé ${mcd(x.expose)} · à quai ${esc(shipCourt(x.aQuai))}</span></li>`);
-    for(const f of x.files) parts.push(`<li><span class="pill warn">File libre</span><span class="what">${f.file} · ${f.libre <= now ? 'vide maintenant' : `se vide à ${formatTime(f.libre)}`}</span><span class="why">${f.lance ? `À lancer : ${esc(f.lance)}` : 'Rien de finançable à y mettre.'}</span></li>`);
-    for(const v of x.nuit) parts.push(`<li><span class="pill info">Convoi de nuit</span>${mouvementLigne(v).replace(/^<li>|<\/li>$/g, '')}</li>`);
-    return `<ul class="advice">${parts.join('')}</ul>${x.transport ? transportHtml(x.transport) : ''}`;
-  };
-  const w = r[0] ? r[0].wake : null;
-  const routine = `<details class="card${on ? ' secu-on' : ''}"${on ? ' open' : fold('secu', false)}><summary data-fold="secu" data-fsvu="1">Plan de la nuit ${on ? '<span class="pill warn">Rappel</span>' : ''}<span class="note">${w ? `réveil ${formatTime(w)}` : ''}</span></summary>
-    <p class="note">Rappel ${esc(secu().rappel)} · réveil ${esc(secu().reveil)} · ${secu().vaults.length ? 'coffres-forts : ' + secu().vaults.map(id => esc((planetById(id)||{}).name || '')).join(', ') : 'aucun coffre-fort déclaré'} <button class="btn sm ghost" data-goto="settings:defense">Modifier</button></p>
-    ${r.map(ligne).join('')}</details>`;
-  const mv = mouvements().filter(v => v.arrivee > now);
-  const vol = `<details class="card"${fold('vols', false)}><summary data-fold="vols">Flottes en vol <span class="note">${mv.length}</span></summary>${mv.length ? `<ul class="advice">${mv.map(mouvementLigne).join('')}</ul>` : '<p class="note">Aucune flotte en vol vue. Ouvre l\'encart des événements ou la page Mouvements de flotte : le copilote ne lit que ce que le jeu affiche.</p>'}</details>`;
-  /* Pour l'onglet : chaque attaque est critique, chaque espionnage important. */
-  const items = att.map(a => ({sev:'bad', key:`Attaque sur ${a.p.name} ${a.impact}`})).concat(esp.map(e => ({sev:'warn', key:`Espionnage ${e.p.name}`})));
-  return {alerte, bloc: routine + vol, items, rappel: on};
-}
-/* ---------- daily missions ---------- */
-/**
- * Pastilles des réglages : une espèce lue sur une planète s'affiche sans case,
- * les autres restent à cocher.
- * @returns {string}
- */
-function lfSettingsHtml(){
-  const lues = readLifeforms();
-  return Object.entries(LIFEFORMS).map(([k,l]) => lues.includes(k)
-    ? `<span class="pill good choix"><input type="checkbox" checked disabled class="w-auto mr-2">${l.n} · lue sur tes planètes</span>`
-    : `<label class="pill ${S.lf.found.includes(k)?'good':'info'} choix"><input type="checkbox" data-lf="${k}" ${S.lf.found.includes(k)?'checked':''} class="w-auto mr-2">${l.n}</label>`).join('');
-}
-/** La carte de calibrage, ou rien. */
-function expoCalibHtml(){
-  const p = expoFretPropose(S.expoLog, S.settings.expoFret);
-  if(!p.montre) return '';
-  return `<div class="card" data-ck="expo-calib"><h2>Facteur de fret calibré</h2>
-    <p>Tes ${p.n} dernières expéditions à ressources suggèrent un facteur de <b>${fmt(p.prop)}</b> (réglage actuel : ${fmt(p.cur)}).</p>
-    ${p.pleines ? `<p class="note">⚠ Plus de la moitié de ces soutes sont revenues pleines : ${fmt(p.prop)} est une <b>borne basse</b>, le vrai gain est peut-être plus haut.</p>` : ''}
-    <p class="note">Médiane de (ressources ramenées ÷ points envoyés ÷ vitesse éco), sur les ${EXPO_STATS_N} dernières au plus. Rien ne change sans ton clic.</p>
-    <span class="btns"><button class="btn sm primary" data-fretapply="${p.prop}">Appliquer</button><button class="btn sm" data-fretignore="${p.prop}">Ignorer</button></span>
-  </div>`;
-}
-/** Le bloc « Expéditions : résultats ». */
-function expoStatsHtml(){
-  const st = expoStats(S.expoLog);
-  if(!st.n) return `<div class="card"><h2>Expéditions : résultats</h2><p class="note">Aucun retour d'expédition lu pour l'instant. Le copilote les enregistre quand tu ouvres la vue d'ensemble ou les mouvements de flotte pendant le vol retour, et lit le type d'événement des rapports que tu ouvres dans ta messagerie.</p></div>`;
-  const r = (S.settings.ratio || [3,2,1]).join(' / ');
-  const rend = x => x == null ? '–' : `${fmt(x)}/h`;
-  const evts = Object.entries(st.evts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(EXPO_EVTS[k]||k)} ${Math.round(100*v/st.n)} %`).join(' · ');
-  const ligne = (nom, a) => `<tr><td>${nom}</td><td class="n">${a.n}</td><td class="n">${fmt(a.res[0])} / ${fmt(a.res[1])} / ${fmt(a.res[2])}</td><td class="n">${rend(a.rendement)}</td></tr>`;
-  const pl = Object.entries(st.parPlanete).map(([c,a]) => { const p = planeteEn(c); return ligne(p ? esc(planetRef(p)) : `<span class="mono">${esc(c)}</span>`, a); }).join('');
-  const so = Object.entries(st.parSollicitation).sort((a,b)=>a[0]-b[0]).map(([k,a]) => ligne(+k >= 3 ? '3 ou plus' : +k === 0 ? 'aucune' : `${k}`, a)).join('');
-  const tete = `<thead><tr><th></th><th class="n">Exp.</th><th class="n">M / C / D moyens</th><th class="n">Rendement</th></tr></thead>`;
-  return `<div class="card"><h2>Expéditions : résultats</h2>
-    <p class="note">Sur <b>${st.n} expédition${st.n>1?'s':''}</b> au résultat connu (les ${EXPO_STATS_N} dernières au plus).</p>
-    <div class="res">
-      ${gauge('m','m','Métal moyen',fmt(st.res[0]))}${gauge('c','c','Cristal moyen',fmt(st.res[1]))}${gauge('d','d','Deut. moyen',fmt(st.res[2]))}
-      ${gauge('e','e','Soute utilisée', st.soute == null ? '–' : `${Math.round(st.soute*100)} %`, st.nSoute ? `sur ${st.nSoute} envois connus` : 'envoi inconnu')}
-    </div>
-    <p>Événements : ${evts}</p>
-    <p>Vaisseaux trouvés : <b>${st.trouves == null ? '–' : fmt(st.trouves)}</b> en moyenne · pertes : <b>${st.pertes == null ? '–' : fmt(st.pertes)}</b> en moyenne <span class="note">(coût de construction M+C+D, sur ${st.nSus} expédition${st.nSus>1?'s':''} à l'envoi connu)</span></p>
-    <p>Rendement : <b>${rend(st.rendement)}</b> en équivalent métal (ratio ${esc(r)}), ressources et vaisseaux trouvés moins carburant et pertes, par heure de mission.</p>
-    <h3>Par planète de départ</h3><div class="tbl-wrap"><table>${tete}<tbody>${pl}</tbody></table></div>
-    <h3>Selon les expéditions vers le même système dans les 24 h précédentes</h3><div class="tbl-wrap"><table>${tete}<tbody>${so}</tbody></table></div>
-    <p class="note"><b>Estimation.</b> Carburant et durée supposent un vol à 100 % de vitesse. Sans aller vu ni composition préparée, les vaisseaux trouvés et perdus restent inconnus. Le type d'événement vient du rapport quand tu l'as ouvert, sinon des mouvements.</p>
-  </div>`;
-}
-
-/**
- * Le bloc Expéditions : combien d'emplacements sont pris, quand le prochain se
- * libère, et pour chacun de ceux qui sont libres d'où partir et avec quoi.
- *
- * Le bouton Préparer ouvre le formulaire du jeu avec la planète, les
- * vaisseaux, la destination et la mission déjà posés — c'est ce que la page
- * Galaxie du jeu fait elle-même avec ses propres liens. L'envoi reste un clic
- * du joueur : le copilote ne clique jamais à sa place.
- *
- * La durée d'exploration, elle, s'annonce comme ce que le plan VISE, et non
- * comme un champ que le lien aurait rempli. Les champs existent bien sur la
- * page de flotte — `expeditiontime`, `holdingtime` — mais sur une page ouverte
- * par un lien qui porte déjà la mission, l'état interne du jeu garde une durée
- * à zéro pendant que le menu affiche 1, et c'est lui qui part dans la requête.
- * Promettre un réglage qui n'a pas pris, c'est faire envoyer une expédition
- * d'une heure quand le joueur en voulait quatre — ou pire, lui faire cliquer
- * sur un envoi que le jeu refuse. La forme exacte du lien est l'affaire de
- * `fleetUrl` : ce bloc l'appelle et héritera de sa correction.
- * @returns {{sum:string, html:string}} le résumé du titre replié, et le corps
- */
-function expoHtml(){
-  const now = Date.now(), e = expoEtat(now);
-  if(!S.tech.astro) return {sum:'Astrophysique 1 les débloque',
-    html:'<p class="note">Aucune expédition avant <b>Astrophysique 1</b>.</p>'};
-  const quand = e.prochain ? `Prochain retour dans ${dur((e.prochain-now)/1000)}` : '';
-  const etat = e.flotteBloquee ? `Emplacements de flotte pleins (${e.fs[0]}/${e.fs[1]})`
-    : !e.libres ? (quand || 'Tous les emplacements sont pris')
-    : 'Prête maintenant';
-  const bon = e.lancables > 0;
-  const parts = [`<p class="note">Emplacements : <b>${e.pris} utilisé${e.pris>1?'s':''} / ${e.max} disponible${e.max>1?'s':''}</b> · <span class="pill ${bon?'good':'info'}">${esc(etat)}</span>${bon && quand ? ` ${esc(quand)}` : ''}</p>`];
-
-  if(e.flotteBloquee) parts.push(`<p class="note">Chaque mission en vol, découvertes comprises, prend un emplacement de flotte : le jeu refuse le départ tant qu'aucune ne rentre. Technologie Ordinateur ${S.tech.computer+1} en ajoute un.</p>`);
-  else if(!e.libres) parts.push('<p class="note">Rien à lancer : le jeu refuse une expédition de plus tant qu\'un emplacement ne se libère pas.</p>');
-
-  const props = e.lancables > 0 ? expoPropose(now, e.lancables) : [];
-  if(e.lancables > 0 && !props.length) parts.push('<p class="note">Aucune planète ne peut composer une expédition : il faut au moins un transporteur au sol, hors réserve.</p>');
-
-  const ligne = x => {
-    const url = fleetUrl({dest:x.tgt, mission:FS_MISSION.expedition, ships:x.f.ships, p:x.i});
-    /* « Lancé » pose le minuteur du retour et débite le carburant, comme le
-       faisait la carte du plan. C'est la seule façon pour le panneau de savoir
-       qu'un emplacement vient d'être pris quand le joueur n'ouvre pas la page
-       des mouvements de flotte. */
-    const lance = {kind:'expo', pid:x.p.id, ships:x.f.ships, cost:[0,0,x.fuel],
-      dur:Math.round(2*x.fl.secs + x.heures*3600), what:`Expédition depuis ${planetRef(x.p)}`};
-    const ennuis = [];
-    if(!x.f.plein) ennuis.push(`plafond non atteint : ${fmt(x.f.pts)} points sur ${fmt(x.f.ptsCap)}, il manque des vaisseaux au sol`);
-    if(!x.deut) ennuis.push(`deutérium trop juste : ${fmt(x.fuel)} demandés pour l'aller-retour`);
-    const alts = x.alts.map(a=>`${esc(planetRef(a.p))} (${fmt(a.f.pts)} pts, soute ${fmt(a.f.cargo)})`).join(', ');
-    return `<li class="task" data-ck="expo:${esc(x.p.id)}">
-      <div>
-        <div class="q">${qHtml('Expédition · '+planetRef(x.p))}</div>
-        <div class="w">${esc(shipList(x.f.ships))}</div>
-      </div>
-      <span class="btns">${url ? `<button class="btn sm primary" data-prep="${esc(url)}" data-expoprep="${esc(JSON.stringify({de:x.p.coords, dest:x.tgt, ships:x.f.ships}))}">Préparer</button>` : ''}<button class="btn sm" data-launch='${esc(JSON.stringify(lance))}'>Lancé</button></span>
-      <div class="m"><span>vers ${coordLink(x.tgt)}</span><span>exploration visée ${x.heures} h</span><span>retour vers ${formatTime(x.retour)}</span></div>
-      <div class="m"><span>${fmt(x.f.pts)} / ${fmt(x.f.ptsCap)} points</span><span>fret ${fmt(x.f.cargo)} pour ${fmt(x.f.fret)} visés</span><span>carburant ${fmt(x.fuel)} deutérium</span></div>
-      ${ennuis.length ? `<div class="m">⚠ ${esc(ennuis.join(' · '))}</div>` : ''}
-      ${x.pourquoi.length ? `<div class="m">${esc(x.pourquoi.join(' · '))}</div>` : ''}
-      ${alts ? `<div class="m">Sinon ${alts}</div>` : ''}
-    </li>`;
-  };
-  /* Une expédition n'est jamais une urgence : elle se range à la limite comme
-     un conseil. */
-  if(props.length) parts.push(cartesMenu('expeditions') + listeCartes('expeditions', props.map(x=>({html: ligne(x), crit: false})), 'acts'));
-  /* La durée, le fret et la réserve se règlent ailleurs : le dire ici évite
-     de chercher, et rappelle que ces chiffres sont des réglages, pas des lois
-     du jeu. */
-  parts.push(`<p class="note">L'envoi reste à toi : Préparer ouvre le formulaire du jeu avec la planète, les vaisseaux, la destination et la mission, et <b>la durée d'exploration est à choisir dans le jeu</b>. Plafond de points calé sur le n°1 de l'univers (${esc(EXPO_LABELS[top1Tier()])}) : <b>${fmt(expoPts())}</b>. Facteur de fret ${fmt(num(S.settings.expoFret, EXPO_FRET))} ressources par point, réserve de ${fmt(expoRes(null))} grands transporteurs par planète, durée par défaut ${Math.max(1, Math.round(num(S.settings.expoHold,1)))} h — tout cela se change dans <b>Outils › Flotte</b>.</p>`);
-  const sum = `${e.pris}/${e.max} · ${etat}`;
-  return {sum, html: parts.join(''), n: props.length};
 }
 function noBtn(key){ return `<button class="btn sm ghost" data-no="${esc(key)}" title="Ne plus proposer ça">Non</button>`; }
 /**
@@ -2352,18 +1915,6 @@ function colonyCandidates(){
     }
   }
   return out.sort((a,b)=>b.score-a.score);
-}
-/* Le tableau des positions libres sert deux onglets : Cibles le montre parmi
-   les cibles, Colonie en a besoin pour que « choisir la position » désigne une
-   case qui existe. Le classement théorique des quinze positions ne dit que ce
-   que vaudrait la case ; seul l'univers téléchargé dit laquelle est libre, et
-   renvoyer le joueur dans Galaxie pour le vérifier à la main, c'était lui
-   laisser le seul travail que le copilote sait faire. */
-function coloCandHtml(){
-  if(!API || !API.planets) return `<p class="note">La liste des planètes de l'univers n'est pas encore téléchargée${API && API.error ? ` (${esc(API.error)})` : ''}. Ouvre le jeu une fois : le copilote la récupère, puis classe ici les positions libres autour de toi.</p>`;
-  const cand = colonyCandidates().slice(0,8), tgt = coloTarget(), home = coloFrom().coords;
-  if(!cand.length) return '<p class="note">Aucune position libre trouvée à proximité.</p>';
-  return `<div class="tbl-wrap"><table><thead><tr><th>#</th><th>Coordonnées</th><th>Cases</th><th>Bonus</th><th class="n">Éq. métal/h</th><th class="n">Vol</th><th>Voisins</th><th></th></tr></thead><tbody>${cand.map((c,i)=>{ const f = flight(home, c.coords, {col:1}, 100); return `<tr><td class="rank">${i<3?i+1:''}</td><td class="mono">${c.coords}</td><td class="mono">~${c.fields}</td><td>${c.bonus?`<span class="pill ${/métal/.test(c.bonus)?'info':'good'}">${c.bonus}</span>`:''}</td><td class="n">${fmt(c.v)}</td><td class="n">${f?dur(f.secs):'–'}</td><td class="note">${c.neigh.strong?`<span class="pill warn">${c.neigh.strong} fort${c.neigh.strong>1?'s':''}</span> `:''}${c.neigh.active} actif${c.neigh.active>1?'s':''}${c.neigh.inactive?` · ${c.neigh.inactive} inactif${c.neigh.inactive>1?'s':''}`:''}</td><td><button class="btn sm ${c.coords===tgt?'primary':''}" data-cotarget="${c.coords}">${c.coords===tgt?'Choisie':'Choisir'}</button></td></tr>`; }).join('')}</tbody></table></div><p class="note">Positions <b>libres</b> accessibles avec ton Astrophysique, à 15 systèmes au plus. Classement : valeur de la position (${esc((OBJECTIVES[S.colo.objective]||OBJECTIVES.balanced).n.toLowerCase())}), distance, puis voisinage (moins de joueurs forts, des inactifs à piller). Production simulée avec les mines de ta planète de départ.</p>`;
 }
 /** Inactive planets near home, attackable first, then the ones that would trigger the outlaw warning. */
 function raidTargets(){
@@ -2516,33 +2067,11 @@ function luneFlotteAuSol(p){
   return {m, c};
 }
 
-/** La planète que la carte Lune vise : celle que le joueur a choisie, sinon
-    son centre, sinon la première. */
-function moonPlanete(){
-  return planetById(S.moonCalc.pid)
-      || (centreIndex() >= 0 ? S.planets[centreIndex()] : null)
-      || S.planets[0];
-}
-
-/** Le niveau de Bouclier du camarade. Par défaut celui du joueur : un camarade
-    de guilde est d'ordinaire comparable, et un chiffre demandé vaut mieux
-    qu'une hypothèse muette. */
-function moonBou(){
-  const b = S.moonCalc.bou;
-  return b == null ? Math.max(0, S.tech.shielding || 0) : Math.max(0, +b || 0);
-}
-
 /** Le taux de débris de l'univers, en pourcent. Le serveur le publie, donc
     c'est lui qui tranche : le réglage manuel ne sert plus qu'en secours, hors
     extension ou avant la première réponse de l'API. Il reste dans S.settings à
     côté des vitesses, et passe ainsi d'un poste à l'autre par la synchro. */
 function moonDf(){ const d = srv('debrisFactor', null); return d != null ? Math.max(1, d*100) : Math.max(1, +(S.settings.debris) || LUNE_DF); }
-
-/** Le vaisseau choisi, ramené à un vaisseau qui existe. */
-function moonShip(){ return SHIPS[S.moonCalc.ship] ? S.moonCalc.ship : 'lf'; }
-
-/** Le nom du vaisseau au bon nombre, avec les tables qui l'écrivent déjà. */
-function moonNom(k, n){ return n > 1 ? SHIP_PLURAL[k] : (SHIPS[k] || {n:''}).n.toLowerCase(); }
 
 /** Ce qui meurt vraiment d'un envoi de `n` vaisseaux `k` sur la planète `p` :
     les survivants rentrent chez l'attaquant et ne font pas de débris. `tues`
@@ -2556,11 +2085,6 @@ function luneMorts(p, k, n, bouLvl = 0){
   const d = luneDefense(p, k, bouLvl), v = luneCoque(k);
   const tues = d && v ? Math.floor(d.tue / v) : null;
   return {tues, morts: tues == null ? n : Math.min(n, tues)};
-}
-
-/** Une chance en pourcent, lisible : un chiffre après la virgule sous 10 %. */
-function moonPct(x){
-  return String(x >= 10 ? Math.round(x) : Math.round(x * 10) / 10).replace('.', ',') + ' %';
 }
 
 /** Ce que la défense d'une planète tue en six manches, en métal+cristal, donc
@@ -2746,34 +2270,6 @@ function defSurplus(p, o = {}){
     }
   }
   return null;
-}
-/** Une planète dans l'onglet Défense : son modèle, ses pièces, son manque.
-    Les deux menus portent `data-dp` : c'est lui qui distingue la surcharge
-    d'une planète du réglage global, qui n'en a pas. */
-function defCarte(p){
-  const tete = `<div class="row spread"><h2>${esc(p.name)} <span class="note">${esc(p.coords)}</span></h2></div>`;
-  const menus = `<div class="grid">
-      <div class="f"><span>Modèle</span>${defPicker(p.defModele && DEF_MODELES[p.defModele] ? p.defModele : '', p.id)}</div>
-      <label class="f">Palier<select data-def="palier" data-dp="${p.id}"><option value="">Comme les réglages</option>${defPalierOpts(p.defPalier)}</select></label>
-    </div>`;
-  const d = defPlan(p);
-  if(!d) return `<div class="card">${tete}${menus}<p class="note">Défense jamais relevée ici : ouvre la page Défense de cette planète dans le jeu, ou clique Actualiser. Tant qu'elle est inconnue, annoncer un manque reviendrait à faire reconstruire ce qui est déjà au sol.</p></div>`;
-  const exces = d.lignes.filter(l=>l.exces > 0), hors = d.lignes.filter(l=>l.hors), bloques = d.lignes.filter(l=>l.req);
-  const enFile = d.lignes.some(l=>l.file > 0);
-  return `<div class="card">${tete}${menus}
-    <p class="note">${esc(d.nom)} · ${d.palier} ${esc(DEF[d.ancre].p)}${defPalierDe(p)==='fill' ? (d.lignes.some(l=>l.k===d.ancre && l.n + l.file > 0) ? ' déjà au sol' : ' : rien à compléter, le plus petit palier sert de départ') : ''}</p>
-    ${p.defModele ? `<p class="note mono">${defRecetteHtml(defModele(d.modele))}</p>` : ''}
-    ${d.plancherGap ? `<p class="pill warn">Sous le plancher de ton profil (${fmt(d.plancher)} ${esc(DEF[d.ancre].p)}) : ses cartes passent avant celles du palier.</p>` : ''}
-    <div class="tbl-wrap"><table><thead><tr><th>Pièce</th><th class="n">Au sol</th>${enFile ? '<th class="n">En file</th>' : ''}<th class="n">Cible</th><th class="n">Manque</th><th>Coût du manque</th></tr></thead><tbody>
-      ${d.lignes.map(l=>`<tr><td>${esc(DEF[l.k].n)}</td><td class="n">${fmt(l.n)}</td>${enFile ? `<td class="n">${l.file ? fmt(l.file) : '—'}</td>` : ''}<td class="n">${l.hors ? '<span class="note">hors modèle</span>' : fmt(l.cible)}</td><td class="n">${l.manque ? fmt(l.manque) : l.exces ? `<span class="note">+${fmt(l.exces)}</span>` : '—'}</td><td>${l.manque ? costHtml(l.cout) : ''}</td></tr>`).join('')}
-    </tbody></table></div>
-    <div class="row gap-2 mt-2">${d.cout.some(x=>x > 0)
-      ? `<span class="pill ${d.payable ? 'good' : 'warn'}">${d.payable ? 'Payable avec son stock' : 'Plus que son stock'}</span>${costHtml(d.cout)}`
-      : `<span class="pill good">Le modèle est tenu</span>`}</div>
-    ${exces.length ? `<p class="note">Au-dessus du modèle, et ça compte quand même : ${exces.map(l=>`${fmt(l.exces)} ${esc(DEF[l.k].p)}`).join(', ')}.</p>` : ''}
-    ${hors.length ? `<p class="note">Hors modèle, au sol et compté, mais jamais redemandé : ${hors.map(l=>`${fmt(l.n + l.file)} ${esc(l.n + l.file > 1 ? DEF[l.k].p : DEF[l.k].o)}`).join(', ')}.</p>` : ''}
-    ${bloques.length ? `<p class="pill warn mt-2">Pas encore débloqué, aucune carte en attendant : ${bloques.map(l=>esc(defBloqueTexte(l))).join(' · ')}</p>` : ''}
-  </div>`;
 }
 
 /** Ce que cette planète produit entre deux connexions, en métal. */
@@ -2996,174 +2492,9 @@ function raidPlan(){
     lootValue: mse(...loot)};
 }
 
-/* ---------- les faits du serveur ---------- */
-
-/** Un fait du serveur se lit comme le jeu l'écrit : un pourcent reste un
-    pourcent, un multiplicateur garde son ×, un oui/non ne redevient pas 1. */
-const srvPct = v => (Math.round(v*1000)/10).toString().replace('.',',')+' %';
-const srvX = v => '×'+String(v).replace('.',',');
-
-/* La carte Serveur, déclarée plutôt qu'écrite : quatre groupes, dans l'ordre
-   où le joueur cherche. `[clé, libellé, format, note, mien]` — `mien` rend ce
-   que les réglages du copilote disent du même fait, dans la même unité, et un
-   écart se signale au lieu de fausser les calculs en silence. Une clé que le
-   serveur ne publie pas disparaît de la liste. */
-/* Les quatre premières lignes de chaque groupe sont celles dont le copilote se
-   sert pour calculer ; le reste est vrai mais ne change rien au plan, et se
-   replie. L'ordre est donc porteur : déplacer une ligne, c'est décider si elle
-   s'affiche d'emblée. */
-const SRV_ROWS = [
-  ['L\'univers', [
-    ['galaxies', 'Galaxies'],
-    ['systems', 'Systèmes par galaxie'],
-    ['bonusFields', 'Cases bonus', null, 'Ajoutées à chaque planète en plus de sa taille.'],
-    ['topScore', 'Points du n°1', null, 'Fixe le plafond des expéditions.'],
-    ['donutGalaxy', 'Galaxies en anneau', null, 'La première galaxie touche la dernière : les temps de vol en tiennent compte.'],
-    ['donutSystem', 'Systèmes en anneau', null, 'Le système 1 touche le dernier.'],
-    ['name', 'Nom', esc],
-    ['number', 'Numéro', v=>String(v)],
-    ['version', 'Version du jeu', esc],
-    ['language', 'Langue', esc],
-    ['domain', 'Adresse', esc],
-    ['timezone', 'Fuseau horaire', (v,sv)=>esc(v+(sv.timezoneOffset?` (${sv.timezoneOffset})`:''))],
-  ]],
-  ['Vitesses', [
-    ['speed', 'Économie', srvX, 'Production, constructions, recherches, expéditions : le copilote calcule avec.'],
-    ['speedFleetPeaceful', 'Flotte pacifique', srvX, 'Transport, colonisation, expédition, recyclage : le copilote calcule avec.'],
-    ['researchDurationDivisor', 'Recherche', v=>'÷'+String(v).replace('.',','), 'Diviseur des durées de recherche, en plus de la vitesse éco : le copilote calcule avec.'],
-    ['globalDeuteriumSaveFactor', 'Carburant', srvX, 'Multiplie le deutérium brûlé par chaque vol : le copilote calcule avec.'],
-    ['speedFleetWar', 'Flotte de guerre', srvX, 'Attaque et espionnage.'],
-    ['speedFleetHolding', 'Stationnement', srvX, 'Durée des missions qui attendent sur place.'],
-  ]],
-  ['Combat, débris et lune', [
-    ['debrisFactor', 'Débris des vaisseaux', srvPct, 'Part de la coque détruite qui tombe dans le champ de ruines : la carte Lune calcule avec.'],
-    ['debrisFactorDef', 'Débris de la défense', srvPct],
-    ['defToTF', 'Défense dans le champ de ruines'],
-    ['repairFactor', 'Défense réparée', srvPct, 'Part de la défense détruite qui se relève après le combat.'],
-    ['deuteriumInDebris', 'Deutérium dans les débris'],
-    ['combatDebrisFieldLimit', 'Plafond du champ de ruines', srvPct],
-    ['wfEnabled', 'Champ d\'épaves'],
-    ['wfMinimumRessLost', 'Épaves : pertes minimales'],
-    ['wfBasicPercentageRepairable', 'Épaves réparables', v=>String(v).replace('.',',')+' %'],
-    ['rapidFire', 'Feu rapide'],
-    ['acs', 'Attaque groupée'],
-    ['bashingSystemEnabled', 'Limite anti-bash'],
-    ['bashlimit', 'Attaques permises', null, 'Par cible et par vague, avant l\'avertissement.'],
-  ]],
-  ['Règles du serveur', [
-    ['cargoHyperspaceTechMultiplier', 'Soute par niveau d\'Hyperespace', v=>String(v).replace('.',',')+' %', 'Compté dans chaque soute annoncée par le copilote.'],
-    ['probeCargo', 'Soute des sondes'],
-    ['characterClassesEnabled', 'Classes de personnage'],
-    ['newbieProtectionLimit', 'Protection débutant'],
-    ['newbieProtectionHigh', 'Seuil des gros joueurs'],
-    ['marketplaceEnabled', 'Place de marché'],
-    ['darkMatterNewAcount', 'Matière noire de départ'],
-  ]],
-];
-
 /* Un outil retiré laisse son nom dans les réglages du joueur : on ne demande à
    VIEWS que ce qu'il sait encore dessiner. */
 const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['defense','Défense'],['moon','Lune'],['server','Serveur']];
-function toolTab(){ return TOOLS.some(([k])=>k===S.ui.tool) ? S.ui.tool : 'colony'; }
-
-/** Ce que la carte du centre dit sous la case : le risque que le wiki nomme,
-    et ce qu'un centre sans labo laisse derrière lui. Vide ailleurs. */
-function centreNoteHtml(p, i, ci){
-  return i === ci ? `Un espionnage montre où tu bases ta flotte : mets-la à l'abri comme ailleurs.${labLaisse(p)}` : '';
-}
-/** La vocation d'une planète, en une pastille et sa raison. Rien à dire est
-    aussi une information : rien ne distingue cette planète des autres. */
-function vocPill(v){
-  if(!v) return `<span class="note">${S.planets.length < 2
-    ? 'Une seule planète : rien à comparer pour l\'instant.'
-    : 'Pas de vocation marquée : son sol ne la distingue d\'aucune autre.'}</span>`;
-  const nom = v.keys.length ? v.keys.map(k=>VOC_NOM[k]).join(' et ') : 'Vocation inconnue';
-  return `<span class="pill info">${nom}</span>`;
-}
-/** La raison de la vocation. Elle vit dans le volet des raisons : le joueur
-    vient lire une production et poser des objectifs, pas relire pourquoi son
-    sol est ce qu'il est — mais il doit pouvoir y revenir. */
-function vocRaison(v){ return v && v.why ? `<span class="note">${esc(v.why)}</span>` : ''; }
-/** Ce qu'un centre sans labo laisse derrière lui. Le copilote obéit au joueur,
-    mais il ne lui cache pas qu'un labo déjà payé ne suivra pas. */
-function labLaisse(p){
-  const autre = S.planets.filter(x=>x!==p).reduce((a,x)=>(!a || (x.b.lab||0)>(a.b.lab||0)) ? x : a, null);
-  if(!autre || (autre.b.lab||0) <= (p.b.lab||0)) return '';
-  return ` Le labo ${autre.b.lab} de ${esc(planetRef(autre))} ne suit pas : repartir d'un labo 1 ici coûterait ${fmt(mse(...rangeCost(B.lab, 0, autre.b.lab)))} en équivalent métal.`;
-}
-/** Les cases de forme de vie dans la grille des niveaux. Elles ne sont pas
-    dans B — qui ne porte que des prix fixes, alors que ceux d'une case changent
-    d'une espèce à l'autre et s'apprennent au relevé —, d'où leur absence de
-    cette grille jusqu'ici. Leur niveau vient du jeu et ne se tape pas : seul
-    l'objectif s'écrit, comme pour un bâtiment. */
-function lfRows(p){
-  return lfIds(p).map(id=>{
-    const v = (p.lf || {})[id] || {}, nom = lfNom(p, id);
-    return `<label class="f">${esc(nom)}<span class="lv"><input type="number" value="${num(v.lvl)}" readonly tabindex="-1" aria-label="${esc(nom)} : niveau relevé"><input class="prio" type="number" min="${num(v.lvl)+1}" data-pid="${p.id}" data-prio="${id}" data-kind="lf" value="${prioLvl('lf', p.id, id)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${esc(nom)} : niveau visé"></span></label>`;
-  }).join('');
-}
-/** La carte qui pose le même niveau visé sur plusieurs planètes à la fois.
-    Chaque ligne dit ce que la pose ferait avant qu'on clique : le joueur ne
-    pose pas en aveugle sur dix planètes, et une planète qui vise déjà plus
-    haut le montre plutôt que de se faire écraser sans un mot.
-    Repliée par défaut, comme la carte des recherches : elle ne sert que par
-    moments, et dépliée elle pousserait l'empire hors de l'écran. */
-function poseBloc(){
-  const k = poseK(), l = poseLignes(), n = l.filter(x => x.agit).length, vise = poseVise();
-  /* Le bouton de retrait n'apparaît que s'il a de quoi faire : sur une case
-     vierge, il ne serait qu'un bouton mort de plus à côté de l'autre. */
-  const d = l.filter(x => x.retire).length;
-  const vies = poseLfCles();
-  /* Les formes de vie dans leurs propres groupes, à la suite des bâtiments :
-     mêlées à eux elles seraient présentes sans être trouvables — le reproche
-     qui leur a déjà valu leur bloc à elles dans la grille des niveaux. */
-  const groupe = (titre, cles) => cles.length
-    ? `<optgroup label="${esc(titre)}">${cles.map(c => `<option value="${esc(c)}" ${c===k?'selected':''}>${esc(poseNom(c))}</option>`).join('')}</optgroup>` : '';
-  const options = Object.keys(B).map(j => `<option value="${j}" ${j===k?'selected':''}>${esc(B[j].n)}</option>`).join('')
-    + groupe('Formes de vie · bâtiments', vies.filter(c => c.startsWith('lfbuilding')))
-    + groupe('Formes de vie · recherches', vies.filter(c => c.startsWith('lfresearch')));
-  /* Une seule pastille par ligne, et elle dit pourquoi. Deux pastilles
-     indépendantes — le niveau déjà visé d'un côté, la flèche de l'autre — se
-     lisaient comme deux faits séparés, jamais comme « ton 50 va devenir 43 ».
-     Tant qu'aucun niveau n'est tapé, pas de pastille du tout : « déjà à 14 »
-     sur chaque ligne ne répétait que le nombre d'à côté. */
-  const lignes = l.map(x => {
-    const etat = !x.coche ? '<span class="note">décochée</span>'
-      : !x.ici ? '<span class="note">pas relevée ici</span>'
-      : !(vise > 0) ? ''
-      : x.agit ? `<b class="mono">→ ${vise}</b>`
-      : x.deja != null && x.deja >= vise ? `<span class="note">déjà visé ${x.deja}</span>`
-      : `<span class="note">déjà à ${x.actuel}</span>`;
-    return `<li><label class="row gap-2"><input type="checkbox" data-posep="${esc(x.pid)}" ${x.coche?'checked':''} class="w-auto">
-      <span><b>${esc(x.name)}</b> <span class="note">${esc(x.coords)}</span></span></label>
-      <span class="row gap-2"><span class="mono note">${esc(x.quoi || poseNom(k))} ${x.ici ? x.actuel : '—'}</span>${etat}</span></li>`;
-  }).join('');
-  return `<details class="card"${fold('pose', false)}><summary data-fold="pose">Poser sur toutes les planètes <span class="note">${n} planète${n>1?'s':''}</span></summary>
-    <p class="note mt-2">Le même niveau visé sur toutes les planètes cochées, d'un coup. Chaque planète garde ensuite sa priorité à elle : le clic droit dans le jeu la corrige comme avant. Les planètes décochées le restent pour cette case-là.</p>
-    <div class="grid mt-2">
-      <label class="f">Bâtiment ou forme de vie<select data-pose="k">${options}</select></label>
-      <label class="f">Niveau visé<input type="number" min="1" data-pose="lvl" value="${vise > 0 ? vise : ''}" placeholder="43"></label>
-    </div>
-    <ul class="list mt-2">${lignes}</ul>
-    <div class="row mt-2"><button class="btn" data-posego="1" ${n?'':'disabled'}>Poser sur ${n} planète${n>1?'s':''}</button>${
-      d ? `<button class="btn ghost" data-posedel="1" title="Enlève le niveau visé de cette case sur les planètes cochées. Le plan cesse d'épargner pour elle ; les niveaux déjà construits ne bougent pas.">Retirer sur ${d} planète${d>1?'s':''}</button>` : ''
-    }${(()=>{ const r = poseRien(); return r ? `<span class="note">${esc(r)}</span>` : ''; })()}</div>
-  </details>`;
-}
-/** Les formes de vie sous leur nom, et non mêlées aux bâtiments : posées à la
-    suite du Dock et des Satellites, elles étaient présentes sans être
-    trouvables. Rien de relevé n'est pas rien à dire non plus — sans cette
-    ligne, le joueur cherche dans une grille qui ne les nomme même pas. */
-function lfBloc(p){
-  const r = lfPopNourriture(p);
-  /* Le bouton sur sa propre ligne : au bout d'une phrase longue, au fond d'un
-     volet, il ne se voyait pas — c'est exactement le reproche qui a valu son
-     cadre au volet lui-même. */
-  const bouton = r ? `<div class="row mt-2"><button class="btn sm" data-lfpaliers="${p.id}" title="Pose deux priorités : la nourriture au niveau ${LF_PALIER.nourriture}, puis la population au niveau ${LF_PALIER.population[0]} et enfin ${LF_PALIER.population[1]}. Les niveaux se corrigent ensuite dans les champs.">Poser les paliers de population</button><span class="note">nourriture ${LF_PALIER.nourriture}, population ${LF_PALIER.population[0]} puis ${LF_PALIER.population[1]}</span></div>` : '';
-  const titre = `<p class="note mt-2"><b>Formes de vie</b> — niveaux relevés sur la page de ton espèce dans le jeu, à droite le niveau visé.</p>${bouton}`;
-  if(!lfIds(p).length) return `<p class="note mt-2"><b>Formes de vie</b> — aucune case de forme de vie relevée ici : ouvre la page de ta forme de vie dans le jeu pour qu'elles apparaissent.</p>`;
-  return `${titre}<div class="grid tight mt-2">${lfRows(p)}</div>`;
-}
 /* Oui/Non : une bascule, pas une liste déroulante. Deux états se lisent d'un
    coup d'œil et tiennent sur une ligne, là où le select coûtait un titre, une
    ligne de plus et un clic pour voir ce qu'on savait déjà. */
@@ -3319,482 +2650,9 @@ function profilFocusHtml(){
    s'ouvre tant que la réponse manque, et « Refaire le questionnaire » le
    relance avec les réponses en place — un clic change un choix, pas trois. */
 let profilEtape = 0;
-/** @param {number} [etape] 0 à 2 ; l'étape en cours par défaut. */
-function profilCard(etape){
-  if(S.profil.set) return '';
-  const p = S.profil, e = Math.max(0, Math.min(2, etape == null ? profilEtape : etape));
-  const titres = ['Tu joues comment ?', 'Quelle classe veux-tu viser ?', 'Tu passes souvent ?'];
-  const notes = [
-    'Le plan ne vise pas la même chose selon ta façon de jouer, et les cartes ne se rangent pas dans le même ordre. Tu pourras en changer dans Réglages.',
-    `${PROFILS.styles[p.style] ? `Pour un ${esc(PROFILS.styles[p.style].n)}, la classe conseillée est <b>${esc(PROFILS.classes[classeSuggeree()])}</b>. ` : ''}Tu peux en viser une autre : le copilote le dira, il ne t'en empêchera pas.`,
-    'Ta présence décide de ce qui passe devant : qui passe peu met ses ressources à l\'abri avant tout le reste.',
-  ];
-  const ligne = (attr, k, lib, aide, actif) =>
-    `<li><button class="btn sm ${k===actif?'primary':'ghost'} choix" data-${attr}="${k}">${esc(lib)}</button><span class="why">${aide}</span></li>`;
-  const corps = e === 0
-    ? Object.entries(PROFILS.styles).map(([k,s]) => ligne('pstyle', k, s.n, esc(s.aide), p.style)).join('')
-    : e === 1
-    ? Object.entries(PROFILS.classes).map(([k,l]) => ligne('pclasse', k, l,
-        k === classeSuggeree() ? '<b>Conseillée pour ton style.</b>' : k === '' ? 'Le copilote prendra celle que ton style conseille.' : '', p.classe)).join('')
-    : Object.entries(PROFILS.activites).map(([k,a]) => ligne('pactivite', k, a.n, esc(a.aide), p.activite)).join('');
-  // L'écart de classe se dit là où le joueur choisit la classe, pas ailleurs.
-  const ecart = e === 1 ? classeEcart() : '';
-  return `<div class="card"><div class="row spread"><h2>${esc(titres[e])}</h2><span class="pill info">Étape ${e+1} sur 3</span></div>
-    <p class="note">${notes[e]}</p>
-    <ul class="advice mt-2">${corps}</ul>
-    ${ecart ? `<p class="note">${esc(ecart)}</p>` : ''}
-    ${e || p.style ? `<div class="row">${e ? `<button class="btn sm ghost" data-petape="${e-1}">Revenir</button>` : ''}${p.style
-      ? `<button class="btn sm ghost" data-pferme="1">Fermer</button>` : ''}</div>` : ''}
-  </div>`;
-}
-/* Le profil en place, là où le joueur lit ses cartes : la ligne se voit sans
-   rien ouvrir, et les focus sont à un clic — c'est l'ordre des cartes qu'il
-   vient vérifier en les cochant. */
-function profilBloc(){
-  if(!S.profil.set) return '';
-  const ec = classeEcart();
-  return `<details class="card ligne"${fold('profil', false)}><summary data-fold="profil"><b>Ton profil</b> <span class="note">${esc(profilLigne())}</span></summary>
-    <div class="chips mt-2">${profilFocusHtml()}</div>
-    <p class="note mt-2">Un focus remonte ses cartes sans remplacer ton style, et il y reste tant que tu ne le décoches pas. Les formes de vie n'en relèvent pas : leur place se règle dans Réglages.${ec ? ' ' + esc(ec) : ''}</p>
-    <p class="note" id="pfMuets"></p>
-    <div class="row mt-2"><button class="btn sm ghost" data-refaire="1">Refaire le questionnaire</button></div>
-  </details>`;
-}
-
-const VIEWS = {
-/* Ce que le joueur vient chercher, c'est la carte à suivre maintenant : elle
-   seule reste dépliée. Le reste — la journée qui vient, les minuteurs — se
-   replie, en disant dans son titre ce qu'il contient, pour qu'on sache s'il
-   vaut la peine d'être ouvert. */
-today(){
-  const d=S.day;
-  /* Chaque carte se déclare dans CARTES.today ; le conteneur les empile ou
-     les range en onglets, elles n'en savent rien. */
-  return cardLayout('today', {
-    profil: profilCard() + profilBloc(),
-    attaque: `<div id="tdSecuAlerte"></div>`,
-    maintenant: `<div class="card"><div class="row spread liste-tete"><h2>Maintenant <span class="note" id="tdNowN"></span></h2>${cartesMenu('maintenant')}</div><div id="tdNow"></div></div>`,
-    surplus: `<div id="tdSurplus"></div>`,
-    alertes: `<div id="tdAlerts"></div>`,
-    securite: `<div id="tdSecu"></div>`,
-    expeditions: `<details class="card"${fold('expeditions', false)}><summary data-fold="expeditions">Expéditions <span class="note" id="expoSum"></span></summary>
-      <div id="expoBloc"></div>
-    </details>`,
-    journee: `<details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
-      <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${heureTxt(d.nightStart)}–${heureTxt(d.nightEnd)} <button class="btn sm ghost" data-goto="settings:jeu">Modifier</button></p>
-      <div id="tdDay"></div>
-    </details>`,
-    minuteurs: `<details class="card"${fold('minuteurs', false)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
-      <ul class="timers" id="tmList"></ul>
-      <details class="volet"${fold('minuteurs.ajout', false)}><summary class="note" data-fold="minuteurs.ajout">Ajouter un minuteur à la main</summary>
-        <div class="timer-form mt-2">
-          <label class="f">Quoi<select id="tmWhat">${timerOptions()}</select></label>
-          <label class="f">Temps restant (copié du jeu)<input id="tmLeft" placeholder="2h 13m 05s"></label>
-          <button class="btn primary" id="tmAdd">Lancer</button>
-        </div>
-      </details>
-      <div class="row"><button class="btn sm ghost" id="tmSound">Tester le son</button></div>
-    </details>`,
-  });
-},
-empire(){ return cardLayout('empire', {planetes: VIEWS.planets(), recherche: VIEWS.research()}); },
-/* L'écran du relevé. Il tient la place du contenu tant qu'il tourne : ce que
-   le joueur regardait est en train d'être relu, et le voir se recomposer carte
-   par carte ne lui apprend rien. Ici il voit ce qui reste à lire. */
-scan(){
-  const r = releveEnCours || {fait:0, total:0, etapes:[], etats:[], debut:Date.now()};
-  const etats = r.etats || [];
-  const groupes = new Map();
-  (r.etapes || []).forEach((e, i) => {
-    const cle = e.global ? '' : e.gid;
-    if(!groupes.has(cle)) groupes.set(cle, []);
-    groupes.get(cle).push({e, i});
-  });
-  const lignes = [...groupes].map(([cle, pas]) => {
-    const p = cle ? S.planets.find(x => x.gid === cle) : null;
-    const cases = pas.map(({e, i}) => {
-      const nom = esc(RELEVE_NOMS[e.page] || e.page), et = etats[i] || {};
-      return ({
-        attente: () => `<span class="pill">${nom}</span>`,
-        encours: () => `<span class="pill info">\u2026 ${nom}</span>`,
-        muet: () => `<span class="pill warn" title="Cette page n'a rien renvoyé : ${Math.round((et.ms||0)/1000)} s d'attente pour rien.">\u231b ${nom}</span>`,
-        lu: () => `<span class="pill good" title="${Math.round(et.ms || 0)} ms">\u2713 ${nom}</span>`
-      })[scanEtat(i, r.fait, et)]();
-    }).join(' ');
-    return `<tr><td>${esc(p ? p.name : 'Empire')}</td><td>${cases}</td></tr>`;
-  }).join('');
-  const muets = etats.filter(x => x && x.muet).length;
-  const ecoule = Math.max(0, Date.now() - (r.debut || Date.now())) / 1000;
-  const reste = r.fait ? ` · encore ~${dur(ecoule / r.fait * (r.total - r.fait))}` : '';
-  return `<section class="panel"><div class="card">
-    <div class="row spread"><h2>Relevé en cours</h2><span class="pill info">${r.fait} / ${r.total}</span></div>
-    <p class="note">Le relevé lit chaque page dans un onglet à lui, ouvert en arrière-plan : ta page de jeu ne bouge pas, tu peux continuer à jouer. Il se referme tout seul à la fin.</p>
-    <p class="note">${dur(ecoule)} écoulées${reste}${muets ? ` · <b>${muets} page${muets>1?'s':''} muette${muets>1?'s':''}</b> : rien n'en est revenu` : ''}</p>
-    <div class="tbl-wrap"><table><tbody>${lignes}</tbody></table></div>
-    <div class="row mt-2"><button class="btn sm" id="scanStop">Arrêter</button><span class="note">Ce qui est déjà lu reste acquis.</span></div>
-  </div></section>`;
-},
-explore(){
-  if(!IS_EXT) return `<div class="card"><h2>Cibles</h2><p class="note">Cette partie utilise les données publiques officielles d'OGame. Elle ne fonctionne que dans l'extension Copilote.</p></div>`;
-  const a = API, ok = a && a.planets && a.players;
-  const age = k => a && a.at && a.at[k] ? formatTime(a.at[k]) : '–';
-  return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Données de l'univers</h2><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>
-      <p class="note">${ok ? `${fmt(a.planets.length)} planètes, ${fmt(Object.keys(a.players).length)} joueurs. Classement mis à jour à ${age('scores')}, univers à ${age('universe')}. Les positions libres peuvent dater de quelques jours : vérifie toujours dans Galaxie.` : (a && a.error ? `Erreur de téléchargement : ${esc(a.error)}.` : 'Téléchargement en cours… ouvre une page du jeu si rien ne vient.')}${myScore()!=null ? ` Tes points : <b>${fmt(myScore())}</b>.` : ''}</p>
-    </div>
-    <div class="card"><h2>Où coloniser</h2><div id="exColo"></div></div>
-    ${S.raid ? `<div class="card"><div class="row spread"><h2>Pillage de ${esc(S.raid.coords)}</h2><button class="btn sm ghost" data-raidclose="1">Fermer</button></div>
-      <p class="note">${esc(S.raid.name||'')} · 1. Espionne la cible depuis Galaxie. 2. Colle le rapport <b>en entier</b> ici : flotte et défense comprises, pas seulement les ressources. Ce que le rapport ne montre pas, le copilote le dira comme manquant plutôt que de le prendre pour zéro.</p>
-      <textarea id="rdPaste" data-raid="paste" placeholder="Colle ici le rapport d'espionnage entier (texte)"></textarea>
-      <div class="grid tight">
-        <label class="f">Métal<input id="rdM" type="number" min="0" data-raid="m" value="${num(S.raid.m)}"></label>
-        <label class="f">Cristal<input id="rdC" type="number" min="0" data-raid="c" value="${num(S.raid.c)}"></label>
-        <label class="f">Deutérium<input id="rdD" type="number" min="0" data-raid="d" value="${num(S.raid.d)}"></label>
-      </div>
-      <label class="row gap-2"><input id="rdSafe" type="checkbox" data-raid="safe" ${S.raid.safe?'checked':''} class="interrupteur"> <span>Le rapport ne montre ni flotte ni défense</span></label>
-      <div id="rdPlan"></div>
-    </div>` : ''}
-    <div class="card"><h2>Qui piller</h2><div id="exRaid"></div></div>
-    <div class="card"><h2>Où explorer</h2><div id="exExplore"></div></div>
-  </section>`;
-},
-server(){
-  const sv = API && API.server, at = API && API.at && API.at.server;
-  if(!sv) return `<section class="panel"><div class="card"><h2>Ton serveur</h2>
-    <p class="note">${!IS_EXT ? 'Cette carte lit les paramètres publics officiels du serveur. Elle ne fonctionne que dans l\'extension Copilote.'
-      : API && API.error ? `Erreur de téléchargement : ${esc(API.error)}.`
-      : 'Rien encore : ouvre une page du jeu, le copilote lira les paramètres publics du serveur.'}</p>
-    ${IS_EXT ? '<div class="row"><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>' : ''}
-  </div></section>`;
-  const cards = SRV_ROWS.map(([titre, lignes])=>{
-    const li = lignes.map(([k, lib, f, note, mien])=>{
-      const v = sv[k]; if(v == null) return '';
-      const dit = x => typeof x === 'boolean' ? (x ? 'Oui' : 'Non') : f ? f(x, sv) : fmt(x);
-      const m = mien ? mien() : null;
-      const ecart = m != null && Math.abs(m - v) > 1e-9 ? `<span class="pill warn">tes réglages : ${dit(m)}</span>` : '';
-      const bas = [note || '', ecart].filter(Boolean).join(' ');
-      return `<li><div>${lib}${bas?`<div class="note">${bas}</div>`:''}</div><b class="mono">${dit(v)}</b></li>`;
-    }).filter(Boolean);
-    /* Quatre lignes montrées, le reste replié : la carte disait vingt faits
-       d'affilée, et les quatre qui changent le plan s'y perdaient. */
-    const vues = li.slice(0, 4), reste = li.slice(4);
-    return vues.length ? `<div class="card"><h2>${titre}</h2><ul class="list">${vues.join('')}</ul>${reste.length ? `<details class="volet"${fold('srv:'+titre, false)}><summary class="note" data-fold="${esc('srv:'+titre)}">Le reste (${reste.length})</summary><ul class="list mt-2">${reste.join('')}</ul></details>` : ''}</div>` : '';
-  }).join('');
-  return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Ton serveur</h2><button class="btn sm ghost" data-apirefresh="1">Actualiser</button></div>
-      <p class="note">Les paramètres publics de <b>${esc(sv.name||'ton univers')}</b>${sv.number?` (n°${esc(String(sv.number))})`:''}, lus dans <span class="mono">serverData.xml</span>${at?` à ${formatTime(at)}`:''}. Ce sont des faits du serveur, pas des réglages : ce que le copilote calcule en part — vitesses, carburant, débris, soute — sans que tu aies à le recopier nulle part.</p>
-    </div>
-    ${cards}
-  </section>`;
-},
-tools(){
-  const sub = toolTab();
-  return `<section class="panel"><div class="seg" role="tablist">${segTabs(TOOLS, 'data-tool', sub)}</div>${VIEWS[sub]()}</section>`;
-},
-planets(){
-  return `<section class="panel">
-    ${S.sample ? `<div class="example">Données d'exemple : remplace-les par tes niveaux réels (planète mère, mine de métal 1). Les cases se sauvegardent dans ce navigateur.</div>` : ''}
-    <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><details class="volet"${fold('mix', false)}><summary data-fold="mix">Pourquoi ce classement</summary><p class="note mt-2" id="empireMix"></p></details></div>
-    ${poseBloc()}
-    ${(()=>{ const voc = vocations(), ci = centreIndex(), auto = centreIndex(true); return S.planets.map((p,i)=>`
-    <details class="card ligne" data-pi="${i}"${fold('pl:' + p.id, false)}${meteoVoit(p.id) ? '' : ' hidden'}>
-      <summary data-fold="pl:${p.id}" class="plsum"><b>${esc(p.name)}</b> <span class="note">${esc(p.coords)}</span><span class="mono" id="psum-${i}"></span></summary>
-      <div class="planet-head">
-        <input id="pn-${p.id}" data-p="name" value="${esc(p.name)}" aria-label="Nom de la planète">
-        <input id="pc-${p.id}" class="coords" data-p="coords" value="${esc(p.coords)}" aria-label="Coordonnées" placeholder="1:1:8">
-        <input id="pt-${p.id}" class="temp" type="number" data-p="tmax" value="${num(p.tmax)}" aria-label="Température max (°C)" title="Température max en °C (vue d'ensemble)">
-        <span class="note">°C max</span>
-        ${S.planets.length>1?`<button class="btn sm ghost" data-del="${i}">Retirer</button>`:''}
-      </div>
-      <div class="res" id="pres-${i}"></div>
-      <div class="row gap-2"><span class="voc" id="pvoc-${i}">${vocPill(voc[p.id])}</span>${ci<0
-        ? `<span class="note">${FOCUS_VAISSEAU[S.day.focus]
-            ? `${esc(FOCUS[S.day.focus])} : pas de centre, tes planètes doivent rester dispersées.`
-            : 'Un centre se choisit entre plusieurs planètes.'}</span>`
-        : `<label class="f coche"><input id="pcentre-${p.id}" type="checkbox" data-centre="${p.id}" ${i===ci?'checked':''} class="interrupteur"> Centre${auto===i?' (conseillé)':''}</label>`}</div>
-      <p class="note" id="pfleet-${i}"></p>
-      <details class="volet" id="pq-${i}"${fold('pq:' + p.id, false)}><summary data-fold="pq:${p.id}">Pourquoi cette planète</summary>
-      <div class="col-notes mt-2">
-        <span id="pvocw-${i}">${vocRaison(voc[p.id])}</span>
-        ${ci>=0&&i===ci&&centreWhy()?`<p class="note">${esc(centreWhy())}</p>`:''}
-        <p class="note" id="pctrn-${i}">${centreNoteHtml(p, i, ci)}</p>
-      </div>
-      </details>
-      <details class="volet"${fold('niv:' + p.id, false)}><summary data-fold="niv:${p.id}">Bâtiments et niveaux visés <span class="note" id="pobj-${i}"></span></summary>
-      <div class="grid tight mt-2">
-        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${num(p.b[k])}"${lvLu(p) ? ' readonly tabindex="-1"' : ''}><input class="prio" type="number" min="${num(p.b[k])+1}" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
-        <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${num(p.sats)}"${lvLu(p) ? ' readonly tabindex="-1"' : ''}></label>
-        <label class="f">Satellites autorisés<select data-satsok="${p.id}"><option value="">Hériter (${S.settings.sats ? 'oui' : 'non'})</option><option value="1" ${p.satsOk === true ? 'selected' : ''}>Oui</option><option value="0" ${p.satsOk === false ? 'selected' : ''}>Non</option></select></label>
-      </div>
-      ${lfBloc(p)}
-      ${regOffHtml(p)}
-      </details>
-      <details class="volet"${fold('stock:' + p.id, false)}><summary data-fold="stock:${p.id}">Stock <span class="mono note" id="pstk-${i}"></span></summary>
-      <p class="note mt-2">Ce que cette planète a en magasin. Il avance tout seul avec ta production ; recale-le quand tu dépenses.</p>
-      <div class="grid tight mt-2">
-          <label class="f">Métal<input id="sm-${p.id}" type="number" data-s="m" value="${Math.round(stockNow(p)[0])}"></label>
-          <label class="f">Cristal<input id="sc-${p.id}" type="number" data-s="c" value="${Math.round(stockNow(p)[1])}"></label>
-          <label class="f">Deutérium<input id="sd-${p.id}" type="number" data-s="d" value="${Math.round(stockNow(p)[2])}"></label>
-      </div>
-      </details>
-    </details>`).join(''); })()}
-    <div class="row"><button class="btn" id="addPlanet">Ajouter une colonie</button>
-    <span class="note" id="colonyNote"></span></div>
-  </section>`;
-},
-research(){
-  return `<details class="card"${fold('recherches', false)}><summary data-fold="recherches">Recherches et niveaux visés <span class="note">labo niveau <b id="labLv"></b></span></summary>
-    <div class="tbl-wrap"><table class="tech"><thead><tr><th>Technologie</th><th class="n">Niv.</th><th class="n">Visé</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th></tr></thead><tbody>
-    ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${num(S.tech[k])}"></td><td class="n"><input class="prio" type="number" min="${num(S.tech[k])+1}" data-prio="${k}" value="${prioLvl('t', null, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${T[k].n} : niveau visé"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
-    </tbody></table></div>
-  </details>`;
-},
-moon(){
-  const m = S.moonCalc, p = moonPlanete(), k = moonShip();
-  /* ponytail: un seul type de vaisseau à la fois, parce qu'un tir de lune se
-     fait d'un seul type. Une flotte mélangée demanderait la grille de quatorze
-     champs de la carte Flotte ; le jour où quelqu'un en envoie une, elle est là
-     à copier. */
-  return `<section class="panel">
-    <div class="card"><h2>Tir de lune</h2>
-      <p class="note">Ton camarade envoie une flotte sur ta planète, ta défense la détruit, et les débris de <b>ses</b> vaisseaux tombent chez toi. Cette carte chiffre le tir avant qu'il parte.</p>
-      <div class="grid">
-        <label class="f">Planète visée<select id="mnP" data-mc="pid">${S.planets.map(q=>`<option value="${q.id}" ${p && p.id===q.id?'selected':''}>${esc(q.name)} [${esc(q.coords)}]</option>`).join('')}</select></label>
-        <label class="f">Ce qu'il envoie<select id="mnShip" data-mc="ship">${Object.keys(SHIPS).map(j=>`<option value="${j}" ${k===j?'selected':''}>${SHIPS[j].n}</option>`).join('')}</select></label>
-        <label class="f">Combien<input id="mnN" type="number" min="0" data-mc="n" step="1" value="${Math.floor(Math.max(0,+m.n||0))}"></label>
-      </div>
-      <div class="grid">
-        <label class="f">Chance visée<input id="mnVise" type="number" min="1" max="20" data-mc="viser" step="1" value="${Math.min(20,Math.max(1,Math.round(+m.viser||12)))}"><span class="note">En pourcent, 20 au plus : c'est le plafond du jeu.</span></label>
-        <label class="f">Son niveau de Bouclier<input id="mnBou" type="number" min="0" data-mc="bou" step="1" value="${moonBou()}"><span class="note">Celui de ton camarade. Proposé au tien.</span></label>
-        ${srv('debrisFactor', null) != null
-          ? `<label class="f">Débris de ton univers<b class="mono">${moonDf()} %</b><span class="note">Lu sur le serveur : rien à régler.</span></label>`
-          : `<label class="f">Débris de ton univers<select id="mnDf" data-set="debris">${[30,40,50,60,70].map(v=>`<option ${moonDf()===v?'selected':''}>${v}</option>`).join('')}</select><span class="note">En pourcent, dans les paramètres de ton univers. Le copilote le lira tout seul dès que le serveur aura répondu.</span></label>`}
-      </div>
-      <div class="res" id="moonOut"></div>
-      <p class="note" id="moonNote"></p>
-    </div>
-  </section>`;
-},
-/* Le modèle se choisit dans les Réglages, une fois pour tout l'empire ; ici
-   chaque planète dit ce qu'il lui manque pour le tenir, et peut en prendre un
-   autre. Les deux endroits lisent le même réglage, personne ne le recopie. */
-defense(){
-  const s = S.settings, anc = defAncre(defRatio(s.defModele) || {});
-  return `<section class="panel">
-    <div class="card"><h2>Modèle de défense</h2>
-      <p class="note"><b>${esc(DEF_MODELES[s.defModele].n)}</b> · ${s.defPalier === 'fill' ? 'compléter l\'existant' : `${s.defPalier} ${esc(DEF[anc].p)}`} <button class="btn sm ghost" data-goto="settings:defense">Modifier</button></p>
-      ${defModeleCarte(s.defModele)}
-      <p class="note">Le modèle donne la proportion entre les pièces, le palier la taille. Rien ne se construit ici, et le plan du jour garde son propre budget : la moitié d'une nuit de production, de quoi rendre le pillage non rentable.</p>
-    </div>
-    ${S.planets.map(defCarte).join('')}
-  </section>`;
-},
-fleet(){
-  const ex=S.expo, fc=S.fleetCalc;
-  return `<section class="panel">
-    ${flotteCibleHtml()}
-    <div class="card"><h2>Taille d'expédition</h2>
-      <div class="grid">
-        <label class="f">Points du n°1 de l'univers<select id="top1" data-set="top1">${EXPO_LABELS.map((l,i)=>`<option value="${i}" ${S.settings.top1==i?'selected':''}>${l}</option>`).join('')}</select>${API && API.scores ? `<span class="note">Lu dans le classement public : ${EXPO_LABELS[top1Tier()]}. Ce réglage ne sert plus.</span>` : '<span class="note">Sera lu dans le classement public dès que l\'extension aura joint l\'API du serveur.</span>'}</label>
-      </div>
-      <div class="grid">
-        <label class="f">Facteur de fret<input id="expoFret" type="number" min="1" step="10" data-set="expoFret" value="${num(S.settings.expoFret, EXPO_FRET)}"><span class="note">Ressources ramenées par point de flotte. Le fret visé en découle : ${fmt(expoPts())} points × ce facteur × éco x${ecoSpeed()} = <b>${fmt(expoFret())}</b>. ${(p=>p.prop ? `Tes ${p.n} dernières expéditions à ressources suggèrent ${fmt(p.prop)}${p.pleines ? ' (borne basse : soutes souvent pleines)' : ''}.` : `Calibré sur tes retours réels à partir de ${EXPO_CALIB_MIN} expéditions à ressources (${p.n} pour l'instant).`)(expoFretPropose(S.expoLog, S.settings.expoFret))}</span></label>
-        <label class="f">Réserve de grands transporteurs<input id="expoRes" type="number" min="0" data-set="expoRes" value="${expoRes(null)}"><span class="note">Par planète, jamais pris par une expédition : ce sont ceux des convois et de la mise à l'abri du soir.</span></label>
-        <label class="f">Durée d'exploration par défaut (h)<input id="expoHold" type="number" min="1" max="24" data-set="expoHold" value="${Math.max(1, Math.round(num(S.settings.expoHold,1)))}"><span class="note">Une heure rapporte le plus à l'heure passée en l'air. En mode nuit, le plan allonge de lui-même pour que la flotte rentre à ton retour.</span></label>
-      </div>
-      <div class="bascules">
-        ${bascule('expoPf','data-expo="pf"','Éclaireur dans la flotte', ex.pf)}
-      </div>
-      <div class="res" id="expoOut"></div>
-      <p class="note" id="expoNote"></p>
-    </div>
-    ${expoCalibHtml()}
-    ${expoStatsHtml()}
-    <div class="card"><h2>Temps de vol et carburant</h2>
-      <div class="grid">
-        <label class="f">Départ<input id="fFrom" data-fc="from" value="${esc(fc.from)}" placeholder="1:1:8"></label>
-        <label class="f">Arrivée<input id="fTo" data-fc="to" value="${esc(fc.to)}" placeholder="1:2:8"></label>
-        <label class="f">Vitesse<select id="fPct" data-fc="pct">${[100,90,80,70,60,50,40,30,20,10].map(v=>`<option ${fc.pct==v?'selected':''}>${v}</option>`).join('')}</select></label>
-      </div>
-      <div class="grid tight">${Object.keys(SHIPS).map(k=>`<label class="f">${SHIPS[k].n}<input id="fs-${k}" type="number" min="0" data-ship="${k}" value="${num(fc.ships[k])}"></label>`).join('')}</div>
-      <div class="res" id="flightOut"></div>
-      <p class="note">Pour un aller-retour, double la durée et le carburant. Une expédition ajoute son temps de stationnement (1 h par défaut) et un peu de carburant de maintien non compté ici.</p>
-    </div>
-    <div class="card"><h2>Vaisseaux avec tes technologies</h2><div class="tbl-wrap"><table><thead><tr><th>Vaisseau</th><th>Propulsion</th><th class="n">Vitesse</th><th class="n">Soute</th></tr></thead><tbody id="shipTbl"></tbody></table></div></div>
-  </section>`;
-},
-colony(){
-  const c = S.colo;
-  /* La planète de départ ne se choisit que quand elle se choisit vraiment : un
-     vaisseau déjà à quai décide, et sinon c'est le centre de l'empire. Le menu
-     restait affiché par-dessus sa propre note qui disait qu'il ne servait à
-     rien — deux lignes pour un réglage inerte, au-dessus de la seule question
-     de la page. */
-  const choixDep = colShipAt()<0 && !centrePlanet() && S.planets.length>1;
-  return `<section class="panel">
-    <div class="card"><div class="row spread"><h2>Choisir la position</h2><span id="coSlots"></span></div>
-      <ul class="advice" id="coReq"></ul>
-      <div class="grid">
-        <label class="f">Objectif<select id="coObj" data-colo="objective">${Object.entries(OBJECTIVES).map(([k,o])=>`<option value="${k}" ${c.objective===k?'selected':''}>${o.n}</option>`).join('')}</select></label>
-        <label class="f">Cases bonus de l'univers<input id="coBonus" type="number" min="0" data-colo="bonus" value="${+c.bonus?num(c.bonus):''}" placeholder="${(API&&API.server&&API.server.bonusFields)||0}"></label>
-      </div>
-      <div id="coCand"></div>
-      <details class="volet mt-3"${fold('cobareme', false)}><summary data-fold="cobareme">Ce que vaut chaque emplacement d'un système</summary>
-      <p class="note mt-2">Dans OGame, chaque système porte <b>quinze emplacements numérotés de 1 à 15</b>, et ce numéro décide de tout : la taille de la planète, sa température, son bonus de production. Le tableau dit ce que vaudrait ta colonie à chaque numéro, dans n'importe quel système — c'est un barème, pas une liste de cases libres : celle-là est au-dessus. Les trois meilleurs numéros pour ton objectif portent leur rang.</p>
-      <div class="tbl-wrap mt-2"><table><thead><tr><th>#</th><th class="n">Pos.</th><th>Cases (min–max)</th><th class="n">Temp.</th><th>Bonus</th><th class="n">Éq. métal/h</th><th class="n">Deut/h</th><th></th></tr></thead><tbody id="coPos"></tbody></table></div>
-      <p class="note">Production simulée avec les niveaux de mines de ta planète de départ, à la température moyenne de l'emplacement ; les cases réelles varient dans la fourchette indiquée. Les lignes grisées demandent plus d'Astrophysique. « Choisir » prend la meilleure case <b>libre</b> à ce numéro autour de toi.</p></details>
-    </div>
-    <div class="card"><h2>Flotte et ressources à emporter</h2>
-      <div class="grid">
-        ${choixDep?`<label class="f">Planète de départ<select id="coFrom" data-colo="fromId">${S.planets.map(p=>`<option value="${p.id}" ${c.fromId===p.id?'selected':''}>${esc(p.name)} [${esc(p.coords)}]</option>`).join('')}</select></label>`:''}
-        <label class="f">Vaisseau de colonisation<select id="coBuilt" data-colo="built"><option value="0" ${!colBuilt()?'selected':''}>À construire</option><option value="1" ${colBuilt()?'selected':''}>Déjà construit${colShipAt()>=0?' (vu dans ta flotte)':''}</option></select></label>
-        <label class="f">Destination<input id="coTarget" data-colo="target" value="${esc(c.target)}" placeholder="${esc(coloTarget())}"></label>
-        <label class="f">Kit de démarrage<select id="coKit" data-colo="kit">${Object.entries(KITS).map(([k,o])=>`<option value="${k}" ${c.kit===k?'selected':''}>${o.n}</option>`).join('')}</select></label>
-        <label class="f">Transporteurs<select id="coTr" data-colo="tr"><option value="sc" ${c.tr==='sc'?'selected':''}>Petits</option><option value="lc" ${c.tr==='lc'?'selected':''}>Grands</option></select></label>
-      </div>
-      <div id="coFleet"></div>
-    </div>
-    <div class="card"><h2>Après l'arrivée</h2>
-      <div class="grid">
-        <label class="f">Cases de la nouvelle planète<input id="coFields" type="number" min="1" data-colo="fields" value="${esc(c.fields)}" placeholder="ex. 187"></label>
-        <label class="f">Position<input id="coFpos" type="number" min="1" max="15" data-colo="fpos" value="${esc(c.fpos)}" placeholder="${(parseC(coloTarget())||[])[2]||''}"></label>
-      </div>
-      <div id="coEval"></div>
-      <ol class="note etapes">
-        <li>Choisis la forme de vie de la colonie : <b>${esc(LIFEFORMS[lfPourPos((parseC(c.target || coloTarget())||[])[2]||0)].n)}</b> — ${esc(lfRaisonPos((parseC(c.target || coloTarget())||[])[2]||0))}.</li>
-        <li>Envoie les transporteurs du kit en mission <b>Transporter</b>, une fois la colonie créée.</li>
-        <li>Ordre de construction : solaire, puis métal et cristal en alternance, deutérium ensuite, robots 2 dès que possible.</li>
-        <li>L'extension ajoute la colonie toute seule dès que tu la visites dans le jeu.</li>
-      </ol>
-    </div>
-  </section>`;
-},
-settings(){
-  const s=S.settings, d=S.day;
-  const ecart = classeEcart();
-  /* ENH-54 : treize cartes empilées faisaient une page de 5 800 px. Elles se
-     rangent en cinq onglets (CARTES.settings) ; toutes restent dans le DOM,
-     masquées, pour que REFRESH.settings et bind() les trouvent. */
-  return cardLayout('settings', {
-    jeu: `
-    <div class="card"><h2>Profil et plan du jour</h2>
-      <p class="note">${S.profil.set ? `Ton profil : <b>${esc(profilLigne())}</b>.` : 'Pas encore renseigné : l\'assistant t\'attend en tête d\'Aujourd\'hui.'}</p>
-      ${S.profil.set ? `<div class="chips mt-2">${profilFocusHtml()}</div>
-      ${aide('focus', '<p class="note">Les focus ponctuels remontent leurs cartes sans remplacer ton style. Les poids de chaque catégorie sont dans <code>profils.js</code>.</p>')}` : ''}
-      ${ecart ? `<p class="note">${esc(ecart)}</p>` : ''}
-      <div class="row mb-3"><button class="btn sm ghost" data-refaire="1">Refaire le questionnaire</button></div>
-      <div class="grid">
-        <label class="f">Ce que le plan vise<select id="dFocus" data-day="focus">${Object.entries(FOCUS).map(([k,l])=>`<option value="${k}" ${d.focus===k?'selected':''}>${l}</option>`).join('')}</select>${planPoseParLeStyle() ? `<span class="note">Posé par ton style (${esc(PROFILS.styles[S.profil.style].n)}).</span>` : ''}</label>
-        <label class="f">Place de la recherche<select id="dRes" data-day="research">${Object.entries(RESEARCH_MODE).map(([k,l])=>`<option value="${k}" ${researchMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
-        <label class="f">Place des formes de vie<select id="dLf" data-day="lf">${Object.entries(LF_MODE).map(([k,l])=>`<option value="${k}" ${lfMode()===k?'selected':''}>${l}</option>`).join('')}</select></label>
-        <label class="f">Je me connecte toutes les<select id="dInt" data-day="interval">${[30,60,90,120,180].map(v=>`<option value="${v}" ${+d.interval===v?'selected':''}>${v} min</option>`).join('')}</select></label>
-        <label class="f">Horizon<select id="dHz" data-day="horizon">${[12,24,48].map(v=>`<option value="${v}" ${+d.horizon===v?'selected':''}>${v} h</option>`).join('')}</select></label>
-        <label class="f">Nuit : de (heure) — coucher<input id="dNs" type="time" data-day="nightStart" value="${hhmmDe(d.nightStart)}"></label>
-        <label class="f">à (heure) — réveil<input id="dNe" type="time" data-day="nightEnd" value="${hhmmDe(d.nightEnd)}"></label>
-      </div>
-      <div class="bascules">
-        ${bascule('dNight', 'data-day="night"', 'Mise à l\'abri (nuit, absence)', d.night)}
-      </div>
-      <div class="grid">
-        <label class="f">Retour vers (heure)<input id="dBack" type="time" step="3600" data-day="backHour" value="${d.backHour==null?'':hhmmDe(d.backHour)}"><span class="note">Vide : retour dans ${nightLen()} h, la durée de la nuit.</span></label>
-      </div>
-      <p class="note" id="daySum"></p>
-      ${aide('jour', '<p class="note" id="aideJour"></p>')}
-    </div>
-    <div class="card"><h2>Formes de vie découvertes</h2>
-      <div class="chips">${lfSettingsHtml()}</div>
-      <p class="note">Copilote s'en sert pour te conseiller la forme de vie de tes colonies.</p>
-      ${raceRows()}
-    </div>
-    <div class="card"><h2>Bonus</h2>
-      <div class="bascules">
-        ${bascule('sGeo','data-set="geo"','Géologue (+10 % production)', s.geo)}
-        ${bascule('sEng','data-set="eng"','Ingénieur (+10 % énergie)', s.eng)}
-        ${bascule('sOver','data-set="crawlerOverload"','Foreuses en surcharge 150 %', s.crawlerOverload, 'Moitié plus de bonus, énergie doublée. À régler comme dans le jeu.')}
-        ${bascule('sColCargo','data-set="colCargo"','Collecteur : +25 % soute transporteurs', s.colCargo)}
-      </div>
-      <div class="grid">
-        <label class="f">Ratio d'échange M:C:D<input id="sRatio" data-set="ratio" value="${s.ratio.join(':')}"></label>
-      </div>
-    </div>
-    <div class="card"><h2>Énergie</h2>
-      <div class="bascules">
-        ${bascule('sSats','data-set="sats"','Autoriser les satellites solaires dans les recommandations', s.sats, 'Moins chers que la centrale sur une planète chaude, mais un satellite part en débris au premier raid, grossit le butin de l\'attaquant, et l\'énergie retombe avec lui. Ceux que tu as déjà posés comptent dans ta production, réglage ou non.')}
-      </div>
-      ${aide('energie', '<p class="note">Sans cette case, le copilote ne propose que la centrale solaire et la centrale de fusion. Planète par planète, le réglage se surcharge dans l\'onglet Planètes.</p>')}
-    </div>`,
-    defense: `
-    <div class="card"><h2>Modèle de défense</h2>
-      <div class="grid">
-        <div class="f"><span>Modèle</span>${defPicker(s.defModele)}</div>
-        <label class="f">Palier visé<select id="sDefP" data-def="palier">${defPalierOpts(s.defPalier)}</select><span class="note">En ${esc(DEF[defAncre(defRatio(s.defModele) || {})].p)}. « Compléter » part de ce que la planète a déjà.</span></label>
-        ${(()=>{ const st = S.profil.set ? PROFILS.styles[S.profil.style] : null; if(!st || st.plancher == null) return '';
-          const v = s.defPlancher == null ? '' : String(s.defPlancher);
-          return `<label class="f">Plancher<select id="sDefF" data-def="plancher"><option value="" ${v===''?'selected':''}>Comme le profil (${st.plancher})</option>${DEF_PLANCHERS.map(x=>`<option value="${x}" ${v===String(x)?'selected':''}>${x === 0 ? 'Aucun' : x}</option>`).join('')}</select><span class="note">En packs du modèle. Profil ${esc(st.n)} : tant que le palier n'est pas atteint, ses cartes passent d'abord.</span></label>`; })()}
-        <label class="f">Durée max d'une carte<select id="sDefD" data-def="duree">${DEF_DUREES.map(x=>`<option value="${x}" ${num(s.defDuree,4)===x?'selected':''}>${x} h de chantier</option>`).join('')}</select><span class="note">Au-delà, le reste sort sur la carte suivante.</span></label>
-      </div>
-      ${defModeleCarte(s.defModele)}
-      ${s.defModele === 'perso' ? `<div class="grid tight">${DEF_RATIO.map(k=>`<label class="f">${esc(DEF[k].n)}<input id="sDefR-${k}" type="number" min="0" step="1" data-def="${k}" value="${num(S.settings.defPerso[k])}"></label>`).join('')}</div>
-      <p class="note">Combien de pièces par lanceur de plasma. Les deux boucliers restent hors modèle.</p>` : ''}
-      ${S.profil.set && s.defModele === (PROFILS.styles[S.profil.style] || {}).defense
-        ? `<p class="note">Posé par ton profil (<b>${esc(PROFILS.styles[S.profil.style].n)}</b>). En choisir un autre ici le détache du profil : refaire le questionnaire ne le remettra plus.</p>` : ''}
-      ${aide('defense', '<p class="note">Les cartes Défense du plan ne proposent que les pièces de ce modèle, dans ses proportions. Outils › Défense dit, planète par planète, ce qui manque et ce que ça coûte ; une planète peut y prendre un autre modèle que celui-ci.</p>')}
-    </div>
-    ${secuCard()}`,
-    affichage: `
-    <div class="card"><h2>Allure du panneau</h2>
-      <div class="grid">
-        <label class="f">Thème<select id="sSkin" data-set="skin">${Object.entries(HABILLAGES).map(([k,l])=>`<option value="${k}" ${habillage()===k?'selected':''}>${l}</option>`).join('')}</select></label>
-      </div>
-      <div class="bascules">
-        ${bascule('sMuet','data-set="muet"','Couper le son', s.muet, 'Plus de carillon à la fin d\'un minuteur, et les notifications du navigateur arrivent sans bruit.')}
-      </div>
-      <div class="row"><button class="btn ghost" id="uiReset">Réinitialiser l'affichage des cartes</button></div>
-      ${aide('allure', '<p class="note">Relief suit le clair ou le sombre de ton système ; les trois autres sont sombres. Le changement se voit tout de suite, sur toutes les pages.</p><p class="note mt-2">Les cartes et les sections que tu as ouvertes ou fermées le restent, sur ce poste, d\'une page et d\'une session à l\'autre. « Réinitialiser l\'affichage des cartes » les remet comme au premier jour : alertes ouvertes, le reste fermé.</p>')}
-    </div>
-    ${affichageCard()}
-    <div class="card"><h2>Page du jeu</h2>
-      <div class="bascules">
-        ${masqueCases('sMq')}
-        ${bascule('sLean','data-set="lean"','Épurer la page du jeu', s.lean, 'En-tête et pied de page en moins ; fond sombre, menu plus grand.')}
-        ${bascule('sNoShop','data-set="noshop"','Masquer les menus payants', s.noshop, 'Marchand, Mess des officiers, boutiques.')}
-      </div>
-      <div class="row"><button class="btn" type="button" data-masque-tout>${toutMasque() ? 'Tout afficher' : 'Tout masquer'}</button></div>
-      <p class="note">Allure seulement : la page du jeu, pas ce panneau, ni les calculs.</p>
-      ${aide('page', '<p class="note">Masqué, pas supprimé : les éléments restent dans la page et le jeu marche comme avant. La barre de ressources, les planètes, le menu et les alertes du jeu ne se masquent jamais. Chaque choix s\'applique tout de suite, dans tous les onglets ouverts, et se retrouve au prochain lancement.</p>')}
-    </div>`,
-    moteur: `
-    ${reglesCard()}
-    <div class="card"><h2>Fiabilité des calculs</h2>
-      <p class="note">Formules communautaires (wiki OGame, forum officiel) : compare une fois avec ton jeu et ajuste les réglages si besoin.</p>
-      ${aide('fiabilite', '<p class="note">Production, coûts et temps de vol sont stables depuis des années. Moins sûrs : la production de deutérium (formule des univers récents, dépend de la température max), la durée des bâtiments de niveau 1 à 5, et les plafonds d\'expédition.</p>')}
-    </div>`,
-    donnees: `
-    <div class="card"><h2>Sauvegarde</h2>
-      <p class="note">Tes données restent dans ce navigateur.</p>
-      <div class="row"><button class="btn" id="ioSave">Enregistrer dans un fichier</button><button class="btn" id="ioLoad">Charger un fichier…</button><input type="file" id="ioFile" accept="application/json,.json" hidden><button class="btn ghost" id="ioReset">Réinitialiser…</button><span class="note" id="ioMsg"></span></div>
-      <textarea id="ioText" aria-label="Données JSON" placeholder="Ou colle ici une sauvegarde pour l'importer"></textarea>
-      <div class="row"><button class="btn" id="ioImport">Importer le texte collé</button></div>
-      ${aide('sauvegarde', '<p class="note">« Enregistrer » écrit un fichier <code>save.json</code> : mets-le dans le dossier du dépôt et pousse-le, puis « Charger » le relit sur l\'autre poste.</p>')}
-      ${noListe()}
-    </div>
-    ${versionCard()}`,
-  });
-},
-};
+const VIEWS = {...VIEWS_AUJOURDHUI, ...VIEWS_RELEVE, ...VIEWS_EMPIRE, ...VIEWS_OUTILS, ...VIEWS_DEFENSE, ...VIEWS_REGLAGES};
 
 const gauge = (k,cls,label,v,sub) => `<div class="gauge"><span class="k"><i class="bg-${cls}"></i>${label}</span><span class="v c-${cls}">${v}</span>${sub?`<span class="s">${sub}</span>`:''}</div>`;
-function factorPill(f){ return f>=1 ? `<span class="pill good">Énergie OK</span>` : `<span class="pill ${f<.8?'bad':'warn'}">Rendement ${Math.round(f*100)} %</span>`; }
-/* Les foreuses sont invisibles dans le jeu une fois posées : cette pastille est
-   le seul endroit qui dise combien en profitent encore, et ce qu'elles ajoutent.
-   La surcharge se lit sur la planète quand elle y est connue, comme le fait
-   production() — sinon le pourcentage contredirait les jauges d'à côté. */
-function crawlerPill(p){
-  const max = crawlerMax(p.b.metal, p.b.crystal, p.b.deut); if(!max) return '';
-  const have = p.crawlers||0, over = p.overload != null ? p.overload : S.settings.crawlerOverload;
-  const pct = (crawlerBonus(Math.min(have,max), S.settings.cls, over)*100).toFixed(1).replace('.',',');
-  return `<div class="wide"><span class="pill ${have>=max?'good':'info'}">Foreuses ${fmt(have)} / ${fmt(max)} utiles · +${pct} %</span></div>`;
-}
 
 /**
  * Ce que le panneau DESSINE d'une connexion.
@@ -3812,378 +2670,7 @@ function crawlerPill(p){
  */
 /* Sous le filtre de la météo, seules les cartes de la planète choisie restent. */
 function actsVus(x){ return x.acts.filter(a=>a.kind !== 'expo' && meteoVoit(a)); }
-
-const REFRESH = {
-today(){
-  /* L'historique des débordements avance avec le relevé : c'est lui qui dit,
-     plus bas, si le hangar se justifie (sept jours glissants). */
-  try{ surplusNote(Date.now()); }catch(e){ console.error('Copilote : historique des débordements', e); }
-  const plan = simulateDay(), s0 = plan.sessions[0], night = !!S.day.night;
-  /* Mode nuit : ni construction ni recherche à lancer, le panneau ne doit
-     montrer que la mise à l'abri. Le plan est recalculé à chaque passage,
-     le vider ici ne perd rien. */
-  if(night) for(const x of plan.sessions){ x.acts = []; x.waits = []; }
-  const nowParts = [], a0 = actsVus(s0);
-  /* Un rapatriement proposé dit aussi quels vaisseaux faire suivre pour
-     rapprocher l'arrivée de sa flotte cible. Copie de l'acte : le plan le garde tel quel. */
-  if(!night && a0.some(a=>a.kind==='transfer')){
-    const fcR = flotteCible(plan.now);
-    a0.forEach((a, i) => { if(a.kind !== 'transfer') return;
-      const dst = S.planets.find(p => p.coords === a.dest), aj = flotteAjout(fcR, S.planets[a.p], dst);
-      if(aj) a0[i] = Object.assign({}, a, {why: [a.why, aj].filter(Boolean).join(' ')}); });
-  }
-  const missions = dailyMissions().filter(m=>!missionDone(m) && !refused('m:'+m.id));
-  /* La page du jeu surligne ce que le plan recommande et pose la bande du bas.
-     Elle n'en fait rien d'autre : aucun clic, aucun envoi, ce sont des repères.
-     Publié ici, après les missions, parce que la bande les porte. */
-  if(IS_EXT) try{ chrome.storage.local.set({skin: gameSkin(s0.acts, missions, s0.waits)}); }catch(e){}
-  /* Les focus qui n'ont rien à déplacer en ce moment : leur catégorie existe,
-     mais aucune carte à l'écran ne la porte. C'est dit ici et non à la
-     composition de la carte, parce que seul le rafraîchissement connaît le
-     plan — et dit, parce qu'une case qui ne peut rien faire sans l'annoncer
-     laisse croire que le panneau ne répond pas. Le poids, lui, reste juste :
-     la catégorie est bien poussée, il n'y a simplement rien à pousser. */
-  const pfMuets = document.getElementById('pfMuets');
-  if(pfMuets){
-    const portees = new Set(missions.map(catMission)
-      .concat([].concat(...plan.sessions.map(x=>x.acts.map(catActe)))).filter(Boolean));
-    const muets = Object.values(PROFILS.focus)
-      .filter(f=>f.cats.every(c=>!portees.has(c))).map(f=>f.court || f.n);
-    pfMuets.textContent = muets.length
-      ? `Rien à déplacer pour l'instant, aucune carte n'en relève : ${muets.join(', ')}.` : '';
-  }
-  const timed = missions.filter(meteoVoit).filter(m=>m.at && m.at > plan.now), slotMs = new Map();
-  for(const m of timed){ let host = null; for(const x of plan.sessions) if(x.T <= m.at) host = x; if(host && host!==s0){ if(!slotMs.has(host)) slotMs.set(host, []); slotMs.get(host).push(m); } else m.at = 0; }
-  const nowMs = missions.filter(meteoVoit).filter(m=>!m.info && !(m.at && m.at > plan.now && [...slotMs.values()].some(l=>l.includes(m))));
-  const infoMs = missions.filter(meteoVoit).filter(m=>m.info);
-  const taskHtml = m=>{
-    const ck = missionKey(m), how = ck + '.comment-faire'; uiVu(ck);
-    const [wi, wb] = whyParts([m.why], ck);
-    const meta = (m.tags||[]).map(planetTag).join('') + (m.sol ? `<span>${esc(m.sol)}</span>` : '') + copyChips(m);
-    const btns = `<button class="btn sm" data-done="${m.id}"${m.mark?` data-mark="${m.mark.join(',')}"`:''}>Fait</button>${noBtn('m:'+m.id)}`;
-    return `<li class="task" data-ck="${esc(ck)}"${goAttr(missionGo(m))}><div><div class="q">${qHtml(m.q||'À faire')}${wi}</div><div class="w">${m.whatHtml || esc(m.what)}</div></div><span class="btns">${btns}</span>${meta?`<div class="m">${meta}</div>`:''}${wb}<details class="how"${fold(how, false)}><summary data-fold="${esc(how)}">Comment faire</summary><ol>${m.how.map(x=>`<li>${x}</li>`).join('')}</ol></details></li>`;
-  };
-  /* Une carte « Urgent » passe la limite. */
-  const tache = m => ({html: taskHtml(m), crit: m.sev === 'bad'});
-  const cartesNow = a0.map(a=>({html: actHtml(a,true), crit: false})).concat(nowMs.map(tache));
-  /* Le compteur dit tout ce que la liste porte, cartes masquées comprises. */
-  const nN = document.getElementById('tdNowN'); if(nN) nN.textContent = cartesNow.length ? `(${cartesNow.length})` : '';
-  if(cartesNow.length) nowParts.push(listeCartes('maintenant', cartesNow, 'acts'));
-  const RN = ['métal','cristal','deutérium'];
-  const missTxt = w => { const parts = (w.miss||[]).map((x,j)=>x>0?`${fmt(x)} ${RN[j]}`:'').filter(Boolean); return parts.length ? 'Il manque '+parts.join(' · ') : ''; };
-  /* Les conseils finançables plus tôt passent devant : ceux de maintenant sont
-     déjà en tête, comme actions ; puis les attentes, de la plus courte à la
-     plus longue. Un tri stable garde l'ordre du moteur à heure égale. */
-  s0.waits.sort((x,y)=>(isFinite(x.eta)?x.eta:Infinity) - (isFinite(y.eta)?y.eta:Infinity) || 0);
-  const waits0 = s0.waits.filter(meteoVoit), busy0 = plan.busy.filter(meteoVoit);
-  if(waits0.length) nowParts.push(`<details class="volet"${fold('attente', false)}><summary class="note" data-fold="attente">En attente de ressources (${waits0.length})</summary>${cartesMenu('attente')}${listeCartes('attente', waits0.map(w=>({crit:false, html:`<li class="wait"><div><div class="q">${qHtml(w.q)}</div><div class="w">${esc(w.what)}</div></div><span class="pill ${w.fin && w.fin.statut==='jamais' ? 'bad' : 'warn'}">${w.fin ? esc(statutFinancement(w.fin)) : isFinite(w.eta)?'ressources réunies vers '+formatTime(plan.now+w.eta*1000):'à faire livrer, ou agrandir le hangar'}</span><div class="m">${esc(missTxt(w))}${isFinite(w.eta)?` <span>(dans ${dur(w.eta)})</span>`:''}</div>${w.why?`<div class="m">${esc(w.why)}</div>`:''}${w.heldBy?`<div class="m">Retenu : tu épargnes pour ${esc(w.heldBy)}.</div>`:''}</li>`})), 'acts')}</details>`);
-  if(busy0.length || infoMs.length) nowParts.push(`<details class="volet"${fold('encours', false)}><summary class="note" data-fold="encours">Déjà en cours (${busy0.length + infoMs.length})</summary>${cartesMenu('encours')}${listeCartes('encours', busy0.map(b=>({crit:false, html:`<li class="busy"><div><div class="q">${qHtml(b.q)} · en cours</div><div class="w">${esc(b.what)}</div></div><span class="mono note">fin ${formatTime(b.end)}</span></li>`})).concat(infoMs.map(m=>({crit:false, html:`<li class="busy"><div><div class="q">${qHtml(m.q)} · info</div><div class="w">${esc(m.what)}</div></div><span></span><div class="m">${(m.tags||[]).map(planetTag).join('')}${esc(m.why)}</div></li>`}))), 'acts')}</details>`);
-  const nextS = plan.sessions.slice(1).find(x=>actsVus(x).length);
-  if(!a0.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${formatTime(nextS.T)}</b>.`:''}</p>`);
-  const aide = `<details class="volet"${fold('aide', false)}><summary class="note" data-fold="aide">Comment lire ces cartes</summary><p class="note mt-2"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. <b>Non</b> met la carte de côté jusqu'à ce que tu la remettes. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p></details>`;
-  const remets = noListe();
-  document.getElementById('tdNow').innerHTML = nowParts.join('') + aide + prioHtml(plan) + remets;
-  /* Ce que chaque carte contient, pour le compteur de son onglet : les
-     chantiers sont des conseils, les missions portent leur gravité. */
-  RESUMES.maintenant = resumeDe(a0.map(()=>({sev:'info'})).concat(nowMs.map(m=>({sev:m.sev, key:'m:'+m.id}))), 'maintenant');
-  /* Le bloc Expéditions se recalcule à chaque passage, comme le reste : un
-     emplacement qui se libère — retour de flotte, échec, annulation — fait
-     apparaître sa recommandation sans que le joueur recharge la page. */
-  const eb = document.getElementById('expoBloc');
-  if(eb){ const r = expoHtml(); eb.innerHTML = r.html; document.getElementById('expoSum').textContent = r.sum;
-    RESUMES.expeditions = resumeDe(Array.from({length:r.n || 0}, ()=>({sev:'info'})), 'expeditions'); }
-  /* La sécurité se calcule même en mode nuit : une attaque ne dort pas. Les
-     conseils finançables maintenant, ceux de la première connexion, nourrissent
-     les dépenses d'urgence ; vidés en mode nuit, le plan retombe sur le stock. */
-  try{ const sc = securiteHtml(s0.acts); document.getElementById('tdSecuAlerte').innerHTML = sc.alerte; document.getElementById('tdSecu').innerHTML = sc.bloc;
-    /* Une attaque est critique : son onglet prend la main, une fois. */
-    RESUMES.attaque = resumeDe(sc.items, 'attaque');
-    RESUMES.securite = sc.rappel ? {count:1, maxLevel:'imp', critiques:[]} : null; }
-  catch(e){ console.error('Copilote : plan de sécurité', e); }
-  /* Le bloc des conseils du moteur tient la place de l'ancienne carte
-     Alertes : les constats non servis et non ignorés, puis les alertes qui ne
-     sont pas des règles. Le compteur de l'onglet compte les mêmes lignes. */
-  try{ const sp = surplusHtml(plan); RESUMES.surplus = resumeDe(sp.items, 'surplus'); document.getElementById('tdSurplus').innerHTML = sp.html; }
-  catch(e){ console.error('Copilote : ressources en trop', e); }
-  RESUMES.alertes = resumeDe(conseilLignes(plan).filter(meteoVoit).map(a=>({sev:a.sev, key:a.what})), 'alertes');
-  document.getElementById('tdAlerts').innerHTML = conseilsHtml(plan);
-  publieCritiques(plan.constats);
-  const later = plan.sessions.slice(1).filter(x=>actsVus(x).length || slotMs.has(x));
-  const slot = x=>`<div class="slot"><div class="time">${formatTime(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${actsVus(x).map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
-  const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
-  const phases = [], horizonEnd = plan.now + (+S.day.horizon||24)*3600e3;
-  for(const x of plan.sessions){ const key = x.goals.map(g=>g.key).join('|') || 'free'; const last = phases[phases.length-1]; if(last && last.key===key) continue; if(last) last.to = x.T; phases.push({key, from:x.T, to:horizonEnd, goals:x.goals}); }
-  const nightStartAfter = t=>{ const d = poseHeure(new Date(t), +S.day.nightStart); if(d.getTime() <= t) d.setDate(d.getDate()+1); return d.getTime(); };
-  for(const ph of phases){ const n = nightStartAfter(ph.from); if(n < ph.to) ph.to = n; }
-  const launchedAt = label => { for(const x of plan.sessions) if(x.acts.some(a=>a.what===label || (label==='le vaisseau de colonisation' && a.kind==='ship'))) return x.T; return null; };
-  const phaseHtml = ph => {
-    if(ph.key==='free') return `<li><span class="pill good">Soutenu</span><span class="what">${formatTime(ph.from)} → ${formatTime(ph.to)}</span><span class="why">Rien de gros à financer : dépense tout à chaque connexion, mines et bâtiments à la chaîne.</span></li>`;
-    const txt = ph.goals.map(g=>{ const at = launchedAt(g.label); return `on garde le ${g.res} pour ${g.label}${at?`, lancement vers ${formatTime(at)}`:''}`; }).join(' ; ');
-    return `<li><span class="pill warn">Tempo</span><span class="what">${formatTime(ph.from)} → ${formatTime(ph.to)}</span><span class="why">${esc(txt.charAt(0).toUpperCase()+txt.slice(1))}. Les bâtiments n'utilisent que le surplus. Bon moment pour la flotte : expéditions, espionnage d'inactifs.</span></li>`;
-  };
-  const strategy = `<ul class="advice mb-3">${phases.slice(0,5).map(phaseHtml).join('')}</ul>`;
-  /* Où en est le début de partie. Le compte est le nombre de jalons franchis,
-     qui peuvent l'être dans le désordre : on peut tenir Astrophysique sans
-     Ordinateur 2. « Prochaine étape » est le premier non franchi dans l'ordre
-     de la liste, celui qui ouvre la suite. Le bloc s'efface de lui-même une
-     fois les onze acquis. */
-  const mDone = MILESTONES.filter(m=>milestoneDone(m)).length, mNext = MILESTONES.find(m=>!milestoneDone(m));
-  const mMiss = mNext ? milestoneMissing(mNext) : [];
-  const debut = mNext ? `<ul class="advice mb-3"><li><span class="pill info">Début de partie · ${mDone} / ${MILESTONES.length}</span><span class="what">Prochaine étape : ${esc(milestoneLabel(mNext))}</span><span class="why">${mMiss.length?`Il manque : ${esc(mMiss.join(', '))}. `:''}${esc(mNext.why)}</span></li></ul>` : '';
-  document.getElementById('tdDay').innerHTML = night ? `<p class="note">Mode nuit : seule la mise à l'abri compte. Le plan du jour revient dès que tu repasses en mode jour.</p>` : debut + strategy + (later.length
-    ? `<div class="tl">${later.slice(0,6).map(slot).join('')}</div>${later.length>6?`<details class="volet mt-3"${fold('journee.suite', false)}><summary class="note" data-fold="journee.suite">Voir les ${later.length-6} connexions suivantes</summary><div class="tl mt-3">${later.slice(6).map(slot).join('')}</div></details>`:''}`
-    : `<p class="note">Aucune action prévue sur la période : tes files sont occupées ou tes ressources trop faibles.</p>`)
-    + `<div class="sumline mt-3"><span class="pill good">Production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} %</span><span class="note">en ${S.day.horizon} h, de ${fmt(plan.startV)} à ${fmt(plan.endV)} éq. métal/h</span></div>`
-    + (plan.ups.length ? `<p class="note mt-2">${esc(plan.ups.join(' · '))}</p>` : '')
-    + `<p class="note mt-2">Connexions sans action masquées. Avant une longue absence, dépense ou mets tes ressources à l'abri.</p>`;
-  renderTimers();
-  document.getElementById('tdDaySum').textContent = night ? 'mode nuit'
-    : `${later.length} connexion${later.length>1?'s':''} à venir · production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${S.day.horizon} h`;
-},
-empire(){ REFRESH.planets(); REFRESH.research(); },
-/* Le seul retour de l'écran Réglages. Sans lui, changer la priorité, l'horizon
-   ou l'intervalle n'affichait rien du tout : la valeur partait bien au
-   stockage et le plan s'en servait, mais il fallait passer sur Aujourd'hui
-   pour savoir si le choix avait pris. Un réglage muet est un réglage dont on
-   doute — et le badge du haut, lui, ne parle que de l'univers. */
-settings(){
-  const el = document.getElementById('daySum'); if(!el) return;
-  const d = S.day;
-  /* Avant le retour du mode nuit : les menus restent à l'écran la nuit, et une
-     phrase qui disparaît quand le plan dort n'explique plus rien. */
-  const choix = {focus: [d.focus, FOCUS], research: [researchMode(), RESEARCH_MODE], lf: [lfMode(), LF_MODE]};
-  const aide = document.getElementById('aideJour');
-  if(aide) aide.innerHTML = Object.keys(AIDE_JOUR).map(k=>{
-    const [v, table] = choix[k];
-    return `<b>${esc(AIDE_JOUR[k].t)}</b> · ${esc(table[v] || '')} — ${esc(AIDE_JOUR[k].v[v] || '')}`;
-  }).join('<br>');
-  if(d.night){ el.textContent = 'Mode nuit : le plan est en pause, seule la mise à l\'abri compte.'; return; }
-  const plan = simulateDay();
-  /* Les connexions qui portent quelque chose, dites comme telles : le résumé
-     d'Aujourd'hui compte aussi les missions, et deux lignes qui annoncent le
-     même mot avec deux chiffres différents est le pire des deux mondes. */
-  const n = plan.sessions.slice(1).filter(x=>actsVus(x).length).length;
-  const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
-  // Deux heures égales ne font pas une nuit de zéro heure : elles n'en font aucune.
-  const nuit = +d.nightStart === +d.nightEnd ? 'aucune nuit' : `nuit ${heureTxt(d.nightStart)}–${heureTxt(d.nightEnd)}`;
-  el.textContent = `${FOCUS[d.focus]||''} · toutes les ${d.interval} min · ${nuit} · `
-    + `${n} connexion${n>1?'s':''} avec quelque chose à lancer · `
-    + `production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${d.horizon} h`;
-},
-tools(){ (REFRESH[toolTab()]||(()=>{}))(); },
-explore(){
-  const el = document.getElementById('exColo'); if(!el || !API || !API.planets) return;
-  const home = coloFrom().coords;
-  el.innerHTML = coloCandHtml();
-
-  const raids = raidTargets(), safe = raids.filter(r=>!r.outlaw).slice(0,8), risky = raids.filter(r=>r.outlaw).slice(0,4);
-  const sc = shipStats('sc');
-  const row = r=>{ const f = flight(home, r.coords, {sc:1}, 100), last = S.raids[r.coords]; return `<tr><td class="mono">${r.coords}</td><td>${esc(r.name)} <span class="note">(${esc(r.status)})</span></td><td class="n">${fmt(r.score)}</td><td class="n">${f?dur(f.secs):'–'}</td><td>${r.outlaw?'<span class="pill bad">plus fort que toi</span>':r.longInactive?'<span class="pill good">inactif longue durée</span>':'<span class="pill info">inactif</span>'}${last?` <span class="note">${last.probe?'espionné':'pillé'} ${formatTime(last.at)}</span>`:''}</td><td>${r.outlaw?'':`<button class="btn sm" data-raidprep="${r.coords}" data-raidname="${esc(r.name)}">Préparer</button>`}</td></tr>`; };
-  document.getElementById('exRaid').innerHTML = (safe.length||risky.length) ? `<div class="tbl-wrap"><table><thead><tr><th>Coordonnées</th><th>Joueur</th><th class="n">Points</th><th class="n">Vol PT</th><th></th><th></th></tr></thead><tbody>${safe.map(row).join('')}${risky.length?`<tr><td colspan="6" class="note">À éviter tant que tu as ta protection (avertissement « joueur plus puissant ») :</td></tr>${risky.map(row).join('')}`:''}</tbody></table></div><p class="note">Points = taille de son économie, donc ce que tu peux espérer piller. Espionne avant d'attaquer : il faut ni flotte ni défense. Si le jeu refuse l'attaque, c'est la protection débutant.</p>` : '<p class="note">Aucun inactif repéré dans un rayon de 30 systèmes.</p>';
-
-  const rp = raidPlan(), rpEl = document.getElementById('rdPlan');
-  if(rp && rpEl){
-    const okShips = Object.keys(rp.ships).length>0;
-    /* Les jauges ne valent que s'il y a un butin, mais les avertissements, eux,
-       valent toujours : sur une cible à zéro ressource le joueur ne voyait que
-       « Saisis les ressources » après avoir collé un rapport entier, et croyait
-       que le collage avait échoué. */
-    const jauges = rp.need<=0 ? '<p class="note">Saisis les ressources du rapport, ou colle-le, pour calculer la flotte.</p>' : `<div class="res">${gauge('m','m','Butin possible',fmt(rp.need),`${Math.round(rp.rate*100)} % du stock, ${rp.rateSeen ? 'lu dans le rapport' : 'd\'après ta classe'}`)}${gauge('c','c','Ramené',fmt(rp.got),okShips?shipList(rp.ships):'aucun transporteur')}${gauge('d','d','Carburant',fmt(rp.fuel),'aller-retour')}${gauge('e','e','Vol',rp.fl?dur(rp.fl.secs):'–','aller')}</div>`;
-    rpEl.innerHTML = `${jauges}
-      ${S.raid.mismatch ? `<p class="pill bad mt-2">Ce rapport parle de ${esc(S.raid.mismatch)}, pas de ${esc(S.raid.coords)}. Rien n'a été pris : colle celui de la bonne cible, ou ouvre celle-là.</p>` : ''}
-      ${rp.defList ? `<p class="pill warn mt-2">Défense lue : ${esc(rp.defList)} — ${fmt(rp.defValue)} en équivalent métal, contre ${fmt(rp.lootValue)} de butin dans la même unité. ${rp.defValue >= rp.lootValue ? 'Percer coûte plus cher que ce que ça rapporte.' : 'À toi de juger si ça vaut la flotte que tu y perdras.'} Sa défense repousse à 70 % gratuitement et ne laisse aucun débris : tu paies ton écran, lui récupère la sienne. Le copilote ne le compose pas — dimensionner un combat demande un simulateur, et sa sortie serait une fourchette, pas un chiffre.</p>` : ''}
-      ${rp.fleetList ? `<p class="pill warn mt-2">Flotte au sol : ${esc(rp.fleetList)}. Ça tire, donc c'est un combat, et le copilote n'en simule aucun.</p>` : ''}
-      ${!rp.defKnown || !rp.fleetKnown ? `<p class="pill bad mt-2">Ton rapport ne montre pas ${!rp.defKnown && !rp.fleetKnown ? 'sa défense ni sa flotte' : (!rp.defKnown ? 'sa défense' : 'sa flotte')}. Envoie plus de sondes, ou monte ton Espionnage : le rapport s'étoffe avec les deux. Tant qu'on ne l'a pas lu, « il n'a rien » et « on n'a rien vu » se ressemblent trop pour y envoyer une flotte.</p>` : ''}
-      ${!S.raid.safe ? '<p class="pill warn mt-2">Coche la case seulement si le rapport ne montre ni flotte ni défense. Sinon, ne l\'attaque pas.</p>' : ''}
-      ${rp.stale && rp.need>0 ? '<p class="pill bad mt-2">Rapport périmé (plus de 2 h) : réespionne avant d\'attaquer, le stock a changé.</p>' : ''}
-      ${rp.short>0 ? `<p class="note">Il te manque ${fmt(rp.short)} de soute à ${esc(rp.home.name)} : le reste attendra un second passage.</p>` : ''}
-      ${S.raid.safe && !rp.stale && okShips && rp.net>0 ? `<ul class="acts mt-2">${actHtml({q:'Flotte · '+rp.home.name, what:`Attaquer ${S.raid.coords} avec ${shipList(rp.ships)}`, why:`Galaxie ou Flotte → ${S.raid.coords} → mission Attaquer · retour vers ${formatTime(Date.now()+2*rp.fl.secs*1000)}`, cost:[0,0,rp.fuel], dur:2*rp.fl.secs, end:Date.now()+2*rp.fl.secs*1000, kind:'raid', ships:rp.ships, p:cargoHomeIndex(), coords:S.raid.coords, dest:S.raid.coords, mission:1}, true)}</ul>` : ''}`;
-  }
-  const ex = exploreSystems();
-  document.getElementById('exExplore').innerHTML = `<ul class="advice">${ex.map(x=>`<li><span class="pill info">${x.left} pos.</span><span class="what">Système ${x.sys}</span><span class="why">${x.dist===0?'Ton système':`À ${x.dist} système${x.dist>1?'s':''}`} : ${x.left} position${x.left>1?'s':''} pas explorée${x.left>1?'s':''} depuis 7 jours.</span></li>`).join('')}</ul><p class="note">Missions de découverte : bouton Découverte dans Galaxie. Copilote retient les positions explorées quand il voit tes missions dans Mouvements de flotte. Pour les expéditions, alterne la position 16 de systèmes voisins si les résultats baissent.</p>`;
-},
-planets(){
-  let tm=0,tc=0,td=0, worst=1;
-  const voc = vocations(), ci = centreIndex();
-  S.planets.forEach((p,i)=>{
-    const pr=production(p); tm+=pr.m; tc+=pr.c; td+=pr.d; worst=Math.min(worst,pr.factor);
-    const st=stockNow(p), full = i2 => { const r=[pr.m,pr.c,pr.d][i2]; return r>0 && st[i2]<pr.cap[i2] ? `plein dans ${dur((pr.cap[i2]-st[i2])/r*3600)}` : (st[i2]>=pr.cap[i2]?'hangar plein':''); };
-    document.getElementById('pres-'+i).innerHTML =
-      gauge('m','m','Métal',fmt(pr.m),full(0)) + gauge('c','c','Cristal',fmt(pr.c),full(1)) + gauge('d','d','Deutérium',fmt(pr.d),full(2)) +
-      gauge('e','e','Énergie',(pr.eBal>=0?'+':'')+fmt(pr.eBal), `${fmt(pr.eProd)} produits / ${fmt(pr.eCons)}${p.eAdj<0?` · dont ${fmt(p.eAdj)} formes de vie`:''}`) +
-      crawlerPill(p);
-    /* Les trois chiffres dans le résumé : c'est ce qu'on vient lire, et la
-       carte reste fermée pour le lire. */
-    const ps = document.getElementById('psum-'+i); if(ps) ps.innerHTML = [pr.m, pr.c, pr.d].map(fmtLigne).join(' · ');
-    /* Le stock ne se lit en chiffres nulle part ailleurs — les jauges au-dessus
-       disent la production. Son résumé le rend lisible sans ouvrir le volet,
-       qui ne sert qu'à le recaler. */
-    const pk = document.getElementById('pstk-'+i); if(pk) pk.innerHTML = st.map(fmtLigne).join(' · ');
-    const fl = document.getElementById('pfleet-'+i); if(fl){ const l = shipList(p.ships); fl.innerHTML = l ? `<b>Flotte à quai :</b> ${esc(l)}` : (IS_EXT ? 'Flotte inconnue : ouvre la page Flotte du jeu sur cette planète.' : ''); }
-    /* La vocation et la note du centre suivent les coordonnées, la température
-       et les niveaux qu'on tape dans la carte : sans ça elles restaient
-       périmées jusqu'au prochain rendu complet. On ne réécrit que du texte —
-       la case du centre garde son écouteur, qu'un innerHTML emporterait. */
-    const vq = document.getElementById('pvoc-'+i); if(vq) vq.innerHTML = vocPill(voc[p.id]);
-    const vw = document.getElementById('pvocw-'+i); if(vw) vw.innerHTML = vocRaison(voc[p.id]);
-    const nb = prioCount(p.id);
-    const po = document.getElementById('pobj-'+i); if(po) po.textContent = nb ? `${nb} priorité${nb > 1 ? 's' : ''}` : '';
-    /* Un volet qui promet une explication et s'ouvre sur du vide est du bruit
-       de plus, pas de moins. Il se cache quand les trois raisons sont muettes. */
-    const pq = document.getElementById('pq-'+i);
-    if(pq) pq.hidden = !(vocRaison(voc[p.id]) || (i === ci && centreWhy()) || centreNoteHtml(p, i, ci));
-    const cn = document.getElementById('pctrn-'+i); if(cn) cn.innerHTML = centreNoteHtml(p, i, ci);
-  });
-  document.getElementById('empireRes').innerHTML = gauge('m','m','Métal',fmt(tm),fmt(tm*24)+' / jour')+gauge('c','c','Cristal',fmt(tc),fmt(tc*24)+' / jour')+gauge('d','d','Deutérium',fmt(td),fmt(td*24)+' / jour')+gauge('e','e','Planètes',S.planets.length,`max ${1+Math.ceil(S.tech.astro/2)} (Astro ${S.tech.astro})`);
-  document.getElementById('empireFactor').innerHTML = factorPill(worst);
-  /* Le mélange, en clair : c'est lui qui décide quelle mine passe devant, et
-     tant qu'il ne se lisait nulle part le classement avait l'air arbitraire. */
-  const mix = document.getElementById('empireMix');
-  if(mix){
-    const w = besoinEmpire(), r = S.settings.ratio, som = r[0]+r[1]+r[2];
-    const tot = Math.max(0,tm)+Math.max(0,tc)+Math.max(0,td);
-    const part = tot > 0 ? [tm,tc,td].map(x=>Math.round(Math.max(0,x)/tot*100)) : null;
-    mix.innerHTML = part
-      ? `Mélange produit <b>${part.join(' / ')} %</b> de métal / cristal / deutérium, pour une cible de <b>${[0,1,2].map(i=>Math.round(r[i]/som*100)).join(' / ')} %</b> — ton ratio d'échange ${r.join(':')} lu comme des quantités. Le classement des mines en tient compte : ${[0,1,2].map(i=>`${NOM_RES[i]} ×${w[i].toFixed(2)}`).join(', ')}. Un facteur sous 1 veut dire que tu en produis déjà plus que ta part, donc qu'un niveau de plus vaut moins qu'au cours.`
-      : 'Aucune production : rien à mélanger pour l\'instant.';
-  }
-  document.getElementById('colonyNote').textContent = S.tech.astro ? '' : 'Les colonies demandent Astrophysique 1.';
-},
-research(){
-  /* Le labo de la planète, et ce que le Réseau en fait quand il y en a un :
-     c'est le premier qui débloque, le second qui donne les durées de la
-     colonne d'à côté. Les afficher ensemble évite de lire l'un pour l'autre. */
-  const lv = labLevel(), eff = labEffectif();
-  document.getElementById('labLv').textContent = eff > lv ? `${lv} · réseau ${eff}` : lv;
-  for(const k of Object.keys(T)){
-    const L=S.tech[k]+1, miss=reqOk(T[k].req, null);
-    document.getElementById('tc-'+k).innerHTML = costHtml(levelCost(T[k],L));
-    document.getElementById('tt-'+k).textContent = dur(researchTime(k,L));
-    document.getElementById('ts-'+k).innerHTML = miss.length?`<span class="pill bad">${miss.join(', ')}</span>`:`<span class="pill good">disponible</span>`;
-  }
-},
-moon(){
-  const m = S.moonCalc, p = moonPlanete(), k = moonShip();
-  const n = Math.floor(Math.max(0, +m.n || 0)), df = moonDf();
-  const out = document.getElementById('moonOut'), noteEl = document.getElementById('moonNote');
-  if(!n){
-    out.innerHTML = `<p class="note span-all">Dis combien de vaisseaux il envoie, et la carte chiffre le tir.</p>`;
-    noteEl.innerHTML = '';
-    return;
-  }
-  /* Ce qui compte n'est pas ce qu'il envoie, c'est ce qui meurt : les débris
-     viennent des coques détruites, et les survivants rentrent chez lui. Sans
-     ça la carte promettait 20 % à qui envoie 1 667 chasseurs sur une défense
-     qui n'en tue que mille — et une facture en dizaines de millions avec.
-     Défense jamais relevée : on suppose que tout meurt, et la jauge le dit. */
-  const { tues, morts } = luneMorts(p, k, n, moonBou());
-  const t = luneTir(k, morts, df);
-  const rec = ((p || {}).ships || {}).rec || 0, soute = shipStats('rec').cargoEff;
-  const vise = Math.min(20, Math.max(1, Math.round(+m.viser || 12)));
-  const pour = luneVaisseaux(k, vise, df);
-  out.innerHTML =
-    gauge('m','m','Débris', fmt(t.debris), 'par tir') +
-    gauge('c','c','Chance', moonPct(t.chance), 'par tir') +
-    (tues == null ? gauge('e','e','Ta défense', '?', 'jamais relevée')
-                  : gauge('e','e','Ta défense tue', fmt(tues), moonNom(k, tues))) +
-    gauge('d','d','Pour ' + moonPct(vise), fmt(pour), moonNom(k, pour)) +
-    (rec && soute && t.debris ? gauge('m','m','Ramasser', fmt(Math.ceil(t.debris / (rec * soute))), 'voyages, après le tir') : '');
-
-  const f = luneFacture(k, morts, df), sol = luneFlotteAuSol(p), av = [];
-  if(tues === 0)
-    av.push(`Ta défense <b>n'en tue aucun</b> : la flotte repart entière, il n'y a aucun débris, et il te pille au passage.`);
-  else if(tues != null && tues < n)
-    av.push(`Ta défense n'en tue que <b>${fmt(tues)}</b> sur ${fmt(n)} : les survivants rentrent chez lui, et <b>pillent ton stock au passage</b>. Les chiffres ci-dessus ne comptent que les morts.`);
-  if(tues != null && tues > 0 && pour > tues)
-    av.push(`Pour ${moonPct(vise)} il faudrait ${fmt(pour)} ${moonNom(k, pour)} morts, mais ta défense n'en tue que ${fmt(tues)} : c'est elle qui <b>plafonne</b> ta chance, à ${moonPct(luneTir(k, tues, df).chance)} par tir.`);
-  if(t.debris > 2e6)
-    av.push(`Au-delà de <b>2 M</b> de débris le surplus est perdu : ${fmt(luneVaisseaux(k, 20, df))} morts suffisent pour les 20 %.`);
-  if(!t.chance && tues !== 0)
-    av.push(`Sous <b>100 000</b> de débris, le combat ne tire rien du tout : il faut ${fmt(luneVaisseaux(k, 1, df))} morts au moins.`);
-  if(sol && sol.m + sol.c > 0)
-    /* Le relevé vieillit, et c'est une flotte qu'on engage : on dit de quand il
-       date plutôt que de laisser croire que c'est l'état d'aujourd'hui. */
-    av.push(`Sors ta flotte de ${esc(planetRef(p))} avant le tir : ${shipList(p.ships)} au sol mourraient avec, ${fmt(sol.m)} métal et ${fmt(sol.c)} cristal à ta charge${p.shipsAt ? `, flotte relevée il y a ${dur((Date.now() - p.shipsAt) / 1000)}` : ''}.`);
-
-  noteEl.innerHTML =
-    (f ? `Facture espérée d'une lune : <b>${f.tirs} tirs</b>, ${fmt(f.m)} métal, ${fmt(f.c)} cristal${f.deut ? ` et ${fmt(f.deut)} deutérium` : ''} chez lui. Tu ramasses ${fmt(f.recupere)} de débris sur les tirs ratés. C'est une <b>moyenne, pas une promesse</b> : environ un joueur sur sept n'a toujours pas sa lune après le double de tirs. ` : '')
-    + (av.length ? av.map(x=>`<br>⚠ ${x}`).join('') + '<br>' : '')
-    + ` Les débris de <b>ses</b> vaisseaux tombent chez <b>toi</b>. Si tu es le <b>mieux classé</b> de vous deux, tu ne peux pas les garder : les ramasser ferait monter ses ressources vers toi, et c'est du pushing — préviens un <b>Game Operator</b> avant. S'il est mieux classé que toi, ils sont à toi.`
-    + ` <b>Estimation.</b> Seule la ligne « ta défense tue » est estimée : elle ne compte pas la règle d'explosion sous 70 % de coque, qui tue plus vite, et elle suppose le niveau de Bouclier saisi ci-dessus. La chance, elle, se déduit exactement des débris. Le copilote ne connaît pas les lunes : il ne peut pas savoir si cette position en porte déjà une.`;
-},
-fleet(){
-  const s=S.settings, cap = expoFind(S.expo.pf);
-  const lc=shipStats('lc'), sc=shipStats('sc'), pf=shipStats('pf');
-  const need = Math.max(0, cap - (S.expo.pf?pf.cargoEff:0));
-  const nExp = expoCap();
-  document.getElementById('expoOut').innerHTML =
-    gauge('m','m','Métal max',fmt(cap)) + gauge('c','c','Cristal max',fmt(cap*2/3)) + gauge('d','d','Deut. max',fmt(cap/3)) +
-    gauge('e','e','Grands transp.',nf.format(Math.ceil(need/lc.cargoEff)),`ou ${nf.format(Math.ceil(need/sc.cargoEff))} petits`);
-  document.getElementById('expoNote').innerHTML = `<b>Estimation.</b> Les seuils publiés datent d'avant la version 7 du jeu ; le plafond ci-dessus est une borne haute, pas une promesse. Une expédition ne rapporte jamais plus que la soute envoyée. Plafond calé sur les points du n°1 (${EXPO_LABELS[top1Tier()]}${API && API.scores ? ', lus dans le classement public' : ', réglage manuel'}). Expéditions simultanées : <b>${nExp}</b>${S.tech.astro?'':' (il faut Astrophysique 1)'}. Les bonus Éclaireur (×2) et Explorateur (×1,5) viennent de sources communautaires.`;
-  const fc=S.fleetCalc, f=flight(fc.from, fc.to, fc.ships, fc.pct);
-  document.getElementById('flightOut').innerHTML = f ?
-    gauge('e','e','Aller',dur(f.secs),`distance ${fmt(f.D)}`) + gauge('d','d','Carburant',fmt(f.fuel),'deutérium, aller') + gauge('c','c','Soute',fmt(f.cargo)) + gauge('m','m','Vitesse',fmt(f.V),'vaisseau le plus lent')
-    : `<p class="note span-all">Coordonnées au format 1:234:8 et au moins un vaisseau.</p>`;
-  document.getElementById('shipTbl').innerHTML = Object.keys(SHIPS).map(k=>{ const x=shipStats(k); return `<tr><td>${x.n}</td><td>${({combustion:'Combustion',impulse:'Impulsion',hyperdrive:'Hyperespace'})[x.drive]}</td><td class="n">${fmt(x.speedEff)}</td><td class="n">${fmt(x.cargoEff)}</td></tr>`; }).join('');
-},
-colony(){
-  const dp = coloFrom(), maxPl = maxPlanets(), free = S.planets.length < maxPl;
-  document.getElementById('coSlots').innerHTML = `<span class="pill ${free?'good':'bad'}">${S.planets.length}/${maxPl} planètes</span>`;
-  const F = coloFleet(), req = [];
-  const nextAstro = S.tech.astro + (S.tech.astro%2===0 ? 1 : 2);
-  req.push(free ? {sev:'good', what:'Emplacement libre', why:`Astrophysique ${S.tech.astro} : ${maxPl} planètes possibles.`}
-                : {sev:'bad', what:`Rechercher Astrophysique ${nextAstro}`, why:'Toutes tes planètes sont utilisées.'});
-  if(S.tech.impulse>=3) req.push({sev:'good', what:'Réacteur à impulsion 3', why:'Prérequis du vaisseau de colonisation.'});
-  else { let t=0; for(let L=S.tech.impulse+1; L<=3; L++) t+=researchTime('impulse',L); req.push({sev:'bad', what:`Réacteur à impulsion ${S.tech.impulse} → 3`, why:`Coût ${fmt(rangeCost(T.impulse,S.tech.impulse,3).reduce((a,b)=>a+b,0))} au total, environ ${dur(t)} de recherche.`}); }
-  if(dp.b.shipyard>=4) req.push({sev:'good', what:`Chantier spatial 4 sur ${dp.name}`, why:'Prérequis du vaisseau de colonisation.'});
-  else req.push({sev:'bad', what:`Chantier spatial ${dp.b.shipyard} → 4 sur ${dp.name}`, why:`Coût total : ${fmt(rangeCost(B.shipyard,dp.b.shipyard,4).reduce((a,b)=>a+b,0))} ressources.`});
-  const w = F.wait;
-  req.push({sev: w.sec===0 ? 'good' : w.storage!=null ? 'bad' : 'warn',
-    what: colBuilt() ? 'Ressources du kit et carburant' : 'Ressources du vaisseau, du kit et carburant',
-    why: `${w.sec===0 ? 'Disponibles maintenant.' : w.storage!=null ? storageNote(w) : `Disponibles dans ${dur(w.sec)}.`}${colBuilt() ? '' : ` Construction du vaisseau : ${dur(F.shipTime)}.`}`});
-  /* Quatre lignes vertes ne disent rien : le plan du jour met déjà l'impulsion,
-     le chantier et les robots dans ses priorités, et la colonie part toute
-     seule quand ils tombent. Ne reste ici que ce qui bloque, et quand plus rien
-     ne bloque, une ligne qui dit où en est le vaisseau. */
-  const bloque = req.filter(r=>r.sev!=='good');
-  const pris = S.day.focus==='eco'
-    ? 'En « Économie pure » le plan ne colonise pas : passe en « Économie + colonie » dans les réglages pour qu\'il s\'en charge.'
-    : 'Le plan du jour s\'en charge : ces niveaux sont déjà dans ses priorités.';
-  document.getElementById('coReq').innerHTML = bloque.length
-    ? bloque.map(r=>`<li><span class="pill ${r.sev==='info'?'info':r.sev}">${({warn:'Bientôt',bad:'À faire'})[r.sev]}</span><span class="what">${esc(r.what)}</span><span class="why">${esc(r.why)}</span></li>`).join('')
-      + `<li><span class="pill info">Plan</span><span class="what">Rien à lancer à la main</span><span class="why">${esc(pris)}</span></li>`
-    : `<li><span class="pill good">OK</span><span class="what">Tout est prêt</span><span class="why">${esc(S.day.focus==='eco' ? pris : `Le plan sort le vaisseau de ${planetRef(dp)}${colShipAt()>=0 ? ' (il y est déjà)' : centrePlanet()===dp ? ' (ton centre)' : ''} et te dira quand l'envoyer vers ${coloTarget()}.`)}</span></li>`;
-
-  const cc = document.getElementById('coCand'); if(cc) cc.innerHTML = coloCandHtml();
-  const rows = rankPositions(), tgtPos = (parseC(coloTarget())||[])[2];
-  document.getElementById('coPos').innerHTML = rows.map(r=>`<tr${r.ok?'':' class="terne"'}>
-    <td class="rank">${r.ok && r.rank<=3 ? r.rank : ''}</td><td class="n">${r.pos}</td>
-    <td class="mono">${r.fields} <span class="note">(${r.min}–${r.max})</span></td><td class="n">${r.P.t} °C</td>
-    <td>${r.P.bonus?`<span class="pill ${/métal/.test(r.P.bonus)?'info':'good'}">${r.P.bonus}</span>`:''}</td>
-    <td class="n">${fmt(r.v)}</td><td class="n">${fmt(r.d)}</td>
-    <td>${r.ok ? `<button class="btn sm ${r.pos===tgtPos?'primary':''}" data-copos="${r.pos}">${r.pos===tgtPos?'Choisie':'Choisir'}</button>` : `<span class="note">Astro ${r.P.astro}</span>`}</td></tr>`).join('');
-
-  const L1 = F.leg1, L2 = F.leg2;
-  document.getElementById('coFleet').innerHTML = `
-    <div class="res">
-      ${gauge('m','m','Métal du kit',fmt(F.kitCost[0]))}${gauge('c','c','Cristal du kit',fmt(F.kitCost[1]))}${gauge('d','d','Deut. du kit',fmt(F.kitCost[2]),`+ ${fmt(F.fuel)} de carburant`)}
-      ${gauge('e','e','Arrivée du kit', L1 ? dur(L1.secs + (L2?L2.secs:0)) : '–', 'après le départ')}
-    </div>
-    ${(()=>{ const cp = colonyPayback(); return cp ? `<p class="note">Délai de retour simulé : <b>${dur(cp.hours*3600)}</b>. ${fmt(cp.upfront)} éq. de mise, ${dur(cp.ramp*3600)} pour que ses mines montent toutes seules jusqu'à ${fmt(cp.rate)} éq./h, puis ce temps-là pour rendre la mise. La montée s'arrête quand plus aucun niveau ne s'amortit en moins de ${dur(COLO_HORIZON_H*3600)}.</p>` : ''; })()}
-    <ul class="list">
-      <li><div><div><b>1. Vaisseau de colonisation</b> vers ${esc(F.target)}, mission Coloniser</div>
-        <div class="row gap-2"><span class="note">Charge :</span>${costHtml(F.colLoad)}<span class="note mono">vol ${L1?dur(L1.secs):'–'} · ${L1?fmt(L1.fuel):'–'} deut</span></div></div></li>
-      ${F.n ? `<li><div><div><b>2. ${F.n} ${F.n>1?F.tr.n.toLowerCase().replace('transporteur','transporteurs'):F.tr.n.toLowerCase()}</b>, mission Transporter, dès que la colonie existe</div>
-        <div class="row gap-2"><span class="note">Charge :</span>${costHtml(F.rest)}<span class="note mono">vol ${L2?dur(L2.secs):'–'} · ${L2?fmt(L2.fuel*2):'–'} deut aller-retour</span></div></div></li>`
-        : `<li><div class="note">Tout le kit tient dans le vaisseau de colonisation (soute ${fmt(F.col.cargoEff)}).</div></li>`}
-    </ul>
-    <p class="note">Le kit ${esc(F.kit.n.toLowerCase())} couvre ${Object.entries(F.kit.lv).map(([k,l])=>`${B_SHORT[k]} ${l}`).join(', ') || 'aucun bâtiment'}. Carburant estimé.</p>
-    ${aide('cotransport', '<p class="note">Les transporteurs partent après l\'arrivée du vaisseau : on ne peut pas transporter vers une position encore vide.</p>')}`;
-
-  const fpos = +S.colo.fpos || (parseC(coloTarget())||[])[2], v = coloVerdict(+S.colo.fields, fpos);
-  document.getElementById('coEval').innerHTML = v ? `<ul class="advice"><li><span class="pill ${v.sev}">${v.t}</span><span class="what">Position ${fpos}</span><span class="why">${esc(v.why)}</span></li></ul>` : '';
-},
-};
+const REFRESH = {...REFRESH_AUJOURDHUI, ...REFRESH_EMPIRE, ...REFRESH_OUTILS, ...REFRESH_REGLAGES};
 
 /* ---------- events ---------- */
 function bind(){
@@ -5138,26 +3625,6 @@ function plusRecente(a, b){
   return false;
 }
 
-/**
- * La carte Réglages › Version : où en est ce panneau, et quoi taper pour le
- * déplacer. Les deux lectures sont passées en argument pour que le test puisse
- * poser un dépôt en avance sans attendre le réseau.
- */
-function versionCard(maj = MAJ, vers = VERSIONS){
-  const retard = maj && plusRecente(APP_VERSION, maj);
-  const etat = retard ? `Le dépôt est en <b>v${esc(maj)}</b>.`
-    : maj ? 'C\'est la dernière du dépôt.'
-    : 'La version du dépôt n\'a pas pu être lue.';
-  return `<div class="card"><h2>Version</h2>
-    <p class="note">Ce panneau tourne en <b>v${esc(APP_VERSION)}</b>. ${etat}</p>
-    ${retard ? `<p class="pill warn">v${esc(maj)} disponible</p>
-    <p class="note">Depuis le dépôt : <code>git pull &amp;&amp; ./pack.sh</code>. Depuis le zip : retélécharge-le et remplace le dossier. Puis « Recharger » sur <code>chrome://extensions</code>.</p>` : ''}
-    ${vers.length ? `<details class="volet"${fold('vers', false)}><summary class="note" data-fold="vers">Historique des versions (${vers.length})</summary>
-      <ul class="list mt-2">${vers.map(([v,d,h,s])=>`<li><div><b>v${esc(v)}</b> <span class="note">${esc(d)}</span><br><span class="note">${esc(s)}</span></div><code>${esc(h)}</code></li>`).join('')}</ul>
-      <p class="note mt-2">Revenir à l'une d'elles : <code>git checkout <i>empreinte</i> &amp;&amp; ./pack.sh</code>, puis « Recharger ». Une version plus ancienne relit un stockage écrit par la nouvelle : garde un <code>save.json</code> d'avant sous la main.</p>` : `<p class="note">L'historique arrive au prochain <code>./pack.sh</code>.</p>`}
-  </div>`;
-}
-
 /** Ce que la version du dépôt change à l'écran, qu'elle sorte du réseau ou du
     stockage. Le numéro vit dans l'en-tête, que le panneau étroit cache : sans
     le toast, une version neuve ne se verrait qu'en ouvrant les réglages. */
@@ -5195,15 +3662,25 @@ if(IS_EXT && chrome.runtime.getURL) (function(){
 export {
   mse, stockNow, shipReqOk, save, raceDe, ignKey, lfMode, poidsCat, on,
   SHIP_COST, planetById, lfNom, lfIdPour, poseLfCles, labPlanet, goUrl,
-  prodOf, fileDe, enCours, POS, production, addBuilt, planetIndexById,
-  labLevel, researchTime, NOM_RES, storageNote, reqOk, upLabel, rankUpgrades,
+  prodOf, fileDe, enCours, POS, render, visibleTimers, TOOLS, bascule,
+  syncFailed, planetAlerts, production, addBuilt, planetIndexById, labLevel,
+  researchTime, NOM_RES, storageNote, reqOk, upLabel, rankUpgrades,
   hangarSiJustifie, debordeTexte, mineEnRetard, signe, naniteRetard,
   robotsOuNanites, casesBasses, laboEnRetard, labOkPour, reglesRecherche,
-  planetAlerts, timerLabel, COL_SHIP_COST, KITS, colShipAt, colSentNow,
-  colBuilt, maxPlanets, coloTarget, coloFleet, LF_MODE, shipTime, defSurplus,
-  tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote, catActe,
-  debordeA, autreCibleAvecPlace, fileBat, render, visibleTimers, TOOLS,
-  bascule, syncFailed, aide, coordLink, leverFlotte, coloPaybackTxt,
-  occupied, colonyCandidates, raidTargets, raidPlan, catMission, toast,
-  habillage
+  timerLabel, COL_SHIP_COST, KITS, colShipAt, colSentNow, colBuilt,
+  maxPlanets, coloTarget, coloFleet, LF_MODE, shipTime, defSurplus, tournee,
+  hubIndex, centreIndex, POURQUOI_LABO, centreNote, catActe, debordeA,
+  autreCibleAvecPlace, fileBat, aide, coordLink, leverFlotte, coloPaybackTxt,
+  occupied, colonyCandidates, raidTargets, raidPlan, catMission,
+  SURPLUS_REGLES, SEV_LABEL, prioLfEtat, fleetUrl, missionGo, goAttr,
+  gameSkin, surplusNote, surplusCompte, surplusListe, renderTimers,
+  copyChips, whyParts, actHtml, rebours, noBtn, noListe, classeSuggeree,
+  classeEcart, profilLigne, profilFocusHtml, profilEtape, actsVus,
+  defRecetteHtml, defModeleCarte, defPicker, poseNom, labEffectif, centreWhy,
+  VIEWS, gauge, REFRESH, toast, habillage, OBJECTIVES, coloFrom,
+  rankPositions, COLO_HORIZON_H, colonyPayback, coloVerdict, myScore,
+  exploreSystems, luneTir, luneVaisseaux, luneFacture, luneFlotteAuSol,
+  moonDf, luneMorts, cargoHomeIndex, centrePlanet, APP_VERSION, VERSIONS,
+  MAJ, HABILLAGES, MASQUE_CLES, masque, toutMasque, planPoseParLeStyle,
+  plusRecente
 };

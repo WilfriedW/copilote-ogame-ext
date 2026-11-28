@@ -9823,7 +9823,7 @@ t('les focus qui n\'ont rien à déplacer sont nommés sous les cases', () => {
    à relire la logique qui les applique. Un style nommé en dur dans app.js est
    le premier pas vers une table recopiée à deux endroits. */
 t('les styles et leurs poids vivent dans profils.js, pas dans app.js', () => {
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = ['app.js', ...require('./modules').ordre('src/main.js').filter(f => f !== 'app.js')].map(f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8')).join('\n');
   for (const k of ['mineur', 'turtle', 'raideur', 'fleeter', 'explorateur'])
     assert.ok(!src.includes(`'${k}'`), `app.js nomme le style ${k} : il doit passer par PROFILS`);
   const cfg = require('fs').readFileSync(require('path').join(__dirname, '..', 'profils.js'), 'utf8');
@@ -10239,7 +10239,7 @@ t('l\'en-tête ne porte plus le mode lune, ni la disposition, ni le masquage', (
   const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'sidepanel.html'), 'utf8');
   for (const id of ['luneBtn', 'cartesBtn', 'masqueBtn', 'masqueMenu']) assert.ok(!html.includes(`id="${id}"`), id);
   for (const id of ['appVer', 'uniBadge', 'tzBtn', 'tzLbl', 'nightBtn', 'gearBtn']) assert.ok(html.includes(`id="${id}"`), id + ' reste');
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = ['app.js', ...require('./modules').ordre('src/main.js').filter(f => f !== 'app.js')].map(f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8')).join('\n');
   for (const id of ['luneBtn', 'cartesBtn', 'masqueBtn', 'masqueMenu']) assert.ok(!src.includes(id), id + ' n\'a plus de référence dans app.js');
 });
 
@@ -10472,7 +10472,7 @@ t('une alerte critique ouvre la carte sans toucher au choix enregistré', () => 
   assert.equal(g.fold('alertes', true, true), ' open', 'ouverte de force');
   assert.equal(g.UI.etats.alertes, 'closed', 'le choix reste');
   assert.equal(g.fold('alertes', true, false), '', "l'alerte passée, elle revient fermée");
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'vues', 'conseils.js'), 'utf8');
   assert.match(src, /fold\('conseils', false, critique\)/, 'le bloc des conseils passe la criticité');
 });
 
@@ -11547,7 +11547,7 @@ t('ENH-54 : « Modifier » et les renvois ouvrent le sous-onglet, retenu comme u
   assert.equal(g.S.ui.tool, 'defense');
   g.allerVers('settings:nulle-part');
   assert.equal(g.cardTabs.settings, 'affichage', 'un sous-onglet inconnu ne change rien');
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = ['app.js', 'src/vues/aujourdhui.js', 'src/vues/defense.js'].map(f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8')).join('\n');
   const gotos = [...src.matchAll(/data-goto="([^"]+)"/g)].map(m => m[1]);
   assert.deepEqual(gotos, ['settings:defense', 'settings:jeu', 'settings:defense']);
 });
@@ -11641,7 +11641,7 @@ t('ENH-54 : un oui/non est un interrupteur ; une case reste pour choisir dans un
      et la forme de vie lue sur les planètes, affichée cochée et grisée. */
   const LISTES = ['data-lf=', 'data-pfocus=', 'data-secu-vault=', 'data-secu-jour=', 'data-posep=', 'checked disabled', 'id="${id}" ${attr}'];
   const fs = require('fs'), path = require('path');
-  const src = ['app.js', 'src/flotte/cible.js', 'src/meteo.js', 'profils.js'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
+  const src = ['app.js', 'src/flotte/cible.js', 'src/meteo.js', 'profils.js', ...fs.readdirSync(path.join(__dirname, '..', 'src', 'vues')).map(f => 'src/vues/' + f)].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
   const cases = [...src.matchAll(/<input[^>]*type="checkbox"[^>]*>/g)].map(m => m[0]);
   const fautes = cases.filter(c => !/class="[^"]*\binterrupteur\b/.test(c) && !LISTES.some(x => c.includes(x)));
   assert.deepEqual(fautes, []);
@@ -11652,7 +11652,7 @@ t('ENH-54 : un oui/non est un interrupteur ; une case reste pour choisir dans un
 });
 
 t('ENH-54 : les aides longues d\'Outils attendent derrière « En savoir plus »', () => {
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'vues', 'outils.js'), 'utf8');
   assert.match(src, /aide\('cotransport', '<p class="note">Les transporteurs partent après/);
   const fl = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'flotte', 'cible.js'), 'utf8');
   assert.match(fl, /<p class="note">Ce que chaque planète devrait avoir pour lancer une expédition et lever son stock seule le soir\.<\/p>\s*\$\{aide\('flottecible'/);
