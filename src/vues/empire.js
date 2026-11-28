@@ -29,8 +29,9 @@ import {
 } from '../plan/priorites.js';
 import { besoinEmpire, VOC_NOM, vocations } from '../plan/vocations.js';
 import { REGLES_PAR_ID } from '../regles/moteur.js';
+import { gauge } from './commun.js';
 import { fold, cardLayout } from './navigation.js';
-import { VIEWS, gauge, REFRESH } from '../../app.js';
+import { VIEWS, REFRESH } from '../../app.js';
 
 /* Les règles qu'on coupe pour une planète seulement — « pas de Terraformeur
    sur mon coffre-fort ». Sur la planète, donc sur ce poste : un id local ne

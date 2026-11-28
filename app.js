@@ -2,6 +2,7 @@
    domaine : il importe ce que les modules sortis de lui fournissent, et
    n'exporte que ce que la météo et la flotte cible lui empruntent (liste en
    fin de fichier). */
+import { migratePlanetIds } from './src/core/planetes.js';
 import {
   releveLu, header, enScan, setTimeMode, finDeNuit, VIEWS_RELEVE, setMasque
 } from './src/vues/entete.js';
@@ -21,7 +22,7 @@ import {
 import { raceDeSerie, LIFEFORMS, speciesOfPlanet } from './src/formes-de-vie/formes-de-vie.js';
 import { lfIds } from './src/formes-de-vie/cases.js';
 import { profilSain } from './src/plan/profil.js';
-import { meteoVoit, renderMeteo, meteoBind } from './src/meteo.js';
+import { renderMeteo, meteoBind } from './src/meteo.js';
 import {
   unlockAudio, alertQueue, ackFinished, stopFlash, mirrorAlerts
 } from './src/minuteurs/minuteurs.js';
@@ -76,26 +77,6 @@ expoSain();
 window.__saveFailed = saveFailed;
 
 
-/* Les rangs enregistrés deviennent des identités. Un rang écrit hier ne
-   désigne plus la même planète après un réordonnancement : il désigne la
-   voisine, sans rien dire. La conversion se décide sur le type — un nombre est
-   encore un rang — donc elle se rejoue sans dommage sur un état déjà converti.
-   S.v ne pouvait pas servir de repère : sample() écrit v:1 et le fusionne dans
-   tout état relu, converti ou non. */
-function migratePlanetIds(){
-  for(const p of S.planets) if(!p.id) p.id = Math.random().toString(36).slice(2,9);
-  const idAt = i => (S.planets[i] || {}).id || null;
-  const mue = x => { if(typeof x.p !== 'number') return x; const y = Object.assign({}, x, {pid: idAt(x.p)}); delete y.p; return y; };
-  S.timers = (S.timers || []).map(mue);
-  // La liste d'objectifs a disparu : rien ne la lisait. Ce qu'elle a laissé
-  // dans les sauvegardes s'en va au premier chargement.
-  delete S.plan;
-  // Le rôle par planète aussi : il n'était lu que par son propre menu, et le
-  // centre le remplace. Rien n'est perdu, puisque rien ne s'en servait.
-  delete S.roles;
-  if(typeof S.colo.from === 'number'){ S.colo.fromId = idAt(S.colo.from); delete S.colo.from; }
-  S.v = 2;
-}
 /* ---------- le message éphémère ---------- */
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true,1800); }
 (function uiCharge(){
@@ -238,24 +219,8 @@ function timeExport(ms){
     serverOffsetMinutes: off == null ? null : Math.round((off/60 + loc.getTimezoneOffset()) / 15) * 15
   };
 }
-/* Un outil retiré laisse son nom dans les réglages du joueur : on ne demande à
-   VIEWS que ce qu'il sait encore dessiner. */
-const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['defense','Défense'],['moon','Lune'],['server','Serveur']];
-/* Oui/Non : une bascule, pas une liste déroulante. Deux états se lisent d'un
-   coup d'œil et tiennent sur une ligne, là où le select coûtait un titre, une
-   ligne de plus et un clic pour voir ce qu'on savait déjà. */
-const bascule = (id, attr, label, on, note='') =>
-  `<label class="f bascule"><span>${label}</span><input type="checkbox" id="${id}" ${attr} ${on?'checked':''}>${note?`<span class="note">${note}</span>`:''}</label>`;
-/* ENH-54 : une carte de réglages ne montre qu'une phrase d'aide ; le reste
-   attend derrière « En savoir plus », replié, ouvert ou fermé comme le joueur
-   l'a laissé (même store que les volets). Rien n'est retiré : une partie de
-   ces textes protège d'une erreur, elle reste à un clic. */
-const aide = (id, html) =>
-  `<details class="aide"${fold('aide:' + id, false)}><summary data-fold="aide:${id}">En savoir plus</summary>${html}</details>`;
-
 const VIEWS = {...VIEWS_AUJOURDHUI, ...VIEWS_RELEVE, ...VIEWS_EMPIRE, ...VIEWS_OUTILS, ...VIEWS_DEFENSE, ...VIEWS_REGLAGES};
 
-const gauge = (k,cls,label,v,sub) => `<div class="gauge"><span class="k"><i class="bg-${cls}"></i>${label}</span><span class="v c-${cls}">${v}</span>${sub?`<span class="s">${sub}</span>`:''}</div>`;
 
 /**
  * Ce que le panneau DESSINE d'une connexion.
@@ -271,8 +236,6 @@ const gauge = (k,cls,label,v,sub) => `<div class="gauge"><span class="k"><i clas
  * posée sur les pages du jeu la porte toujours — c'est là, sur l'écran de
  * flotte, qu'elle sert encore.
  */
-/* Sous le filtre de la météo, seules les cartes de la planète choisie restent. */
-function actsVus(x){ return x.acts.filter(a=>a.kind !== 'expo' && meteoVoit(a)); }
 const REFRESH = {...REFRESH_AUJOURDHUI, ...REFRESH_EMPIRE, ...REFRESH_OUTILS, ...REFRESH_REGLAGES};
 /* Les écoutes déléguées du panneau : à leur place d'avant, pour garder leur ordre. */
 brancheEcoutes();
@@ -470,7 +433,7 @@ litVersions();
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
   sainEtat, raceDe, on,
-  render, TOOLS, bascule,
-  planetAlerts, aide, actsVus, VIEWS, gauge, REFRESH, toast, refresh, timeExport, msg, appliqueSauvegarde,
+  render, 
+  planetAlerts, VIEWS, REFRESH, toast, refresh, timeExport, msg, appliqueSauvegarde,
   publieLePlan, APP_VERSION
 };

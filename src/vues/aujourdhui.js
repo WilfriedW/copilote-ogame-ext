@@ -50,10 +50,10 @@ import {
 } from './carte-action.js';
 import { conseilLignes, conseilsHtml } from './conseils.js';
 import {
-  uiVu, fold, RESUMES, resumeDe, cardLayout, cartesMenu, listeCartes
+  uiVu, fold, RESUMES, resumeDe, cardLayout, cartesMenu, listeCartes, aide
 } from './navigation.js';
 import { gameSkin } from './page-du-jeu.js';
-import { aide, actsVus, on } from '../../app.js';
+import { on } from '../../app.js';
 
 /* Ce qu'une ligne de forme de vie dit d'elle-même. Cinq états, et aucun ne se
    confond avec un autre : le relevé n'a jamais vu la case (le joueur a posé
@@ -502,3 +502,5 @@ today(){
     : `${later.length} connexion${later.length>1?'s':''} à venir · production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${S.day.horizon} h`;
 },
 };
+/* Sous le filtre de la météo, seules les cartes de la planète choisie restent. */
+export function actsVus(x){ return x.acts.filter(a=>a.kind !== 'expo' && meteoVoit(a)); }

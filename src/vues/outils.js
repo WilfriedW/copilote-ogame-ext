@@ -35,8 +35,9 @@ import { LIFEFORMS, lfPourPos, lfRaisonPos } from '../formes-de-vie/formes-de-vi
 import { raidTargets, exploreSystems, raidPlan } from '../pillage/pillage.js';
 import { myScore } from '../univers/univers.js';
 import { actHtml } from './carte-action.js';
-import { fold, segTabs } from './navigation.js';
-import { TOOLS, bascule, aide, VIEWS, gauge, REFRESH } from '../../app.js';
+import { bascule, gauge } from './commun.js';
+import { fold, segTabs, TOOLS, aide } from './navigation.js';
+import { VIEWS, REFRESH } from '../../app.js';
 /** La carte de calibrage, ou rien. */
 function expoCalibHtml(){
   const p = expoFretPropose(S.expoLog, S.settings.expoFret);

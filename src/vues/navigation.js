@@ -16,7 +16,8 @@ import { KEY, S } from '../core/etat.js';
 import { esc } from '../core/format.js';
 import { visibleTimers } from '../minuteurs/minuteurs.js';
 import { syncFailed } from '../synchro/synchro.js';
-import { render, TOOLS, bascule, on } from '../../app.js';
+import { bascule } from './commun.js';
+import { render, on } from '../../app.js';
 
 /* ---------- views ---------- */
 export const view = document.getElementById('view');
@@ -541,3 +542,12 @@ export function garderVue(fn){
    pour toutes les pages, écran de relevé et bandeaux compris. */
 export const HABILLAGES = {relief:'Relief — sobre (par défaut)', domaine:'Une couleur par page', hud:'Console de bord', arcade:'Arcade'};
 export const habillage = () => HABILLAGES[S.settings.skin] ? S.settings.skin : 'relief';
+/* Un outil retiré laisse son nom dans les réglages du joueur : on ne demande à
+   VIEWS que ce qu'il sait encore dessiner. */
+export const TOOLS = [['explore','Cibles'],['colony','Colonie'],['fleet','Flotte'],['defense','Défense'],['moon','Lune'],['server','Serveur']];
+/* ENH-54 : une carte de réglages ne montre qu'une phrase d'aide ; le reste
+   attend derrière « En savoir plus », replié, ouvert ou fermé comme le joueur
+   l'a laissé (même store que les volets). Rien n'est retiré : une partie de
+   ces textes protège d'une erreur, elle reste à un clic. */
+export const aide = (id, html) =>
+  `<details class="aide"${fold('aide:' + id, false)}><summary data-fold="aide:${id}">En savoir plus</summary>${html}</details>`;
