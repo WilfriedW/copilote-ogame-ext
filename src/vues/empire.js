@@ -13,7 +13,7 @@ import {
   B, B_SHORT, T, levelCost, rangeCost, crawlerMax, crawlerBonus
 } from '../core/formules.js';
 import { IS_EXT } from '../core/serveur.js';
-import { dur } from '../core/temps.js';
+import { dur, formatTime } from '../core/temps.js';
 import {
   centreIndex, centreWhy, labLevel, labEffectif, researchTime, reqOk,
   FOCUS_VAISSEAU
@@ -28,7 +28,7 @@ import {
   poseNom
 } from '../plan/priorites.js';
 import { besoinEmpire, VOC_NOM, vocations } from '../plan/vocations.js';
-import { REGLES_PAR_ID } from '../regles/moteur.js';
+import { REGLES_PAR_ID, regleParam } from '../regles/moteur.js';
 import { gauge } from './commun.js';
 import { fold, cardLayout } from './navigation.js';
 import { VIEWS, REFRESH } from '../../app.js';
@@ -115,7 +115,12 @@ function poseBloc(){
       <span><b>${esc(x.name)}</b> <span class="note">${esc(x.coords)}</span></span></label>
       <span class="row gap-2"><span class="mono note">${esc(x.quoi || poseNom(k))} ${x.ici ? x.actuel : '—'}</span>${etat}</span></li>`;
   }).join('');
-  return `<details class="card"${fold('pose', false)}><summary data-fold="pose">Poser sur toutes les planètes <span class="note">${n} planète${n>1?'s':''}</span></summary>
+  /* « 0 planète » tant que rien n'était choisi se lisait comme la taille de
+     l'empire. L'indicateur ne dit donc que ce que le bouton ferait, ou ce que
+     la carte a déjà posé ; la note reste vide, pas absente, pour tenir le « + »
+     à droite. */
+  const indic = [n && vise > 0 ? `${poseNom(k)} ${vise} · ${n} planète${n>1?'s':''}` : '', d ? `${d} cible${d>1?'s':''} posée${d>1?'s':''}` : ''].filter(Boolean).join(' · ');
+  return `<details class="card"${fold('pose', false)}><summary data-fold="pose" class="posesum">Cible sur plusieurs planètes <span class="note">${esc(indic)}</span></summary>
     <p class="note mt-2">Le même niveau visé sur toutes les planètes cochées, d'un coup. Chaque planète garde ensuite sa priorité à elle : le clic droit dans le jeu la corrige comme avant. Les planètes décochées le restent pour cette case-là.</p>
     <div class="grid mt-2">
       <label class="f">Bâtiment ou forme de vie<select data-pose="k">${options}</select></label>
@@ -213,6 +218,23 @@ function crawlerPill(p){
   const pct = (crawlerBonus(Math.min(have,max), S.settings.cls, over)*100).toFixed(1).replace('.',',');
   return `<div class="wide"><span class="pill ${have>=max?'good':'info'}">Foreuses ${fmt(have)} / ${fmt(max)} utiles · +${pct} %</span></div>`;
 }
+/**
+ * Le stock d'une ligne repliée, M · C · D, coloré près du plafond.
+ * Les seuils sont ceux de la règle du hangar plein : la couleur annonce la
+ * même chose que le constat, un peu plus tôt.
+ * @returns {string} HTML
+ */
+function stockResume(p, pr, st){
+  /* Une planète que la liste du jeu vient de révéler porte un stock inventé :
+     l'afficher le ferait passer pour lu. */
+  if(p.bNeuve || !p.stock || !p.stock.at) return `<span title="Stock pas encore relevé">— · — · —</span>`;
+  const plein = regleParam('RES_STORAGE_FULL', 'seuil', 0.98), avertir = regleParam('RES_STORAGE_FULL', 'avertir', 0.9);
+  const cases = st.map((x, j) => {
+    const r = pr.cap[j] > 0 ? x / pr.cap[j] : 0, c = r >= plein ? 'st-bad' : r >= avertir ? 'st-warn' : '';
+    return c ? `<span class="${c}">${fmtLigne(x)}</span>` : fmtLigne(x);
+  });
+  return `<span title="Stock relevé à ${esc(formatTime(p.stock.at))}, projeté à maintenant">${cases.join(' · ')}</span>`;
+}
 export const REFRESH_EMPIRE = {
 empire(){ REFRESH.planets(); REFRESH.research(); },
 planets(){
@@ -225,9 +247,9 @@ planets(){
       gauge('m','m','Métal',fmt(pr.m),full(0)) + gauge('c','c','Cristal',fmt(pr.c),full(1)) + gauge('d','d','Deutérium',fmt(pr.d),full(2)) +
       gauge('e','e','Énergie',(pr.eBal>=0?'+':'')+fmt(pr.eBal), `${fmt(pr.eProd)} produits / ${fmt(pr.eCons)}${p.eAdj<0?` · dont ${fmt(p.eAdj)} formes de vie`:''}`) +
       crawlerPill(p);
-    /* Les trois chiffres dans le résumé : c'est ce qu'on vient lire, et la
-       carte reste fermée pour le lire. */
-    const ps = document.getElementById('psum-'+i); if(ps) ps.innerHTML = [pr.m, pr.c, pr.d].map(fmtLigne).join(' · ');
+    /* Le stock dans le résumé : la production se lit dans les jauges du
+       détail, le stock obligeait à ouvrir le jeu (ENH-74). */
+    const ps = document.getElementById('psum-'+i); if(ps) ps.innerHTML = stockResume(p, pr, st);
     /* Le stock ne se lit en chiffres nulle part ailleurs — les jauges au-dessus
        disent la production. Son résumé le rend lisible sans ouvrir le volet,
        qui ne sert qu'à le recaler. */

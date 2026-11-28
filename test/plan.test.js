@@ -693,7 +693,7 @@ module.exports = ({ t, assert, app, lu, SOIR, prioLabo, prePlasma, POSE }) => {
 
   t('la carte est dans Empire', () => {
     const g = app(POSE('metal', 43));
-    assert.ok(lu(g.VIEWS.planets()).includes('Poser sur toutes les planètes'));
+    assert.ok(lu(g.VIEWS.planets()).includes('Cible sur plusieurs planètes'));
   });
 
   t('le bouton de la carte pose vraiment', () => {

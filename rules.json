@@ -41,7 +41,7 @@
       "niveau": "critique",
       "condition": "storageRatio",
       "effet": "pousser",
-      "parametres": { "seuil": 0.98, "recurrence": 3 },
+      "parametres": { "seuil": 0.98, "avertir": 0.9, "recurrence": 3 },
       "message": "{Ressource} au plafond{sur} : {pertes} perdus",
       "raison": "{excedent}. La production de {ressource} est arrêtée tant que le stock ne redescend pas. {depense}",
       "action": "{quoi}",
