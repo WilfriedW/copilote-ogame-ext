@@ -9,10 +9,11 @@
    lus au chargement : le plan du jour l'importe, il n'importe pas le plan. */
 import { S } from '../core/etat.js';
 import { B, levelCost } from '../core/formules.js';
+import { planetById } from '../core/planetes.js';
 import { buildTime } from '../core/serveur.js';
 import { production, NOM_RES, stockNow, upLabel } from './production.js';
 import { regleParam, HANGARS } from '../regles/moteur.js';
-import { planetById, rankUpgrades } from '../../app.js';
+import { rankUpgrades } from '../../app.js';
 
 /* ---------- ressources en trop ---------- */
 /**

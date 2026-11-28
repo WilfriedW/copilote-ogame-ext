@@ -11,6 +11,7 @@ import { colSentNow, maxPlanets, coloTarget, coloPaybackTxt, colonyCandidates } 
 import { S } from '../core/etat.js';
 import { coutTexte, fmt, esc, planetRef } from '../core/format.js';
 import { B, T, levelCost, rangeCost, SAT_COST } from '../core/formules.js';
+import { planetById } from '../core/planetes.js';
 import { IS_EXT, API } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
 import { DEF, defMixList } from '../defense/defense.js';
@@ -37,7 +38,7 @@ import {
   cargoGaps, secu, prochaineHeure
 } from '../securite/securite.js';
 import { occupied } from '../univers/univers.js';
-import { save, planetById, lfNom, lfMode } from '../../app.js';
+import { save, lfNom, lfMode } from '../../app.js';
 /**
  * Les sources d'énergie posables sur cette planète, chiffrées, de la moins
  * chère à la plus chère par point d'énergie.

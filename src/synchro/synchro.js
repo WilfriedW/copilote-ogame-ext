@@ -14,9 +14,10 @@
    écoutes du stockage partagé restent dans app.js, à leur place dans l'ordre
    du démarrage. */
 import { KEY, S } from '../core/etat.js';
-import { saveFailed, gidDe, render, sainEtat, publieLePlan } from '../../app.js';
+import { gidDe } from '../core/planetes.js';
+import { saveFailed, render, sainEtat, publieLePlan } from '../../app.js';
 export const SYNC_KEYS = ['settings','day','expo','lf','raids','daily','profil'];
-/* gidDe reste dans app.js, près de planetIndexById : le premier rendu la lit déjà (clé d'« Ignorer »). */
+/* gidDe, l'aller, vit dans src/core/planetes.js ; le retour, qui ne sert qu'ici, reste ici. */
 export const pidDe = gid => { const p = (S.planets || []).find(x => x.gid != null && String(x.gid) === String(gid)); return p ? p.id : null; };
 /* Une recherche ne porte pas de pid : elle voyage telle quelle.
    L'ordre des clés compte, et c'est tout sauf cosmétique : syncApply compare au

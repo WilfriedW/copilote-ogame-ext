@@ -12,6 +12,7 @@
    Module du plan du jour (issue #49). Il emprunte encore à app.js quelques outils
    de planète : ce cycle-là est toléré tant qu'app.js existe, et rien n'y est lu au
    chargement. */
+import { planetIndexById } from '../core/planetes.js';
 import {
   DEF_ORDER, defRatio, computeDefenseGap, DEF, defPropositions, defPhrase,
   defBloqueTexte
@@ -52,9 +53,7 @@ import { poseHeure, isNight } from './nuit.js';
 import { prios, prioOf, prioDevant, FOCUS, FOCUS_FLOTTE } from './priorites.js';
 import { poidsCat, catActe } from './profil.js';
 import { besoinEmpire, VOC_KEYS, VOC_NOM, vocations } from './vocations.js';
-import {
-  addBuilt, planetIndexById, rankUpgrades, planetAlerts, LF_MODE, lfMode
-} from '../../app.js';
+import { addBuilt, rankUpgrades, planetAlerts, LF_MODE, lfMode } from '../../app.js';
 
 /* ---------- advice ---------- */
 export const MILESTONES = [

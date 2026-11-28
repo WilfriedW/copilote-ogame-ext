@@ -11,6 +11,7 @@
 import { S } from '../core/etat.js';
 import { fmt, fmtK, majus } from '../core/format.js';
 import { T, levelCost } from '../core/formules.js';
+import { planetById } from '../core/planetes.js';
 import { buildTime } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
 import { DEF, defsOf, defPropositions } from '../defense/defense.js';
@@ -25,7 +26,6 @@ import {
   projectResources, cardKey, refused
 } from './journee.js';
 import { EVAL, regleActive, regleParam, HANGARS, constatsVus } from '../regles/moteur.js';
-import { planetById } from '../../app.js';
 /* ---------- les règles du moteur : stockage ---------- */
 /* Au plafond, la production s'arrête. Ce qui la relance, dans l'ordre :
    dépenser sur place ce que le plan juge déjà utile, sinon envoyer l'excédent

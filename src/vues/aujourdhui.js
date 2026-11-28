@@ -14,6 +14,7 @@ import {
   majus
 } from '../core/format.js';
 import { B, B_SHORT, T } from '../core/formules.js';
+import { planetById } from '../core/planetes.js';
 import { IS_EXT } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
 import { surplusNote, surplusCompte } from '../economie/debordements.js';
@@ -48,7 +49,7 @@ import {
   uiVu, fold, RESUMES, resumeDe, cardLayout, cartesMenu, listeCartes
 } from './navigation.js';
 import { gameSkin } from './page-du-jeu.js';
-import { planetById, prioLfEtat, ignKey, SEV_LABEL, aide, actsVus, on } from '../../app.js';
+import { prioLfEtat, ignKey, SEV_LABEL, aide, actsVus, on } from '../../app.js';
 const prioRangHtml = (kind, pid, k) => { const r = prioOrdre(kind, pid, k); return r ? ` <span class="note">rang ${r.i + 1} sur ${r.n}</span>` : ''; };
 /* L'état d'une ligne est celui que le plan lui a donné à la première session,
    jamais son rang dans la liste : une priorité que rien ne sert — labo
