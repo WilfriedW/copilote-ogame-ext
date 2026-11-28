@@ -21,8 +21,8 @@ import { centrePlanet } from '../economie/centre.js';
 import { production, mse, waitFor } from '../economie/production.js';
 import { COL_SHIP_COST, shipTime } from '../flotte/coques.js';
 import { parseC, shipStats, flight } from '../flotte/vaisseaux.js';
+import { rankUpgrades } from '../plan/vocations.js';
 import { wrapSys, occupied, myScore, isInactive, isActive } from '../univers/univers.js';
-import { rankUpgrades } from '../../app.js';
 
 /* ---------- colonization ---------- */
 export const KITS = {

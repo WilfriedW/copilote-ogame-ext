@@ -5,20 +5,17 @@
 import { saveFailed, save } from './src/synchro/synchro.js';
 import { EXPO_FRET, sample, newPlanet, S, remplaceEtat } from './src/core/etat.js';
 import { esc, num } from './src/core/format.js';
-import { B, levelCost, crawlerMax, CRAWLER_COST } from './src/core/formules.js';
-import { planetById, gidDe } from './src/core/planetes.js';
-import { IS_EXT, poseApi, buildTime } from './src/core/serveur.js';
+import { B } from './src/core/formules.js';
+import { IS_EXT, poseApi } from './src/core/serveur.js';
 import {
   LOCAL_TZ, srvOffSec, clockParts, p2, timeSeen, formatTime, timeTitle
 } from './src/core/temps.js';
 import {
-  DEF, DEF_MODELES, DEF_RATIO, DEF_PALIERS, defModele, defsOf, DEF_DUREES,
-  DEF_PLANCHERS
+  DEF_MODELES, DEF_RATIO, DEF_PALIERS, defModele, DEF_DUREES, DEF_PLANCHERS
 } from './src/defense/defense.js';
 import {
-  LF_READ_TTL, parseProdPanel, prodOf, bridage, production, mse
+  LF_READ_TTL, parseProdPanel, prodOf, bridage, production
 } from './src/economie/production.js';
-import { shipReqOk, shipTime } from './src/flotte/coques.js';
 import { EXPO_LOG_MAX, EXPO_PREP_MAX, EXPO_EVTS, expoJournal, expoMessages } from './src/flotte/expeditions.js';
 import { SHIPS } from './src/flotte/vaisseaux.js';
 import {
@@ -34,7 +31,6 @@ import {
 import { casesSaines, casesLibres } from './src/plan/journee.js';
 import { energyOptions, energyLine } from './src/plan/missions.js';
 import { prioClean, prioRecoit, FOCUS } from './src/plan/priorites.js';
-import { besoinEmpire, mseW } from './src/plan/vocations.js';
 import {
   REGLES_ERR, aSoi, NIVEAU_SEV, regleActive, regleSaine, constatsDe, ignClean,
   publieCritiques
@@ -64,20 +60,6 @@ const APP_VERSION = '2.20.0';
 
 document.getElementById('appVer').textContent = 'v' + APP_VERSION;
 
-/* Le chantier sort trois choses qui ne se rangent pas au même endroit : des
-   vaisseaux, des foreuses que production() compte à part, et de la défense,
-   comptée par type et par total. Chaque file le réinventait ; un seul endroit
-   le dit, sinon un lot de lanceurs finit dans p.ships et ne défend rien. */
-function addBuilt(p, ships){
-  for(const [k,n] of Object.entries(ships||{})){
-    if(k==='crawl') p.crawlers=(p.crawlers||0)+n;
-    /* Le détail part du relevé, pas de rien : sur une planète dont on ne
-       connaissait que le total, poser {ll:2} effacerait les lanceurs déjà au
-       sol et le plan les redemanderait un par un. */
-    else if(DEF[k]){ const d = Object.assign({}, defsOf(p)); d[k] = (d[k]||0)+n; p.def=(p.def||0)+n; p.defs = d; }
-    else { p.ships=p.ships||{}; p.ships[k]=(p.ships[k]||0)+n; }
-  }
-}
 
 migratePlanetIds();
 /* Une sauvegarde d'avant un bâtiment ne connaît pas sa clé : sans ce comblement
@@ -120,48 +102,6 @@ function migratePlanetIds(){
 }
 /* ---------- le message éphémère ---------- */
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true,1800); }
-/** Ranks next building upgrades and crawlers on a planet by payback time. */
-function rankUpgrades(p){
-  const base = production(p), baseV = mse(base.m, base.c, base.d), out=[];
-  /* Deux lectures du même pas. `payback` reste au cours du ratio : c'est le
-     chiffre que la carte affiche et que le joueur peut refaire de tête, et il
-     ne doit pas bouger parce qu'une autre planète a monté une mine. `score`
-     est le même calcul au prix que ces ressources ont dans CET empire, et
-     c'est lui qui classe. Les séparer est tout l'objet : le classement suit
-     le besoin, l'affichage reste vérifiable. */
-  const w = besoinEmpire(), baseW = mseW(base.m, base.c, base.d, w);
-  const scoreOf = (pr, cost, gain) => {
-    const g = mseW(pr.m, pr.c, pr.d, w) - baseW;
-    return (gain > 0 && g > 0) ? mseW(...cost, w)/g : Infinity;
-  };
-  for(const k of ['metal','crystal','deut']){
-    const ov = {[k]:p.b[k]+1}; let cost = levelCost(B[k], p.b[k]+1), extra=0;
-    let pr = production(p, ov);
-    while(pr.factor<1 && extra<15){ extra++; ov.solar = p.b.solar+extra; const sc=levelCost(B.solar, p.b.solar+extra); cost=cost.map((x,i)=>x+sc[i]); pr=production(p,ov); }
-    const gain = mse(pr.m,pr.c,pr.d)-baseV;
-    out.push({key:k, lvl:p.b[k]+1, extraSolar:extra, cost, gain, payback: gain>0 ? mse(...cost)/gain : Infinity, score:scoreOf(pr,cost,gain), time:buildTime(k,p.b[k]+1,p)});
-  }
-  if(base.factor<1){
-    const pr = production(p,{solar:p.b.solar+1}), cost=levelCost(B.solar,p.b.solar+1), gain=mse(pr.m,pr.c,pr.d)-baseV;
-    out.push({key:'solar', lvl:p.b.solar+1, extraSolar:0, cost, gain, payback: gain>0?mse(...cost)/gain:Infinity, score:scoreOf(pr,cost,gain), time:buildTime('solar',p.b.solar+1,p)});
-  }
-  /* Les foreuses sont une dépense productive comme une autre : elles se classent
-     par amortissement, à côté des mines. Aujourd'hui loin derrière ; elles
-     passeront devant quand un niveau de mine coûtera assez cher. */
-  const cmax = crawlerMax(p.b.metal, p.b.crystal, p.b.deut), have = p.crawlers||0;
-  if(have < cmax && shipReqOk('crawl', p)){
-    const n = Math.max(1, Math.min(cmax-have, Math.ceil(cmax/10)));
-    // Cinquante d'énergie par foreuse : comme pour une mine, la centrale qu'elles
-    // obligent à monter fait partie de leur prix.
-    const ov = {crawlers:have+n}; let cost = CRAWLER_COST.map(x=>x*n), extra = 0;
-    let pr = production(p, ov);
-    while(pr.factor<1 && extra<15){ extra++; ov.solar = p.b.solar+extra; const sc=levelCost(B.solar, p.b.solar+extra); cost=cost.map((x,i)=>x+sc[i]); pr=production(p,ov); }
-    const gain = mse(pr.m,pr.c,pr.d)-baseV;
-    out.push({key:'crawl', n, lvl:have+n, extraSolar:extra, cost, gain,
-              payback: gain>0 ? mse(...cost)/gain : Infinity, score:scoreOf(pr,cost,gain), time:shipTime('crawl', n, p)});
-  }
-  return out.sort((a,b)=>a.score-b.score);
-}
 (function uiCharge(){
   const e = window.__uiState, v = window.__uiSeen;
   if(e && typeof e === 'object') for(const [k, x] of Object.entries(e)) if(x === 'open' || x === 'closed') UI.etats[k] = x;
@@ -210,14 +150,7 @@ function raceDe(p){
   return {race:null, src:'', conflit:false};
 }
 
-/* ---------- les règles du moteur : ignorer, compter ---------- */
-/** La clé d'« Ignorer » : la règle, la planète en identifiant du jeu (`daily`
-    voyage), et la valeur de la condition. */
-function ignKey(c){
-  // planetById et non gidDe : celle-là est une const posée en fin de fichier, après le premier rendu
-  const p = planetById(c.pid), gid = p && p.gid != null ? String(p.gid) : null;
-  return `${c.regle}|${gid || c.pid}|${c.valeur}`;
-}
+/* ---------- les alertes d'une planète ---------- */
 
 function planetAlerts(p){
   const out = [], pr = production(p);
@@ -257,9 +190,6 @@ function planetAlerts(p){
   out.push(...deRegle('RES_STORAGE_FULL').concat(deRegle('RES_STORAGE_SOON')).sort((a, b) => a.valeur - b.valeur));
   return out;
 }
-/* Un seul vocabulaire de niveau dans tout le panneau : celui des règles du
-   moteur. « Urgent » ici et « Critique » là se liraient comme deux échelles. */
-const SEV_LABEL = {bad:'Critique', warn:'Important', info:'Conseil', good:'Prêt'};
 
 /* ---------- timers ---------- */
 S.timers = S.timers || [];
@@ -729,8 +659,8 @@ litVersions();
 /* Ce que les modules sortis d'app.js lui empruntent encore. Rien de plus :
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
-  sainEtat, rankUpgrades, raceDe, ignKey, on,
-  addBuilt, render, TOOLS, bascule,
-  planetAlerts, aide, SEV_LABEL, actsVus, VIEWS, gauge, REFRESH, toast, refresh, timeExport, msg, appliqueSauvegarde,
+  sainEtat, raceDe, on,
+  render, TOOLS, bascule,
+  planetAlerts, aide, actsVus, VIEWS, gauge, REFRESH, toast, refresh, timeExport, msg, appliqueSauvegarde,
   publieLePlan, APP_VERSION
 };

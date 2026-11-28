@@ -465,7 +465,7 @@ chantier, son, titre qui clignote, alertes à acquitter), `src/economie/producti
 au moment présent, attente avant de payer), `src/economie/centre.js` (le
 centre, son labo, la durée d'une recherche, les prérequis qui manquent),
 `src/economie/chantiers.js` (files de construction, retards des mines, des
-nanites et du labo), `src/economie/debordements.js` (pertes d'un hangar
+nanites et du labo, ce qu'un chantier fini dépose), `src/economie/debordements.js` (pertes d'un hangar
 plein, journal des débordements, hangar qu'ils justifient),
 `src/regles/moteur.js` (le moteur
 de règles) et `src/defense/defense.js` (pièces, modèles de défense, manque
@@ -481,7 +481,8 @@ nomme une case, les rangs relevés), puis le plan du jour dans `src/plan/` :
 `priorites.js` (les priorités du joueur et leur pose),
 `place-formes-de-vie.js` (avant ou après les bâtiments, ou pas du tout), `profil.js` (le profil de jeu et le poids
 qu'il donne aux cartes), `nuit.js` (la nuit, l'heure de réveil),
-`vocations.js` (la vocation d'une planète, ce qui manque à l'empire),
+`vocations.js` (la vocation d'une planète, ce qui manque à l'empire, les
+mines et foreuses les plus vite amorties),
 `journee.js` (la journée simulée, la prochaine recherche, la projection des
 ressources), `missions.js` (les missions du jour), `surplus.js` (les
 règles de stockage et ce que le plan propose pour les ressources en trop) et

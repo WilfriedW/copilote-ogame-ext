@@ -43,15 +43,17 @@ import {
   profilFocusHtml, profilEtape
 } from '../plan/profil.js';
 import { surplusListe } from '../plan/surplus.js';
-import { NIVEAU_SEV, regleParam, publieCritiques } from '../regles/moteur.js';
+import { NIVEAU_SEV, regleParam, publieCritiques, ignKey } from '../regles/moteur.js';
 import { FS_MISSION, secu, espionnagesEntrants, planSecurite, fsRappelActif } from '../securite/securite.js';
-import { copyChips, whyParts, actHtml, rebours, noBtn, noListe } from './carte-action.js';
+import {
+  copyChips, whyParts, actHtml, rebours, noBtn, noListe, SEV_LABEL
+} from './carte-action.js';
 import { conseilLignes, conseilsHtml } from './conseils.js';
 import {
   uiVu, fold, RESUMES, resumeDe, cardLayout, cartesMenu, listeCartes
 } from './navigation.js';
 import { gameSkin } from './page-du-jeu.js';
-import { ignKey, SEV_LABEL, aide, actsVus, on } from '../../app.js';
+import { aide, actsVus, on } from '../../app.js';
 
 /* Ce qu'une ligne de forme de vie dit d'elle-même. Cinq états, et aucun ne se
    confond avec un autre : le relevé n'a jamais vu la case (le joueur a posé

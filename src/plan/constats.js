@@ -23,8 +23,8 @@ import { planeteRecherche, labPlanet, reqOk } from '../economie/centre.js';
 import { rechercheEnCours, nextResearch, casesBasses } from './journee.js';
 import { energyOptions, energyLine } from './missions.js';
 import { prios } from './priorites.js';
+import { rankUpgrades } from './vocations.js';
 import { aSoi, EVAL, HANGARS } from '../regles/moteur.js';
-import { rankUpgrades } from '../../app.js';
 /* L'option satellites est respectée par energyOptions : un satellite écarté
    ne sort pas comme la solution, il se dit à part dans planetAlerts. */
 EVAL.energyBalance = p => {

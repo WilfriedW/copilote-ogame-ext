@@ -3,10 +3,13 @@
    et ce qui dit qu'une partie de l'empire a pris du retard : les mines
    déséquilibrées (`cibleMines`, `mineEnRetard`), les nanites et les robots
    (`naniteRetard`, `robotsOuNanites`), le labo (`laboEnRetard`, `labOkPour`),
-   les recherches que le style de jeu vise (`profilVise`, `reglesRecherche`).
+   les recherches que le style de jeu vise (`profilVise`, `reglesRecherche`),
+   et ce qu'un chantier fini dépose sur la planète (`addBuilt`).
 
-   Domaine de l'issue #49. Il ne lit que le noyau, la production et le moteur
-   de règles : le plan du jour l'importe, il n'importe pas le plan. */
+   Domaine de l'issue #49. Il ne lit que le noyau, la production, la défense
+   et le moteur de règles : le plan du jour l'importe, il n'importe pas le
+   plan. */
+import { DEF, defsOf } from '../defense/defense.js';
 import { S } from '../core/etat.js';
 import { B, T } from '../core/formules.js';
 import { labPlanet, reqOk } from './centre.js';
@@ -83,4 +86,18 @@ export function reglesRecherche(){
     if((S.tech[r.tech] || 0) < r.parametres.niveauCible) out.push([r.tech, r.parametres.niveauCible, '', id]);
   }
   return out;
+}
+/* Le chantier sort trois choses qui ne se rangent pas au même endroit : des
+   vaisseaux, des foreuses que production() compte à part, et de la défense,
+   comptée par type et par total. Chaque file le réinventait ; un seul endroit
+   le dit, sinon un lot de lanceurs finit dans p.ships et ne défend rien. */
+export function addBuilt(p, ships){
+  for(const [k,n] of Object.entries(ships||{})){
+    if(k==='crawl') p.crawlers=(p.crawlers||0)+n;
+    /* Le détail part du relevé, pas de rien : sur une planète dont on ne
+       connaissait que le total, poser {ll:2} effacerait les lanceurs déjà au
+       sol et le plan les redemanderait un par un. */
+    else if(DEF[k]){ const d = Object.assign({}, defsOf(p)); d[k] = (d[k]||0)+n; p.def=(p.def||0)+n; p.defs = d; }
+    else { p.ships=p.ships||{}; p.ships[k]=(p.ships[k]||0)+n; }
+  }
 }

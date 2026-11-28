@@ -3,19 +3,21 @@
    complétées des règles de secours ; chacune s'active, se règle et se
    vérifie ici (`regle`, `regleActive`, `regleParam`, `regleSaine`), et les
    évaluateurs d'EVAL en tirent des constats par planète (`constatsDe`,
-   `constats`). Ce que le joueur ignore se retient ici aussi.
+   `constats`). Ce que le joueur ignore se retient ici aussi, sous la clé
+   d'« Ignorer » (`ignKey`).
 
    Module de domaine (issue #49). Les évaluateurs propres à un domaine —
    ressources en trop, formes de vie — s'inscrivent dans EVAL depuis leur
    domaine, qui l'importe. En attendant que ces domaines quittent app.js,
    ce module emprunte encore à app.js ce qu'il lit (production, stocks,
    style de jeu…) : ce cycle-là est toléré tant qu'app.js existe. */
+import { planetById } from '../core/planetes.js';
 import { S } from '../core/etat.js';
 import { IS_EXT } from '../core/serveur.js';
 import { lfMode } from '../plan/place-formes-de-vie.js';
 import { poidsCat } from '../plan/profil.js';
 import { save } from '../synchro/synchro.js';
-import { raceDe, ignKey, on } from '../../app.js';
+import { raceDe, on } from '../../app.js';
 
 /* ---------- les règles du moteur ----------
    Décrites dans rules.json, que boot.js lit avant ce fichier et pose dans
@@ -216,4 +218,10 @@ export function publieCritiques(cs){
   if(_critPub && _critPub.n === n && Date.now() - _critPub.at < 5 * 60e3) return;
   _critPub = {n, at:Date.now()};
   try{ chrome.storage.local.set({critiques:_critPub}); }catch(e){}
+}
+/** La clé d'« Ignorer » : la règle, la planète en identifiant du jeu (`daily`
+    voyage), et la valeur de la condition. */
+export function ignKey(c){
+  const p = planetById(c.pid), gid = p && p.gid != null ? String(p.gid) : null;
+  return `${c.regle}|${gid || c.pid}|${c.valeur}`;
 }
