@@ -244,7 +244,8 @@ module.exports = ({ t, assert, app, appRegles, loadApp, fixtureState, lu, SOIR, 
   t('le filtre Données manquantes ne garde que FDV_DATA_MISSING', () => {
     const g = app(s => { s.ui.cf = { manque: true }; s.planets[1].stock = { m: 0, c: 0, d: 0, at: SOIR }; });
     g.REFRESH.today();
-    assert.match(lu(g.el('tdAlerts').innerHTML).split('<details')[1], /Aucun conseil pour ces filtres/);
+    // ENH-75 : la carte Conseils est elle-même un volet, « Voir tout » est le second
+    assert.match(lu(g.el('tdAlerts').innerHTML).split('<details')[2], /Aucun conseil pour ces filtres/);
   });
 
   /* ---------- les règles du moteur : ignorer ---------- */

@@ -30,7 +30,7 @@ import {
 import { besoinEmpire, VOC_NOM, vocations } from '../plan/vocations.js';
 import { REGLES_PAR_ID, regleParam } from '../regles/moteur.js';
 import { gauge } from './commun.js';
-import { fold, cardLayout } from './navigation.js';
+import { fold, cardLayout, carteHtml } from './navigation.js';
 import { VIEWS, REFRESH } from '../../app.js';
 
 /* Les règles qu'on coupe pour une planète seulement — « pas de Terraformeur
@@ -146,13 +146,36 @@ function lfBloc(p){
   if(!lfIds(p).length) return `<p class="note mt-2"><b>Formes de vie</b> — aucune case de forme de vie relevée ici : ouvre la page de ta forme de vie dans le jeu pour qu'elles apparaissent.</p>`;
   return `${titre}<div class="grid tight mt-2">${lfRows(p)}</div>`;
 }
+/**
+ * Les niveaux visés de chaque planète (ENH-75), un volet par planète : ses
+ * bâtiments, le niveau relevé à gauche et le visé à droite, puis ses formes de
+ * vie. Les champs gardent leurs attributs : bind() les trouve ici comme dans
+ * Empire avant.
+ */
+function ciblesParPlanete(){
+  const corps = S.planets.map(p => {
+    const n = prioCount(p.id);
+    return `<details class="volet"${fold('cib:' + p.id, false)}${meteoVoit(p.id) ? '' : ' hidden'}><summary data-fold="cib:${p.id}"><b>${esc(p.name)}</b> <span class="note">${esc(p.coords)}${n ? ` · ${n} priorité${n > 1 ? 's' : ''}` : ''}</span></summary>
+      <div class="grid tight mt-2">
+        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input type="number" value="${num(p.b[k])}" readonly tabindex="-1" aria-label="${B_SHORT[k]} : niveau relevé"><input class="prio" type="number" min="${num(p.b[k])+1}" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
+      </div>
+      ${lfBloc(p)}
+    </details>`;
+  }).join('');
+  return carteHtml('ciblesPl', 'Cibles par planète', `<p class="note mt-2">Le niveau relevé à gauche, celui que tu vises à droite : le plan épargne pour l'atteindre. Le clic droit dans le jeu pose les mêmes.</p>${corps}`);
+}
 export const VIEWS_EMPIRE = {
-empire(){ return cardLayout('empire', {planetes: VIEWS.planets(), recherche: VIEWS.research()}); },
+empire(){ return cardLayout('empire', {planetes: VIEWS.planets()}); },
+/* Recherche / Cibles (ENH-75) : tout ce que le joueur vise, au même endroit —
+   la recherche, un niveau sur plusieurs planètes, puis planète par planète.
+   Empire n'en garde que l'état. */
+niveaux(){
+  return `<section class="panel">${VIEWS.research()}${poseBloc()}${ciblesParPlanete()}</section>`;
+},
 planets(){
   return `<section class="panel">
     ${S.sample ? `<div class="example">Données d'exemple : remplace-les par tes niveaux réels (planète mère, mine de métal 1). Les cases se sauvegardent dans ce navigateur.</div>` : ''}
-    <div class="card"><div class="row spread"><h2>Empire · production / heure</h2><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><details class="volet"${fold('mix', false)}><summary data-fold="mix">Pourquoi ce classement</summary><p class="note mt-2" id="empireMix"></p></details></div>
-    ${poseBloc()}
+    ${carteHtml('empireProd', 'Empire · production / heure', `<div class="row"><span id="empireFactor"></span></div><div class="res" id="empireRes"></div><details class="volet"${fold('mix', false)}><summary data-fold="mix">Pourquoi ce classement</summary><p class="note mt-2" id="empireMix"></p></details>`, {ouvert:true})}
     ${(()=>{ const voc = vocations(), ci = centreIndex(), auto = centreIndex(true); return S.planets.map((p,i)=>`
     <details class="card ligne" data-pi="${i}"${fold('pl:' + p.id, false)}${meteoVoit(p.id) ? '' : ' hidden'}>
       <summary data-fold="pl:${p.id}" class="plsum"><b>${esc(p.name)}</b> <span class="note">${esc(p.coords)}</span><span class="mono" id="psum-${i}"></span></summary>
@@ -177,13 +200,14 @@ planets(){
         <p class="note" id="pctrn-${i}">${centreNoteHtml(p, i, ci)}</p>
       </div>
       </details>
-      <details class="volet"${fold('niv:' + p.id, false)}><summary data-fold="niv:${p.id}">Bâtiments et niveaux visés <span class="note" id="pobj-${i}"></span></summary>
+      <details class="volet"${fold('niv:' + p.id, false)}><summary data-fold="niv:${p.id}">Bâtiments <span class="note" id="pobj-${i}"></span></summary>
+      <!-- Les niveaux visés ont quitté ce volet pour Recherche / Cibles (ENH-75) : les niveaux, eux, se tapent encore ici tant que la planète n'est pas relevée. -->
+      <div class="row mt-2"><button class="btn sm ghost" data-goto="niveaux">Cibles de cette planète</button></div>
       <div class="grid tight mt-2">
-        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<span class="lv"><input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${num(p.b[k])}"${lvLu(p) ? ' readonly tabindex="-1"' : ''}><input class="prio" type="number" min="${num(p.b[k])+1}" data-pid="${p.id}" data-prio="${k}" value="${prioLvl('b', p.id, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${B_SHORT[k]} : niveau visé"></span></label>`).join('')}
+        ${Object.keys(B).map(k=>`<label class="f">${B_SHORT[k]}<input id="pb-${p.id}-${k}" type="number" min="0" data-b="${k}" value="${num(p.b[k])}"${lvLu(p) ? ' readonly tabindex="-1"' : ''}></label>`).join('')}
         <label class="f">Satellites<input id="ps-${p.id}" type="number" min="0" data-p="sats" value="${num(p.sats)}"${lvLu(p) ? ' readonly tabindex="-1"' : ''}></label>
         <label class="f">Satellites autorisés<select data-satsok="${p.id}"><option value="">Hériter (${S.settings.sats ? 'oui' : 'non'})</option><option value="1" ${p.satsOk === true ? 'selected' : ''}>Oui</option><option value="0" ${p.satsOk === false ? 'selected' : ''}>Non</option></select></label>
       </div>
-      ${lfBloc(p)}
       ${regOffHtml(p)}
       </details>
       <details class="volet"${fold('stock:' + p.id, false)}><summary data-fold="stock:${p.id}">Stock <span class="mono note" id="pstk-${i}"></span></summary>
@@ -200,7 +224,7 @@ planets(){
   </section>`;
 },
 research(){
-  return `<details class="card"${fold('recherches', false)}><summary data-fold="recherches">Recherches et niveaux visés <span class="note">labo niveau <b id="labLv"></b></span></summary>
+  return `<details class="card"${fold('recherches', true)}><summary data-fold="recherches">Recherches et niveaux visés <span class="note">labo niveau <b id="labLv"></b></span></summary>
     <div class="tbl-wrap"><table class="tech"><thead><tr><th>Technologie</th><th class="n">Niv.</th><th class="n">Visé</th><th>Coût prochain niv.</th><th class="n">Durée</th><th>État</th></tr></thead><tbody>
     ${Object.keys(T).map(k=>`<tr><td>${T[k].n}</td><td class="n"><input id="t-${k}" type="number" min="0" data-t="${k}" value="${num(S.tech[k])}"></td><td class="n"><input class="prio" type="number" min="${num(S.tech[k])+1}" data-prio="${k}" value="${prioLvl('t', null, k)}" placeholder="→" title="Niveau visé : le plan épargne pour l'atteindre" aria-label="${T[k].n} : niveau visé"></td><td id="tc-${k}"></td><td class="n" id="tt-${k}"></td><td id="ts-${k}"></td></tr>`).join('')}
     </tbody></table></div>
@@ -236,7 +260,8 @@ function stockResume(p, pr, st){
   return `<span title="Stock relevé à ${esc(formatTime(p.stock.at))}, projeté à maintenant">${cases.join(' · ')}</span>`;
 }
 export const REFRESH_EMPIRE = {
-empire(){ REFRESH.planets(); REFRESH.research(); },
+empire(){ REFRESH.planets(); },
+niveaux(){ REFRESH.research(); },
 planets(){
   let tm=0,tc=0,td=0, worst=1;
   const voc = vocations(), ci = centreIndex();

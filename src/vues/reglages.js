@@ -25,7 +25,7 @@ import { planPoseParLeStyle, classeEcart, profilLigne, profilFocusHtml } from '.
 import { REGLES_PAR_ID, NIVEAU_SEV, DOMAINES, regle } from '../regles/moteur.js';
 import { REGLES_ERR } from '../regles/fichier.js';
 import { secu } from '../securite/securite.js';
-import { actsVus } from './aujourdhui.js';
+import { actsVus, profilCard } from './aujourdhui.js';
 import { noListe, SEV_LABEL } from './carte-action.js';
 import { bascule } from './commun.js';
 import { defModeleCarte, defPicker } from './defense.js';
@@ -140,8 +140,9 @@ settings(){
      masquées, pour que REFRESH.settings et bind() les trouvent. */
   return cardLayout('settings', {
     jeu: `
+    ${profilCard()}
     <div class="card"><h2>Profil et plan du jour</h2>
-      <p class="note">${S.profil.set ? `Ton profil : <b>${esc(profilLigne())}</b>.` : 'Pas encore renseigné : l\'assistant t\'attend en tête d\'Aujourd\'hui.'}</p>
+      <p class="note">${S.profil.set ? `Ton profil : <b>${esc(profilLigne())}</b>.` : 'Pas encore renseigné : réponds aux trois questions juste au-dessus.'}</p>
       ${S.profil.set ? `<div class="chips mt-2">${profilFocusHtml()}</div>
       ${aide('focus', '<p class="note">Les focus ponctuels remontent leurs cartes sans remplacer ton style. Les poids de chaque catégorie sont dans <code>profils.js</code>.</p>')}` : ''}
       ${ecart ? `<p class="note">${esc(ecart)}</p>` : ''}
@@ -206,7 +207,7 @@ settings(){
       <p class="note">Combien de pièces par lanceur de plasma. Les deux boucliers restent hors modèle.</p>` : ''}
       ${S.profil.set && s.defModele === (PROFILS.styles[S.profil.style] || {}).defense
         ? `<p class="note">Posé par ton profil (<b>${esc(PROFILS.styles[S.profil.style].n)}</b>). En choisir un autre ici le détache du profil : refaire le questionnaire ne le remettra plus.</p>` : ''}
-      ${aide('defense', '<p class="note">Les cartes Défense du plan ne proposent que les pièces de ce modèle, dans ses proportions. Outils › Défense dit, planète par planète, ce qui manque et ce que ça coûte ; une planète peut y prendre un autre modèle que celui-ci.</p>')}
+      ${aide('defense', '<p class="note">Les cartes Défense du plan ne proposent que les pièces de ce modèle, dans ses proportions. L\'onglet Défense dit, planète par planète, ce qui manque et ce que ça coûte ; une planète peut y prendre un autre modèle que celui-ci.</p>')}
     </div>
     ${secuCard()}`,
     affichage: `

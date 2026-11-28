@@ -46,7 +46,7 @@ import {
 } from './carte-action.js';
 import { conseilLignes, conseilsHtml } from './conseils.js';
 import {
-  uiVu, fold, RESUMES, resumeDe, cardLayout, cartesMenu, listeCartes, aide
+  uiVu, fold, RESUMES, resumeDe, cardLayout, cartesMenu, listeCartes, aide, carteHtml
 } from './navigation.js';
 import { gameSkin } from './page-du-jeu.js';
 import { on } from '../../app.js';
@@ -94,7 +94,7 @@ const prioRangHtml = (kind, pid, k) => { const r = prioOrdre(kind, pid, k); retu
    jamais rien, et tout le reste de ce travail ne sert à personne. */
 function prioHtml(plan){
   const l = prios(), lf = priosLf(), at = prioDemandes(), loin = prioAttend();
-  if(!l.length && !lf.length && !at.length && !loin.length) return `<div class="card"><h2>Tes priorités</h2><p class="note">Aucune pour l'instant. Dans le jeu, fais un <b>clic droit</b> sur la case d'un bâtiment, d'une recherche ou d'une forme de vie : elle devient une priorité, et le plan la sert. Ici, dans <b>Empire</b>, déplie les niveaux d'une planète — ou les recherches — et écris le niveau que tu vises dans le petit champ <b>→</b>, à droite du niveau actuel. Le plan épargnera pour l'atteindre, et le dira sur ses cartes.</p></div>`;
+  if(!l.length && !lf.length && !at.length && !loin.length) return carteHtml('prios', 'Tes priorités', `<p class="note">Aucune pour l'instant. Dans le jeu, fais un <b>clic droit</b> sur la case d'un bâtiment, d'une recherche ou d'une forme de vie : elle devient une priorité, et le plan la sert. Ici, dans l'onglet <b>Recherche / Cibles</b>, écris le niveau que tu vises dans le petit champ <b>→</b>, à droite du niveau actuel. Le plan épargnera pour l'atteindre, et le dira sur ses cartes.</p>`, {ouvert:true, pliable:true});
   const nuit = !!S.day.night;
   const dits = new Map((((plan || simulateDay()).sessions[0] || {}).prio || []).map(e => [e.id, e]));
   /* « Passer devant » n'apparaît que sur une ligne qui attend : sur la
@@ -119,7 +119,9 @@ function prioHtml(plan){
     const nom = e.kind === 'b' ? (B_SHORT[e.k] || e.k) : e.kind === 'lf' ? (LF_NAMES[e.k] || `Forme de vie ${e.k}`) : ((T[e.k] || {}).n || e.k);
     return li('Autre poste', `${esc(String(nom))} ${e.lvl}`, `Posée sur ton autre ordinateur, sur une planète que celui-ci n'a pas encore relevée. Ouvre-la dans le jeu : elle rejoindra la liste et le plan la servira.`, prioRef('gid', e.gid, e.k));
   }));
-  return `<div class="card"><h2>Tes priorités</h2><ul class="advice prios">${lignes.join('')}</ul></div>`;
+  /* Sa propre carte, sous Maintenant (ENH-75) : replier Maintenant la laisse
+     voir. Ouverte par défaut, comme quand elle vivait dans Maintenant. */
+  return carteHtml('prios', 'Tes priorités', `<ul class="advice prios">${lignes.join('')}</ul>`, {ouvert:true, pliable:true, resume:{count:lignes.length, maxLevel:'info'}});
 }
 /**
  * La carte Ressources en trop : une entrée par ressource au plafond ou qui va
@@ -152,9 +154,8 @@ function surplusHtml(plan){
       + ` <button class="btn sm ghost" data-ign="${esc(ignKey(c))}" title="Masqué jusqu'à ce que la situation change, ou 24 h">Ignorer</button></span></li>`;
   };
   return {items:l.map(x => ({sev:NIVEAU_SEV[x.c.niveau] || 'warn', key:x.c.what})),
-    html:`<div class="card"><h2>Ressources en trop <span class="note">${l.length}</span></h2>`
-      + `<p class="note mb-2">Au plafond, la mine ou le synthétiseur s'arrête tant que le stock ne redescend pas. Dans l'ordre : le dépenser ici, sinon l'envoyer où il manque, et le hangar seulement si ça revient.</p>`
-      + `<ul class="advice">${l.map(ligne).join('')}</ul></div>`};
+    html:carteHtml('surplus', 'Ressources en trop', `<p class="note mb-2">Au plafond, la mine ou le synthétiseur s'arrête tant que le stock ne redescend pas. Dans l'ordre : le dépenser ici, sinon l'envoyer où il manque, et le hangar seulement si ça revient.</p>`
+      + `<ul class="advice">${l.map(ligne).join('')}</ul>`, {resume:resumeDe(l.map(x => ({sev:NIVEAU_SEV[x.c.niveau] || 'warn'})), 'surplus')})};
 }
 
 /* ---------- la sécurité : le bloc ---------- */
@@ -285,7 +286,7 @@ function expoHtml(){
   return {sum, html: parts.join(''), n: props.length};
 }
 /** @param {number} [etape] 0 à 2 ; l'étape en cours par défaut. */
-function profilCard(etape){
+export function profilCard(etape){
   if(S.profil.set) return '';
   const p = S.profil, e = Math.max(0, Math.min(2, etape == null ? profilEtape : etape));
   const titres = ['Tu joues comment ?', 'Quelle classe veux-tu viser ?', 'Tu passes souvent ?'];
@@ -335,9 +336,12 @@ today(){
   /* Chaque carte se déclare dans CARTES.today ; le conteneur les empile ou
      les range en onglets, elles n'en savent rien. */
   return cardLayout('today', {
-    profil: profilCard() + profilBloc(),
     attaque: `<div id="tdSecuAlerte"></div>`,
-    maintenant: `<div class="card"><div class="row spread liste-tete"><h2>Maintenant <span class="note" id="tdNowN"></span></h2>${cartesMenu('maintenant')}</div><div id="tdNow"></div></div>`,
+    /* Maintenant se replie, même seul dans son onglet : fermé, il laisse voir
+       Tes priorités juste dessous (ENH-75). */
+    maintenant: carteHtml('maintenant', 'Maintenant <span class="note" id="tdNowN"></span>',
+      `<div class="row liste-tete">${cartesMenu('maintenant')}</div><div id="tdNow"></div>`, {ouvert:true, pliable:true})
+      + `<div id="tdPrios"></div>`,
     surplus: `<div id="tdSurplus"></div>`,
     alertes: `<div id="tdAlerts"></div>`,
     securite: `<div id="tdSecu"></div>`,
@@ -417,7 +421,11 @@ today(){
   if(!a0.length && !nowMs.length) nowParts.unshift(`<p class="note">Rien à lancer pour l'instant.${nextS?` Prochaine action à <b>${formatTime(nextS.T)}</b>.`:''}</p>`);
   const aide = `<details class="volet"${fold('aide', false)}><summary class="note" data-fold="aide">Comment lire ces cartes</summary><p class="note mt-2"><b>Lancé</b> ou <b>Fait</b> quand c'est fait dans le jeu : le plan se recalcule. <b>Non</b> met la carte de côté jusqu'à ce que tu la remettes. Une carte de flotte ouvre le formulaire du jeu déjà préparé ; les valeurs marquées ⧉ se copient d'un clic.${IS_EXT?'':' Si une file est déjà occupée dans le jeu, ajoute son minuteur.'}</p></details>`;
   const remets = noListe();
-  document.getElementById('tdNow').innerHTML = nowParts.join('') + aide + prioHtml(plan) + remets;
+  /* Le profil est un réglage (ENH-75) : tant qu'il n'est pas posé, une ligne
+     y mène, en tête de ce que le joueur vient lire. */
+  const profil = S.profil.set ? '' : `<p class="note">Ton profil n'est pas encore posé : le plan suit un style par défaut. <button class="btn sm" data-goto="settings:jeu">Répondre aux trois questions</button></p>`;
+  document.getElementById('tdNow').innerHTML = profil + nowParts.join('') + aide + remets;
+  const tp = document.getElementById('tdPrios'); if(tp) tp.innerHTML = prioHtml(plan);
   /* Ce que chaque carte contient, pour le compteur de son onglet : les
      chantiers sont des conseils, les missions portent leur gravité. */
   RESUMES.maintenant = resumeDe(a0.map(()=>({sev:'info'})).concat(nowMs.map(m=>({sev:m.sev, key:'m:'+m.id}))), 'maintenant');

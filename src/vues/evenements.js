@@ -106,7 +106,7 @@ export function bind(){
   /* Refaire le questionnaire, c'est le rouvrir là où il s'ouvre : en tête
      d'Aujourd'hui, avec les réponses en place. */
   view.querySelectorAll('[data-refaire]').forEach(el=>el.addEventListener('click',()=>{
-    S.profil.set = false; poseProfilEtape(0); save(); allerOnglet('today');
+    S.profil.set = false; poseProfilEtape(0); save(); allerVers('settings:jeu');
   }));
   /* L'heure locale ou serveur quitte l'en-tête pour Réglages › Affichage
      (ENH-77) : on la règle une fois, on ne la regarde plus. */
@@ -273,7 +273,9 @@ export function allerOnglet(k){ poseScanEcran(false); poseOnglet(k); try{ LS.set
  * @param {string} cible « page » ou « page:sous-onglet »
  */
 export function allerVers(cible){
-  const [t, sous] = String(cible || '').split(':');
+  let [t, sous] = String(cible || '').split(':');
+  // Outils › Défense est devenu l'onglet Défense (ENH-75)
+  if(t === 'tools' && sous === 'defense'){ t = 'defense'; sous = ''; }
   if(!VIEWS[t]) return;
   if(sous){
     if(t === 'tools'){ if(TOOLS.some(([k])=>k===sous)){ S.ui.tool = sous; save(); } }

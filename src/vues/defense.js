@@ -7,6 +7,7 @@
    partir des morceaux de chaque onglet. Les morceaux que les Réglages
    réemploient (`defModeleCarte`, `defPicker`, `defPersoLive`) vivent ici aussi. */
 import { S } from '../core/etat.js';
+import { carteHtml } from './navigation.js';
 import { fmt, esc, costHtml, nf, nf1, fmtCourt } from '../core/format.js';
 import {
   DEF, DEF_MODELES, defModele, defRatio, defAncre, defPalierDe,
@@ -17,16 +18,19 @@ import {
     Les deux menus portent `data-dp` : c'est lui qui distingue la surcharge
     d'une planète du réglage global, qui n'en a pas. */
 function defCarte(p){
-  const tete = `<div class="row spread"><h2>${esc(p.name)} <span class="note">${esc(p.coords)}</span></h2></div>`;
+  /* Une carte par planète, repliable (ENH-75) : fermée, son titre dit déjà
+     si le modèle tient. */
+  const titre = `${esc(p.name)} <span class="note">${esc(p.coords)}</span>`, tete = '';
   const menus = `<div class="grid">
       <div class="f"><span>Modèle</span>${defPicker(p.defModele && DEF_MODELES[p.defModele] ? p.defModele : '', p.id)}</div>
       <label class="f">Palier<select data-def="palier" data-dp="${p.id}"><option value="">Comme les réglages</option>${defPalierOpts(p.defPalier)}</select></label>
     </div>`;
   const d = defPlan(p);
-  if(!d) return `<div class="card">${tete}${menus}<p class="note">Défense jamais relevée ici : ouvre la page Défense de cette planète dans le jeu, ou clique Actualiser. Tant qu'elle est inconnue, annoncer un manque reviendrait à faire reconstruire ce qui est déjà au sol.</p></div>`;
+  if(!d) return carteHtml('def:' + p.id, titre, `${tete}${menus}<p class="note">Défense jamais relevée ici : ouvre la page Défense de cette planète dans le jeu, ou clique Actualiser. Tant qu'elle est inconnue, annoncer un manque reviendrait à faire reconstruire ce qui est déjà au sol.</p>`, {note:' <span class="note">· jamais relevée</span>'});
   const exces = d.lignes.filter(l=>l.exces > 0), hors = d.lignes.filter(l=>l.hors), bloques = d.lignes.filter(l=>l.req);
   const enFile = d.lignes.some(l=>l.file > 0);
-  return `<div class="card">${tete}${menus}
+  const etat = d.cout.some(x=>x > 0) ? ' <span class="note">· à compléter</span>' : ' <span class="note">· tenu</span>';
+  return carteHtml('def:' + p.id, titre, `${tete}${menus}
     <p class="note">${esc(d.nom)} · ${d.palier} ${esc(DEF[d.ancre].p)}${defPalierDe(p)==='fill' ? (d.lignes.some(l=>l.k===d.ancre && l.n + l.file > 0) ? ' déjà au sol' : ' : rien à compléter, le plus petit palier sert de départ') : ''}</p>
     ${p.defModele ? `<p class="note mono">${defRecetteHtml(defModele(d.modele))}</p>` : ''}
     ${d.plancherGap ? `<p class="pill warn">Sous le plancher de ton profil (${fmt(d.plancher)} ${esc(DEF[d.ancre].p)}) : ses cartes passent avant celles du palier.</p>` : ''}
@@ -39,7 +43,7 @@ function defCarte(p){
     ${exces.length ? `<p class="note">Au-dessus du modèle, et ça compte quand même : ${exces.map(l=>`${fmt(l.exces)} ${esc(DEF[l.k].p)}`).join(', ')}.</p>` : ''}
     ${hors.length ? `<p class="note">Hors modèle, au sol et compté, mais jamais redemandé : ${hors.map(l=>`${fmt(l.n + l.file)} ${esc(l.n + l.file > 1 ? DEF[l.k].p : DEF[l.k].o)}`).join(', ')}.</p>` : ''}
     ${bloques.length ? `<p class="pill warn mt-2">Pas encore débloqué, aucune carte en attendant : ${bloques.map(l=>esc(defBloqueTexte(l))).join(' · ')}</p>` : ''}
-  </div>`;
+`, {note:etat});
 }
 export const VIEWS_DEFENSE = {
 /* Le modèle se choisit dans les Réglages, une fois pour tout l'empire ; ici
@@ -48,11 +52,11 @@ export const VIEWS_DEFENSE = {
 defense(){
   const s = S.settings, anc = defAncre(defRatio(s.defModele) || {});
   return `<section class="panel">
-    <div class="card"><h2>Modèle de défense</h2>
+    ${carteHtml('def:modele', 'Modèle de défense', `
       <p class="note"><b>${esc(DEF_MODELES[s.defModele].n)}</b> · ${s.defPalier === 'fill' ? 'compléter l\'existant' : `${s.defPalier} ${esc(DEF[anc].p)}`} <button class="btn sm ghost" data-goto="settings:defense">Modifier</button></p>
       ${defModeleCarte(s.defModele)}
       <p class="note">Le modèle donne la proportion entre les pièces, le palier la taille. Rien ne se construit ici, et le plan du jour garde son propre budget : la moitié d'une nuit de production, de quoi rendre le pillage non rentable.</p>
-    </div>
+`, {ouvert:true})}
     ${S.planets.map(defCarte).join('')}
   </section>`;
 },

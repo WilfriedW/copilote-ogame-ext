@@ -6395,6 +6395,7 @@ require('./palier.test')({ t, assert, loadApp, fixtureState, JOUR, SOIR });
 require('./itineraire.test')({ t, assert, loadApp, fixtureState, JOUR, lu });
 require('./empire-planetes.test')({ t, assert, app, lu, SOIR });
 require('./en-tete.test')({ t, assert, loadApp, fixtureState, SOIR, lu });
+require('./navigation.test')({ t, assert, loadApp, fixtureState, SOIR, lu });
 
 /* ---------- une carte en attente dit ce qui la retient ---------- */
 
@@ -6474,8 +6475,9 @@ const prio2 = s => { s.prio = [
   {kind:'b', pid:'mere', k:'lab', lvl:10},
   {kind:'b', pid:'mere', k:'metal', lvl:20}]; };
 
+/* ENH-75 : les niveaux visés vivent dans Recherche / Cibles. */
 t('la grille des niveaux porte un champ de niveau visé', () => {
-  assert.match(app().VIEWS.planets(), /data-prio="lab"/);
+  assert.match(app().VIEWS.niveaux(), /data-prio="lab"/);
 });
 
 t('la table des recherches porte un champ de niveau visé', () => {
@@ -6493,16 +6495,18 @@ t('la colonne « Visé » reste atteignable dans un volet étroit', () => {
   assert.match(css, /table\.tech td:first-child[^}]*white-space:normal[^}]*max-width/);
 });
 
+/* ENH-75 : les niveaux visés vivent dans Recherche / Cibles. */
 t('le champ affiche le niveau visé par la priorité posée, et seulement celui-là', () => {
-  const h = app(prioLabo).VIEWS.planets();
+  const h = app(prioLabo).VIEWS.niveaux();
   assert.match(h, /data-prio="lab"[^>]*value="10"/);
   assert.match(h, /data-prio="metal"[^>]*value=""/);
 });
 
+/* ENH-75 : les niveaux visés vivent dans Recherche / Cibles. */
 t('une priorité de la mère n\'emplit pas le champ de la colonie', () => {
   /* Même bâtiment sur deux planètes : seul le champ de la planète visée porte
      la valeur, et l'attribut data-pid dit à quelle planète il répond. */
-  const h = app(prioLabo).VIEWS.planets();
+  const h = app(prioLabo).VIEWS.niveaux();
   assert.equal((h.match(/data-prio="lab"[^>]*value="10"/g) || []).length, 1);
   assert.match(h, /data-pid="mere" data-prio="lab"/);
 });
@@ -6584,14 +6588,15 @@ t('sans aucune priorité, le bloc dit quand même où en poser une', () => {
   const h = app().prioHtml();
   assert.ok(h, 'le bloc est rendu');
   assert.match(h, /Tes priorités/);
-  assert.match(h, /Empire/, 'il nomme l\'onglet où aller');
-  assert.match(h, /déplie/, 'il dit qu\'il faut déplier');
+  // ENH-75 : le champ → vit dans Recherche / Cibles
+  assert.match(h, /Recherche \/ Cibles/, 'il nomme l\'onglet où aller');
   assert.ok(!/data-prio-del/.test(h), 'et il ne propose rien à retirer');
 });
 
 t('les deux volets annoncent qu\'ils portent le niveau visé', () => {
   const g = app();
-  assert.match(g.VIEWS.planets(), /Bâtiments et niveaux visés/);
+  // ENH-75 : les bâtiments visés, planète par planète, dans Recherche / Cibles
+  assert.match(g.VIEWS.niveaux(), /Cibles par planète/);
   assert.match(g.VIEWS.research(), /Recherches et niveaux visés/);
 });
 
@@ -6632,12 +6637,13 @@ t('le volet des niveaux se donne pour ce qu\'il est : un réglage qu\'on ouvre',
   assert.match(css, /details\.volet>summary[^{]*\{[^}]*border:1px solid/, 'et il reste encadré');
 });
 
+/* ENH-75 : les niveaux visés vivent dans Recherche / Cibles. */
 t('le compteur du niveau visé part du niveau en place, pas de 1', () => {
   /* Partir de 1 obligeait à retaper le niveau entier, et proposait d'abord des
      niveaux déjà atteints — que prioPose jette aussitôt. */
   const g = app(s2 => { s2.planets[0].b.lab = 5; s2.tech.plasma = 7;
     s2.planets[0].lf = { 11101: { lvl: 3, state: 'ok' } }; });
-  const h = g.VIEWS.planets();
+  const h = g.VIEWS.niveaux();
   assert.match(h, /min="6" data-pid="mere" data-prio="lab"/, 'un bâtiment');
   assert.match(h, /min="4" data-pid="mere" data-prio="11101" data-kind="lf"/, 'une forme de vie');
   assert.match(g.VIEWS.research(), /min="8" data-prio="plasma"/, 'une recherche');
@@ -6686,12 +6692,13 @@ t('une priorité venue de l\'autre poste se retire comme les autres', () => {
   assert.deepEqual(g.S.prio, []);
 });
 
+/* ENH-75 : les niveaux visés vivent dans Recherche / Cibles. */
 t('les cases de forme de vie relevées entrent dans la grille des niveaux', () => {
   const g = app(s => { s.planets[0].lf = { 11102: { lvl: 7, state: 'ok' }, 11101: { lvl: 3, state: 'ok' } }; });
   /* Après la carte de pose : depuis qu'elle propose les cases de forme de vie,
      elle nomme « Secteur résidentiel » avant la grille, et un indexOf pris sur
      la vue entière mesurerait sa liste déroulante au lieu de la grille. */
-  const h = g.VIEWS.planets().split('data-posego').pop();
+  const h = g.VIEWS.niveaux().split('data-posego').pop();
   /* Dans l'ordre du jeu : les clés entières s'énumèrent en ordre croissant,
      quel que soit l'ordre où le relevé les a posées. */
   assert.ok(h.indexOf('Secteur résidentiel') < h.indexOf('Ferme biosphérique'), 'rangées par identifiant');
@@ -6701,15 +6708,17 @@ t('les cases de forme de vie relevées entrent dans la grille des niveaux', () =
   assert.ok(h.indexOf('<b>Formes de vie</b>') < h.indexOf('Secteur résidentiel'), 'la grille porte son titre');
 });
 
+/* ENH-75 : les niveaux visés vivent dans Recherche / Cibles. */
 t('le champ de niveau visé d\'une forme de vie montre la priorité posée', () => {
   const g = app(s => { s.planets[0].lf = { 11101: { lvl: 3, state: 'ok' } };
     s.prio = [{ kind: 'lf', pid: 'mere', k: 11101, lvl: 6 }]; });
-  assert.match(g.VIEWS.planets(), /data-prio="11101" data-kind="lf" value="6"/);
+  assert.match(g.VIEWS.niveaux(), /data-prio="11101" data-kind="lf" value="6"/);
 });
 
+/* ENH-75 : les niveaux visés vivent dans Recherche / Cibles. */
 t('une planète dont aucune case n\'est relevée le dit au lieu de se taire', () => {
   const g = app(s => { for (const p of s.planets) p.lf = {}; });
-  const h = g.VIEWS.planets();
+  const h = g.VIEWS.niveaux();
   assert.match(h, /<b>Formes de vie<\/b> — aucune case de forme de vie relevée ici/);
   assert.doesNotMatch(h, /data-kind="lf"/, 'et pas de grille vide');
 });
@@ -7203,7 +7212,7 @@ t('une référence périmée ou étrangère ne retire rien', () => {
 t('le bloc vide nomme le clic droit avant le volet Empire', () => {
   const h = app().prioHtml(app().simulateDay());
   assert.ok(h.indexOf('clic droit') >= 0, 'le clic droit est nommé');
-  assert.ok(h.indexOf('clic droit') < h.indexOf('Empire'), 'et il vient avant');
+  assert.ok(h.indexOf('clic droit') < h.indexOf('Recherche / Cibles'), 'et il vient avant');
 });
 
 t('le gestionnaire de clic passe la référence telle quelle, sans « + »', () => {
@@ -8678,7 +8687,8 @@ t('le résumé des stocks porte les trois valeurs, sans ouvrir', () => {
 t('une planète sans aucune forme de vie garde son volet de stock', () => {
   const h = lu(app(s => { s.planets.forEach(p => { p.lf = {}; }); }).VIEWS.planets());
   assert.ok(/data-fold="stock:/.test(h));
-  assert.ok(/aucune case de forme de vie relevée/.test(h), 'et la phrase des formes de vie tient toujours');
+  // ENH-75 : la phrase des formes de vie a suivi leurs niveaux visés
+  assert.ok(/aucune case de forme de vie relevée/.test(lu(app(s => { s.planets.forEach(p => { p.lf = {}; }); }).VIEWS.niveaux())), 'et la phrase des formes de vie tient toujours');
 });
 
 
@@ -8868,13 +8878,13 @@ t('une sauvegarde d\'avant la carte ne la casse pas', () => {
   // g.S est l'ancien objet : l'import en crée un neuf. On interroge la carte.
   g.poseCoche('colo', false);
   assert.deepEqual(g.poseLignes().map(x => x.coche), [true, false], 'la carte se redonne son état');
-  assert.ok(lu(g.VIEWS.planets()).includes('Cible sur plusieurs planètes'));
+  assert.ok(lu(g.VIEWS.niveaux()).includes('Cible sur plusieurs planètes'));
 });
 
 t('des décochées au mauvais type ne gèlent pas Empire', () => {
   const g = app(s => { s.ui.pose = {k:'metal', lvl:43, hors:{metal:3}}; });
   assert.deepEqual(g.poseLignes().map(x => x.coche), [true, true]);
-  assert.ok(lu(g.VIEWS.planets()).includes('Cible sur plusieurs planètes'));
+  assert.ok(lu(g.VIEWS.niveaux()).includes('Cible sur plusieurs planètes'));
 });
 
 /* ---------- et les formes de vie, par rang et non par identifiant ---------- */
@@ -9382,14 +9392,15 @@ const PROFIL = (style, extra) => s => {
   s.profil = Object.assign({style, classe: '', activite: 'regulier', focus: [], set: true}, extra || {});
 };
 
-t('l\'assistant s\'ouvre au premier lancement, en tête d\'Aujourd\'hui', () => {
-  const h = lu(app().VIEWS.today());
+t('l\'assistant s\'ouvre au premier lancement, en tête de Réglages › Mon jeu', () => {
+  // ENH-75 : le profil est un réglage, l'assistant ouvre Réglages › Mon jeu
+  const h = lu(app().VIEWS.settings());
   assert.ok(/Tu joues comment/.test(h), 'la première question est là');
   assert.ok(/Étape 1 sur 3/.test(h), 'et elle se dit première sur trois');
   for (const k of ['mineur', 'turtle', 'raideur', 'fleeter', 'explorateur'])
     assert.ok(h.includes(`data-pstyle="${k}"`), `le style ${k} est proposé`);
-  assert.ok(h.indexOf('Tu joues comment') < h.indexOf('Maintenant'),
-    'avant la carte du moment, pas après');
+  assert.ok(h.indexOf('Tu joues comment') < h.indexOf('Profil et plan du jour'),
+    'en tête de Mon jeu');
 });
 
 /* Le style ne pèse pas que les cartes : il pose « Ce que le plan vise », qui
@@ -9438,14 +9449,14 @@ t('« Pas de préférence » vaut la classe que le style conseille', () => {
 t('une fois les trois réponses données, l\'assistant s\'efface', () => {
   const g = app(PROFIL('turtle', {focus: ['expo']}));
   assert.equal(g.profilCard(), '', 'plus d\'assistant');
-  const h = lu(g.VIEWS.today());
+  const h = lu(g.VIEWS.settings()); // ENH-75 : le profil vit dans Réglages
   assert.ok(!/Tu joues comment/.test(h), 'la question ne revient pas');
   assert.ok(/Ton profil/.test(h), 'la ligne du profil prend sa place');
   assert.ok(h.includes('Turtle · Collecteur · Régulier · + Expéditions'), 'profil en une ligne');
 });
 
 t('les focus se cochent depuis le panneau principal', () => {
-  const h = lu(app(PROFIL('turtle', {focus: ['expo']})).VIEWS.today());
+  const h = lu(app(PROFIL('turtle', {focus: ['expo']})).VIEWS.settings());
   for (const k of ['mines', 'def', 'expo', 'raids', 'combat', 'recherche'])
     assert.ok(h.includes(`data-pfocus="${k}"`), `le focus ${k} est proposé`);
   assert.ok(/data-pfocus="expo" checked/.test(h), 'et celui qui est posé est coché');
@@ -9727,7 +9738,7 @@ t('aucun vaisseau constructible n\'échappe aux catégories', () => {
 });
 
 t('les huit focus se cochent depuis le panneau', () => {
-  const h = lu(app(PROFIL('turtle')).VIEWS.today());
+  const h = lu(app(PROFIL('turtle')).VIEWS.settings());
   for (const k of ['mines', 'stock', 'infra', 'def', 'expo', 'raids', 'combat', 'recherche'])
     assert.ok(h.includes(`data-pfocus="${k}"`), `le focus ${k} est proposé`);
   assert.ok(h.includes('Installations'), 'les installations ont leur case');
@@ -10031,8 +10042,9 @@ t('le palier « compléter » survit à sainEtat', () => {
 });
 
 t('l\'onglet Défense se dessine sans toucher au jeu', () => {
-  const g = app(s => { DEFENSE(s); s.ui.tool = 'defense'; });
-  const h = lu(g.VIEWS.tools());
+  // ENH-75 : un onglet principal
+  const g = app(DEFENSE);
+  const h = lu(g.VIEWS.defense());
   assert.ok(/Modèle de défense/.test(h), 'la carte est là');
   assert.ok(/Framework mineur/.test(h));
   assert.ok(!/data-launch|data-sent/.test(h), 'aucun bouton d\'action : lecture seule');
@@ -10729,7 +10741,7 @@ t('cartes : le mode empilé, choisi, n\'a ni barre ni masquage', () => {
   const h = g.VIEWS.today();
   assert.ok(!/en-onglets|carteTabs/.test(h), 'rien du mode onglets');
   assert.ok(!/<div class="carte"[^>]* hidden/.test(h), 'aucune carte masquée');
-  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions']);
+  assert.deepEqual(ordreCartes(h), ['attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions']); // ENH-75 : le profil est dans Réglages
   for (const id of ['tdNow', 'tdAlerts', 'expoBloc']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là');
 });
 t('cartes : un mode inconnu retombe sur les onglets, le défaut', () => {
@@ -10740,7 +10752,7 @@ t('cartes : un mode inconnu retombe sur les onglets, le défaut', () => {
 t('cartes : en onglets, une barre .seg en tête, les cartes dans le même ordre', () => {
   const h = appCartes('tabs').VIEWS.today();
   assert.ok(/<section class="panel en-onglets" data-disposition="today"><div class="seg" role="tablist" id="carteTabs"/.test(h));
-  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions']);
+  assert.deepEqual(ordreCartes(h), ['attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions']); // ENH-75 : le profil est dans Réglages
 });
 t('cartes : une carte ne sait pas dans quel mode elle est montrée', () => {
   const pile = appCartes('stacked').VIEWS.today();
@@ -10773,7 +10785,7 @@ t('cartes : compteurs colorés, rien quand l\'onglet est vide', () => {
 t('cartes : Outils garde la même barre, construite par le même composant', () => {
   const g = appCartes();
   const h = g.VIEWS.tools();
-  assert.ok(/<div class="seg" role="tablist"><button role="tab" data-tool="explore" aria-selected="false">Cibles<\/button>/.test(h));
+  assert.ok(/<div class="seg" role="tablist"><button role="tab" data-tool="explore" aria-selected="false">Pillage<\/button>/.test(h)); // ENH-75
   assert.ok(/data-tool="colony" aria-selected="true">Colonie</.test(h));
 });
 t('cartes : une carte dynamique vide n\'a pas d\'onglet, une fixe toujours', () => {
@@ -10783,10 +10795,10 @@ t('cartes : une carte dynamique vide n\'a pas d\'onglet, une fixe toujours', () 
   g.RESUMES.maintenant = g.resumeDe([], 'maintenant');
   let ids = g.cartesPresentes('today').map(x => x.c.cardId);
   assert.ok(!ids.includes('alertes'), 'pas d\'alerte, pas d\'onglet');
-  assert.deepEqual(ids, ['profil', 'maintenant', 'securite', 'expeditions'], 'pas d\'attaque, pas d\'onglet Attaque');
+  assert.deepEqual(ids, ['maintenant', 'securite', 'expeditions'], 'pas d\'attaque, pas d\'onglet Attaque');
   g.RESUMES.alertes = g.resumeDe([{sev: 'warn'}], 'alertes');
   ids = g.cartesPresentes('today').map(x => x.c.cardId);
-  assert.equal(ids[2], 'alertes', 'à sa place dans l\'ordre de la pile');
+  assert.equal(ids[1], 'alertes', 'à sa place dans l\'ordre de la pile'); // ENH-75 : sans Profil devant
 });
 t('cartes : le rafraîchissement dit ce que contient chaque carte', () => {
   // toutes les cases prises : l'alerte la plus grave que le moteur sache dire
@@ -11499,7 +11511,8 @@ t('ENH-54 : Réglages se range en cinq onglets, même quand Aujourd\'hui est emp
   assert.match(h, /<section class="panel en-onglets" data-disposition="settings"><div class="seg" role="tablist" id="carteTabs"/);
   assert.deepEqual(ordreCartes(h), ['jeu', 'defense', 'affichage', 'moteur', 'donnees']);
   assert.deepEqual(g.CARTES.settings.map(c => c.titre), ['Mon jeu', 'Défense et sécurité', 'Affichage', 'Moteur', 'Données']);
-  assert.ok(g.enOnglets('settings') && g.enOnglets('empire') && !g.enOnglets('today'));
+  // ENH-75 : Empire n'a plus qu'une carte, donc plus de barre
+  assert.ok(g.enOnglets('settings') && !g.enOnglets('empire') && !g.enOnglets('today'));
 });
 
 t('ENH-54 : chaque carte de Réglages est dans son groupe, aucune ne manque', () => {
@@ -11528,7 +11541,7 @@ t('ENH-54 : un renvoi mène au bon onglet et au bon sous-onglet', () => {
   assert.equal(g.renvoiCible('Réglages', 'Plan du jour'), 'settings:jeu');
   assert.equal(g.renvoiCible('Réglages', 'Sécurité'), 'settings:defense');
   assert.equal(g.renvoiCible('Réglages', 'Version'), 'settings:donnees');
-  assert.equal(g.renvoiCible('Outils', 'Défense'), 'tools:defense');
+  assert.equal(g.renvoiCible('Outils', 'Défense'), 'defense', 'ENH-75 : la Défense est un onglet principal');
   assert.equal(g.renvoiCible('Outils', 'Colonie'), 'tools:colony');
   assert.equal(g.renvoiCible('Outils', 'Ailleurs'), null);
   for (const [k, l] of g.TOOLS) assert.equal(g.renvoiCible('Outils', l), 'tools:' + k, l);
@@ -11548,23 +11561,25 @@ t('ENH-54 : « Modifier » et les renvois ouvrent le sous-onglet, retenu comme u
   const g = appReglages();
   g.allerVers('settings:affichage');
   assert.equal(g.cardTabs.settings, 'affichage');
-  g.allerVers('tools:defense');
-  assert.equal(g.S.ui.tool, 'defense');
+  g.allerVers('tools:fleet');
+  assert.equal(g.S.ui.tool, 'fleet');
   g.allerVers('settings:nulle-part');
   assert.equal(g.cardTabs.settings, 'affichage', 'un sous-onglet inconnu ne change rien');
   const src = ['app.js', 'src/vues/aujourdhui.js', 'src/vues/defense.js'].map(f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8')).join('\n');
   const gotos = [...src.matchAll(/data-goto="([^"]+)"/g)].map(m => m[1]);
-  assert.deepEqual(gotos, ['settings:defense', 'settings:defense']);
+  // ENH-75 : Maintenant renvoie vers le profil tant qu'il n'est pas posé
+  assert.deepEqual(gotos, ['settings:defense', 'settings:jeu', 'settings:defense']);
 });
 
 /* ENH-54, étape 3 : Empire en sous-onglets, Aujourd'hui en onglets par défaut. */
-t('ENH-54 : Empire se range en deux onglets, Planètes et Recherche', () => {
+/* ENH-75 : Empire ne garde que Planètes ; la recherche a son onglet,
+   Recherche / Cibles (test/navigation.test.js). */
+t('ENH-54 : Empire garde ses identifiants pour REFRESH.empire', () => {
   const g = appReglages('stacked');
   const h = g.VIEWS.empire();
-  assert.match(h, /<section class="panel en-onglets" data-disposition="empire"><div class="seg" role="tablist" id="carteTabs"/, 'même quand Aujourd\'hui est empilé');
-  assert.deepEqual(ordreCartes(h), ['planetes', 'recherche']);
-  assert.ok(h.split('data-carte="recherche"')[1].includes('Recherches et niveaux visés'), 'la recherche dans son onglet');
-  for (const id of ['empireRes', 'empireFactor', 'labLv']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là pour REFRESH.empire');
+  assert.deepEqual(ordreCartes(h), ['planetes']);
+  for (const id of ['empireRes', 'empireFactor']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là pour REFRESH.empire');
+  assert.ok(g.VIEWS.niveaux().includes('id="labLv"'), 'et labLv dans Recherche / Cibles');
 });
 
 t('ENH-54 : Aujourd\'hui s\'ouvre sur Maintenant une fois le profil posé, sur le questionnaire avant', () => {
@@ -11574,7 +11589,8 @@ t('ENH-54 : Aujourd\'hui s\'ouvre sur Maintenant une fois le profil posé, sur l
   assert.equal(g.ongletAffiche(['profil', 'maintenant'], 'maintenant', 'profil', 'profil'), 'maintenant', 'une alerte passe devant tout');
   assert.equal(g.ongletAffiche(['profil', 'journee'], null, null, 'maintenant'), 'profil', 'défaut absent : le premier');
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'vues', 'navigation.js'), 'utf8');
-  assert.match(src, /CARTE_DEFAUT = \{today: \(\)=> S\.profil\.set \? 'maintenant' : 'profil'\}/);
+  // ENH-75 : le profil est dans Réglages, Aujourd'hui s'ouvre toujours sur Maintenant
+  assert.match(src, /CARTE_DEFAUT = \{today: \(\)=> 'maintenant'\}/);
 });
 
 /* ENH-54, étape 4 : un contrôle par type de donnée, une phrase d'aide visible par carte. */
