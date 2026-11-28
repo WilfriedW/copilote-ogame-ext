@@ -14,6 +14,7 @@
 import { S } from '../core/etat.js';
 import { fmt } from '../core/format.js';
 import { B, rangeCost, POS } from '../core/formules.js';
+import { planetById } from '../core/planetes.js';
 import { API, ecoSpeed } from '../core/serveur.js';
 import { dur } from '../core/temps.js';
 import { centrePlanet } from '../economie/centre.js';
@@ -21,7 +22,7 @@ import { production, mse, waitFor } from '../economie/production.js';
 import { COL_SHIP_COST, shipTime } from '../flotte/coques.js';
 import { parseC, shipStats, flight } from '../flotte/vaisseaux.js';
 import { wrapSys, occupied, myScore, isInactive, isActive } from '../univers/univers.js';
-import { planetById, rankUpgrades } from '../../app.js';
+import { rankUpgrades } from '../../app.js';
 
 /* ---------- colonization ---------- */
 export const KITS = {

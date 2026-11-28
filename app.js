@@ -5,6 +5,7 @@
 import { KEY, EXPO_FRET, sample, newPlanet, S, remplaceEtat } from './src/core/etat.js';
 import { esc, num } from './src/core/format.js';
 import { B, levelCost, crawlerMax, CRAWLER_COST } from './src/core/formules.js';
+import { planetById, gidDe } from './src/core/planetes.js';
 import { IS_EXT, poseApi, buildTime } from './src/core/serveur.js';
 import {
   dur, LOCAL_TZ, srvOffSec, clockParts, p2, timeSeen, formatTime,
@@ -99,25 +100,6 @@ function saveFailed(e){ console.error('Copilote : sauvegarde impossible', e); tr
 window.__saveFailed = saveFailed;
 function save(){ try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){ saveFailed(e); } syncPush(); }
 
-/* L'identité d'une planète est son id. Le rang change dès que le jeu
-   réordonne, le nom se répète d'une colonie à l'autre, le gid n'existe qu'une
-   fois le jeu lu : aucun des trois ne la désigne. Un id qui ne répond plus ne
-   désigne aucune planète, et l'appelant le traite comme tel — il ne se rabat
-   jamais sur une voisine, ce qui était la vieille faute du rang. */
-function planetById(id){ return S.planets.find(p => p.id === id) || null; }
-function planetIndexById(id){ return S.planets.findIndex(p => p.id === id); }
-/** L'identifiant du jeu d'une planète locale, ou null : ce qui voyage entre postes voyage en gid. */
-const gidDe = pid => { const p = planetById(pid); return p && p.gid != null ? String(p.gid) : null; };
-
-/* Ce que le joueur retire, il le retire vraiment : ici l'absence est une
-   certitude et non un défaut d'appariement, donc ce qui visait cette planète
-   s'en va avec elle. Ailleurs, un id muet laisse les choses en place. */
-function forgetPlanet(id){
-  S.planets = S.planets.filter(p => p.id !== id);
-  S.timers = (S.timers || []).filter(t => t.pid !== id);
-  if(S.colo.fromId === id) S.colo.fromId = null;
-  if(S.centre === id) S.centre = null;
-}
 /* Le nom d'une case. Celui du relevé d'abord : il vient de la partie en cours,
    et le jeu peut le traduire autrement que notre table. */
 function lfNom(p, id){
@@ -818,9 +800,9 @@ litVersions();
 /* Ce que les modules sortis d'app.js lui empruntent encore. Rien de plus :
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
-  saveFailed, gidDe, sainEtat, planetById, rankUpgrades, save, raceDe,
-  ignKey, lfMode, on, lfNom, lfIdPour, poseLfCles, addBuilt, render, TOOLS,
-  bascule, planetAlerts, planetIndexById, LF_MODE, aide, SEV_LABEL,
-  prioLfEtat, actsVus, poseNom, VIEWS, gauge, REFRESH, toast, forgetPlanet,
-  refresh, timeExport, msg, appliqueSauvegarde, publieLePlan, APP_VERSION
+  saveFailed, sainEtat, rankUpgrades, save, raceDe, ignKey, lfMode, on,
+  lfNom, lfIdPour, poseLfCles, addBuilt, render, TOOLS, bascule,
+  planetAlerts, LF_MODE, aide, SEV_LABEL, prioLfEtat, actsVus, poseNom,
+  VIEWS, gauge, REFRESH, toast, refresh, timeExport, msg, appliqueSauvegarde,
+  publieLePlan, APP_VERSION
 };

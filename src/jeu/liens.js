@@ -10,10 +10,10 @@
    (`centreOrHub`, src/economie/centre.js). */
 import { S } from '../core/etat.js';
 import { esc, planetRef } from '../core/format.js';
+import { planetById } from '../core/planetes.js';
 import { labPlanet, centreOrHub } from '../economie/centre.js';
 import { parseC } from '../flotte/vaisseaux.js';
 import { prios, priosLf } from '../plan/priorites.js';
-import { planetById } from '../../app.js';
 /* Le copilote n'ouvre que des pages du jeu : il ne remplit aucun formulaire,
    ne clique sur rien et ne lance rien à ta place. Un lien, pas un robot. */
 export const GO_KIND = {t:'research', ship:'shipyard', shipbuild:'shipyard', sats:'shipyard', def:'defenses',

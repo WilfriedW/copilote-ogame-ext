@@ -11,6 +11,7 @@
    que les clics changent : ce cycle-là est toléré tant qu'app.js existe, et
    rien n'y est lu au chargement. */
 import { coloSystem, colonyCandidates } from '../colonisation/colonisation.js';
+import { planetById, forgetPlanet } from '../core/planetes.js';
 import { COL_SHIP_COST } from '../flotte/coques.js';
 import { KEY, sample, newPlanet, S, remplaceEtat } from '../core/etat.js';
 import { fmt, num } from '../core/format.js';
@@ -47,8 +48,8 @@ import {
 } from './navigation.js';
 import { pushLook } from './page-du-jeu.js';
 import {
-  save, planetById, forgetPlanet, toast, render, refresh, timeExport, TOOLS,
-  VIEWS, REFRESH, on, msg, appliqueSauvegarde, publieLePlan
+  save, toast, render, refresh, timeExport, TOOLS, VIEWS, REFRESH, on, msg,
+  appliqueSauvegarde, publieLePlan
 } from '../../app.js';
 
 /* ---------- events ---------- */

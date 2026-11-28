@@ -13,10 +13,10 @@
    raison. */
 import { S } from '../core/etat.js';
 import { B_SHORT, T, levelCost, POS } from '../core/formules.js';
+import { planetById, planetIndexById } from '../core/planetes.js';
 import { ecoSpeed, researchDiv } from '../core/serveur.js';
 import { parseC } from '../flotte/vaisseaux.js';
 import { production, mse } from './production.js';
-import { planetById, planetIndexById } from '../../app.js';
 /* Les plans qui vivent de leurs vaisseaux. Ils partagent deux conséquences :
    pas de centre, parce que les planètes doivent rester dispersées — le wiki le
    dit du joueur de flotte, et un pilleur est une cible pour la même raison —

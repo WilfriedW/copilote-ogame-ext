@@ -16,6 +16,7 @@ import {
 import { EXPO_FRET, S } from '../core/etat.js';
 import { nf, fmt, esc, num, costHtml, planetRef } from '../core/format.js';
 import { B, B_SHORT, T, rangeCost } from '../core/formules.js';
+import { planetById } from '../core/planetes.js';
 import { IS_EXT, API, srv, ecoSpeed } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
 import { centreIndex, cargoHomeIndex, centrePlanet, researchTime } from '../economie/centre.js';
@@ -35,7 +36,7 @@ import { raidTargets, exploreSystems, raidPlan } from '../pillage/pillage.js';
 import { myScore } from '../univers/univers.js';
 import { actHtml } from './carte-action.js';
 import { fold, segTabs } from './navigation.js';
-import { planetById, TOOLS, bascule, aide, VIEWS, gauge, REFRESH } from '../../app.js';
+import { TOOLS, bascule, aide, VIEWS, gauge, REFRESH } from '../../app.js';
 /** La carte de calibrage, ou rien. */
 function expoCalibHtml(){
   const p = expoFretPropose(S.expoLog, S.settings.expoFret);

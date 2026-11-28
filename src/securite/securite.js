@@ -12,6 +12,7 @@
    leur emprunte encore ces noms : ce cycle-là est toléré tant qu'app.js
    existe, et rien n'y est lu au chargement. */
 import { S } from '../core/etat.js';
+import { planetById } from '../core/planetes.js';
 import { IS_EXT } from '../core/serveur.js';
 import { formatTime } from '../core/temps.js';
 import { fileDe, enCours, fileBat } from '../economie/chantiers.js';
@@ -25,7 +26,6 @@ import {
 import { depensesPayables, projectResources } from '../plan/journee.js';
 import { hhmmDe, wakeTime } from '../plan/nuit.js';
 import { debordeA, autreCibleAvecPlace } from '../plan/surplus.js';
-import { planetById } from '../../app.js';
 
 /* ---------- mise à l'abri ---------- */
 /* Vitesses proposées par le jeu, de la plus rapide à la plus lente. */
