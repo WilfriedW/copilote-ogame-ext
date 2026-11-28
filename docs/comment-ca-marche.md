@@ -458,8 +458,8 @@ départ et position visée, flotte, retour sur mise, positions libres),
 et flotte du pillage),
 `src/jeu/liens.js` (les liens vers les pages du jeu et les indices que la
 page du jeu surligne),
-`src/synchro/synchro.js` (ce qui voyage entre deux postes et ce qui en
-revient),
+`src/synchro/synchro.js` (l'enregistrement sur ce poste, `save`, et ce qui
+voyage entre deux postes et ce qui en revient),
 `src/minuteurs/minuteurs.js` (minuteurs, fin de
 chantier, son, titre qui clignote, alertes à acquitter), `src/economie/production.js` (production, stock
 au moment présent, attente avant de payer), `src/economie/centre.js` (le

@@ -2,7 +2,8 @@
    domaine : il importe ce que les modules sortis de lui fournissent, et
    n'exporte que ce que la météo et la flotte cible lui empruntent (liste en
    fin de fichier). */
-import { KEY, EXPO_FRET, sample, newPlanet, S, remplaceEtat } from './src/core/etat.js';
+import { saveFailed, save } from './src/synchro/synchro.js';
+import { EXPO_FRET, sample, newPlanet, S, remplaceEtat } from './src/core/etat.js';
 import { esc, num } from './src/core/format.js';
 import { B, levelCost, crawlerMax, CRAWLER_COST } from './src/core/formules.js';
 import { planetById, gidDe } from './src/core/planetes.js';
@@ -39,7 +40,7 @@ import {
   publieCritiques
 } from './src/regles/moteur.js';
 import { FS_RAPPEL_ON, poseRappel, armeRappel } from './src/securite/securite.js';
-import { prioIn, syncPush, syncApply, syncNettoie } from './src/synchro/synchro.js';
+import { prioIn, syncApply, syncNettoie } from './src/synchro/synchro.js';
 import { VIEWS_AUJOURDHUI, REFRESH_AUJOURDHUI } from './src/vues/aujourdhui.js';
 import { whyParts, majRebours } from './src/vues/carte-action.js';
 import { VIEWS_DEFENSE } from './src/vues/defense.js';
@@ -94,11 +95,7 @@ if(!S.lfNoms || typeof S.lfNoms !== 'object' || Array.isArray(S.lfNoms)) S.lfNom
    synchro. Il se remet donc d'aplomb ici aussi, au démarrage. */
 profilSain();
 expoSain();
-/* Une sauvegarde perdue en silence est pire qu'une erreur : l'écran montre la
-   case cochée, et le rechargement suivant l'a oubliée. */
-function saveFailed(e){ console.error('Copilote : sauvegarde impossible', e); try{ toast('Sauvegarde impossible : recharge le panneau'); }catch(err){} }
 window.__saveFailed = saveFailed;
-function save(){ try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){ saveFailed(e); } syncPush(); }
 
 
 /* Les rangs enregistrés deviennent des identités. Un rang écrit hier ne
@@ -732,7 +729,7 @@ litVersions();
 /* Ce que les modules sortis d'app.js lui empruntent encore. Rien de plus :
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
-  saveFailed, sainEtat, rankUpgrades, save, raceDe, ignKey, on,
+  sainEtat, rankUpgrades, raceDe, ignKey, on,
   addBuilt, render, TOOLS, bascule,
   planetAlerts, aide, SEV_LABEL, actsVus, VIEWS, gauge, REFRESH, toast, refresh, timeExport, msg, appliqueSauvegarde,
   publieLePlan, APP_VERSION

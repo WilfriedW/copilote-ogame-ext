@@ -19,7 +19,7 @@ import { B, B_SHORT, T } from '../core/formules.js';
 import { planetById } from '../core/planetes.js';
 import { IS_EXT } from '../core/serveur.js';
 import { labPlanet } from '../economie/centre.js';
-import { save } from '../../app.js';
+import { save } from '../synchro/synchro.js';
 
 /* Une priorité est ce que le joueur pose : un bâtiment ou une recherche, avec
    le niveau qu'il vise. Elle ne se périme pas, elle s'accomplit — dès que le

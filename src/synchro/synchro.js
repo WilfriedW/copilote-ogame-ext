@@ -10,12 +10,13 @@
    page du jeu : on traduit en sortie et en entrée, et S ne garde jamais de gid.
 
    Domaine de l'issue #49 : ce qui voyage (`syncOut`, `syncPush`), ce qui
-   revient (`syncApply`) et le ménage des clés d'avant (`syncNettoie`). Les
+   revient (`syncApply`), le ménage des clés d'avant (`syncNettoie`) et
+   l'enregistrement qui précède l'envoi (`save`, `saveFailed`). Les
    écoutes du stockage partagé restent dans app.js, à leur place dans l'ordre
    du démarrage. */
 import { KEY, S } from '../core/etat.js';
 import { gidDe } from '../core/planetes.js';
-import { saveFailed, render, sainEtat, publieLePlan } from '../../app.js';
+import { render, sainEtat, publieLePlan, toast } from '../../app.js';
 export const SYNC_KEYS = ['settings','day','expo','lf','raids','daily','profil'];
 /* gidDe, l'aller, vit dans src/core/planetes.js ; le retour, qui ne sert qu'ici, reste ici. */
 export const pidDe = gid => { const p = (S.planets || []).find(x => x.gid != null && String(x.gid) === String(gid)); return p ? p.id : null; };
@@ -97,3 +98,9 @@ export function syncNettoie(d){
   if(!d || d['sy:lune'] === undefined) return;
   try{ const r = chrome.storage.sync.remove('sy:lune'); if(r && r.catch) r.catch(syncFailed); }catch(e){ syncFailed(e); }
 }
+/* Une sauvegarde perdue en silence est pire qu'une erreur : l'écran montre la
+   case cochée, et le rechargement suivant l'a oubliée. */
+export function saveFailed(e){ console.error('Copilote : sauvegarde impossible', e); try{ toast('Sauvegarde impossible : recharge le panneau'); }catch(err){} }
+/* Écrire sur ce poste, puis pousser ce qui voyage : les deux vont ensemble,
+   sinon un réglage changé ici n'arriverait jamais sur l'autre poste. */
+export function save(){ try{ LS.setItem(KEY, JSON.stringify(S)); }catch(e){ saveFailed(e); } syncPush(); }

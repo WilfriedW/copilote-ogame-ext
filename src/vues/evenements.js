@@ -35,6 +35,7 @@ import {
 import { profilConnu, poseProfilEtape } from '../plan/profil.js';
 import { aSoi, REGLES_PAR_ID, reglePose, ignores } from '../regles/moteur.js';
 import { secu, fsRappelVu, armeRappel } from '../securite/securite.js';
+import { save } from '../synchro/synchro.js';
 import { defPersoLive } from './defense.js';
 import {
   RELEVE_NUIT, poseScanEcran, faitLeReleve, boutonMaj, header, setTimeMode,
@@ -48,7 +49,7 @@ import {
 } from './navigation.js';
 import { pushLook } from './page-du-jeu.js';
 import {
-  save, toast, render, refresh, timeExport, TOOLS, VIEWS, REFRESH, on, msg,
+  toast, render, refresh, timeExport, TOOLS, VIEWS, REFRESH, on, msg,
   appliqueSauvegarde, publieLePlan
 } from '../../app.js';
 
