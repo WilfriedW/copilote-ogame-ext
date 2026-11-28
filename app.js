@@ -2,11 +2,10 @@
    domaine : il importe ce que les modules sortis de lui fournissent, et
    n'exporte que ce que la météo et la flotte cible lui empruntent (liste en
    fin de fichier). */
-import { COL_SHIP_COST } from './src/colonisation/colonisation.js';
 import { KEY, EXPO_FRET, sample, newPlanet, S, remplaceEtat } from './src/core/etat.js';
 import { fmt, esc, num, planetRef } from './src/core/format.js';
 import { B, levelCost, crawlerMax, CRAWLER_COST, POS } from './src/core/formules.js';
-import { IS_EXT, poseApi, ecoSpeed, buildTime } from './src/core/serveur.js';
+import { IS_EXT, poseApi, buildTime } from './src/core/serveur.js';
 import {
   dur, LOCAL_TZ, srvOffSec, clockParts, p2, timeSeen, formatTime,
   timeTitle
@@ -19,8 +18,9 @@ import {
   LF_READ_TTL, parseProdPanel, prodOf, bridage, production, mse, NOM_RES,
   stockNow
 } from './src/economie/production.js';
+import { shipReqOk, shipTime } from './src/flotte/coques.js';
 import { EXPO_LOG_MAX, EXPO_PREP_MAX, EXPO_EVTS, expoJournal, expoMessages } from './src/flotte/expeditions.js';
-import { SHIPS, parseC, SHIP_PLURAL, SHIP_ONE, shipList } from './src/flotte/vaisseaux.js';
+import { SHIPS, parseC, shipList } from './src/flotte/vaisseaux.js';
 import {
   lfMetEnCommun, lfMerge, lfCandidates, raceDeSerie, lfNomConnu, lfNomsRetiens,
   LIFEFORMS, speciesOfPlanet, lfIds, LF_ROLE
@@ -30,7 +30,6 @@ import { meteoVoit, renderMeteo, meteoBind } from './src/meteo.js';
 import {
   unlockAudio, alertQueue, ackFinished, stopFlash, mirrorAlerts
 } from './src/minuteurs/minuteurs.js';
-import { REPORT_WORDS, SE_BAT } from './src/pillage/pillage.js';
 import { casesSaines, casesLibres, cardKey, refused } from './src/plan/journee.js';
 import { energyOptions, energyLine } from './src/plan/missions.js';
 import {
@@ -405,25 +404,6 @@ function timeExport(ms){
     serverOffsetMinutes: off == null ? null : Math.round((off/60 + loc.getTimezoneOffset()) / 15) * 15
   };
 }
-/* Le copilote ne proposera jamais de construire une coque de combat — le wiki
-   dit le marché mauvais des deux côtés, et la demande de flotte l'a écrit une
-   fois pour toutes. Leurs coûts sont ici pour une seule raison : le tir de lune
-   les lit. Les débris valent 30 % du métal et du cristal détruits, donc chiffrer
-   un tir demande le coût de ce qui meurt, et rien d'autre ne les lit. */
-const SHIP_COST = {
-  sc:[2000,2000,0],   lc:[6000,6000,0],      pr:[0,1000,0],         pf:[8000,15000,8000],
-  lf:[3000,1000,0],   hf:[6000,4000,0],      cr:[20000,7000,2000],  bs:[45000,15000,0],
-  bc:[30000,40000,15000], bb:[50000,25000,15000], ds:[60000,50000,15000],
-  rp:[85000,55000,20000], rec:[10000,6000,2000], col:COL_SHIP_COST,
-  crawl:CRAWLER_COST};
-const SHIP_REQ = {sc:{b:{shipyard:2}, t:{combustion:2}}, lc:{b:{shipyard:4}, t:{combustion:6}}, pr:{b:{shipyard:3}, t:{combustion:3, espionage:2}}, pf:{b:{shipyard:5}, t:{hyperdrive:2}}, crawl:{b:{shipyard:5}, t:{combustion:4, armour:4, laser:4}}};
-/* La défense passe par le même chantier, la même file et les mêmes wants que
-   les vaisseaux : un seul endroit la nomme et la tarife. */
-for(const [k,d] of Object.entries(DEF)){ SHIP_COST[k] = d.c; SHIP_REQ[k] = d.r; SHIP_PLURAL[k] = d.p; SHIP_ONE[k] = d.o; }
-for(const k of Object.values(REPORT_WORDS)) SE_BAT[k] = true;
-for(const k of ['sat','crawl','pr','abm','ipm']) delete SE_BAT[k];
-function shipReqOk(k, p){ const r = SHIP_REQ[k]; return Object.entries(r.b).every(([b,l])=>p.b[b]>=l) && Object.entries(r.t).every(([t,l])=>S.tech[t]>=l); }
-function shipTime(k, n, p){ const c = SHIP_COST[k]; return n*(c[0]+c[1])/(2500*(1+p.b.shipyard)*Math.pow(2,p.b.nanite)*ecoSpeed())*3600; }
 /* Le niveau sous lequel un surplus est résorbé : assez bas pour que le plafond
    ne revienne pas à la tournée suivante, assez haut pour ne pas vider le stock. */
 const DEF_SURPLUS_VISE = 0.9;
@@ -1003,11 +983,10 @@ litVersions();
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
   saveFailed, gidDe, sainEtat, planetById, centreOrHub, centrePlanet,
-  rankUpgrades, shipTime, shipReqOk, save, raceDe, ignKey, lfMode, on,
-  SHIP_COST, lfNom, lfIdPour, poseLfCles, addBuilt, render, TOOLS, bascule,
-  planetAlerts, cargoHomeIndex, planetIndexById, LF_MODE, defSurplus,
-  tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote, aide, SEV_LABEL,
-  prioLfEtat, actsVus, poseNom, centreWhy, VIEWS, gauge, REFRESH, toast,
-  forgetPlanet, refresh, timeExport, msg, appliqueSauvegarde, publieLePlan,
-  APP_VERSION
+  rankUpgrades, save, raceDe, ignKey, lfMode, on, lfNom, lfIdPour,
+  poseLfCles, addBuilt, render, TOOLS, bascule, planetAlerts, cargoHomeIndex,
+  planetIndexById, LF_MODE, defSurplus, tournee, hubIndex, centreIndex,
+  POURQUOI_LABO, centreNote, aide, SEV_LABEL, prioLfEtat, actsVus, poseNom,
+  centreWhy, VIEWS, gauge, REFRESH, toast, forgetPlanet, refresh, timeExport,
+  msg, appliqueSauvegarde, publieLePlan, APP_VERSION
 };

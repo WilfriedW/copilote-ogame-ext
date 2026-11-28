@@ -12,8 +12,8 @@
 import { LUNE_DF, S } from '../core/etat.js';
 import { srv } from '../core/serveur.js';
 import { DEF, defsOf } from '../defense/defense.js';
+import { SHIP_COST } from './coques.js';
 import { SHIPS } from './vaisseaux.js';
-import { SHIP_COST } from '../../app.js';
 
 /* ---------- le tir de lune ---------- */
 

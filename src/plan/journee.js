@@ -12,10 +12,8 @@
    module emprunte encore à app.js la production, les stocks, les liens vers
    le jeu et le profil : ce cycle-là est toléré tant qu'app.js existe, et
    rien n'y est lu au chargement. */
-import {
-  COL_SHIP_COST, KITS, colShipAt, colSentNow, colBuilt, maxPlanets,
-  coloTarget, coloFleet
-} from '../colonisation/colonisation.js';
+import { KITS, colShipAt, colSentNow, colBuilt, maxPlanets, coloTarget, coloFleet } from '../colonisation/colonisation.js';
+import { COL_SHIP_COST, SHIP_COST, shipReqOk, shipTime } from '../flotte/coques.js';
 import { S, sample } from '../core/etat.js';
 import { fmt, num, planetRef, majus } from '../core/format.js';
 import {
@@ -48,8 +46,7 @@ import { besoinEmpire, VOC_KEYS, VOC_NOM, vocations } from './vocations.js';
 import { regleActive, regleParam, regleTexte, rangNiveau, constats, repondA } from '../regles/moteur.js';
 import {
   addBuilt, planetIndexById, rankUpgrades, planetAlerts, LF_MODE, lfMode,
-  SHIP_COST, shipReqOk, shipTime, defSurplus, tournee, hubIndex, centreIndex,
-  POURQUOI_LABO, centreNote
+  defSurplus, tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote
 } from '../../app.js';
 
 /* ---------- advice ---------- */

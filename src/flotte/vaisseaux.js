@@ -5,8 +5,8 @@
    en vol relevées sur la page du jeu (`mouvements`, `flotteEnVol`).
 
    Module de domaine (issue #49). Les coûts du chantier (`SHIP_COST`,
-   `SHIP_REQ`) restent dans app.js avec le plan, qui y recopie aussi les noms
-   de la défense. Ce module emprunte encore à app.js les facteurs du serveur
+   `SHIP_REQ`) sont dans coques.js ; la défense y recopie ses noms et ses
+   prix à son chargement. Ce module emprunte encore à app.js les facteurs du serveur
    et quelques formats : ce cycle-là est toléré tant qu'app.js existe, et rien
    n'y est lu au chargement. */
 import { S } from '../core/etat.js';
