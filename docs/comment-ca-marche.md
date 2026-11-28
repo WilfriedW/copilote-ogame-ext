@@ -489,7 +489,8 @@ l'en-tête, l'heure locale ou serveur, le mode nuit, ce qui est masqué dans
 la page du jeu (`setMasque`) ; `poseScanEcran` ferme
 l'écran du relevé et le dessin du relevé en cours). Chaque onglet a son
 fichier : `aujourdhui.js`, `empire.js`, `outils.js`, `defense.js` (le
-sous-onglet Défense) et `reglages.js`, plus `conseils.js` pour le bloc des
+sous-onglet Défense, et la carte et le sélecteur de modèle que les Réglages
+réemploient) et `reglages.js`, plus `conseils.js` pour le bloc des
 conseils d'Aujourd'hui. Chacun exporte ses morceaux de `VIEWS` et de
 `REFRESH` (`VIEWS_EMPIRE`, `REFRESH_EMPIRE`…), qu'`app.js` réassemble.
 `evenements.js` tient les clics et les saisies : `bind`, reposé à chaque
