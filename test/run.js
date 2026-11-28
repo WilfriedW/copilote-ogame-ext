@@ -4228,6 +4228,14 @@ t('dist/versions.tsv porte quatre colonnes par version', () => {
   }
 });
 
+t('l\'historique de pack.sh suit la ligne de main, pas les branches fusionnées', () => {
+  /* Sans --first-parent, une branche partie avant un changement de numéro
+     glisse l'ancien entre deux occurrences du nouveau, et le test suivant
+     crie à la réutilisation sur un poste qui a lancé ./pack.sh. */
+  const sh = require('fs').readFileSync(require('path').join(__dirname, '..', 'pack.sh'), 'utf8');
+  assert.match(sh, /git log --first-parent /, 'pack.sh doit lire l\'historique en --first-parent');
+});
+
 t('un numéro de version ne ressert jamais', () => {
   /* Rien ne garde ce numéro : il se tape à la main dans deux fichiers, et quand
      plusieurs branches avancent ensemble, deux d'entre elles le prennent sans
