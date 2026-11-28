@@ -14,8 +14,8 @@ import { esc, norm } from '../core/format.js';
 import { B, T } from '../core/formules.js';
 import { planetById } from '../core/planetes.js';
 import { dur, formatTime } from '../core/temps.js';
+import { addBuilt } from '../economie/chantiers.js';
 import { save } from '../synchro/synchro.js';
-import { addBuilt } from '../../app.js';
 /** Parses an OGame countdown like "1j 2h 13m 5s", "2h13m", "01:13:05" into seconds. */
 export function parseLeft(txt){
   const t = norm(txt).replace(/,/g,' ');

@@ -13,9 +13,11 @@ import { stockNow } from '../economie/production.js';
 import { meteoFiltre, meteoVoit } from '../meteo.js';
 import { poidsCat } from '../plan/profil.js';
 import { SURPLUS_REGLES } from '../plan/surplus.js';
-import { NIVEAUX, NIVEAU_SEV, SEV_NIVEAU, DOMAINES, rangNiveau, constatsVus } from '../regles/moteur.js';
+import {
+  NIVEAUX, NIVEAU_SEV, SEV_NIVEAU, DOMAINES, rangNiveau, constatsVus, ignKey
+} from '../regles/moteur.js';
+import { SEV_LABEL } from './carte-action.js';
 import { fold } from './navigation.js';
-import { ignKey, SEV_LABEL } from '../../app.js';
 
 /* ---------- les règles du moteur : le bloc des conseils ---------- */
 /**

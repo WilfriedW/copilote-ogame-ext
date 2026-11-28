@@ -12,8 +12,8 @@ import { B, levelCost } from '../core/formules.js';
 import { planetById } from '../core/planetes.js';
 import { buildTime } from '../core/serveur.js';
 import { production, NOM_RES, stockNow, upLabel } from './production.js';
+import { rankUpgrades } from '../plan/vocations.js';
 import { regleParam, HANGARS } from '../regles/moteur.js';
-import { rankUpgrades } from '../../app.js';
 
 /* ---------- ressources en trop ---------- */
 /**

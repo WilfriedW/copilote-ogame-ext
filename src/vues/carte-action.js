@@ -2,7 +2,7 @@
    Vue de l'issue #49 : une carte d'action du plan (`actHtml`), ses pourquoi
    repliés (`whyParts`), ses pastilles à recopier (`copyChips`), son « Non »
    et la liste de ce qui est de côté (`noBtn`, `noListe`), le compte à rebours
-   (`rebours`, `majRebours`). */
+   (`rebours`, `majRebours`), et les noms des niveaux (`SEV_LABEL`). */
 import { S } from '../core/etat.js';
 import { esc, costHtml, qHtml } from '../core/format.js';
 import { dur, formatTime } from '../core/temps.js';
@@ -13,7 +13,6 @@ import { whyLead } from '../plan/journee.js';
 import { dailyMissions, NO_KINDS, actKey, noLabel } from '../plan/missions.js';
 import { NIVEAU_SEV } from '../regles/moteur.js';
 import { uiOuvert, uiVu, fold } from './navigation.js';
-import { SEV_LABEL } from '../../app.js';
 /* Les valeurs à retaper dans le jeu, en pastilles cliquables. Le presse-papier
    reste du côté du joueur : c'est lui qui colle, l'extension ne remplit aucun
    champ — ce serait jouer à sa place, et c'est ce qui fait bannir un compte.
@@ -107,3 +106,6 @@ export function noListe(){
     ${keys.length>1 ? `<div class="row"><button class="btn sm ghost" data-noclear="1">Tout remettre</button></div>` : ''}
   </details>`;
 }
+/* Un seul vocabulaire de niveau dans tout le panneau : celui des règles du
+   moteur. « Urgent » ici et « Critique » là se liraient comme deux échelles. */
+export const SEV_LABEL = {bad:'Critique', warn:'Important', info:'Conseil', good:'Prêt'};

@@ -1,14 +1,20 @@
 /* ---------- la vocation d'une planète ----------
    Ce que chaque planète produit le mieux selon son terrain (`terrainRates`,
-   `vocations`, `vocWhy`), et ce qui manque à l'empire (`besoinEmpire`).
+   `vocations`, `vocWhy`), ce qui manque à l'empire (`besoinEmpire`), et
+   les mines et foreuses qui rapportent le plus vite au prix de cet empire
+   (`rankUpgrades`).
 
    Module du plan du jour (issue #49). Ce module emprunte encore à app.js
    la production et les stocks : ce cycle-là est toléré tant qu'app.js
    existe, et rien n'y est lu au chargement. */
+import {
+  B, levelCost, crawlerMax, CRAWLER_COST, POS_BONUS_M, POS_BONUS_C
+} from '../core/formules.js';
+import { buildTime } from '../core/serveur.js';
+import { mse, production } from '../economie/production.js';
+import { shipReqOk, shipTime } from '../flotte/coques.js';
 import { S } from '../core/etat.js';
 import { planetRef } from '../core/format.js';
-import { POS_BONUS_M, POS_BONUS_C } from '../core/formules.js';
-import { production } from '../economie/production.js';
 import { parseC } from '../flotte/vaisseaux.js';
 /**
  * Ce que vaut une ressource à la marge, pour cet empire-là, par rapport à son cours.
@@ -133,4 +139,46 @@ export function vocations(){
     if(e) e.why = e.keys.map(k => vocWhy(x.p, k, tenants[k])).join(' · ');
   }
   return out;
+}
+/** Les prochains niveaux de mine et les foreuses d'une planète, du plus vite amorti au plus lent. */
+export function rankUpgrades(p){
+  const base = production(p), baseV = mse(base.m, base.c, base.d), out=[];
+  /* Deux lectures du même pas. `payback` reste au cours du ratio : c'est le
+     chiffre que la carte affiche et que le joueur peut refaire de tête, et il
+     ne doit pas bouger parce qu'une autre planète a monté une mine. `score`
+     est le même calcul au prix que ces ressources ont dans CET empire, et
+     c'est lui qui classe. Les séparer est tout l'objet : le classement suit
+     le besoin, l'affichage reste vérifiable. */
+  const w = besoinEmpire(), baseW = mseW(base.m, base.c, base.d, w);
+  const scoreOf = (pr, cost, gain) => {
+    const g = mseW(pr.m, pr.c, pr.d, w) - baseW;
+    return (gain > 0 && g > 0) ? mseW(...cost, w)/g : Infinity;
+  };
+  for(const k of ['metal','crystal','deut']){
+    const ov = {[k]:p.b[k]+1}; let cost = levelCost(B[k], p.b[k]+1), extra=0;
+    let pr = production(p, ov);
+    while(pr.factor<1 && extra<15){ extra++; ov.solar = p.b.solar+extra; const sc=levelCost(B.solar, p.b.solar+extra); cost=cost.map((x,i)=>x+sc[i]); pr=production(p,ov); }
+    const gain = mse(pr.m,pr.c,pr.d)-baseV;
+    out.push({key:k, lvl:p.b[k]+1, extraSolar:extra, cost, gain, payback: gain>0 ? mse(...cost)/gain : Infinity, score:scoreOf(pr,cost,gain), time:buildTime(k,p.b[k]+1,p)});
+  }
+  if(base.factor<1){
+    const pr = production(p,{solar:p.b.solar+1}), cost=levelCost(B.solar,p.b.solar+1), gain=mse(pr.m,pr.c,pr.d)-baseV;
+    out.push({key:'solar', lvl:p.b.solar+1, extraSolar:0, cost, gain, payback: gain>0?mse(...cost)/gain:Infinity, score:scoreOf(pr,cost,gain), time:buildTime('solar',p.b.solar+1,p)});
+  }
+  /* Les foreuses sont une dépense productive comme une autre : elles se classent
+     par amortissement, à côté des mines. Aujourd'hui loin derrière ; elles
+     passeront devant quand un niveau de mine coûtera assez cher. */
+  const cmax = crawlerMax(p.b.metal, p.b.crystal, p.b.deut), have = p.crawlers||0;
+  if(have < cmax && shipReqOk('crawl', p)){
+    const n = Math.max(1, Math.min(cmax-have, Math.ceil(cmax/10)));
+    // Cinquante d'énergie par foreuse : comme pour une mine, la centrale qu'elles
+    // obligent à monter fait partie de leur prix.
+    const ov = {crawlers:have+n}; let cost = CRAWLER_COST.map(x=>x*n), extra = 0;
+    let pr = production(p, ov);
+    while(pr.factor<1 && extra<15){ extra++; ov.solar = p.b.solar+extra; const sc=levelCost(B.solar, p.b.solar+extra); cost=cost.map((x,i)=>x+sc[i]); pr=production(p,ov); }
+    const gain = mse(pr.m,pr.c,pr.d)-baseV;
+    out.push({key:'crawl', n, lvl:have+n, extraSolar:extra, cost, gain,
+              payback: gain>0 ? mse(...cost)/gain : Infinity, score:scoreOf(pr,cost,gain), time:shipTime('crawl', n, p)});
+  }
+  return out.sort((a,b)=>a.score-b.score);
 }

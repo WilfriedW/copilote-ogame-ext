@@ -22,9 +22,14 @@ import {
   labLevel, researchTime, reqOk
 } from '../economie/centre.js';
 import {
+  addBuilt, mineEnRetard, signe, naniteRetard, robotsOuNanites, laboEnRetard,
+  labOkPour, reglesRecherche
+} from '../economie/chantiers.js';
+import {
   stockNow, production, mse, NOM_RES, storageNote, upLabel
 } from '../economie/production.js';
 import { LF_MODE, lfMode } from './place-formes-de-vie.js';
+import { rankUpgrades, besoinEmpire, VOC_KEYS, VOC_NOM, vocations } from './vocations.js';
 import {
   HANGARS, regleActive, regleParam, regleTexte, rangNiveau, constats, repondA
 } from '../regles/moteur.js';
@@ -38,10 +43,6 @@ import {
 } from '../core/formules.js';
 import { ecoSpeed, hyperCargoPct, buildTime } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
-import {
-  mineEnRetard, signe, naniteRetard, robotsOuNanites, laboEnRetard,
-  labOkPour, reglesRecherche
-} from '../economie/chantiers.js';
 import { hangarSiJustifie, debordeTexte } from '../economie/debordements.js';
 import {
   expoFind, expoFleet, EXPO_READ_TTL, expoInFlight, expoCap,
@@ -53,8 +54,7 @@ import { timerLabel } from '../minuteurs/minuteurs.js';
 import { poseHeure, isNight } from './nuit.js';
 import { prios, prioOf, prioDevant, FOCUS, FOCUS_FLOTTE } from './priorites.js';
 import { poidsCat, catActe } from './profil.js';
-import { besoinEmpire, VOC_KEYS, VOC_NOM, vocations } from './vocations.js';
-import { addBuilt, rankUpgrades, planetAlerts } from '../../app.js';
+import { planetAlerts } from '../../app.js';
 
 /* ---------- advice ---------- */
 export const MILESTONES = [

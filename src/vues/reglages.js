@@ -22,12 +22,12 @@ import { FOCUS } from '../plan/priorites.js';
 import { planPoseParLeStyle, classeEcart, profilLigne, profilFocusHtml } from '../plan/profil.js';
 import { REGLES_ERR, REGLES_PAR_ID, NIVEAU_SEV, DOMAINES, regle } from '../regles/moteur.js';
 import { secu } from '../securite/securite.js';
-import { noListe } from './carte-action.js';
+import { noListe, SEV_LABEL } from './carte-action.js';
 import { defModeleCarte, defPicker } from './defense.js';
 import { MASQUE_CLES, masque, toutMasque } from './entete.js';
 import { fold, cardLayout, affichageCard, HABILLAGES, habillage } from './navigation.js';
 import { VERSIONS, MAJ, plusRecente } from './version.js';
-import { APP_VERSION, raceDe, SEV_LABEL, bascule, aide, actsVus } from '../../app.js';
+import { APP_VERSION, raceDe, bascule, aide, actsVus } from '../../app.js';
 /** Réglages › Formes de vie : la race de chaque planète, d'où elle vient, et de quoi la corriger. */
 function raceRows(){
   const ps = (S.planets || []).filter(p => lfIds(p).length || p.race);
