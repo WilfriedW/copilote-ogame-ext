@@ -470,6 +470,9 @@ fichier : `aujourdhui.js`, `empire.js`, `outils.js`, `defense.js` (le
 sous-onglet Défense) et `reglages.js`, plus `conseils.js` pour le bloc des
 conseils d'Aujourd'hui. Chacun exporte ses morceaux de `VIEWS` et de
 `REFRESH` (`VIEWS_EMPIRE`, `REFRESH_EMPIRE`…), qu'`app.js` réassemble.
+`evenements.js` tient les clics et les saisies : `bind`, reposé à chaque
+dessin, et `brancheEcoutes`, les écoutes posées une fois, qu'`app.js` appelle
+à leur place d'avant pour garder leur ordre.
 `render` et `refresh` restent dans `app.js` : ils appellent toutes les vues,
 que toutes rappellent. `app.js` se découpe ainsi, un domaine
 par PR (issue #49), jusqu'à disparaître. `ids.js` et `profils.js` restent des

@@ -6961,7 +6961,7 @@ t('le champ du volet Empire republie le plan après avoir posé', () => {
 
 t('la minuterie de 30 s republie le plan aussi sur Empire', () => {
   /* setInterval est neutralisé dans le harnais : on épingle la source. */
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'vues', 'evenements.js'), 'utf8');
   // garderVue() enrobe le dessin pour que la carte lue ne bouge pas à l'écran
   assert.match(src, /garderVue\(\(\)=>\{\s*REFRESH\[tab\]\(\);\s*cartesSync\(\);\s*\}\);\s*publieLePlan\(\);\s*finDeNuit\(\);\s*\}, 30000\)/);
 });
@@ -7228,7 +7228,7 @@ t('le bloc vide nomme le clic droit avant le volet Empire', () => {
 });
 
 t('le gestionnaire de clic passe la référence telle quelle, sans « + »', () => {
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'vues', 'evenements.js'), 'utf8');
   assert.match(src, /prioRetire\(pd\.dataset\.prioDel\)/);
 });
 
@@ -10487,7 +10487,7 @@ t('le ⓘ ouvert le reste au dessin suivant', () => {
 });
 
 t('« Fait », « Non » et la copie ne touchent pas à l\'affichage des cartes', () => {
-  const src = ['app.js', 'src/vues/navigation.js'].map(f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8')).join('\n');
+  const src = ['app.js', 'src/vues/navigation.js', 'src/vues/evenements.js'].map(f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8')).join('\n');
   // seuls le résumé d'un repli et le ⓘ écrivent un état
   assert.equal((src.match(/uiNote\(/g) || []).length, 4, 'définition + résumé + ⓘ + « Voir plus »');
 });
@@ -11583,7 +11583,7 @@ t('ENH-54 : la mise à l\'abri est une bascule, le retour un champ heure', () =>
   assert.doesNotMatch(h, />non<\/option><option value="1"[^>]*>oui</, 'plus de menu non/oui');
   assert.equal(g.dayValue('backHour', '07:00', null), 7, 'la valeur d\'un champ heure');
   assert.match(app(s => { s.day.backHour = 7; }).VIEWS.settings(), /data-day="backHour" value="07:00"/);
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'vues', 'evenements.js'), 'utf8');
   assert.match(src, /el\.type==='checkbox' \? \(el\.checked \? '1' : '0'\) : el\.value/, 'la bascule se lit cochée ou non');
 });
 

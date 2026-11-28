@@ -466,7 +466,7 @@ module.exports = ({ t, assert, app, appRegles, lu, SOIR, prioLabo, prio2, CASE_O
 
   t('le champ de niveau visé ne redessine pas la vue', () => {
     /* render() refermerait le <details> qui porte le champ. */
-    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'vues', 'evenements.js'), 'utf8');
     const i = src.indexOf("querySelectorAll('input[data-prio]')");
     const corps = src.slice(i, src.indexOf('\n  }));', i));
     assert.ok(!/render\(\)/.test(corps.replace(/\/\*[\s\S]*?\*\//g, '')), 'pas de render()');
@@ -496,7 +496,7 @@ module.exports = ({ t, assert, app, appRegles, lu, SOIR, prioLabo, prio2, CASE_O
   t('le champ de niveau visé écoute change, jamais input', () => {
     /* Sur un labo 5, taper « 10 » passe par « 1 » : à l'écoute de input, la
        priorité serait jugée atteinte, retirée, puis recréée en fin de liste. */
-    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'vues', 'evenements.js'), 'utf8');
     const m = src.match(/querySelectorAll\('input\[data-prio\]'\)\.forEach\(el=>el\.addEventListener\('(\w+)'/);
     assert.ok(m, 'le champ est branché');
     assert.equal(m[1], 'change');
