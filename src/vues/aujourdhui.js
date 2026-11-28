@@ -28,15 +28,11 @@ import { LF_NAMES } from '../formes-de-vie/cases.js';
 import { fleetUrl, missionGo, coordLink, goAttr } from '../jeu/liens.js';
 import { meteoVoit } from '../meteo.js';
 import { renderTimers } from '../minuteurs/minuteurs.js';
-import {
-  MILESTONES, milestoneDone, milestoneLabel, milestoneMissing,
-  simulateDay, statutFinancement, refused
-} from '../plan/journee.js';
+import { simulateDay, statutFinancement, refused } from '../plan/journee.js';
 import { dailyMissions, missionKey, missionDone } from '../plan/missions.js';
-import { poseHeure, heureTxt } from '../plan/nuit.js';
 import {
   prios, priosLf, PRIO_ATTENTE, prioDemandes, prioAttend, prioOrdre,
-  prioSuite, prioRef, FOCUS
+  prioSuite, prioRef
 } from '../plan/priorites.js';
 import {
   classeSuggeree, classeEcart, catActe, catMission, profilLigne,
@@ -338,11 +334,10 @@ function profilBloc(){
 
 export const VIEWS_AUJOURDHUI = {
 /* Ce que le joueur vient chercher, c'est la carte à suivre maintenant : elle
-   seule reste dépliée. Le reste — la journée qui vient, les minuteurs — se
+   seule reste dépliée. Le reste — les expéditions, les minuteurs — se
    replie, en disant dans son titre ce qu'il contient, pour qu'on sache s'il
    vaut la peine d'être ouvert. */
 today(){
-  const d=S.day;
   /* Chaque carte se déclare dans CARTES.today ; le conteneur les empile ou
      les range en onglets, elles n'en savent rien. */
   return cardLayout('today', {
@@ -354,10 +349,6 @@ today(){
     securite: `<div id="tdSecu"></div>`,
     expeditions: `<details class="card"${fold('expeditions', false)}><summary data-fold="expeditions">Expéditions <span class="note" id="expoSum"></span></summary>
       <div id="expoBloc"></div>
-    </details>`,
-    journee: `<details class="card"${fold('journee', false)}><summary data-fold="journee">Ta journée <span class="note" id="tdDaySum"></span></summary>
-      <p class="note">${esc(FOCUS[d.focus]||'')} · toutes les ${d.interval} min · nuit ${heureTxt(d.nightStart)}–${heureTxt(d.nightEnd)} <button class="btn sm ghost" data-goto="settings:jeu">Modifier</button></p>
-      <div id="tdDay"></div>
     </details>`,
     minuteurs: `<details class="card"${fold('minuteurs', false)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
       <ul class="timers" id="tmList"></ul>
@@ -469,37 +460,7 @@ today(){
   RESUMES.alertes = resumeDe(conseilLignes(plan).filter(meteoVoit).map(a=>({sev:a.sev, key:a.what})), 'alertes');
   document.getElementById('tdAlerts').innerHTML = conseilsHtml(plan);
   publieCritiques(plan.constats);
-  const later = plan.sessions.slice(1).filter(x=>actsVus(x).length || slotMs.has(x));
-  const slot = x=>`<div class="slot"><div class="time">${formatTime(x.T)}<small>dans ${dur((x.T-plan.now)/1000)}</small></div><ul class="acts">${actsVus(x).map(a=>actHtml(a,false)).join('')}${(slotMs.get(x)||[]).map(taskHtml).join('')}</ul></div>`;
-  const gain = plan.startV>0 ? (plan.endV/plan.startV-1)*100 : 0;
-  const phases = [], horizonEnd = plan.now + (+S.day.horizon||24)*3600e3;
-  for(const x of plan.sessions){ const key = x.goals.map(g=>g.key).join('|') || 'free'; const last = phases[phases.length-1]; if(last && last.key===key) continue; if(last) last.to = x.T; phases.push({key, from:x.T, to:horizonEnd, goals:x.goals}); }
-  const nightStartAfter = t=>{ const d = poseHeure(new Date(t), +S.day.nightStart); if(d.getTime() <= t) d.setDate(d.getDate()+1); return d.getTime(); };
-  for(const ph of phases){ const n = nightStartAfter(ph.from); if(n < ph.to) ph.to = n; }
-  const launchedAt = label => { for(const x of plan.sessions) if(x.acts.some(a=>a.what===label || (label==='le vaisseau de colonisation' && a.kind==='ship'))) return x.T; return null; };
-  const phaseHtml = ph => {
-    if(ph.key==='free') return `<li><span class="pill good">Soutenu</span><span class="what">${formatTime(ph.from)} → ${formatTime(ph.to)}</span><span class="why">Rien de gros à financer : dépense tout à chaque connexion, mines et bâtiments à la chaîne.</span></li>`;
-    const txt = ph.goals.map(g=>{ const at = launchedAt(g.label); return `on garde le ${g.res} pour ${g.label}${at?`, lancement vers ${formatTime(at)}`:''}`; }).join(' ; ');
-    return `<li><span class="pill warn">Tempo</span><span class="what">${formatTime(ph.from)} → ${formatTime(ph.to)}</span><span class="why">${esc(txt.charAt(0).toUpperCase()+txt.slice(1))}. Les bâtiments n'utilisent que le surplus. Bon moment pour la flotte : expéditions, espionnage d'inactifs.</span></li>`;
-  };
-  const strategy = `<ul class="advice mb-3">${phases.slice(0,5).map(phaseHtml).join('')}</ul>`;
-  /* Où en est le début de partie. Le compte est le nombre de jalons franchis,
-     qui peuvent l'être dans le désordre : on peut tenir Astrophysique sans
-     Ordinateur 2. « Prochaine étape » est le premier non franchi dans l'ordre
-     de la liste, celui qui ouvre la suite. Le bloc s'efface de lui-même une
-     fois les onze acquis. */
-  const mDone = MILESTONES.filter(m=>milestoneDone(m)).length, mNext = MILESTONES.find(m=>!milestoneDone(m));
-  const mMiss = mNext ? milestoneMissing(mNext) : [];
-  const debut = mNext ? `<ul class="advice mb-3"><li><span class="pill info">Début de partie · ${mDone} / ${MILESTONES.length}</span><span class="what">Prochaine étape : ${esc(milestoneLabel(mNext))}</span><span class="why">${mMiss.length?`Il manque : ${esc(mMiss.join(', '))}. `:''}${esc(mNext.why)}</span></li></ul>` : '';
-  document.getElementById('tdDay').innerHTML = night ? `<p class="note">Mode nuit : seule la mise à l'abri compte. Le plan du jour revient dès que tu repasses en mode jour.</p>` : debut + strategy + (later.length
-    ? `<div class="tl">${later.slice(0,6).map(slot).join('')}</div>${later.length>6?`<details class="volet mt-3"${fold('journee.suite', false)}><summary class="note" data-fold="journee.suite">Voir les ${later.length-6} connexions suivantes</summary><div class="tl mt-3">${later.slice(6).map(slot).join('')}</div></details>`:''}`
-    : `<p class="note">Aucune action prévue sur la période : tes files sont occupées ou tes ressources trop faibles.</p>`)
-    + `<div class="sumline mt-3"><span class="pill good">Production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} %</span><span class="note">en ${S.day.horizon} h, de ${fmt(plan.startV)} à ${fmt(plan.endV)} éq. métal/h</span></div>`
-    + (plan.ups.length ? `<p class="note mt-2">${esc(plan.ups.join(' · '))}</p>` : '')
-    + `<p class="note mt-2">Connexions sans action masquées. Avant une longue absence, dépense ou mets tes ressources à l'abri.</p>`;
   renderTimers();
-  document.getElementById('tdDaySum').textContent = night ? 'mode nuit'
-    : `${later.length} connexion${later.length>1?'s':''} à venir · production ${gain>=0?'+':''}${gain.toFixed(1).replace('.',',')} % en ${S.day.horizon} h`;
 },
 };
 /* Sous le filtre de la météo, seules les cartes de la planète choisie restent. */

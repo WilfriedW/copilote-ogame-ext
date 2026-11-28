@@ -303,11 +303,6 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:var(--fs-sm)}
 .acts .m{grid-column:1/-1;display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;font-size:var(--fs-sm);color:var(--muted)}
 .acts li.wait{background:transparent;border:1px dashed var(--line)}
 .acts li.busy{background:transparent;border:1px solid var(--line)}
-.tl{display:flex;flex-direction:column;gap:var(--sp-3)}
-.tl .slot{display:grid;grid-template-columns:70px minmax(0,1fr);gap:var(--sp-2);align-items:start}
-.tl .time{font-family:var(--f-display);font-weight:700;font-size:var(--fs-xl);color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.2}
-.tl .time small{display:block;font:500 var(--fs-xs) var(--f-mono);color:var(--muted)}
-.sumline{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center}
 .acts li.task{border-left:3px solid var(--accent)}
 /* Carte cliquable : elle ouvre la page du jeu correspondante. */
 .acts li[data-go]{cursor:pointer}
@@ -423,7 +418,7 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:var(--fs-sm)}
 :root[data-skin=hud] nav.tabs button,:root[data-skin=hud] .seg,:root[data-skin=hud] .seg button,:root[data-skin=hud] .pill,:root[data-skin=hud] .chip,:root[data-skin=hud] .ptag,:root[data-skin=hud] .toast,:root[data-skin=hud] .gear,:root[data-skin=hud] label.f.bascule input,:root[data-skin=hud] label.f.bascule input::after,:root[data-skin=hud] input.interrupteur,:root[data-skin=hud] input.interrupteur::after{border-radius:0}
 :root[data-skin=hud] .gauge,:root[data-skin=hud] .acts li,:root[data-skin=hud] .timers li,:root[data-skin=hud] .list li{border-left:2px solid var(--rc,var(--accent))}
 :root[data-skin=hud] .acts li.wait{border-left-color:var(--warn)}
-:root[data-skin=hud] .gauge .v,:root[data-skin=hud] .timers .cd,:root[data-skin=hud] .big,:root[data-skin=hud] .tl .time{font-family:var(--f-mono);font-weight:700;text-shadow:0 0 10px color-mix(in srgb,currentColor 45%,transparent)}
+:root[data-skin=hud] .gauge .v,:root[data-skin=hud] .timers .cd,:root[data-skin=hud] .big{font-family:var(--f-mono);font-weight:700;text-shadow:0 0 10px color-mix(in srgb,currentColor 45%,transparent)}
 :root[data-skin=hud] .big-alert .box{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));box-shadow:0 0 26px color-mix(in srgb,var(--good) 45%,transparent)}
 
 /* --- 4 · Arcade ------------------------------------------------------

@@ -302,7 +302,6 @@ module.exports = ({ t, assert, lu, loadApp, fixtureState, mission, SOIR, chargeW
     assert.equal(g.heureTxt(22.75), '22h45');
     const h = lu(g.VIEWS.settings());
     assert.ok(h.includes('data-day="nightStart" value="22:45"'), 'champ horaire du coucher');
-    assert.ok(lu(g.VIEWS.today()).includes('nuit 22h45–7h'));
     g.S.day.nightStart = 22.5; g.syncApply({ 'sy:day': g.S.day });
     assert.equal(g.S.day.nightStart, 22.5, 'la minute survit à la synchro');
   });

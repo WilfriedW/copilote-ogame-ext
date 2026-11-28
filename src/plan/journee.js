@@ -4,10 +4,9 @@
    prochaine recherche et ce qu'elle rapporte (`nextResearch`, `techWhy`,
    `ROADMAPS`), ce qu'une priorité demande (`prioStep`, `prioBloque`), la
    projection des ressources et le moment où une dépense devient payable
-   (`projectResources`, `whenAffordable`, `depensesPayables`), et les jalons
-   du début de partie (`MILESTONES`), et la défense qui absorbe un hangar
-   plein une fois le palier tenu (`defSurplus`, ici parce que la journée est
-   seule à la lire et qu'elle tient les refus).
+   (`projectResources`, `whenAffordable`, `depensesPayables`), et la défense
+   qui absorbe un hangar plein une fois le palier tenu (`defSurplus`, ici
+   parce que la journée est seule à la lire et qu'elle tient les refus).
 
    Module du plan du jour (issue #49). Il emprunte encore à app.js quelques outils
    de planète : ce cycle-là est toléré tant qu'app.js existe, et rien n'y est lu au
@@ -56,23 +55,6 @@ import { prios, prioOf, prioDevant, FOCUS, FOCUS_FLOTTE } from './priorites.js';
 import { poidsCat, catActe } from './profil.js';
 import { planetAlerts } from '../../app.js';
 
-/* ---------- advice ---------- */
-export const MILESTONES = [
-  {t:'b', k:'lab', lvl:1, why:'Débloque toutes les recherches.'},
-  {t:'t', k:'energy', lvl:1, why:'Premier prérequis de presque tout l\'arbre technologique.'},
-  {t:'b', k:'robot', lvl:2, why:'Accélère les constructions et débloque le chantier spatial.'},
-  {t:'b', k:'shipyard', lvl:2, why:'Nécessaire au petit transporteur.'},
-  {t:'t', k:'combustion', lvl:2, why:'Débloque le petit transporteur : fleetsave et pillage.'},
-  {t:'t', k:'espionage', lvl:2, why:'Sondes d\'espionnage pour repérer les joueurs inactifs.'},
-  {t:'t', k:'computer', lvl:2, why:'Un slot de flotte supplémentaire par niveau.'},
-  {t:'b', k:'lab', lvl:3, why:'Requis pour Astrophysique.'},
-  {t:'t', k:'impulse', lvl:3, why:'Requis pour Astrophysique.'},
-  {t:'t', k:'espionage', lvl:4, why:'Requis pour Astrophysique.'},
-  {t:'t', k:'astro', lvl:1, why:'Première colonie et premières expéditions.'},
-];
-export function milestoneDone(m){ return m.t==='t' ? S.tech[m.k]>=m.lvl : S.planets[0] && S.planets[0].b[m.k]>=m.lvl; }
-export function milestoneLabel(m){ return m.t==='t' ? `${T[m.k].n} ${m.lvl}` : `${B[m.k].n} ${m.lvl}`; }
-export function milestoneMissing(m){ return m.t==='t' ? reqOk(T[m.k].req, null) : reqOk(B[m.k].req, S.planets[0]); }
 
 /* Les emplacements d'une planète, quand le relevé les a vus et qu'ils tiennent
    debout. Un chiffre aberrant — une parenthèse attrapée ailleurs dans
