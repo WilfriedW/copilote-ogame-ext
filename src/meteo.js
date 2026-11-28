@@ -23,7 +23,6 @@ import { formatTime } from './core/temps.js';
 import { DEF, DEF_ABR, defPlan } from './defense/defense.js';
 import { poidsCat } from './plan/profil.js';
 import { SEV_NIVEAU, constatsVus } from './regles/moteur.js';
-import { uiOuvert, uiNote } from './vues/navigation.js';
 import { render, planetAlerts } from '../app.js';
 
 /** Les quatre domaines, dans l'ordre des colonnes. */
@@ -189,7 +188,15 @@ export function meteoFiltre(){ const p = filterPlanet && planetById(filterPlanet
 export function meteoVoit(x){
   const p = meteoFiltre();
   if(!p) return true;
-  if(!x) return false;
+  return carteSur(x, p);
+}
+/**
+ * Vrai si l'élément (carte, attente, alerte, mission) concerne la planète p :
+ * par son identifiant, son rang, ou ses étiquettes. Le filtre de la météo et
+ * la fraîcheur du relevé (ENH-77) se posent la même question.
+ */
+export function carteSur(x, p){
+  if(!x || !p) return false;
   if(typeof x === 'string') return x === p.id;
   if(x.pid) return x.pid === p.id;
   if(Number.isInteger(x.p)) return S.planets[x.p] === p;
@@ -201,17 +208,20 @@ export function meteoVoit(x){
 const METEO_CLS = {good:'mt-good', warn:'mt-warn', bad:'mt-bad'};
 function meteoHtml(elems){
   const ps = S.planets || [], rang = empireWeather(elems, ps.map(p => p.id)), e = METEO_ETATS[rang];
-  // l'état vit dans le store d'affichage d'app.js (uiOuvert), propre au poste
-  const ouvert = uiOuvert('meteo', false);
+  /* Un panneau volant ne se retient pas : rouvert au chargement, il
+     couvrirait les cartes que le joueur vient lire (ENH-77). */
+  const ouvert = meteoOuvert;
   const ligne = p => {
     const r = planetWeather(elems, p.id), causes = meteoCauses(elems, p.id), f = filterPlanet === p.id;
     return `<tr data-meteo-p="${esc(p.id)}" title="${esc(causes)}" class="${f ? 'mt-on' : ''}" tabindex="0" aria-label="${esc(`${p.name} : ${METEO_ETATS[r].n}. ${causes}`)}">
       <td class="mt-w ${METEO_CLS[METEO_ETATS[r].sev]}">${meteoIcone(r)}</td><td class="mt-n">${esc(planetRef(p))}</td>
       ${METEO_DOM.map(d => { const c = domainColor(elems, p.id, d.k); return `<td class="mt-d"><i class="mt-dot ${METEO_CLS[c]}" title="${esc(d.n)}"></i></td>`; }).join('')}</tr>`;
   };
-  return `<button type="button" class="mt-band" data-meteo-tog="1" aria-expanded="${ouvert}" title="${esc(ouvert ? 'Replier la météo' : 'Déplier la météo des planètes')}">
-      <span class="${METEO_CLS[e.sev]}">${meteoIcone(rang, 'mt-big')}</span><b>${e.n}</b><span class="mt-car" aria-hidden="true">${ouvert ? '▴' : '▾'}</span></button>
-    <div class="mt-grid"${ouvert ? '' : ' hidden'}>
+  /* L'icône seule dans l'en-tête, à la couleur de la pire planète ; son nom
+     et l'état se lisent au survol et par le lecteur d'écran. */
+  return `<button type="button" class="mt-band" data-meteo-tog="1" aria-expanded="${ouvert}" aria-haspopup="true" aria-label="${esc(`Météo de l'empire : ${e.n}`)}" title="${esc(`Météo : ${e.n} — ${ouvert ? 'fermer' : 'voir les planètes'}`)}">
+      <span class="${METEO_CLS[e.sev]}">${meteoIcone(rang, 'mt-big')}</span></button>
+    <div class="mt-grid mt-pop"${ouvert ? '' : ' hidden'}>
       <table><thead><tr><th></th><th>Planète</th>${METEO_DOM.map(d => `<th><abbr title="${d.n}">${d.court}</abbr></th>`).join('')}</tr></thead>
       <tbody>${ps.map(ligne).join('')}</tbody></table>
       <p class="mt-leg">${METEO_ETATS.map((x, i) => `<span class="${METEO_CLS[x.sev]}">${meteoIcone(i)}</span>${x.n}`).join(' ')}</p>
@@ -228,21 +238,44 @@ export function renderMeteo(){
   if(box){ let el = []; try{ el = meteoElements(); }catch(e){ meteoErreur('calcul', e); } box.innerHTML = meteoHtml(el); }
   if(puce){ puce.innerHTML = meteoPuceHtml(); puce.hidden = !filterPlanet; }
 }
-/* Les clics vivent hors de #view : le bandeau et la puce ne sont pas redessinés
-   par render(), ils ont donc leur propre écoute, posée une fois. */
+/* Le panneau de la météo, ouvert ou non : en mémoire seulement. */
+let meteoOuvert = false;
+/** Ouvre le panneau accroché à l'icône. */
+export function meteoOuvre(){ meteoOuvert = true; renderMeteo(); }
+/** Le ferme ; `focus` rend la main à l'icône, comme après un Échap. */
+export function meteoFerme(focus){
+  if(!meteoOuvert) return;
+  meteoOuvert = false; renderMeteo();
+  if(focus){ const b = document.getElementById('meteo'), t = b && b.querySelector && b.querySelector('[data-meteo-tog]'); if(t && t.focus) t.focus(); }
+}
+/** Un clic n'importe où dans le panneau latéral : hors de la météo, il la ferme. */
+export function meteoDehors(cible){
+  if(meteoOuvert && !(cible && cible.closest && cible.closest('#meteo'))) meteoFerme(false);
+}
+/** Une touche : Échap ferme. */
+export function meteoTouche(e){
+  if(meteoOuvert && e && e.key === 'Escape') meteoFerme(true);
+}
+/* Les clics vivent hors de #view : l'icône, le panneau et la puce ne sont pas
+   redessinés par render(), ils ont donc leur propre écoute, posée une fois. */
 export function meteoBind(){
   const box = document.getElementById('meteo'), puce = document.getElementById('meteoFiltre');
-  const choisir = tr => { const pid = tr.dataset.meteoP; filterPlanet = filterPlanet === pid ? null : pid; render(); };
+  /* Choisir une planète la montre : le panneau se ferme sur les cartes filtrées. */
+  const choisir = tr => { const pid = tr.dataset.meteoP; filterPlanet = filterPlanet === pid ? null : pid; meteoOuvert = false; render(); };
   if(box && box.addEventListener){
     box.addEventListener('click', e => {
       const t = e.target && e.target.closest ? e.target : null; if(!t) return;
-      if(t.closest('[data-meteo-tog]')){ uiNote('meteo', !uiOuvert('meteo', false)); renderMeteo(); return; }
+      if(t.closest('[data-meteo-tog]')){ meteoOuvert ? meteoFerme(false) : meteoOuvre(); return; }
       const tr = t.closest('[data-meteo-p]'); if(tr) choisir(tr);
     });
     box.addEventListener('keydown', e => {
       const tr = e.target && e.target.closest && e.target.closest('[data-meteo-p]');
       if(tr && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault && e.preventDefault(); choisir(tr); }
     });
+  }
+  if(document.addEventListener){
+    document.addEventListener('click', e => meteoDehors(e.target));
+    document.addEventListener('keydown', meteoTouche);
   }
   if(puce && puce.addEventListener) puce.addEventListener('click', e => {
     if(e.target && e.target.closest && e.target.closest('[data-meteo-off]')){ filterPlanet = null; render(); }

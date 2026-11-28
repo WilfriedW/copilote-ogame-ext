@@ -59,53 +59,24 @@
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:var(--fs-base);line-height:1.5}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
 .wrap{max-width:780px;margin:0 auto;padding-left:max(var(--sp-4),env(safe-area-inset-left,0));padding-right:max(var(--sp-4),env(safe-area-inset-right,0));padding-block:var(--sp-4) 48px}
-/* L'en-tête tient sur une ligne, panneau étroit compris : le titre rapetisse
-   avec la largeur, le badge s'écourte avant tout le reste (il est en entier
-   dans son infobulle), et la classe puis la version s'effacent. Le bouton et
-   les icônes, eux, ne bougent jamais — ils se cliquent. */
-header.top{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);flex-wrap:nowrap}
-/* La rangée de droite s'efface (`display:contents`) : titre, badge et
-   boutons se partagent directement la ligne, chacun selon sa priorité — le
-   badge s'écourte le premier (flex-shrink 8), le titre ensuite, les boutons
-   jamais. Avant, la rangée en `min-width:0` se laissait écraser et, alignée
-   à droite, débordait vers la gauche : l'interrupteur des heures et son
-   libellé se dessinaient par-dessus le titre, voire hors de l'écran. */
+/* L'en-tête tient sur une ligne : le titre, puis quatre icônes au plus
+   (Actualiser quand il sort, météo, nuit, réglages). Version, classe,
+   synchro et heures sont parties dans les Réglages (ENH-77) ; le titre est
+   le seul à rapetisser, les icônes ne bougent jamais — elles se cliquent. */
+header.top{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);flex-wrap:nowrap;position:relative}
+/* La rangée de droite s'efface (`display:contents`) : titre et boutons se
+   partagent directement la ligne, le titre s'écourte, les boutons jamais. */
 header.top h1{flex:0 1 auto;margin-right:auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header.top .row{display:contents}
-header.top .uni{flex:0 8 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header.top .btn{flex:0 0 auto}
-/* Les seuils sont mesurés sur l'en-tête à trois contrôles (heures, nuit,
-   réglages) : tout tient en entier à partir de 760px ; en dessous la classe
-   part d'abord, la version sous 680px, le libellé des heures sous 580px.
-   Chaque élément est soit entier, soit absent — jamais « v2.… ». */
-@media (max-width:760px){.uni .cls{display:none}}
-@media (max-width:680px){
-  .ver{display:none}
-  /* Et quand le bouton est sorti, le badge part aussi : il dit la même chose
-     que lui — le relevé est vieux — et la ligne n'a pas la place des deux.
-     L'heure, elle, reste dans l'infobulle du bouton. */
-  header.top:has(#majBtn:not([hidden])) .uni,
-  header.top:has(#majBtn:not([hidden])) .tzlbl{display:none}
-}
-/* Panneau vraiment étroit : le badge part dans tous les cas, plutôt que de
-   rogner le titre — « COPILOTE OGA… » se lit comme une page cassée. */
-@media (max-width:440px){header.top .uni{display:none}}
-/* Panneau étroit : le titre prend sa propre ligne et les boutons passent
-   dessous, alignés à droite (s'ils ne tiennent pas, ils continuent sur une
-   ligne de plus — jamais par-dessus le titre ni hors de l'écran). */
-@media (max-width:460px){header.top{flex-wrap:wrap;justify-content:flex-end;row-gap:var(--sp-2)} header.top h1{flex:1 1 100%;margin-right:0}}
-/* Sous 580px, le libellé des heures part à son tour : l'interrupteur reste,
-   son infobulle dit ce qu'il fait (avertissements compris). */
-@media (max-width:580px){header.top .tzlbl{display:none}}
-/* Et tout en bas, les écarts se resserrent. */
+/* Panneau très étroit : le titre prend sa ligne, les icônes passent dessous. */
+@media (max-width:300px){header.top{flex-wrap:wrap;justify-content:flex-end;row-gap:var(--sp-2)} header.top h1{flex:1 1 100%;margin-right:0}}
 @media (max-width:360px){header.top{gap:var(--sp-1)}}
 @media (max-width:340px){header.top .gear{padding-inline:var(--sp-1)}}
 h1{font-family:var(--f-display);font-weight:700;font-size:clamp(14px,3.5vw,22px);letter-spacing:.04em;margin:0;text-transform:uppercase}
 h1 span{color:var(--accent)}
 h2{font-family:var(--f-display);font-weight:600;font-size:var(--fs-lg);letter-spacing:.08em;text-transform:uppercase;margin:0;color:var(--muted)}
 h3{font-family:var(--f-display);font-weight:600;font-size:var(--fs-lg);margin:0;text-wrap:balance}
-.ver{font-family:var(--f-mono);font-size:var(--fs-xs);font-weight:500;letter-spacing:0;color:var(--muted);text-transform:none;vertical-align:middle}
-.uni{font-family:var(--f-mono);font-size:var(--fs-sm);color:var(--muted)}
 nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:var(--sp-2);padding-block:var(--sp-3);overflow-x:auto;scrollbar-width:none}
 nav.tabs button{flex:0 0 auto;font-family:var(--f-display);font-weight:600;font-size:var(--fs-md);letter-spacing:.06em;text-transform:uppercase;padding:var(--sp-2) var(--sp-3);border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
 nav.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
@@ -113,15 +84,8 @@ nav.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(
    Rond comme les onglets, et il s'allume quand les réglages sont ouverts. */
 .gear{border-radius:999px;padding:var(--sp-1) var(--sp-2);font-size:var(--fs-base);line-height:1.2}
 .gear[aria-selected="true"]{background:var(--accent);border-color:var(--accent)}
-/* L'interrupteur des heures : la même bascule que les Réglages, en plus petit,
-   et son libellé discret juste à droite. Allumé = heure locale. */
-.tzsw{flex:0 0 auto;appearance:none;width:30px;height:18px;padding:0;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);position:relative;cursor:pointer}
-.tzsw .knob{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:transform .15s,background .15s}
-.tzsw[aria-checked="true"]{background:var(--accent);border-color:var(--accent)}
-.tzsw[aria-checked="true"] .knob{transform:translateX(12px);background:var(--accent-ink)}
-.tzsw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.tzlbl{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:var(--f-mono);font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
-:root[data-skin=hud] .tzsw,:root[data-skin=hud] .tzsw .knob{border-radius:0}
+/* Une erreur de rules.json : sous l'en-tête, seulement quand il y a lieu. */
+.err-band{margin-top:var(--sp-2);padding:var(--sp-2);border:1px solid var(--bad);border-radius:var(--r-sm);color:var(--bad);font-size:var(--fs-sm)}
 /* Une heure du panneau : son infobulle donne l'autre fuseau. */
 time.hr{cursor:help;text-decoration:underline dotted color-mix(in srgb,currentColor 35%,transparent);text-underline-offset:3px}
 section.panel{display:flex;flex-direction:column;gap:var(--sp-3)}
@@ -460,11 +424,14 @@ summary.posesum{justify-content:flex-start} summary.posesum>.note{margin-left:au
    Les trois couleurs sont celles du thème (--good, --warn, --bad), redéfinies
    en clair et en sombre plus haut : aucune couleur en dur ici. Les icônes sont
    en currentColor, elles suivent. Une ligne de planète tient en 28 px. */
-.meteo{margin-top:var(--sp-2)}
-.mt-band{display:flex;align-items:center;gap:var(--sp-2);width:100%;padding:var(--sp-2);border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);color:var(--fg);font:inherit;font-family:var(--f-display);font-weight:600;letter-spacing:.04em;cursor:pointer;text-align:left}
+/* L'icône vit dans l'en-tête ; la grille est un panneau accroché dessous, à
+   droite, par-dessus les cartes (ENH-77). */
+.meteo{flex:0 0 auto}
+.mt-band{display:flex;align-items:center;justify-content:center;padding:var(--sp-1) var(--sp-2);border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--fg);font:inherit;cursor:pointer}
+.mt-band[aria-expanded="true"]{background:var(--surface-2)}
 .mt-band:focus-visible,.mt-grid tr:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-.mt-band b{flex:1}
-.mt-car{color:var(--muted)}
+.mt-pop{position:absolute;right:0;top:calc(100% + var(--sp-1));z-index:20;width:min(360px,calc(100vw - 2 * var(--sp-3)));box-shadow:0 8px 24px rgb(0 0 0 / .28)}
+.mt-pop[hidden]{display:none}
 .mt-ico{display:block;flex:0 0 auto}
 .mt-ico.mt-big{width:22px;height:22px}
 .mt-good{color:var(--good)} .mt-warn{color:var(--warn)} .mt-bad{color:var(--bad)}

@@ -29,7 +29,8 @@ module.exports = ({ t, assert, app, appRegles, loadApp, fixtureState, lu, SOIR, 
     assert.deepEqual(g.REGLES.regles, []);
     assert.ok(g.simulateDay().sessions.length, 'le plan tourne quand même');
     assert.ok(g.regleActive('RES_STORAGE_FULL'), 'une règle inconnue laisse le moteur faire ce qu\'il faisait');
-    assert.match(lu(g.el('uniBadge').innerHTML), /règles illisibles/);
+    // ENH-77 : plus de badge dans l'en-tête, un bandeau sous lui
+    assert.match(lu(g.el('reglesErr').textContent), /règles illisibles/);
   });
 
   const DEUX_REGLES = { version: 1, mineBalance: { byStyle: {}, byPosition: {} }, lifeforms: {},

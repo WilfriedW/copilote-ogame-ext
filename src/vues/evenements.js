@@ -41,7 +41,7 @@ import { save } from '../synchro/synchro.js';
 import { defPersoLive } from './defense.js';
 import {
   RELEVE_NUIT, poseScanEcran, faitLeReleve, boutonMaj, header, setTimeMode,
-  modeNuit, finDeNuit, masque, masqueBascule, setMasque
+  modeNuit, finDeNuit, nuitAuto, masque, masqueBascule, setMasque
 } from './entete.js';
 import {
   view, tab, poseOnglet, uiNote, uiReset, cardMode, cardTabs, cardForce,
@@ -108,6 +108,10 @@ export function bind(){
   view.querySelectorAll('[data-refaire]').forEach(el=>el.addEventListener('click',()=>{
     S.profil.set = false; poseProfilEtape(0); save(); allerOnglet('today');
   }));
+  /* L'heure locale ou serveur quitte l'en-tête pour Réglages › Affichage
+     (ENH-77) : on la règle une fois, on ne la regarde plus. */
+  const tzSel = document.getElementById('sTz');
+  if(tzSel && view.contains && view.contains(tzSel)) tzSel.addEventListener('change', ()=>setTimeMode(tzSel.value));
   view.querySelectorAll('[data-day]').forEach(el=>el.addEventListener(el.tagName==='SELECT' || el.type==='checkbox' ? 'change' : 'input',()=>{
     // la mise à l'abri est une bascule (ENH-54) : sa valeur est cochée ou non
     const k = el.dataset.day; S.day[k] = dayValue(k, el.type==='checkbox' ? (el.checked ? '1' : '0') : el.value, S.day[k]);
@@ -490,7 +494,6 @@ export function brancheEcoutes(){
       ? `Absence de ${nightLen()} h supposée — Réglages pour l'heure de retour`
       : `Absence jusqu'à ${S.day.backHour} h`);
   });
-  document.getElementById('tzBtn').addEventListener('click',()=>setTimeMode(timeMode === 'local' ? 'server' : 'local'));
   view.addEventListener('click', e=>{
     if(e.target.id==='tmSound'){ unlockAudio(); chime(); }
     if(e.target.id==='tmAdd'){
@@ -511,6 +514,8 @@ export function brancheEcoutes(){
   /* publieLePlan est sans effet sur Aujourd'hui, qui se publie en se dessinant ;
      sur Empire, REFRESH.empire ne publie rien : sans cet appel la tuile resterait muette. */
   setInterval(()=>{ if(tab==='today'||tab==='empire') garderVue(()=>{ REFRESH[tab](); cartesSync(); }); publieLePlan(); finDeNuit(); }, 30000);
+  /* Le mode nuit automatique a son propre battement, au même pas (ENH-77). */
+  setInterval(nuitAuto, 30000);
 }
 export function tickTimers(){
   const now = Date.now(); let changed=false;

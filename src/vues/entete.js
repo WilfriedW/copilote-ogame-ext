@@ -10,14 +10,16 @@
    à app.js le rendu et la sauvegarde : ce cycle-là est toléré tant qu'app.js
    existe, et rien n'y est lu au chargement. */
 import {
-  timeSeen, timeTitle, dur, LOCAL_TZ, timeMode, srvOffSec, formatTime,
+  timeSeen, timeTitle, dur, timeMode, formatTime,
   poseModeHeure
 } from '../core/temps.js';
 import { S } from '../core/etat.js';
 import { esc } from '../core/format.js';
 import { lfBloquee, lfCost } from '../formes-de-vie/formes-de-vie.js';
 import { goUrl } from '../jeu/liens.js';
-import { wakeTime } from '../plan/nuit.js';
+import { wakeTime, nuitAutoCle } from '../plan/nuit.js';
+import { simulateDay } from '../plan/journee.js';
+import { carteSur } from '../meteo.js';
 import { REGLES_ERR } from '../regles/fichier.js';
 import { syncFailed, save } from '../synchro/synchro.js';
 import { tab, view, habillage } from './navigation.js';
@@ -29,9 +31,44 @@ import { toast, render, on } from '../../app.js';
    bâti sur un stock d'il y a une heure propose des choses qui ne sont plus
    payables — c'est ce qui faisait « disparaître » une carte au clic, quand la
    page enfin relue disait la vérité.
-   Au-delà de dix minutes, le panneau ne fait plus semblant : il montre le
-   bouton. En dessous, il se tait et se redessine tout seul. */
-const FRAIS_MS = 10*60e3;
+   Le seuil était de dix minutes : à huit planètes, il y en avait toujours une
+   plus vieille, et le bouton rouge ne se voyait plus (ENH-77). Il compte
+   désormais les planètes dont le plan se sert : une heure pour celles qui
+   portent une carte, trois pour les autres. La durée se règle (Réglages ›
+   Données) ; celle-ci est le défaut. */
+const FRAIS_MS = 60*60e3;
+/** La fraîcheur choisie, en ms. */
+function releveFraisMs(){ const m = +S.settings.releveFrais; return m > 0 ? m * 60e3 : FRAIS_MS; }
+/**
+ * Les planètes qui portent une carte de la prochaine connexion (action ou
+ * attente) : celles dont le plan lit le stock tout de suite.
+ * @param {object} plan résultat de simulateDay
+ * @returns {Set<object>} des planètes de S.planets
+ */
+function cartePlanetes(plan){
+  const s0 = (plan && plan.sessions && plan.sessions[0]) || {}, cartes = [...(s0.acts || []), ...(s0.waits || [])];
+  return new Set(S.planets.filter(p => cartes.some(x => carteSur(x, p))));
+}
+/**
+ * Doit-on proposer de relire le jeu ?
+ * Une planète jamais relevée compte comme infiniment vieille. Le plan ne se
+ * calcule que si une planète est entre les deux seuils : c'est le seul cas où
+ * il départage.
+ * @param {object} [plan] le plan du jour, calculé ici s'il n'est pas donné (un test le pose)
+ * @returns {{sort:boolean, age:number}} `age` : celui de la planète qui fait sortir le bouton
+ */
+function releveARelire(plan){
+  const frais = releveFraisMs(), now = Date.now();
+  const ages = S.planets.filter(p => p.gid).map(p => ({p, age: p.bNeuve || !(p.stock && p.stock.at) ? Infinity : now - p.stock.at}));
+  const tropVieux = ages.filter(x => x.age > 3 * frais);
+  if(tropVieux.length) return {sort:true, age:Math.max(...tropVieux.map(x => x.age))};
+  const vieux = ages.filter(x => x.age > frais);
+  if(!vieux.length) return {sort:false, age:0};
+  let avec;
+  try{ avec = cartePlanetes(plan || simulateDay()); }catch(e){ return {sort:true, age:Math.max(...vieux.map(x => x.age))}; }
+  const ici = vieux.filter(x => avec.has(x.p));
+  return ici.length ? {sort:true, age:Math.max(...ici.map(x => x.age))} : {sort:false, age:0};
+}
 /**
  * L'âge du relevé le plus vieux de l'empire, en ms.
  * Une planète que la liste du jeu vient de révéler porte `bNeuve` : son stock
@@ -280,9 +317,9 @@ export function boutonMaj(){
    d'arrêter un relevé en route — à huit planètes il y a cinquante arrêts, et
    le joueur qui change d'avis ne doit pas attendre la fin. */
 function majBouton(){
-  const b = document.getElementById('majBtn'); if(!b) return 0;
-  const n = releveEtapes().length, age = releveAge();
-  b.hidden = !n || (!releveEnCours && age <= FRAIS_MS);
+  const b = document.getElementById('majBtn'); if(!b) return;
+  const n = releveEtapes().length, ar = n && !releveEnCours ? releveARelire() : {sort:false, age:0};
+  b.hidden = !n || (!releveEnCours && !ar.sort);
   /* Rouge tant qu'il est là : ce bouton ne sort que quand le plan se fie à des
      chiffres périmés, et un bouton de la couleur des autres se regarde sans se
      voir. Il n'a rien à signaler le reste du temps — il est caché. */
@@ -293,31 +330,20 @@ function majBouton(){
   } else {
     b.textContent = 'Actualiser';
     /* Une planète jamais relevée a un stock daté de zéro : « vieux de 20778j »
-       au lieu de dire simplement que rien n'a encore été lu. */
-    const vieux = age > 7*864e5 ? 'Relevé jamais fait' : `Relevé vieux de ${dur(age/1000)}`;
-    b.title = `${vieux} : ${n} page${n>1?'s':''} à relire pour tout savoir.`;
+       au lieu de dire simplement que rien n'a encore été lu. La synchro, qui
+       vivait dans l'en-tête, se lit ici : elle date la page sous les yeux,
+       le bouton parle de la planète la moins souvent vue. */
+    const vieux = !Number.isFinite(ar.age) || ar.age > 7*864e5 ? 'Relevé jamais fait' : `Relevé vieux de ${dur(ar.age/1000)}`;
+    b.title = `${vieux} : ${n} page${n>1?'s':''} à relire pour tout savoir.${S.syncAt ? ` Dernière synchro ${formatTime(S.syncAt)}.` : ''}`;
   }
-  /* L'âge que le bouton signale, pour l'en-tête — 0 quand il n'a rien à dire. */
-  return (b.hidden || releveEnCours) ? 0 : age;
 }
 export function header(){
-  const s=S.settings;
-  const perime = majBouton();
-  /* L'heure de la dernière lecture et la classe, rien de plus : les deux
-     vitesses se lisent dans Outils › Serveur, qui les tient du serveur.
-     Sauf quand le bouton est sorti : « synchro 19:58 » à côté d'un bouton rouge
-     se lisait comme une contradiction — la synchro date de la page sous les
-     yeux, le bouton parle de la planète la moins souvent vue. Tant qu'il est
-     là, l'en-tête annonce donc ce qu'il corrige. */
-  const quand = perime
-    ? (perime > 7*864e5 ? 'jamais relevé' : 'relevé ' + formatTime(Date.now() - perime))
-    : (S.syncAt ? 'synchro ' + formatTime(S.syncAt) : 'en attente du jeu');
-  const cls = ({collector:'Collecteur',general:'Général',explorer:'Explorateur',none:'Sans classe'})[s.cls];
-  const ub = document.getElementById('uniBadge');
+  majBouton();
   /* Un rules.json illisible ne bloque rien, mais il change ce que le panneau
-     sait dire : l'en-tête le dit, à côté de la fraîcheur du relevé. */
-  ub.innerHTML = `${esc(quand)}<span class="cls"> · ${esc(cls)}</span>${REGLES_ERR ? `<span class="cls"> · ${esc(REGLES_ERR)}</span>` : ''}`;
-  ub.title = `${quand} · ${cls}${REGLES_ERR ? ' · ' + REGLES_ERR : ''}`;
+     sait dire. L'en-tête le portait dans son badge ; le badge parti, un
+     bandeau le dit sous l'en-tête, seulement quand il y a lieu. */
+  const err = document.getElementById('reglesErr');
+  if(err){ err.textContent = REGLES_ERR || ''; err.hidden = !REGLES_ERR; }
   /* Le mode nuit vit dans l'en-tête, à côté de l'engrenage : il tient en une
      icône, et la carte Maintenant n'a plus à le porter. */
   const nb = document.getElementById('nightBtn'), nuit = !!S.day.night;
@@ -325,22 +351,6 @@ export function header(){
   nb.title = nb.ariaLabel = nuit ? 'Mode jour' : 'Mode nuit';
   nb.classList.toggle('primary', nuit);
   nb.classList.toggle('ghost', !nuit);
-  /* L'interrupteur des heures : coché = heure locale. Son libellé dit le mode
-     choisi ; s'il dit « serveur ? », aucune page du jeu n'a encore donné
-     l'heure du serveur et le panneau montre la locale en attendant. */
-  const tz = document.getElementById('tzBtn'), tzl = document.getElementById('tzLbl');
-  const inconnu = timeMode === 'server' && srvOffSec() == null;
-  tz.setAttribute('aria-checked', String(timeMode === 'local'));
-  /* Les deux avertissements du libellé — heure serveur pas encore lue, ou
-     décalage non vérifié sur la dernière page — sont aussi copiés dans
-     l'infobulle de l'interrupteur et dans son nom accessible : en panneau
-     étroit, le libellé est masqué (panel.css), donc ni vu ni lu. */
-  const avert = inconnu ? 'Heure serveur pas encore lue : les heures restent en heure locale jusqu\'à la prochaine page du jeu'
-    : (S.srvTz && S.srvTz.ok === false ? 'Décalage du serveur non vérifié sur la dernière page : le dernier connu sert' : '');
-  tz.title = tz.ariaLabel = (timeMode === 'local' ? 'Afficher les heures en heure serveur' : 'Afficher les heures en heure locale')
-    + (avert ? ' — ' + avert.charAt(0).toLowerCase() + avert.slice(1) : '');
-  tzl.textContent = timeMode === 'local' ? 'Heures : locale' : (inconnu ? 'Heures : serveur ?' : 'Heures : serveur');
-  tzl.title = avert || (LOCAL_TZ ? 'Fuseau local : ' + LOCAL_TZ : '');
   /* Le masquage de la page du jeu et la disposition des cartes se règlent une
      fois pour toutes : ils vivent dans les Réglages, plus dans l'en-tête. */
   /* L'engrenage est un onglet comme les autres, hors de la barre : il porte le
@@ -401,6 +411,27 @@ export function finDeNuit(){
   modeNuit(false);
   save(); render();
   toast('Mode jour : le plan est revenu');
+  return true;
+}
+/**
+ * Le mode nuit qui s'allume seul, `nuitAvance` heures avant le coucher
+ * (ENH-77). Une fois par nuit : la nuit est marquée faite dès qu'elle est
+ * allumée, à la main ou ici, et un joueur qui l'éteint pour finir sa partie
+ * n'a pas à recommencer toutes les trente secondes.
+ * Il ne lance pas le relevé du coucher que lance le bouton : ce relevé ouvre
+ * des pages du jeu, et rien ne s'ouvre sans un clic du joueur.
+ * Appelée à chaque battement (trente secondes), pas au chargement : rouvrir
+ * le panneau ne doit pas, à lui seul, basculer le plan sous les yeux.
+ * @returns {boolean} vrai s'il vient de s'allumer
+ */
+export function nuitAuto(){
+  const cle = nuitAutoCle(Date.now());
+  if(!cle || S.day.nuitAutoFaite === cle) return false;
+  S.day.nuitAutoFaite = cle;
+  if(S.day.night){ save(); return false; }
+  modeNuit(true);
+  save(); render();
+  toast('Mode nuit activé automatiquement');
   return true;
 }
 export const VIEWS_RELEVE = {

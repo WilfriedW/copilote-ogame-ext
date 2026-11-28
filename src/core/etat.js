@@ -26,7 +26,7 @@ export const EXPO_FRET = 200;
 export function sample(){
   return {
     v:1, sample:true,
-    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, sats:false, muet:false, debris:LUNE_DF, skin:'relief',
+    settings:{eco:1, fleet:1, cls:'collector', geo:false, eng:false, ratio:[3,2,1], top1:0, colCargo:true, crawlerOverload:false, sats:false, muet:false, debris:LUNE_DF, skin:'relief', releveFrais:60,
       /* Le modèle de défense visé, son palier, et le ratio que le joueur
          écrit lui-même. Le ratio par défaut recopie celui du Framework mineur,
          en clair plutôt que par référence : sample() tourne au chargement,
@@ -56,7 +56,7 @@ export function sample(){
     moonCalc:{pid:'', ship:'lf', n:0, bou:null, viser:12},
     expo:{pf:true},
     ui:{tool:'colony', pose:{k:'metal', lvl:'', hors:{}}},
-    day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false, livraison:'palier',
+    day:{interval:90, nightStart:23, nightEnd:7, horizon:24, focus:'equi', night:false, livraison:'palier', nuitAuto:true, nuitAvance:1,
       /* Le joueur a-t-il dit comment il joue. Faux tant qu'il ne l'a pas dit :
          `focus` vaut alors « Équilibré » parce qu'il faut bien viser quelque
          chose, pas parce qu'on le lui a demandé — et c'est la différence que

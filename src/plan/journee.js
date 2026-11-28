@@ -262,7 +262,8 @@ export function researchMode(){ return RESEARCH_MODE[S.day.research] ? S.day.res
  * @param {*} prev valeur en place, gardée si le mot n'est pas de la liste
  */
 export function dayValue(k, v, prev){
-  if(k === 'night') return v === '1' || v === true;
+  if(k === 'night' || k === 'nuitAuto') return v === '1' || v === true;
+  if(k === 'nuitAvance'){ const x = parseFloat(v); return Number.isFinite(x) && x >= 0 && x <= 6 ? x : prev; }
   /* Vide veut dire « je n'ai pas d'heure de retour » : le plan retombe alors
      sur la longueur de la nuit. Zéro est une heure, pas une absence. */
   if(k === 'backHour'){ const x = parseInt(v); return Number.isFinite(x) && x >= 0 && x <= 23 ? x : null; }
