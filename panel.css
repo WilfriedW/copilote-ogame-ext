@@ -517,9 +517,15 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:var(--fs-sm)}
 .secu-crit{border:1px solid var(--bad, #e0102b);}
 .secu-crit h3{font-size:var(--fs-sm);margin:var(--sp-2) 0 var(--sp-1);text-transform:uppercase;letter-spacing:.04em;opacity:.8;}
 .secu-on > summary{color:var(--warn, #ff8c1a);}
-.fs-tab{width:100%;border-collapse:collapse;margin:var(--sp-2) 0 var(--sp-1);font-size:var(--fs-xs);}
-.fs-tab th,.fs-tab td{text-align:left;vertical-align:top;padding:var(--sp-1);border-bottom:1px solid rgba(127,127,127,.25);white-space:normal;}
-.fs-tab th{font-size:var(--fs-xs);}
+/* L'itinéraire d'une carte de flotte (ENH-83) : une pastille et ses coordonnées
+   ne se coupent jamais ; c'est la ligne qui passe à la suivante, au panneau étroit. */
+.route{display:flex;flex-direction:column;gap:var(--sp-1);margin:var(--sp-1) 0}
+.route .iti{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1) var(--sp-2)}
+.route .bout{white-space:nowrap}
+.route .fleche{color:var(--muted)}
+.route .cargo{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-3);font-variant-numeric:tabular-nums}
+.route .vx,.route .temps{color:var(--muted)}
+.route .temps{font-size:var(--fs-sm)}
 
 /* Utilitaires (ENH-54) : ce que les attributs style="…" d'app.js faisaient
    chacun à sa façon — 26 « margin-top:8px », 11 « margin-top:6px », des gap

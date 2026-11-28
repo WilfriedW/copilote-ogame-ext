@@ -6390,6 +6390,7 @@ const POSE = (k, lvl, hors) => s => { s.ui.pose = {k, lvl, hors: hors || {}}; };
 
 require('./plan.test')({ t, assert, app, lu, SOIR, prioLabo, prePlasma, POSE });
 require('./palier.test')({ t, assert, loadApp, fixtureState, JOUR, SOIR });
+require('./itineraire.test')({ t, assert, loadApp, fixtureState, JOUR, lu });
 
 /* ---------- une carte en attente dit ce qui la retient ---------- */
 
@@ -11260,7 +11261,7 @@ t('rééquilibrer : carte en Stationner depuis la planète la plus excédentaire
   assert.equal(vers.mission, 4);
   assert.equal(g.S.planets[vers.p].id, 'pout', 'depuis Poutinia, la plus excédentaire');
   assert.ok(/Stationner/.test(vers.how[0]) && /restent sur la planète cible/.test(vers.how[0]));
-  assert.ok(/<th>Mission<\/th>/.test(vers.whatHtml) && /<td>Stationner<\/td>/.test(vers.whatHtml));
+  assert.ok(/^Rééquilibrer · Stationner<div class="route">/.test(vers.whatHtml), 'l\'itinéraire des cartes de flotte (ENH-83) : ' + vers.whatHtml);
   assert.ok(g.dailyMissions().some(m => m.id === vers.id), 'la carte sort dans les missions du jour');
 });
 
@@ -11345,8 +11346,8 @@ t('surplus : sans dépense, un transfert vers la planète bloquée, au format du
   assert.equal(s[0].dest.name, 'Colonie'); assert.equal(s[0].mission, 3);
   assert.equal(s[0].charge[1], 1e5, 'limité par le besoin');
   const h = lu(g.transportHtml(s[0]));
-  assert.match(h, /<th>Source<\/th><th>Vaisseaux<\/th><th>Cible<\/th><th>Mission<\/th><th>M \/ C \/ D<\/th>/);
-  assert.match(h, /Transport/);
+  assert.match(h, /class="route"/, 'l\'itinéraire des cartes de flotte (ENH-83)');
+  assert.match(h, /Transport · Vol/);
 });
 
 t('surplus : la quantité respecte la place libre de la cible', () => {

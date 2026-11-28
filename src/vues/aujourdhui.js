@@ -25,6 +25,7 @@ import { flotteCible, flotteAjout } from '../flotte/cible.js';
 import { EXPO_LABELS, top1Tier, expoPts, expoRes, expoPropose, expoEtat } from '../flotte/expeditions.js';
 import { shipList, shipCourt, mcd, mouvements, aQuai } from '../flotte/vaisseaux.js';
 import { LF_NAMES } from '../formes-de-vie/cases.js';
+import { routeHtml } from './itineraire.js';
 import { fleetUrl, missionGo, coordLink, goAttr } from '../jeu/liens.js';
 import { meteoVoit } from '../meteo.js';
 import { simulateDay, statutFinancement, refused } from '../plan/journee.js';
@@ -157,14 +158,13 @@ function surplusHtml(plan){
 }
 
 /* ---------- la sécurité : le bloc ---------- */
-/** Le tableau Source / Vaisseaux / Cible / Mission / M-C-D, sa ligne d'arrivée et « Préparer ». */
+/** L'itinéraire d'un transport (le même que sur les cartes du plan, ENH-83), sa vitesse, son carburant et « Préparer ». */
 function transportHtml(t){
   if(!t) return '';
   const url = fleetUrl({dest: t.dest.coords, mission: t.mission, ships: t.ships, p: t.pi});
   const chips = copyChips({res: t.charge});
-  return `<table class="fs-tab"><thead><tr><th>Source</th><th>Vaisseaux</th><th>Cible</th><th>Mission</th><th>M / C / D</th></tr></thead>
-    <tbody><tr><td>${esc(t.p.name)}</td><td>${esc(shipCourt(t.ships))}</td><td>${esc(t.dest.name)}</td><td>${t.missionNom}</td><td class="mono">${mcd(t.charge)}</td></tr></tbody></table>
-    <p class="note">Arrivée ${formatTime(t.arrivee)} à ${t.pct} %${t.retour ? ` · retour ${formatTime(t.retour)}` : ''} · ${fmt(t.fuel)} deutérium · ${esc(t.pourquoi)}${t.note ? ' ' + esc(t.note) : ''}${t.gt ? ` Il faut ${fmtLigne(t.gt)} GT pour tout lever.` : ''}</p>
+  return `${routeHtml({src: t.p, dest: t.dest.coords, ships: t.ships, res: t.charge, mission: t.missionNom, dur: (t.arrivee - t.depart) / 1000, end: t.arrivee, retour: t.retour})}
+    <p class="note">À ${t.pct} % · ${fmt(t.fuel)} deutérium · ${esc(t.pourquoi)}${t.note ? ' ' + esc(t.note) : ''}${t.gt ? ` Il faut ${fmtLigne(t.gt)} GT pour tout lever.` : ''}</p>
     ${url ? `<div class="row"><button class="btn sm primary" data-prep="${esc(url)}">Préparer</button><span class="note">Ouvre le formulaire du jeu avec vaisseaux, cible et mission. Ressources et vitesse à régler, l'envoi reste ton clic.</span></div>` : ''}${chips}`;
 }
 
