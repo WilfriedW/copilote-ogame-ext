@@ -13,10 +13,12 @@
    le jeu et le profil : ce cycle-là est toléré tant qu'app.js existe, et
    rien n'y est lu au chargement. */
 import { S } from '../core/etat.js';
+import { fmt, num, planetRef, majus } from '../core/format.js';
 import {
   B, B_SHORT, T, levelCost, rangeCost, storageLevelFor, SAT_COST,
   satEnergy
 } from '../core/formules.js';
+import { ecoSpeed, hyperCargoPct, buildTime } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
 import { DEF, defPropositions, defPhrase, defBloqueTexte } from '../defense/defense.js';
 import {
@@ -30,13 +32,12 @@ import { prios, prioOf, prioDevant, FOCUS, FOCUS_FLOTTE } from './priorites.js';
 import { besoinEmpire, VOC_KEYS, VOC_NOM, vocations } from './vocations.js';
 import { regleActive, regleParam, regleTexte, rangNiveau, constats, repondA } from '../regles/moteur.js';
 import {
-  addBuilt, planetIndexById, ecoSpeed, hyperCargoPct, fmt, num,
-  buildTime, planetRef, labPlanet, labLevel, researchTime, production,
-  mse, NOM_RES, storageNote, reqOk, upLabel, rankUpgrades,
+  addBuilt, planetIndexById, labPlanet, labLevel, researchTime,
+  production, mse, NOM_RES, storageNote, reqOk, upLabel, rankUpgrades,
   hangarSiJustifie, debordeTexte, mineEnRetard, signe, naniteRetard,
   robotsOuNanites, casesBasses, laboEnRetard, labOkPour, reglesRecherche,
   planetAlerts, timerLabel, COL_SHIP_COST, KITS, colShipAt, colSentNow,
-  colBuilt, maxPlanets, coloTarget, coloFleet, majus, LF_MODE, lfMode,
+  colBuilt, maxPlanets, coloTarget, coloFleet, LF_MODE, lfMode,
   SHIP_COST, shipReqOk, shipTime, defSurplus, tournee, hubIndex,
   centreIndex, POURQUOI_LABO, centreNote, poidsCat, catActe
 } from '../../app.js';

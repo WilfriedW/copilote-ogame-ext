@@ -17,13 +17,11 @@
    Lecture seule : rien ici ne navigue, ne remplit ni n'envoie quoi que ce soit. */
 
 import { S } from './core/etat.js';
+import { fmt, esc, planetRef } from './core/format.js';
 import { formatTime } from './core/temps.js';
 import { DEF, DEF_ABR, defPlan } from './defense/defense.js';
 import { SEV_NIVEAU, constatsVus } from './regles/moteur.js';
-import {
-  planetById, fmt, esc, planetRef, uiOuvert, uiNote, render,
-  planetAlerts, poidsCat
-} from '../app.js';
+import { planetById, uiOuvert, uiNote, render, planetAlerts, poidsCat } from '../app.js';
 
 /** Les quatre domaines, dans l'ordre des colonnes. */
 const METEO_DOM = [

@@ -11,9 +11,8 @@
    ce module emprunte encore à app.js ce qu'il lit (production, stocks,
    style de jeu…) : ce cycle-là est toléré tant qu'app.js existe. */
 import { S } from '../core/etat.js';
-import {
-  save, IS_EXT, raceDe, ignKey, lfMode, poidsCat, on
-} from '../../app.js';
+import { IS_EXT } from '../core/serveur.js';
+import { save, raceDe, ignKey, lfMode, poidsCat, on } from '../../app.js';
 
 /* ---------- les règles du moteur ----------
    Décrites dans rules.json, que boot.js lit avant ce fichier et pose dans

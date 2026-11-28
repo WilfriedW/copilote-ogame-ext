@@ -10,11 +10,11 @@
    stocks, production, liste de vaisseaux) : ce cycle-là est toléré tant
    qu'app.js existe, et rien n'y est lu au chargement. */
 import { S } from '../core/etat.js';
+import { fmt, num, nf1, fmtCourt } from '../core/format.js';
 import { B, T } from '../core/formules.js';
+import { IS_EXT } from '../core/serveur.js';
 import { shipList } from '../flotte/vaisseaux.js';
-import {
-  IS_EXT, fmt, num, mse, stockNow, nf1, fmtCourt, shipReqOk
-} from '../../app.js';
+import { mse, stockNow, shipReqOk } from '../../app.js';
 
 /* Un tas d'un seul type ne défend rien, quelle que soit la somme dépensée :
    le croiseur tire dix fois par lanceur de missiles et pas une fois par laser

@@ -18,6 +18,7 @@
    liens « Préparer » du panneau, et l'envoi reste le clic du joueur. */
 
 import { S } from '../core/etat.js';
+import { fmtLigne, fmt, esc, num, planetRef, fmtCourt } from '../core/format.js';
 import { dur, formatTime } from '../core/temps.js';
 import { EXPO_GROS, expoRes, expoFleet, expoCap } from './expeditions.js';
 import {
@@ -26,10 +27,7 @@ import {
 } from './vaisseaux.js';
 import { projectResources } from '../plan/journee.js';
 import { secu, prochaineHeure, attaquesEntrantes, transportSuggere } from '../securite/securite.js';
-import {
-  fmtLigne, fmt, esc, num, planetRef, production, mse, stockNow, tab,
-  fmtCourt, aide
-} from '../../app.js';
+import { production, mse, stockNow, tab, aide } from '../../app.js';
 
 /** Les transporteurs : ce qui compte dans la soute du soir. */
 const FC_SOUTE = ['lc', 'sc'];

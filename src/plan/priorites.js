@@ -13,10 +13,10 @@
    emprunte encore à app.js ce qu'il lit : ce cycle-là est toléré tant
    qu'app.js existe, et rien n'y est lu au chargement. */
 import { S } from '../core/etat.js';
+import { num } from '../core/format.js';
 import { B, B_SHORT, T } from '../core/formules.js';
-import {
-  save, planetById, lfNom, lfIdPour, poseLfCles, IS_EXT, num, labPlanet
-} from '../../app.js';
+import { IS_EXT } from '../core/serveur.js';
+import { save, planetById, lfNom, lfIdPour, poseLfCles, labPlanet } from '../../app.js';
 
 /* Une priorité est ce que le joueur pose : un bâtiment ou une recherche, avec
    le niveau qu'il vise. Elle ne se périme pas, elle s'accomplit — dès que le

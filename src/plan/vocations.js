@@ -6,9 +6,10 @@
    la production et les stocks : ce cycle-là est toléré tant qu'app.js
    existe, et rien n'y est lu au chargement. */
 import { S } from '../core/etat.js';
+import { planetRef } from '../core/format.js';
 import { POS_BONUS_M, POS_BONUS_C } from '../core/formules.js';
 import { parseC } from '../flotte/vaisseaux.js';
-import { planetRef, production } from '../../app.js';
+import { production } from '../../app.js';
 /**
  * Ce que vaut une ressource à la marge, pour cet empire-là, par rapport à son cours.
  *

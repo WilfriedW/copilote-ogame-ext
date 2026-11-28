@@ -447,7 +447,9 @@ stockage puis ajoute `src/main.js`, qui importe `app.js`, lui-même important
 `src/meteo.js`, `src/flotte/cible.js` et le noyau : `src/core/formules.js`
 (tables et calculs purs), `src/core/etat.js` (l'état `S`, son chargement ;
 le remplacer passe par `remplaceEtat`) et `src/core/temps.js` (heures serveur
-ou locale, durées). Les domaines suivent : `src/regles/moteur.js` (le moteur
+ou locale, durées), `src/core/format.js` (nombres, coûts, échappement,
+noms de planète) et `src/core/serveur.js` (faits publiés par l'API, vitesses ;
+`API` se remplace par `poseApi`). Les domaines suivent : `src/regles/moteur.js` (le moteur
 de règles) et `src/defense/defense.js` (pièces, modèles de défense, manque
 face au modèle), `src/flotte/vaisseaux.js` (vaisseaux, vols, flottes en
 mouvement) et `src/flotte/expeditions.js` (cadre, créneaux et journal des
