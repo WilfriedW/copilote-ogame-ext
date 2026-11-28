@@ -15,23 +15,20 @@ import {
 import { IS_EXT } from '../core/serveur.js';
 import { dur } from '../core/temps.js';
 import {
-  labLevel, labEffectif, researchTime, production, mse, NOM_RES,
-  stockNow, reqOk
-} from '../economie/production.js';
+  centreIndex, centreWhy, labLevel, labEffectif, researchTime, reqOk,
+  FOCUS_VAISSEAU
+} from '../economie/centre.js';
+import { production, mse, NOM_RES, stockNow } from '../economie/production.js';
 import { shipList } from '../flotte/vaisseaux.js';
 import { lfIds, LF_PALIER, lfPopNourriture } from '../formes-de-vie/formes-de-vie.js';
 import { meteoVoit } from '../meteo.js';
 import {
-  lvLu, prioCount, prioLvl, poseK, poseVise, poseLignes, poseRien, FOCUS,
-  FOCUS_VAISSEAU
+  lvLu, prioCount, prioLvl, poseK, poseVise, poseLignes, poseRien, FOCUS
 } from '../plan/priorites.js';
 import { besoinEmpire, VOC_NOM, vocations } from '../plan/vocations.js';
 import { REGLES_PAR_ID } from '../regles/moteur.js';
 import { fold, cardLayout } from './navigation.js';
-import {
-  lfNom, poseLfCles, poseNom, centreIndex, centreWhy, VIEWS, gauge,
-  REFRESH
-} from '../../app.js';
+import { lfNom, poseLfCles, poseNom, VIEWS, gauge, REFRESH } from '../../app.js';
 
 /* Les règles qu'on coupe pour une planète seulement — « pas de Terraformeur
    sur mon coffre-fort ». Sur la planète, donc sur ce poste : un id local ne

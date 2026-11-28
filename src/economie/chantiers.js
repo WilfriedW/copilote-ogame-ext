@@ -9,7 +9,7 @@
    de règles : le plan du jour l'importe, il n'importe pas le plan. */
 import { S } from '../core/etat.js';
 import { B, T } from '../core/formules.js';
-import { labPlanet, reqOk } from './production.js';
+import { labPlanet, reqOk } from './centre.js';
 import { parseC } from '../flotte/vaisseaux.js';
 import { REGLES, aSoi, REGLES_PAR_ID, regle, regleActive, regleParam } from '../regles/moteur.js';
 /* Une file est occupée quand le jeu y montre un chantier, nommé ou non : même

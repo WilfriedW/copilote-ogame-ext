@@ -6,20 +6,20 @@
    pour emporter le butin (`raidPlan`).
 
    Domaine de l'issue #49. Il lit le noyau, l'univers, la flotte, la défense
-   et la colonisation (le point de départ), et emprunte encore
-   `cargoHomeIndex` à app.js, appelé et jamais lu au chargement. */
+   et la colonisation (le point de départ), et prend au centre la planète
+   qui porte la plus grosse soute (`cargoHomeIndex`). */
 import { coloFrom } from '../colonisation/colonisation.js';
 import { S } from '../core/etat.js';
 import { num } from '../core/format.js';
 import { API } from '../core/serveur.js';
 import { DEF } from '../defense/defense.js';
+import { cargoHomeIndex } from '../economie/centre.js';
 import { mse } from '../economie/production.js';
 import {
   SHIPS, parseC, souteUtile, shipStats, flight, SHIP_PLURAL, SHIP_ONE,
   shipList
 } from '../flotte/vaisseaux.js';
 import { sysDiff, wrapSys, myScore, isInactive } from '../univers/univers.js';
-import { cargoHomeIndex } from '../../app.js';
 /** Inactive planets near home, attackable first, then the ones that would trigger the outlaw warning. */
 export function raidTargets(){
   if(!API || !API.planets || !API.players) return [];

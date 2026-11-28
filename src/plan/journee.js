@@ -9,17 +9,19 @@
    plein une fois le palier tenu (`defSurplus`, ici parce que la journée est
    seule à la lire et qu'elle tient les refus).
 
-   Module du plan du jour (issue #49). Il emprunte encore à app.js le centre et
-   quelques outils de planète :
-   ce cycle-là est toléré tant qu'app.js existe, et rien n'y est lu au
+   Module du plan du jour (issue #49). Il emprunte encore à app.js quelques outils
+   de planète : ce cycle-là est toléré tant qu'app.js existe, et rien n'y est lu au
    chargement. */
 import {
   DEF_ORDER, defRatio, computeDefenseGap, DEF, defPropositions, defPhrase,
   defBloqueTexte
 } from '../defense/defense.js';
 import {
-  stockNow, labPlanet, labLevel, researchTime, production, mse, NOM_RES,
-  storageNote, reqOk, upLabel
+  tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote, labPlanet,
+  labLevel, researchTime, reqOk
+} from '../economie/centre.js';
+import {
+  stockNow, production, mse, NOM_RES, storageNote, upLabel
 } from '../economie/production.js';
 import {
   HANGARS, regleActive, regleParam, regleTexte, rangNiveau, constats, repondA
@@ -51,8 +53,7 @@ import { prios, prioOf, prioDevant, FOCUS, FOCUS_FLOTTE } from './priorites.js';
 import { poidsCat, catActe } from './profil.js';
 import { besoinEmpire, VOC_KEYS, VOC_NOM, vocations } from './vocations.js';
 import {
-  addBuilt, planetIndexById, rankUpgrades, planetAlerts, LF_MODE, lfMode,
-  tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote
+  addBuilt, planetIndexById, rankUpgrades, planetAlerts, LF_MODE, lfMode
 } from '../../app.js';
 
 /* ---------- advice ---------- */

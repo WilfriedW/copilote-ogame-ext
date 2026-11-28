@@ -16,7 +16,7 @@ import { S } from '../core/etat.js';
 import { num } from '../core/format.js';
 import { B, B_SHORT, T } from '../core/formules.js';
 import { IS_EXT } from '../core/serveur.js';
-import { labPlanet } from '../economie/production.js';
+import { labPlanet } from '../economie/centre.js';
 import { save, planetById, lfNom, lfIdPour, poseLfCles } from '../../app.js';
 
 /* Une priorité est ce que le joueur pose : un bâtiment ou une recherche, avec
@@ -437,8 +437,3 @@ export const FOCUS = {equi:'Équilibré', ecocol:'Économie + colonie', eco:'Éc
    niveau de mine : leurs plafonds — expéditions simultanées, emplacements de
    flotte — doublent la feuille de route au lieu d'attendre leur tour. */
 export const FOCUS_FLOTTE = {fleet:1, equi:1, raid:1};
-/* Les plans qui vivent de leurs vaisseaux. Ils partagent deux conséquences :
-   pas de centre, parce que les planètes doivent rester dispersées — le wiki le
-   dit du joueur de flotte, et un pilleur est une cible pour la même raison —
-   et les Mécas en tête des formes de vie, pour le chantier et les vaisseaux. */
-export const FOCUS_VAISSEAU = {fleet:1, raid:1};

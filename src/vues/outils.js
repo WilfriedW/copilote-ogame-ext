@@ -18,7 +18,8 @@ import { nf, fmt, esc, num, costHtml, planetRef } from '../core/format.js';
 import { B, B_SHORT, T, rangeCost } from '../core/formules.js';
 import { IS_EXT, API, srv, ecoSpeed } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
-import { researchTime, storageNote } from '../economie/production.js';
+import { centreIndex, cargoHomeIndex, centrePlanet, researchTime } from '../economie/centre.js';
+import { storageNote } from '../economie/production.js';
 import { flotteCibleHtml } from '../flotte/cible.js';
 import {
   EXPO_LABELS, EXPO_STATS_N, EXPO_CALIB_MIN, EXPO_EVTS, top1Tier,
@@ -34,10 +35,7 @@ import { raidTargets, exploreSystems, raidPlan } from '../pillage/pillage.js';
 import { myScore } from '../univers/univers.js';
 import { actHtml } from './carte-action.js';
 import { fold, segTabs } from './navigation.js';
-import {
-  planetById, centreIndex, cargoHomeIndex, centrePlanet, TOOLS, bascule, aide,
-  VIEWS, gauge, REFRESH
-} from '../../app.js';
+import { planetById, TOOLS, bascule, aide, VIEWS, gauge, REFRESH } from '../../app.js';
 /** La carte de calibrage, ou rien. */
 function expoCalibHtml(){
   const p = expoFretPropose(S.expoLog, S.settings.expoFret);

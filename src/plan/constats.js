@@ -18,7 +18,8 @@ import {
   fileDe, enCours, fileBat, mineEnRetard, signe, naniteRetard,
   robotsOuNanites, laboEnRetard, labOkPour, profilVise
 } from '../economie/chantiers.js';
-import { planeteRecherche, labPlanet, production, stockNow, reqOk, upLabel } from '../economie/production.js';
+import { production, stockNow, upLabel } from '../economie/production.js';
+import { planeteRecherche, labPlanet, reqOk } from '../economie/centre.js';
 import { rechercheEnCours, nextResearch, casesBasses } from './journee.js';
 import { energyOptions, energyLine } from './missions.js';
 import { prios } from './priorites.js';
