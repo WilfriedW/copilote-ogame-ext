@@ -469,7 +469,7 @@ centre, son labo, la durée d'une recherche, les prérequis qui manquent),
 nanites et du labo, ce qu'un chantier fini dépose), `src/economie/debordements.js` (pertes d'un hangar
 plein, journal des débordements, hangar qu'ils justifient),
 `src/regles/moteur.js` (le moteur
-de règles) et `src/defense/defense.js` (pièces, modèles de défense, manque
+de règles, sur `src/regles/fichier.js`, ce que boot.js a lu de rules.json) et `src/defense/defense.js` (pièces, modèles de défense, manque
 face au modèle), `src/flotte/vaisseaux.js` (vaisseaux, vols, flottes en
 mouvement) et `src/flotte/expeditions.js` (cadre, créneaux et journal des
 expéditions), `src/flotte/lune.js` (le tir de lune : chance, vaisseaux,
@@ -478,7 +478,7 @@ vaisseau ; la défense y recopie ses pièces), `src/securite/securite.js` (mise 
 entrantes, plan de sécurité) et `src/formes-de-vie/formes-de-vie.js`
 (espèces, coût des cases, paliers de population, règles propres aux formes
 de vie), avec `src/formes-de-vie/cases.js` sous lui (ce qui désigne et
-nomme une case, les rangs relevés), puis le plan du jour dans `src/plan/` :
+nomme une case, les rangs relevés, les espèces et la race d'une planète), puis le plan du jour dans `src/plan/` :
 `priorites.js` (les priorités du joueur et leur pose),
 `place-formes-de-vie.js` (avant ou après les bâtiments, ou pas du tout), `profil.js` (le profil de jeu et le poids
 qu'il donne aux cartes), `nuit.js` (la nuit, l'heure de réveil),

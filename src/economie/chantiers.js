@@ -14,7 +14,8 @@ import { S } from '../core/etat.js';
 import { B, T } from '../core/formules.js';
 import { labPlanet, reqOk } from './centre.js';
 import { parseC } from '../flotte/vaisseaux.js';
-import { REGLES, aSoi, REGLES_PAR_ID, regle, regleActive, regleParam } from '../regles/moteur.js';
+import { REGLES_PAR_ID, regle, regleActive, regleParam } from '../regles/moteur.js';
+import { REGLES, aSoi } from '../regles/fichier.js';
 /* Une file est occupée quand le jeu y montre un chantier, nommé ou non : même
    lecture que simulateDay. */
 export const fileDe = (p, test) => (S.timers || []).filter(t => t && t.pid === p.id && test(t));

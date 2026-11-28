@@ -20,7 +20,8 @@ import { IS_EXT, API } from '../core/serveur.js';
 import { DEF_MODELES, DEF_RATIO, DEF_PALIERS, DEF_DUREES, DEF_PLANCHERS } from '../defense/defense.js';
 import { stockNow } from '../economie/production.js';
 import { EXPO_PREP_MAX, EXPO_PREP_TTL } from '../flotte/expeditions.js';
-import { rescanner, LIFEFORMS, lfPosePaliers } from '../formes-de-vie/formes-de-vie.js';
+import { rescanner, lfPosePaliers } from '../formes-de-vie/formes-de-vie.js';
+import { LIFEFORMS } from '../formes-de-vie/cases.js';
 import {
   parseLeft, unlockAudio, chime, stopFlash, finishTimer, clock,
   visibleTimers, renderTimers
@@ -33,7 +34,8 @@ import {
   prioDevant, prioRetire
 } from '../plan/priorites.js';
 import { profilConnu, poseProfilEtape } from '../plan/profil.js';
-import { aSoi, REGLES_PAR_ID, reglePose, ignores } from '../regles/moteur.js';
+import { REGLES_PAR_ID, reglePose, ignores } from '../regles/moteur.js';
+import { aSoi } from '../regles/fichier.js';
 import { secu, fsRappelVu, armeRappel } from '../securite/securite.js';
 import { save } from '../synchro/synchro.js';
 import { defPersoLive } from './defense.js';

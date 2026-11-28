@@ -1,14 +1,16 @@
 /* ---------- les cases de forme de vie ----------
    Ce qui désigne une case et la nomme (`lfIds`, `lfCle`, `lfIdPour`,
-   `lfNom`, `lfNomConnu`, `LF_NAMES`, `LF_ROLE`), et les rangs que l'empire a
-   relevés (`poseLfCles`).
+   `lfNom`, `lfNomConnu`, `LF_NAMES`, `LF_ROLE`), les rangs que l'empire a
+   relevés (`poseLfCles`), les espèces (`LIFEFORMS`, `LF_RACES`) et la race
+   d'une planète (`raceDe`, `raceDeSerie`, `speciesOfPlanet`).
 
-   Module de domaine (issue #49). Il est sous les formes de vie et sous les
-   priorités, qui en ont besoin toutes les deux : les priorités ne peuvent pas
-   importer les formes de vie, qui les importent déjà. Il n'emprunte rien à
-   app.js. */
+   Module de domaine (issue #49). Il est sous les formes de vie, les
+   priorités et le moteur de règles, qui en ont besoin tous les trois : les
+   deux derniers ne peuvent pas importer les formes de vie, qui les importent
+   déjà. Il ne lit que l'état, la production et le fichier des règles. */
+import { LF_READ_TTL, prodOf } from '../economie/production.js';
 import { S } from '../core/etat.js';
-import { REGLES, aSoi } from '../regles/moteur.js';
+import { REGLES, aSoi } from '../regles/fichier.js';
 
 /* Noms relevés sur le jeu ; le panneau de détail en apporte d'autres au fil
    des visites, et ceux-là priment puisqu'ils viennent de la partie en cours. */
@@ -85,3 +87,56 @@ export function lfIds(p){
    donc le rang 1. */
 export const LF_ROLE = {1:'Hébergement', 2:'Nourriture', 3:'Technologies',
                  4:'Population T1 → T2', 5:'Population T2 → T3'};
+export const LF_RACES = REGLES.lifeforms && typeof REGLES.lifeforms === 'object' ? REGLES.lifeforms : {};
+/* La race d'une case, d'après sa série : le chiffre des milliers est la race,
+   la centaine impaire construit, la paire cherche (121xx et 122xx, Rock'tal). */
+export function raceDeSerie(id){
+  const s = Math.floor(+id / 100);
+  return Object.keys(LF_RACES).find(r => { const pre = +(LF_RACES[r] || {}).idPrefix; return pre > 0 && (s === pre || s === pre + 1); }) || null;
+}
+export const LIFEFORMS = {humans:{n:'Humains', why:'polyvalents'}, rocktal:{n:'Roctas', why:'mineurs : production et bâtiments moins chers'}, mechas:{n:'Mécas', why:'vaisseaux et chantier spatial'}, kaelesh:{n:'Kaeleshs', why:'expéditions et recherche'}};
+/* Bâtiments de forme de vie, par espèce. Relevé sur la partie du joueur le
+   12 novembre 2026 ; un seul bâtiment reconnu nomme l'espèce, et un bâtiment
+   au niveau 0 figure quand même dans le panneau. À compléter au fil des relevés. */
+const LF_BUILDINGS = {
+  humans: ['Centre de recherche'],
+  rocktal: ['Centre technologique runique'],
+  mechas: ['Centre de recherche en robotique']
+};
+/**
+ * Espèce d'une planète déduite des libellés de bâtiments d'un relevé de panneau
+ * ("Nom (Niveau N)"). La présence du bâtiment suffit, son niveau n'y change rien.
+ * @param {object} r relevé de prodOf
+ * @returns {string|null} clé de LIFEFORMS, null si aucun bâtiment connu
+ */
+function speciesOf(r){
+  const rows = r && Array.isArray(r.rows) ? r.rows : [];
+  const names = rows.map(x => String((x && x.label) || '').replace(/\s*\(Niveau\s*\d+\)\s*$/i, '').trim().toLowerCase());
+  return Object.keys(LF_BUILDINGS).find(k => LF_BUILDINGS[k].some(n => names.includes(n.toLowerCase()))) || null;
+}
+/**
+ * Espèce d'une planète d'après son relevé, s'il a moins de sept jours.
+ * @param {object} p planète de S.planets
+ * @returns {string|null}
+ */
+export function speciesOfPlanet(p){
+  const r = prodOf(p);
+  return r && Date.now() - r.at < LF_READ_TTL ? speciesOf(r) : null;
+}
+
+/* ---------- la race d'une planète ---------- */
+/**
+ * La race d'une planète : posée à la main, sinon déduite des identifiants de
+ * ses cases, sinon du nom d'un bâtiment du tableau de production. Identifiants
+ * et nom qui se contredisent ne font pas une race : un conseil sur la mauvaise
+ * espèce serait pire que pas de conseil.
+ * @returns {{race:string|null, src:string, conflit:boolean, ids?:string[], nom?:string}}
+ */
+export function raceDe(p){
+  if(p && p.race && aSoi(LIFEFORMS, p.race)) return {race:p.race, src:'main', conflit:false};
+  const ids = [...new Set(lfIds(p).map(raceDeSerie).filter(Boolean))], nom = p ? speciesOfPlanet(p) : null;
+  if(ids.length > 1 || (ids.length && nom && nom !== ids[0])) return {race:null, src:'ids', conflit:true, ids, nom};
+  if(ids.length) return {race:ids[0], src:'ids', conflit:false};
+  if(nom) return {race:nom, src:'nom', conflit:false};
+  return {race:null, src:'', conflit:false};
+}

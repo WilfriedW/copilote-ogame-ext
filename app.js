@@ -17,8 +17,6 @@ import { IS_EXT, poseApi } from './src/core/serveur.js';
 import {
   DEF_MODELES, DEF_RATIO, DEF_PALIERS, defModele, DEF_DUREES, DEF_PLANCHERS
 } from './src/defense/defense.js';
-import { raceDeSerie, LIFEFORMS, speciesOfPlanet } from './src/formes-de-vie/formes-de-vie.js';
-import { lfIds } from './src/formes-de-vie/cases.js';
 import { profilSain } from './src/plan/profil.js';
 import { renderMeteo, meteoBind } from './src/meteo.js';
 import {
@@ -28,9 +26,9 @@ import { casesLibres } from './src/plan/journee.js';
 import { energyOptions, energyLine } from './src/plan/missions.js';
 import { prioClean, prioRecoit, FOCUS } from './src/plan/priorites.js';
 import {
-  REGLES_ERR, aSoi, NIVEAU_SEV, regleActive, regleSaine, constatsDe, ignClean,
-  publieCritiques
+  NIVEAU_SEV, regleActive, regleSaine, constatsDe, ignClean, publieCritiques
 } from './src/regles/moteur.js';
+import { REGLES_ERR } from './src/regles/fichier.js';
 import { FS_RAPPEL_ON, poseRappel, armeRappel } from './src/securite/securite.js';
 import { VIEWS_AUJOURDHUI, REFRESH_AUJOURDHUI } from './src/vues/aujourdhui.js';
 import { whyParts, majRebours } from './src/vues/carte-action.js';
@@ -108,22 +106,6 @@ function render(){ prioClean(); ignClean(); garderVue(()=>{ header(); view.inner
 /* Pendant le relevé, les REFRESH écriraient dans des éléments que l'écran du
    relevé n'a pas : ils ne rafraîchissent que ce qui est à l'écran. */
 function refresh(){ garderVue(()=>{ if(!enScan()){ (REFRESH[tab]||(()=>{}))(); cartesSync(); lierRenvois(view); } header(); renderMeteo(); }); }
-/* ---------- la race d'une planète ---------- */
-/**
- * La race d'une planète : posée à la main, sinon déduite des identifiants de
- * ses cases, sinon du nom d'un bâtiment du tableau de production. Identifiants
- * et nom qui se contredisent ne font pas une race : un conseil sur la mauvaise
- * espèce serait pire que pas de conseil.
- * @returns {{race:string|null, src:string, conflit:boolean, ids?:string[], nom?:string}}
- */
-function raceDe(p){
-  if(p && p.race && aSoi(LIFEFORMS, p.race)) return {race:p.race, src:'main', conflit:false};
-  const ids = [...new Set(lfIds(p).map(raceDeSerie).filter(Boolean))], nom = p ? speciesOfPlanet(p) : null;
-  if(ids.length > 1 || (ids.length && nom && nom !== ids[0])) return {race:null, src:'ids', conflit:true, ids, nom};
-  if(ids.length) return {race:ids[0], src:'ids', conflit:false};
-  if(nom) return {race:nom, src:'nom', conflit:false};
-  return {race:null, src:'', conflit:false};
-}
 
 /* ---------- les alertes d'une planète ---------- */
 
@@ -394,7 +376,7 @@ litVersions();
 /* Ce que les modules sortis d'app.js lui empruntent encore. Rien de plus :
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
-  sainEtat, raceDe, on,
+  sainEtat, on,
   render, 
   planetAlerts, VIEWS, REFRESH, toast, refresh, msg, appliqueSauvegarde,
   publieLePlan, APP_VERSION

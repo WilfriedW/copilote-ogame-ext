@@ -1,10 +1,11 @@
 /* ---------- les formes de vie ----------
-   Les espèces et leurs bâtiments (`LIFEFORMS`, `LF_BUILDINGS`), ce que le
-   jeu en a montré sur chaque planète (`speciesOfPlanet`, `raceDe`), le coût
+   Les espèces installées (`readLifeforms`), le coût
    d'un niveau et ce qu'on en retient (`lfCost`, `lfRemember`, `lfMerge`),
    les bâtiments à proposer (`lfCandidates`), l'espèce conseillée par
    position (`lfPourPos`, `bestLifeform`), les paliers de population, et les
    règles du moteur propres aux formes de vie, qui s'inscrivent dans EVAL.
+   Les espèces et la race d'une planète (`LIFEFORMS`, `raceDe`) vivent dans
+   cases.js : le moteur les lit, et ce module importe le moteur.
 
    Module de domaine (issue #49). Le rendu (`raceRows`, `lfRows`, `lfBloc`,
    `lfSettingsHtml`), le relevé des pages du jeu (`lfRelance`) et le bonus de
@@ -12,7 +13,7 @@
    module emprunte encore à app.js les priorités, les files et la page du
    jeu : ce cycle-là est toléré tant qu'app.js existe, et rien n'y est lu au
    chargement. */
-import { lfNomConnu, lfIds, lfNom } from './cases.js';
+import { LF_RACES, LIFEFORMS, speciesOfPlanet, lfNomConnu, lfIds, lfNom, raceDe } from './cases.js';
 import { S } from '../core/etat.js';
 import { satEnergy, POS } from '../core/formules.js';
 import { fileDe, enCours } from '../economie/chantiers.js';
@@ -21,10 +22,8 @@ import { parseC } from '../flotte/vaisseaux.js';
 import { goUrl } from '../jeu/liens.js';
 import { priosLf, prioPalier } from '../plan/priorites.js';
 import { FOCUS_VAISSEAU } from '../economie/centre.js';
-import {
-  REGLES, REGLES_PAR_ID, EVAL, regle, regleActive, regleTexte
-} from '../regles/moteur.js';
-import { raceDe } from '../../app.js';
+import { REGLES_PAR_ID, EVAL, regle, regleActive, regleTexte } from '../regles/moteur.js';
+import { REGLES } from '../regles/fichier.js';
 
 /**
  * Le prix relevé vaut-il encore ? Il a été lu pour un niveau précis ; dès que
@@ -246,13 +245,6 @@ export function lfCandidates(p, queue){
 }
 
 /* ---------- les règles du moteur : formes de vie ---------- */
-const LF_RACES = REGLES.lifeforms && typeof REGLES.lifeforms === 'object' ? REGLES.lifeforms : {};
-/* La race d'une case, d'après sa série : le chiffre des milliers est la race,
-   la centaine impaire construit, la paire cherche (121xx et 122xx, Rock'tal). */
-export function raceDeSerie(id){
-  const s = Math.floor(+id / 100);
-  return Object.keys(LF_RACES).find(r => { const pre = +(LF_RACES[r] || {}).idPrefix; return pre > 0 && (s === pre || s === pre + 1); }) || null;
-}
 export const RACE_SRC = {main:'posée à la main', ids:'déduite des identifiants', nom:'lue dans le tableau de production'};
 export const nomRace = r => (LIFEFORMS[r] || {}).n || r;
 /** L'habitat et la nourriture de la race de cette planète, ou null. */
@@ -360,35 +352,6 @@ export function lfNomsRetiens(extra){
 }
 
 /* ---------- les espèces lues dans le jeu ---------- */
-export const LIFEFORMS = {humans:{n:'Humains', why:'polyvalents'}, rocktal:{n:'Roctas', why:'mineurs : production et bâtiments moins chers'}, mechas:{n:'Mécas', why:'vaisseaux et chantier spatial'}, kaelesh:{n:'Kaeleshs', why:'expéditions et recherche'}};
-/* Bâtiments de forme de vie, par espèce. Relevé sur la partie du joueur le
-   12 novembre 2026 ; un seul bâtiment reconnu nomme l'espèce, et un bâtiment
-   au niveau 0 figure quand même dans le panneau. À compléter au fil des relevés. */
-const LF_BUILDINGS = {
-  humans: ['Centre de recherche'],
-  rocktal: ['Centre technologique runique'],
-  mechas: ['Centre de recherche en robotique']
-};
-/**
- * Espèce d'une planète déduite des libellés de bâtiments d'un relevé de panneau
- * ("Nom (Niveau N)"). La présence du bâtiment suffit, son niveau n'y change rien.
- * @param {object} r relevé de prodOf
- * @returns {string|null} clé de LIFEFORMS, null si aucun bâtiment connu
- */
-function speciesOf(r){
-  const rows = r && Array.isArray(r.rows) ? r.rows : [];
-  const names = rows.map(x => String((x && x.label) || '').replace(/\s*\(Niveau\s*\d+\)\s*$/i, '').trim().toLowerCase());
-  return Object.keys(LF_BUILDINGS).find(k => LF_BUILDINGS[k].some(n => names.includes(n.toLowerCase()))) || null;
-}
-/**
- * Espèce d'une planète d'après son relevé, s'il a moins de sept jours.
- * @param {object} p planète de S.planets
- * @returns {string|null}
- */
-export function speciesOfPlanet(p){
-  const r = prodOf(p);
-  return r && Date.now() - r.at < LF_READ_TTL ? speciesOf(r) : null;
-}
 /**
  * Espèces installées sur au moins une planète, d'après les relevés récents.
  * @returns {string[]}

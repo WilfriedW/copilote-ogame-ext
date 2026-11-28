@@ -18,7 +18,7 @@ import { esc } from '../core/format.js';
 import { lfBloquee, lfCost } from '../formes-de-vie/formes-de-vie.js';
 import { goUrl } from '../jeu/liens.js';
 import { wakeTime } from '../plan/nuit.js';
-import { REGLES_ERR } from '../regles/moteur.js';
+import { REGLES_ERR } from '../regles/fichier.js';
 import { syncFailed, save } from '../synchro/synchro.js';
 import { tab, view, habillage } from './navigation.js';
 import { toast, render, on } from '../../app.js';
