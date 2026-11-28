@@ -6391,6 +6391,7 @@ const POSE = (k, lvl, hors) => s => { s.ui.pose = {k, lvl, hors: hors || {}}; };
 require('./plan.test')({ t, assert, app, lu, SOIR, prioLabo, prePlasma, POSE });
 require('./palier.test')({ t, assert, loadApp, fixtureState, JOUR, SOIR });
 require('./itineraire.test')({ t, assert, loadApp, fixtureState, JOUR, lu });
+require('./empire-planetes.test')({ t, assert, app, lu, SOIR });
 
 /* ---------- une carte en attente dit ce qui la retient ---------- */
 
@@ -8531,12 +8532,14 @@ t('les cartes de planète partent fermées, même sans clé de repli en mémoire
   assert.ok(!/<details class="card ligne"[^>]* open/.test(h));
 });
 
-t('le résumé porte la production des trois ressources, sans rien déplier', () => {
+/* ENH-74 : le résumé portait la production ; il porte désormais le stock, la
+   production restant dans les jauges du détail (test/empire-planetes.test.js). */
+t('le détail déplié porte toujours la production des trois ressources', () => {
   const g = app();
   g.VIEWS.planets(); g.REFRESH.planets();
-  const s = lu(g.html()['psum-0'] || '');
+  const s = lu(g.html()['pres-0'] || '');
   const pr = g.production(g.S.planets[0]);
-  assert.ok(s.includes(g.fmtLigne(pr.m)) && s.includes(g.fmtLigne(pr.c)) && s.includes(g.fmtLigne(pr.d)), s);
+  assert.ok(s.includes(g.fmt(pr.m)) && s.includes(g.fmt(pr.c)) && s.includes(g.fmt(pr.d)), s);
 });
 
 t('le bouton Retirer est dans le corps, pas dans le résumé qui bascule le volet', () => {
@@ -8862,13 +8865,13 @@ t('une sauvegarde d\'avant la carte ne la casse pas', () => {
   // g.S est l'ancien objet : l'import en crée un neuf. On interroge la carte.
   g.poseCoche('colo', false);
   assert.deepEqual(g.poseLignes().map(x => x.coche), [true, false], 'la carte se redonne son état');
-  assert.ok(lu(g.VIEWS.planets()).includes('Poser sur toutes les planètes'));
+  assert.ok(lu(g.VIEWS.planets()).includes('Cible sur plusieurs planètes'));
 });
 
 t('des décochées au mauvais type ne gèlent pas Empire', () => {
   const g = app(s => { s.ui.pose = {k:'metal', lvl:43, hors:{metal:3}}; });
   assert.deepEqual(g.poseLignes().map(x => x.coche), [true, true]);
-  assert.ok(lu(g.VIEWS.planets()).includes('Poser sur toutes les planètes'));
+  assert.ok(lu(g.VIEWS.planets()).includes('Cible sur plusieurs planètes'));
 });
 
 /* ---------- et les formes de vie, par rang et non par identifiant ---------- */

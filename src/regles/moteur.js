@@ -37,7 +37,7 @@ REGLES.regles.forEach((r, i) => { if(r && typeof r.id === 'string' && !aSoi(REGL
    vérifie qu'elles disent la même chose que rules.json. */
 const REGLES_SECOURS = {};
 [
-  {id:'RES_STORAGE_FULL', nom:'Stockage plein', domaine:'ressources', cat:'stock', niveau:'critique', condition:'storageRatio', parametres:{seuil:0.98, recurrence:3}, effet:'pousser',
+  {id:'RES_STORAGE_FULL', nom:'Stockage plein', domaine:'ressources', cat:'stock', niveau:'critique', condition:'storageRatio', parametres:{seuil:0.98, avertir:0.9, recurrence:3}, effet:'pousser',
     message:'{Ressource} au plafond{sur} : {pertes} perdus',
     raison:'{excedent}. La production de {ressource} est arrêtée tant que le stock ne redescend pas. {depense}',
     action:'{quoi}', source:'https://ogame.fandom.com/wiki/Buildings', statut:'valide'},

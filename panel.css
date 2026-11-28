@@ -289,6 +289,8 @@ details.card.ligne{padding:var(--sp-2)}
 details.card.ligne:not([open]){gap:0;padding:0;border:0;background:transparent}
 details.card.ligne>summary.plsum{font-size:var(--fs-base);gap:var(--sp-2);text-transform:none;letter-spacing:0}
 summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:var(--fs-sm)}
+summary.plsum .st-warn{color:var(--warn)} summary.plsum .st-bad{color:var(--bad);font-weight:600}
+summary.posesum{justify-content:flex-start} summary.posesum>.note{margin-left:auto}
 /* Le niveau visé est le seul champ de la ligne où le joueur tape : il porte
    l'accent, le niveau relevé d'à côté reste muet. */
 .lv input.prio{border-color:var(--accent)}
