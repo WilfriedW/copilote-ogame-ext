@@ -1,6 +1,6 @@
 /* ---------- la colonisation ----------
-   Ce que coûte un vaisseau de colonisation et ses kits (`COL_SHIP_COST`,
-   `KITS`, `OBJECTIVES`), le nombre de planètes permis (`maxPlanets`), d'où
+   Les kits du vaisseau de colonisation (`KITS`, `OBJECTIVES` ; le
+   vaisseau lui-même, `COL_SHIP_COST`, est dans src/flotte/coques.js), le nombre de planètes permis (`maxPlanets`), d'où
    partir et où aller (`coloFrom`, `coloSystem`, `rankPositions`,
    `bestPosition`, `coloTarget`), la flotte qu'il faut (`coloFleet`,
    `colShipAt`, `colSentNow`, `colBuilt`), ce que la colonie rapporte et en
@@ -9,20 +9,20 @@
    l'API publique propose (`colonyCandidates`).
 
    Domaine de l'issue #49. Il lit le noyau, l'univers, la flotte et la
-   production, et emprunte encore à app.js le centre, `shipTime` et
-   `rankUpgrades`, appelés et jamais lus au chargement. */
+   production, et emprunte encore à app.js le centre et `rankUpgrades`,
+   appelés et jamais lus au chargement. */
 import { S } from '../core/etat.js';
 import { fmt } from '../core/format.js';
 import { B, rangeCost, POS } from '../core/formules.js';
 import { API, ecoSpeed } from '../core/serveur.js';
 import { dur } from '../core/temps.js';
 import { production, mse, waitFor } from '../economie/production.js';
+import { COL_SHIP_COST, shipTime } from '../flotte/coques.js';
 import { parseC, shipStats, flight } from '../flotte/vaisseaux.js';
 import { wrapSys, occupied, myScore, isInactive, isActive } from '../univers/univers.js';
-import { planetById, rankUpgrades, shipTime, centrePlanet } from '../../app.js';
+import { planetById, rankUpgrades, centrePlanet } from '../../app.js';
 
 /* ---------- colonization ---------- */
-export const COL_SHIP_COST = [10000, 20000, 10000];
 export const KITS = {
   none: {n:'Aucun', lv:{}},
   light:{n:'Léger', lv:{metal:5, crystal:4, deut:2, solar:5}},

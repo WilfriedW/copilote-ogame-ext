@@ -10,7 +10,8 @@
    Module des vues (issue #49). Il emprunte encore à app.js presque tout ce
    que les clics changent : ce cycle-là est toléré tant qu'app.js existe, et
    rien n'y est lu au chargement. */
-import { COL_SHIP_COST, coloSystem, colonyCandidates } from '../colonisation/colonisation.js';
+import { coloSystem, colonyCandidates } from '../colonisation/colonisation.js';
+import { COL_SHIP_COST } from '../flotte/coques.js';
 import { KEY, sample, newPlanet, S, remplaceEtat } from '../core/etat.js';
 import { fmt, num } from '../core/format.js';
 import { IS_EXT, API } from '../core/serveur.js';

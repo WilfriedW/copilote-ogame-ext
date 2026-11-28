@@ -6,16 +6,15 @@
 
    Module de domaine (issue #49). Le rendu (cartes, sélecteur de modèle) et
    l'évaluateur des ressources en trop restent dans app.js jusqu'à leurs
-   étapes. Ce module emprunte encore à app.js quelques outils (nombres,
-   stocks, production, liste de vaisseaux) : ce cycle-là est toléré tant
-   qu'app.js existe, et rien n'y est lu au chargement. */
+   étapes. À son chargement, il recopie ses pièces dans les
+   tables du chantier (src/flotte/coques.js). */
 import { S } from '../core/etat.js';
 import { fmt, num, nf1, fmtCourt } from '../core/format.js';
 import { B, T } from '../core/formules.js';
 import { IS_EXT } from '../core/serveur.js';
 import { mse, stockNow } from '../economie/production.js';
-import { shipList } from '../flotte/vaisseaux.js';
-import { shipReqOk } from '../../app.js';
+import { SHIP_COST, SHIP_REQ, shipReqOk } from '../flotte/coques.js';
+import { SHIP_PLURAL, SHIP_ONE, shipList } from '../flotte/vaisseaux.js';
 
 /* Un tas d'un seul type ne défend rien, quelle que soit la somme dépensée :
    le croiseur tire dix fois par lanceur de missiles et pas une fois par laser
@@ -289,3 +288,7 @@ export function defPalierOpts(v){
   return DEF_PALIERS.map(x=>`<option value="${x}" ${+v===x?'selected':''}>${x}</option>`).join('')
     + `<option value="fill" ${v==='fill'?'selected':''}>Compléter l'existant</option>`;
 }
+/* La défense passe par le même chantier, la même file et les mêmes wants que
+   les vaisseaux : un seul endroit la nomme et la tarife. Ici, et non dans
+   coques.js, parce que cette table lit `shipReqOk`. */
+for(const [k,d] of Object.entries(DEF)){ SHIP_COST[k] = d.c; SHIP_REQ[k] = d.r; SHIP_PLURAL[k] = d.p; SHIP_ONE[k] = d.o; }

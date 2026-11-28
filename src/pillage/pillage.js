@@ -102,6 +102,8 @@ export const REPORT_WORDS = {};
    petit transporteur compris, veut dire combat, et le copilote n'en simule
    aucun : il se tait et laisse le joueur trancher. */
 export const SE_BAT = {};
+for(const k of Object.values(REPORT_WORDS)) SE_BAT[k] = true;
+for(const k of ['sat','crawl','pr','abm','ipm']) delete SE_BAT[k];
 /**
  * Ce qu'un rapport d'espionnage collé veut dire.
  *

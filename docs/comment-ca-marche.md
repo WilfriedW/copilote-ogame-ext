@@ -470,7 +470,8 @@ de règles) et `src/defense/defense.js` (pièces, modèles de défense, manque
 face au modèle), `src/flotte/vaisseaux.js` (vaisseaux, vols, flottes en
 mouvement) et `src/flotte/expeditions.js` (cadre, créneaux et journal des
 expéditions), `src/flotte/lune.js` (le tir de lune : chance, vaisseaux,
-facture), `src/securite/securite.js` (mise à l'abri, attaques
+facture), `src/flotte/coques.js` (prix, prérequis et durée au chantier d'un
+vaisseau ; la défense y recopie ses pièces), `src/securite/securite.js` (mise à l'abri, attaques
 entrantes, plan de sécurité) et `src/formes-de-vie/formes-de-vie.js`
 (espèces, coût des cases, paliers de population, règles propres aux formes
 de vie), puis le plan du jour dans `src/plan/` : `priorites.js` (les
