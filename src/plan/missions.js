@@ -26,6 +26,7 @@ import {
   lfBloquee, lfCandidates, LIFEFORMS, speciesOfPlanet, foundLifeforms,
   lfPourPos, lfRaisonPos, lfConseilPlanete
 } from '../formes-de-vie/formes-de-vie.js';
+import { coordLink } from '../jeu/liens.js';
 import { raidTargets, raidPlan } from '../pillage/pillage.js';
 import { astroForPlanet, nextResearch, chantierARelire, satsOk, cardKey } from './journee.js';
 import { poseHeure, heureTxt, isNight, nightLen, absenceJour, wakeTime } from './nuit.js';
@@ -34,10 +35,7 @@ import {
   cargoGaps, secu, prochaineHeure
 } from '../securite/securite.js';
 import { occupied } from '../univers/univers.js';
-import {
-  save, planetById, lfNom, coordLink, leverFlotte, lfMode, poidsCat,
-  catMission
-} from '../../app.js';
+import { save, planetById, lfNom, lfMode, poidsCat, catMission } from '../../app.js';
 /**
  * Les sources d'énergie posables sur cette planète, chiffrées, de la moins
  * chère à la plus chère par point d'énergie.
@@ -560,3 +558,5 @@ export function missionDone(m){
   const vivante = d => !!d && (Date.now() - d) < m.every*3600e3 && (m.every!==24 || new Date(d).toDateString()===new Date().toDateString());
   if(!vivante(S.daily.done[m.id]) && flotteEnVol(m)){ S.daily.done[m.id] = Date.now(); save(); }
   return vivante(S.daily.done[m.id]); }
+/** Le niveau d'Ordinateur qui ajouterait un emplacement de flotte. */
+export function leverFlotte(){ return `Technologie Ordinateur ${S.tech.computer+1} ajoute un emplacement de flotte.`; }

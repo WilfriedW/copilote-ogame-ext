@@ -13,12 +13,11 @@ import { S } from '../core/etat.js';
 import { esc } from '../core/format.js';
 import { dur, LOCAL_TZ, timeMode, srvOffSec, formatTime, poseModeHeure } from '../core/temps.js';
 import { lfBloquee, lfCost } from '../formes-de-vie/formes-de-vie.js';
+import { goUrl } from '../jeu/liens.js';
 import { wakeTime } from '../plan/nuit.js';
 import { REGLES_ERR } from '../regles/moteur.js';
 import { tab } from './navigation.js';
-import {
-  save, toast, goUrl, render, habillage, on, syncFailed
-} from '../../app.js';
+import { save, toast, render, habillage, on, syncFailed } from '../../app.js';
 
 /* ---------- fraîcheur du relevé ---------- */
 /* Le copilote ne requête jamais le jeu : il lit la page que le joueur a sous
