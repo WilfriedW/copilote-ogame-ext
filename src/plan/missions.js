@@ -24,11 +24,11 @@ import {
   SHIPS, parseC, shipStats, flight, shipList, planeteEn, fleetSlots,
   flotteEnVol
 } from '../flotte/vaisseaux.js';
-import { lfNom } from '../formes-de-vie/cases.js';
+import { lfNom, LIFEFORMS, speciesOfPlanet } from '../formes-de-vie/cases.js';
 import { lfMode } from './place-formes-de-vie.js';
 import {
-  lfBloquee, lfCandidates, LIFEFORMS, speciesOfPlanet, foundLifeforms,
-  lfPourPos, lfRaisonPos, lfConseilPlanete
+  lfBloquee, lfCandidates, foundLifeforms, lfPourPos, lfRaisonPos,
+  lfConseilPlanete
 } from '../formes-de-vie/formes-de-vie.js';
 import { coordLink } from '../jeu/liens.js';
 import { raidTargets, raidPlan } from '../pillage/pillage.js';

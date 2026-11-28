@@ -13,14 +13,15 @@ import {
   DEF, DEF_RATIO, defRatio, defAncre, DEF_DUREES, DEF_PLANCHERS,
   defPalierOpts
 } from '../defense/defense.js';
+import { raceDe, LIFEFORMS, lfIds } from '../formes-de-vie/cases.js';
 import { LF_MODE, lfMode } from '../plan/place-formes-de-vie.js';
-import { RACE_SRC, nomRace, LIFEFORMS, readLifeforms } from '../formes-de-vie/formes-de-vie.js';
-import { lfIds } from '../formes-de-vie/cases.js';
+import { RACE_SRC, nomRace, readLifeforms } from '../formes-de-vie/formes-de-vie.js';
 import { RESEARCH_MODE, researchMode, simulateDay } from '../plan/journee.js';
 import { hhmmDe, heureTxt, nightLen } from '../plan/nuit.js';
 import { FOCUS } from '../plan/priorites.js';
 import { planPoseParLeStyle, classeEcart, profilLigne, profilFocusHtml } from '../plan/profil.js';
-import { REGLES_ERR, REGLES_PAR_ID, NIVEAU_SEV, DOMAINES, regle } from '../regles/moteur.js';
+import { REGLES_PAR_ID, NIVEAU_SEV, DOMAINES, regle } from '../regles/moteur.js';
+import { REGLES_ERR } from '../regles/fichier.js';
 import { secu } from '../securite/securite.js';
 import { actsVus } from './aujourdhui.js';
 import { noListe, SEV_LABEL } from './carte-action.js';
@@ -29,7 +30,7 @@ import { defModeleCarte, defPicker } from './defense.js';
 import { MASQUE_CLES, masque, toutMasque } from './entete.js';
 import { fold, cardLayout, affichageCard, HABILLAGES, habillage, aide } from './navigation.js';
 import { VERSIONS, MAJ, plusRecente } from './version.js';
-import { APP_VERSION, raceDe } from '../../app.js';
+import { APP_VERSION } from '../../app.js';
 /** Réglages › Formes de vie : la race de chaque planète, d'où elle vient, et de quoi la corriger. */
 function raceRows(){
   const ps = (S.planets || []).filter(p => lfIds(p).length || p.race);

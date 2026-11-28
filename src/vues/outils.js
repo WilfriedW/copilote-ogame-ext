@@ -31,7 +31,8 @@ import { luneTir, luneVaisseaux, luneFacture, luneFlotteAuSol, moonDf, luneMorts
 import {
   SHIPS, parseC, shipStats, flight, SHIP_PLURAL, shipList, planeteEn
 } from '../flotte/vaisseaux.js';
-import { LIFEFORMS, lfPourPos, lfRaisonPos } from '../formes-de-vie/formes-de-vie.js';
+import { lfPourPos, lfRaisonPos } from '../formes-de-vie/formes-de-vie.js';
+import { LIFEFORMS } from '../formes-de-vie/cases.js';
 import { raidTargets, exploreSystems, raidPlan } from '../pillage/pillage.js';
 import { myScore } from '../univers/univers.js';
 import { actHtml } from './carte-action.js';

@@ -1,6 +1,6 @@
 /* ---------- le moteur de règles ----------
-   Les règles viennent de rules.json (lu par boot.js dans `window.__rules`),
-   complétées des règles de secours ; chacune s'active, se règle et se
+   Les règles viennent de rules.json (`src/regles/fichier.js`), complétées
+   des règles de secours ; chacune s'active, se règle et se
    vérifie ici (`regle`, `regleActive`, `regleParam`, `regleSaine`), et les
    évaluateurs d'EVAL en tirent des constats par planète (`constatsDe`,
    `constats`). Ce que le joueur ignore se retient ici aussi, sous la clé
@@ -11,13 +11,15 @@
    domaine, qui l'importe. En attendant que ces domaines quittent app.js,
    ce module emprunte encore à app.js ce qu'il lit (production, stocks,
    style de jeu…) : ce cycle-là est toléré tant qu'app.js existe. */
+import { REGLES, aSoi } from './fichier.js';
 import { planetById } from '../core/planetes.js';
 import { S } from '../core/etat.js';
 import { IS_EXT } from '../core/serveur.js';
+import { raceDe } from '../formes-de-vie/cases.js';
 import { lfMode } from '../plan/place-formes-de-vie.js';
 import { poidsCat } from '../plan/profil.js';
 import { save } from '../synchro/synchro.js';
-import { raceDe, on } from '../../app.js';
+import { on } from '../../app.js';
 
 /* ---------- les règles du moteur ----------
    Décrites dans rules.json, que boot.js lit avant ce fichier et pose dans
@@ -26,12 +28,6 @@ import { raceDe, on } from '../../app.js';
    marque une carte que le plan sort déjà, suspend ce qui dépend d'une donnée
    manquante, ou se signale quand le plan n'a rien à y répondre.
    Voir docs/superpowers/specs/2026-11-26-regles-du-moteur-design.md. */
-const REGLES_VIDE = () => ({version:0, regles:[], mineBalance:{byStyle:{}, byPosition:{}}, lifeforms:{}});
-/* Un fichier illisible ne bloque rien : le moteur d'avant tourne, ses secours et
-   ses cartes existent sans rules.json, ils perdent seulement leurs réglages. */
-export const REGLES_ERR = (()=>{ const r = window.__rules; return r && typeof r === 'object' && Array.isArray(r.regles) ? '' : 'règles illisibles : le moteur tourne sans réglages'; })();
-export const REGLES = REGLES_ERR ? REGLES_VIDE() : Object.assign(REGLES_VIDE(), window.__rules);
-export const aSoi = (o, k) => !!o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
 export const REGLES_PAR_ID = {};
 REGLES.regles.forEach((r, i) => { if(r && typeof r.id === 'string' && !aSoi(REGLES_PAR_ID, r.id)) REGLES_PAR_ID[r.id] = Object.assign({}, r, {rang:i}); });
 /* Le repli : les règles qui ont remplacé une alerte du moteur d'avant. Sans
