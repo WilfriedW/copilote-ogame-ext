@@ -2,7 +2,7 @@
    Ce que l'onglet dessine (`VIEWS_AUJOURDHUI`) et ce qu'il rafraîchit sans
    tout redessiner (`REFRESH_AUJOURDHUI`) : la carte Maintenant, la journée
    qui vient, les priorités, l'expédition, la sécurité, les ressources en
-   trop, le profil de jeu et les minuteurs.
+   trop et le profil de jeu.
 
    Module des vues (issue #49), calé sur l'issue #72. app.js réassemble `VIEWS` et
    `REFRESH` à partir des morceaux de chaque onglet. Ce module emprunte encore
@@ -27,7 +27,6 @@ import { shipList, shipCourt, mcd, mouvements, aQuai } from '../flotte/vaisseaux
 import { LF_NAMES } from '../formes-de-vie/cases.js';
 import { fleetUrl, missionGo, coordLink, goAttr } from '../jeu/liens.js';
 import { meteoVoit } from '../meteo.js';
-import { renderTimers } from '../minuteurs/minuteurs.js';
 import { simulateDay, statutFinancement, refused } from '../plan/journee.js';
 import { dailyMissions, missionKey, missionDone } from '../plan/missions.js';
 import {
@@ -155,11 +154,6 @@ function surplusHtml(plan){
     html:`<div class="card"><h2>Ressources en trop <span class="note">${l.length}</span></h2>`
       + `<p class="note mb-2">Au plafond, la mine ou le synthétiseur s'arrête tant que le stock ne redescend pas. Dans l'ordre : le dépenser ici, sinon l'envoyer où il manque, et le hangar seulement si ça revient.</p>`
       + `<ul class="advice">${l.map(ligne).join('')}</ul></div>`};
-}
-function timerOptions(){
-  const r = Object.keys(T).map(k=>`<option value="t:${k}">${T[k].n} ${num(S.tech[k])+1}</option>`).join('');
-  const b = S.planets.map(p=>`<optgroup label="Bâtiments · ${esc(p.name)}">${Object.keys(B).map(k=>`<option value="b:${p.id}:${k}">${B[k].n} ${num(p.b[k])+1}</option>`).join('')}</optgroup>`).join('');
-  return `<optgroup label="Recherche">${r}</optgroup>${b}<optgroup label="Autre"><option value="x:fleet">Retour de flotte</option><option value="x:expo">Retour d'expédition</option><option value="x:other">Autre</option></optgroup>`;
 }
 
 /* ---------- la sécurité : le bloc ---------- */
@@ -334,7 +328,7 @@ function profilBloc(){
 
 export const VIEWS_AUJOURDHUI = {
 /* Ce que le joueur vient chercher, c'est la carte à suivre maintenant : elle
-   seule reste dépliée. Le reste — les expéditions, les minuteurs — se
+   seule reste dépliée. Le reste — les expéditions — se
    replie, en disant dans son titre ce qu'il contient, pour qu'on sache s'il
    vaut la peine d'être ouvert. */
 today(){
@@ -349,17 +343,6 @@ today(){
     securite: `<div id="tdSecu"></div>`,
     expeditions: `<details class="card"${fold('expeditions', false)}><summary data-fold="expeditions">Expéditions <span class="note" id="expoSum"></span></summary>
       <div id="expoBloc"></div>
-    </details>`,
-    minuteurs: `<details class="card"${fold('minuteurs', false)}><summary data-fold="minuteurs">Minuteurs <span class="note" id="tmSum"></span></summary>
-      <ul class="timers" id="tmList"></ul>
-      <details class="volet"${fold('minuteurs.ajout', false)}><summary class="note" data-fold="minuteurs.ajout">Ajouter un minuteur à la main</summary>
-        <div class="timer-form mt-2">
-          <label class="f">Quoi<select id="tmWhat">${timerOptions()}</select></label>
-          <label class="f">Temps restant (copié du jeu)<input id="tmLeft" placeholder="2h 13m 05s"></label>
-          <button class="btn primary" id="tmAdd">Lancer</button>
-        </div>
-      </details>
-      <div class="row"><button class="btn sm ghost" id="tmSound">Tester le son</button></div>
     </details>`,
   });
 },
@@ -460,7 +443,6 @@ today(){
   RESUMES.alertes = resumeDe(conseilLignes(plan).filter(meteoVoit).map(a=>({sev:a.sev, key:a.what})), 'alertes');
   document.getElementById('tdAlerts').innerHTML = conseilsHtml(plan);
   publieCritiques(plan.constats);
-  renderTimers();
 },
 };
 /* Sous le filtre de la météo, seules les cartes de la planète choisie restent. */

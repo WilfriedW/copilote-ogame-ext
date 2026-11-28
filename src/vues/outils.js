@@ -36,6 +36,7 @@ import { LIFEFORMS } from '../formes-de-vie/cases.js';
 import { raidTargets, exploreSystems, raidPlan } from '../pillage/pillage.js';
 import { myScore } from '../univers/univers.js';
 import { actHtml } from './carte-action.js';
+import { renderTimers } from '../minuteurs/minuteurs.js';
 import { bascule, gauge } from './commun.js';
 import { fold, segTabs, TOOLS, aide } from './navigation.js';
 import { VIEWS, REFRESH } from '../../app.js';
@@ -179,6 +180,11 @@ const SRV_ROWS = [
     ['darkMatterNewAcount', 'Matière noire de départ'],
   ]],
 ];
+function timerOptions(){
+  const r = Object.keys(T).map(k=>`<option value="t:${k}">${T[k].n} ${num(S.tech[k])+1}</option>`).join('');
+  const b = S.planets.map(p=>`<optgroup label="Bâtiments · ${esc(p.name)}">${Object.keys(B).map(k=>`<option value="b:${p.id}:${k}">${B[k].n} ${num(p.b[k])+1}</option>`).join('')}</optgroup>`).join('');
+  return `<optgroup label="Recherche">${r}</optgroup>${b}<optgroup label="Autre"><option value="x:fleet">Retour de flotte</option><option value="x:expo">Retour d'expédition</option><option value="x:other">Autre</option></optgroup>`;
+}
 function toolTab(){ return TOOLS.some(([k])=>k===S.ui.tool) ? S.ui.tool : 'colony'; }
 export const VIEWS_OUTILS = {
 explore(){
@@ -237,6 +243,19 @@ server(){
 tools(){
   const sub = toolTab();
   return `<section class="panel"><div class="seg" role="tablist">${segTabs(TOOLS, 'data-tool', sub)}</div>${VIEWS[sub]()}</section>`;
+},
+timers(){
+  return `<section class="panel"><div class="card"><h2>Minuteurs <span class="note" id="tmSum"></span></h2>
+      <ul class="timers" id="tmList"></ul>
+      <details class="volet"${fold('minuteurs.ajout', false)}><summary class="note" data-fold="minuteurs.ajout">Ajouter un minuteur à la main</summary>
+        <div class="timer-form mt-2">
+          <label class="f">Quoi<select id="tmWhat">${timerOptions()}</select></label>
+          <label class="f">Temps restant (copié du jeu)<input id="tmLeft" placeholder="2h 13m 05s"></label>
+          <button class="btn primary" id="tmAdd">Lancer</button>
+        </div>
+      </details>
+      <div class="row"><button class="btn sm ghost" id="tmSound">Tester le son</button></div>
+    </div></section>`;
 },
 moon(){
   const m = S.moonCalc, p = moonPlanete(), k = moonShip();
@@ -347,6 +366,7 @@ colony(){
 };
 export const REFRESH_OUTILS = {
 tools(){ (REFRESH[toolTab()]||(()=>{}))(); },
+timers(){ renderTimers(); },
 explore(){
   const el = document.getElementById('exColo'); if(!el || !API || !API.planets) return;
   const home = coloFrom().coords;

@@ -10395,11 +10395,11 @@ t('« Comment faire » ouvert le reste quand ses propres montants changent', () 
 });
 
 t("l'état est lu avant le premier dessin, depuis le stockage du poste", () => {
-  const g = app(s => { s.__ui = {etats: {minuteurs: 'open', expeditions: 'closed', bidon: 'peut-être'}, vus: {}}; });
-  assert.equal(g.uiOuvert('minuteurs', false), true);
-  assert.equal(g.uiOuvert('expeditions', true), false, 'le choix enregistré bat le défaut');
+  const g = app(s => { s.__ui = {etats: {expeditions: 'open', minuteurs: 'closed', bidon: 'peut-être'}, vus: {}}; });
+  assert.equal(g.uiOuvert('expeditions', false), true);
+  assert.equal(g.uiOuvert('minuteurs', true), false, 'le choix enregistré bat le défaut');
   assert.equal(g.UI.etats.bidon, undefined, 'une valeur inconnue est ignorée');
-  assert.match(g.VIEWS.today(), /<details class="card" open><summary data-fold="minuteurs">/);
+  assert.match(g.VIEWS.today(), /<details class="card" open><summary data-fold="expeditions">/);
 });
 
 t('une carte fixe est globale : sa clé ne porte pas la planète', () => {
@@ -10725,8 +10725,8 @@ t('cartes : le mode empilé, choisi, n\'a ni barre ni masquage', () => {
   const h = g.VIEWS.today();
   assert.ok(!/en-onglets|carteTabs/.test(h), 'rien du mode onglets');
   assert.ok(!/<div class="carte"[^>]* hidden/.test(h), 'aucune carte masquée');
-  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions', 'minuteurs']);
-  for (const id of ['tdNow', 'tdAlerts', 'expoBloc', 'tmList']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là');
+  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions']);
+  for (const id of ['tdNow', 'tdAlerts', 'expoBloc']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là');
 });
 t('cartes : un mode inconnu retombe sur les onglets, le défaut', () => {
   assert.ok(/en-onglets/.test(appCartes('grille').VIEWS.today()));
@@ -10736,7 +10736,7 @@ t('cartes : un mode inconnu retombe sur les onglets, le défaut', () => {
 t('cartes : en onglets, une barre .seg en tête, les cartes dans le même ordre', () => {
   const h = appCartes('tabs').VIEWS.today();
   assert.ok(/<section class="panel en-onglets" data-disposition="today"><div class="seg" role="tablist" id="carteTabs"/.test(h));
-  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions', 'minuteurs']);
+  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions']);
 });
 t('cartes : une carte ne sait pas dans quel mode elle est montrée', () => {
   const pile = appCartes('stacked').VIEWS.today();
@@ -10779,7 +10779,7 @@ t('cartes : une carte dynamique vide n\'a pas d\'onglet, une fixe toujours', () 
   g.RESUMES.maintenant = g.resumeDe([], 'maintenant');
   let ids = g.cartesPresentes('today').map(x => x.c.cardId);
   assert.ok(!ids.includes('alertes'), 'pas d\'alerte, pas d\'onglet');
-  assert.deepEqual(ids, ['profil', 'maintenant', 'securite', 'expeditions', 'minuteurs'], 'pas d\'attaque, pas d\'onglet Attaque');
+  assert.deepEqual(ids, ['profil', 'maintenant', 'securite', 'expeditions'], 'pas d\'attaque, pas d\'onglet Attaque');
   g.RESUMES.alertes = g.resumeDe([{sev: 'warn'}], 'alertes');
   ids = g.cartesPresentes('today').map(x => x.c.cardId);
   assert.equal(ids[2], 'alertes', 'à sa place dans l\'ordre de la pile');
@@ -10850,10 +10850,12 @@ t('ISS-72 : un onglet retenu sur « Ta journée » rouvre sur le défaut', () =>
   const ids = g.cartesPresentes('today').map(x => x.c.cardId);
   assert.equal(g.ongletAffiche(ids, undefined, 'journee', 'maintenant'), 'maintenant');
 });
-t('ISS-72 : le rafraîchissement d\'Aujourd\'hui tourne sans la carte, et les minuteurs suivent', () => {
-  const g = app(s => { s.timers = [{id: 't1', label: 'Mine de métal', end: SOIR + 3600e3}]; });
+t('ISS-72 : les minuteurs vivent dans Outils, et s\'y rafraîchissent', () => {
+  const g = app(s => { s.timers = [{id: 't1', label: 'Mine de métal', end: SOIR + 3600e3}]; s.ui = Object.assign(s.ui || {}, {tool: 'timers'}); });
+  assert.ok(!/id="tmList"/.test(g.VIEWS.today()), 'plus dans Aujourd\'hui');
+  assert.ok(/id="tmList"/.test(g.VIEWS.tools()) && /id="tmAdd"/.test(g.VIEWS.tools()), 'la liste et l\'ajout à la main dans Outils');
   g.el('tmList').innerHTML = '';
-  g.REFRESH.today();
+  g.REFRESH.tools();
   assert.ok(/fin à/.test(g.el('tmList').innerHTML), 'renderTimers() est toujours appelé : ' + g.el('tmList').innerHTML);
 });
 
