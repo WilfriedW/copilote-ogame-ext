@@ -163,10 +163,10 @@ label.f.coche input{width:auto;flex:0 0 auto;margin:0}
 .bascules{display:flex;flex-direction:column}
 label.f.bascule{display:grid;grid-template-columns:1fr auto;align-items:center;gap:var(--sp-05) var(--sp-3);padding:var(--sp-2) 0;color:var(--fg);font-size:var(--fs-md)}
 label.f.bascule+label.f.bascule{border-top:1px solid var(--line)}
-label.f.bascule input{appearance:none;-webkit-appearance:none;width:34px;height:20px;padding:0;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);position:relative;cursor:pointer}
-label.f.bascule input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:transform .15s,background .15s}
-label.f.bascule input:checked{background:var(--accent);border-color:var(--accent)}
-label.f.bascule input:checked::after{transform:translateX(14px);background:var(--accent-ink)}
+label.f.bascule input,input.interrupteur{flex:0 0 auto;margin:0;appearance:none;-webkit-appearance:none;width:34px;height:20px;padding:0;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);position:relative;cursor:pointer}
+label.f.bascule input::after,input.interrupteur::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:transform .15s,background .15s}
+label.f.bascule input:checked,input.interrupteur:checked{background:var(--accent);border-color:var(--accent)}
+label.f.bascule input:checked::after,input.interrupteur:checked::after{transform:translateX(14px);background:var(--accent-ink)}
 label.f.bascule>span{min-width:0}
 label.f.bascule .note{grid-column:1}
 input,select{font:inherit;font-family:var(--f-mono);font-size:var(--fs-md);color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--sp-2);width:100%;min-width:0}
@@ -273,7 +273,7 @@ details:not(.defpick)>summary::after{content:"+";flex:0 0 auto;font:500 var(--fs
 details:not(.defpick)[open]>summary::after{content:"–"}
 details.card>summary{font-family:var(--f-display);font-weight:600;font-size:var(--fs-lg);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 details.card>summary .note{text-transform:none;letter-spacing:0;font-family:var(--f-body);font-weight:400}
-details.volet>summary{font-family:var(--f-display);font-size:var(--fs-md);font-weight:600;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--sp-2) var(--sp-3)}
+details.volet>summary,details.card.ligne>summary{font-family:var(--f-display);font-size:var(--fs-md);font-weight:600;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:var(--sp-2) var(--sp-3)}
 /* Un niveau relevé sur le jeu ne se tape pas : il ne doit pas avoir l'air
    d'un champ qu'on remplit. */
 /* Les raisons, dans leur volet : des paragraphes qui respirent, pas un bloc. */
@@ -282,12 +282,12 @@ details.volet>summary{font-family:var(--f-display);font-size:var(--fs-md);font-w
    les chiffres de production s'alignent à droite, avant le « Ouvrir + ». */
 /* Un nom de planète est un nom propre, pas un titre de section : il garde la
    casse que le joueur a tapée, contrairement aux titres de carte. */
-details.card.volet{padding:var(--sp-2)}
+details.card.ligne{padding:var(--sp-2)}
 /* Fermée, la carte n'est que son résumé — qui porte déjà fond, bordure et
    marge. Le `gap` de .card s'applique même à un corps replié : sans ça,
    chaque ligne traînait vingt pixels de vide, sept fois de suite. */
-details.card.volet:not([open]){gap:0;padding:0;border:0;background:transparent}
-details.card.volet>summary.plsum{font-size:var(--fs-base);gap:var(--sp-2);text-transform:none;letter-spacing:0}
+details.card.ligne:not([open]){gap:0;padding:0;border:0;background:transparent}
+details.card.ligne>summary.plsum{font-size:var(--fs-base);gap:var(--sp-2);text-transform:none;letter-spacing:0}
 summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:var(--fs-sm)}
 /* Le niveau visé est le seul champ de la ligne où le joueur tape : il porte
    l'accent, le niveau relevé d'à côté reste muet. */
@@ -420,7 +420,7 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:var(--fs-sm)}
 :root[data-skin=hud] .card{clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));box-shadow:0 0 22px rgba(57,230,195,.07)}
 :root[data-skin=hud] .btn,:root[data-skin=hud] nav.tabs button{clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.1em}
 :root[data-skin=hud] .btn.primary{box-shadow:0 0 14px color-mix(in srgb,var(--accent) 45%,transparent)}
-:root[data-skin=hud] nav.tabs button,:root[data-skin=hud] .seg,:root[data-skin=hud] .seg button,:root[data-skin=hud] .pill,:root[data-skin=hud] .chip,:root[data-skin=hud] .ptag,:root[data-skin=hud] .toast,:root[data-skin=hud] .gear,:root[data-skin=hud] label.f.bascule input,:root[data-skin=hud] label.f.bascule input::after{border-radius:0}
+:root[data-skin=hud] nav.tabs button,:root[data-skin=hud] .seg,:root[data-skin=hud] .seg button,:root[data-skin=hud] .pill,:root[data-skin=hud] .chip,:root[data-skin=hud] .ptag,:root[data-skin=hud] .toast,:root[data-skin=hud] .gear,:root[data-skin=hud] label.f.bascule input,:root[data-skin=hud] label.f.bascule input::after,:root[data-skin=hud] input.interrupteur,:root[data-skin=hud] input.interrupteur::after{border-radius:0}
 :root[data-skin=hud] .gauge,:root[data-skin=hud] .acts li,:root[data-skin=hud] .timers li,:root[data-skin=hud] .list li{border-left:2px solid var(--rc,var(--accent))}
 :root[data-skin=hud] .acts li.wait{border-left-color:var(--warn)}
 :root[data-skin=hud] .gauge .v,:root[data-skin=hud] .timers .cd,:root[data-skin=hud] .big,:root[data-skin=hud] .tl .time{font-family:var(--f-mono);font-weight:700;text-shadow:0 0 10px color-mix(in srgb,currentColor 45%,transparent)}
@@ -456,8 +456,8 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:var(--fs-sm)}
 :root[data-skin=arcade] .ptag{box-shadow:0 0 12px color-mix(in srgb,var(--pc) 35%,transparent)}
 :root[data-skin=arcade] .big-alert .box{background:linear-gradient(135deg,#ffd166,#ff8e3c);color:#2a1300}
 :root[data-skin=arcade] .big-alert .box .btn{background:#2a1300;color:#ffd166}
-:root[data-skin=arcade] label.f.bascule input:checked{background:linear-gradient(135deg,#ff5fa2,#8b5cf6);border-color:transparent}
-:root[data-skin=arcade] label.f.bascule input:checked::after{background:#fff}
+:root[data-skin=arcade] label.f.bascule input:checked,:root[data-skin=arcade] input.interrupteur:checked{background:linear-gradient(135deg,#ff5fa2,#8b5cf6);border-color:transparent}
+:root[data-skin=arcade] label.f.bascule input:checked::after,:root[data-skin=arcade] input.interrupteur:checked::after{background:#fff}
 
 /* ---------- la météo ----------
    Les trois couleurs sont celles du thème (--good, --warn, --bad), redéfinies
@@ -513,7 +513,10 @@ summary.plsum .mono{margin-left:auto;color:var(--muted);font-size:var(--fs-sm)}
 .cartes-table th{text-align:left;font-weight:500;color:var(--muted);font-size:var(--fs-sm);padding:var(--sp-1) 0}
 .cartes-table td{padding:var(--sp-1) 0;border-top:1px solid var(--line)}
 .cartes-table td:last-child{text-align:right}
-.cartes-table select{width:auto}
+.cartes-table select{width:auto;max-width:100%}
+/* À 380 px, « En attente de ressources » sur une ligne poussait les menus
+   hors de la carte : le nom de liste se replie. */
+.cartes-table td:first-child{white-space:normal}
 
 /* Sécurité : l'attaque en tête, le tableau des transports suggérés. */
 .secu-crit{border:1px solid var(--bad, #e0102b);}
@@ -552,3 +555,18 @@ label.pill.choix{cursor:pointer}
    dans une note, mais qui se voit cliquable (ENH-54). */
 a.renvoi{color:var(--accent);text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
 a.renvoi:hover{text-decoration-style:solid}
+
+/* « En savoir plus » (ENH-54) : le reste de l'aide d'une carte, replié. Un
+   lien discret, pas un volet : ce n'est pas un réglage qu'on ouvre. */
+details.aide>summary{display:inline-flex;justify-content:flex-start;gap:var(--sp-1);font-size:var(--fs-sm);color:var(--muted);text-decoration:underline dotted;text-underline-offset:3px}
+details.aide>summary::before{content:"?";display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--line);font:600 var(--fs-xs)/1 var(--f-body)}
+details.aide>summary::after,details.aide[open]>summary::after{content:none}
+details.aide>summary:hover{color:var(--accent)}
+details.aide[open]>summary{margin-bottom:var(--sp-1)}
+details.aide>.note+.note{margin-top:var(--sp-2)}
+
+/* Une ligne de liste qui s'allume ou s'éteint (une règle du moteur) : le
+   texte à gauche, l'interrupteur à droite, comme une bascule de réglage. */
+.ligne-interrupteur{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--sp-1) var(--sp-3);align-items:start;width:100%;cursor:pointer}
+.ligne-interrupteur>input.interrupteur{grid-column:2;grid-row:1}
+.ligne-interrupteur>span{grid-column:1;grid-row:1;min-width:0}

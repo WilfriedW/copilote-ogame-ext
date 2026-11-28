@@ -8713,7 +8713,7 @@ t('le volet des niveaux se donne pour ce qu\'il est : un réglage qu\'on ouvre',
   assert.match(css, /details:not\(\.defpick\)>summary\{[^}]*cursor:pointer/);
   assert.match(css, /details:not\(\.defpick\)>summary::after\{content:"\+"/, 'il dit qu\'il s\'ouvre');
   assert.match(css, /details:not\(\.defpick\)\[open\]>summary::after\{content:"–"/, 'et qu\'il se ferme');
-  assert.match(css, /details\.volet>summary\{[^}]*border:1px solid/, 'et il reste encadré');
+  assert.match(css, /details\.volet>summary[^{]*\{[^}]*border:1px solid/, 'et il reste encadré');
 });
 
 t('le compteur du niveau visé part du niveau en place, pas de 1', () => {
@@ -10917,14 +10917,14 @@ t('une heure de retour truquée par une synchro est refusée à l\'entrée', () 
 
 t('chaque planète est une carte repliée qui porte son nom et ses coordonnées', () => {
   const h = lu(app().VIEWS.planets());
-  assert.ok(/<details class="card volet"[^>]*data-pi="0"/.test(h), h.slice(0, 600));
+  assert.ok(/<details class="card ligne"[^>]*data-pi="0"/.test(h), h.slice(0, 600));
   assert.ok(/data-fold="pl:/.test(h), 'le repli se souvient, par planète');
 });
 
 t('les cartes de planète partent fermées, même sans clé de repli en mémoire', () => {
   const h = app(s => { s.ui.fold = {}; }).VIEWS.planets();
-  assert.ok(/<details class="card volet"/.test(h), 'encore faut-il que la carte soit un volet');
-  assert.ok(!/<details class="card volet"[^>]* open/.test(h));
+  assert.ok(/<details class="card ligne"/.test(h), 'encore faut-il que la carte soit un volet');
+  assert.ok(!/<details class="card ligne"[^>]* open/.test(h));
 });
 
 t('le résumé porte la production des trois ressources, sans rien déplier', () => {
@@ -14533,6 +14533,92 @@ t('ENH-54 : Aujourd\'hui s\'ouvre sur Maintenant une fois le profil posé, sur l
   assert.match(src, /CARTE_DEFAUT = \{today: \(\)=> S\.profil\.set \? 'maintenant' : 'profil'\}/);
 });
 
+/* ENH-54, étape 4 : un contrôle par type de donnée, une phrase d'aide visible par carte. */
+const PROFIL_POSE = s => { s.profil = { set: true, style: 'mineur', classe: 'collector', activite: 'souvent', focus: [] }; };
+
+t('ENH-54 : la mise à l\'abri est une bascule, le retour un champ heure', () => {
+  const g = app();
+  const h = g.VIEWS.settings();
+  assert.match(h, /<label class="f bascule"><span>Mise à l'abri \(nuit, absence\)<\/span><input type="checkbox" id="dNight" data-day="night"/);
+  assert.match(h, /<input id="dBack" type="time" step="3600" data-day="backHour" value="">/);
+  assert.doesNotMatch(h, />non<\/option><option value="1"[^>]*>oui</, 'plus de menu non/oui');
+  assert.equal(g.dayValue('backHour', '07:00', null), 7, 'la valeur d\'un champ heure');
+  assert.match(app(s => { s.day.backHour = 7; }).VIEWS.settings(), /data-day="backHour" value="07:00"/);
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  assert.match(src, /el\.type==='checkbox' \? \(el\.checked \? '1' : '0'\) : el\.value/, 'la bascule se lit cochée ou non');
+});
+
+t('ENH-54 : les explications longues de Réglages attendent derrière « En savoir plus »', () => {
+  const h = app(PROFIL_POSE).VIEWS.settings();
+  for (const id of ['focus', 'jour', 'energie', 'defense', 'allure', 'page', 'fiabilite', 'sauvegarde', 'secu', 'regles'])
+    assert.ok(h.includes(`<details class="aide"><summary data-fold="aide:${id}">En savoir plus</summary>`), id);
+  assert.match(h, /data-fold="aide:jour">En savoir plus<\/summary><p class="note" id="aideJour">/, 'l\'aide du plan du jour, que REFRESH remplit');
+  // Rien n'est perdu : les textes sont toujours là, repliés.
+  for (const bout of ['Masqué, pas supprimé', 'Moins sûrs : la production de deutérium', 'Décocher une règle l\'éteint', 'l\'icône du Copilote affiche « FS »'])
+    assert.ok(h.includes(bout), bout);
+});
+
+t('ENH-54 : aucune carte de Réglages n\'affiche plus d\'un long paragraphe d\'aide', () => {
+  for (const mod of [null, PROFIL_POSE]) {
+    const h = app(mod).VIEWS.settings().replace(/<details class="aide"[\s\S]*?<\/details>/g, '');
+    for (const c of h.split(/(?=<div class="card">|<details class="card")/).slice(1)) {
+      const titre = (c.match(/<h2>([^<]+)|data-fold="[^"]+">([^<]+)/) || []).slice(1).find(Boolean);
+      const longs = [...c.matchAll(/<p class="note[^"]*"[^>]*>([\s\S]*?)<\/p>/g)].map(m => m[1].replace(/<[^>]+>/g, '')).filter(x => x.length > 120);
+      assert.ok(longs.length <= 1, `${titre} : ${longs.length} longs paragraphes visibles`);
+    }
+  }
+});
+
+/* ENH-54, étape 5 : les critères restés partiels. */
+/** Les volets imbriqués d'un HTML : [classe du parent, classe de l'enfant] pour chaque volet posé dans un volet. */
+function voletsDansVolets(h) {
+  const pile = [], fautes = [];
+  for (const m of h.matchAll(/<details\b([^>]*)>|<\/details>/g)) {
+    if (!m[1] && m[0] === '</details>') { pile.pop(); continue; }
+    const cls = ((m[1] || '').match(/class="([^"]*)"/) || [, ''])[1];
+    const volet = /\bvolet\b/.test(cls);
+    if (volet && pile.some(c => /\bvolet\b/.test(c))) fautes.push(cls);
+    pile.push(cls);
+  }
+  return fautes;
+}
+
+t('ENH-54 : aucun volet dans un volet, sur toutes les pages', () => {
+  /* Deux niveaux : la carte repliable (details.card, et sa forme en ligne
+     details.card.ligne pour une planète ou le profil), et le volet posé
+     dedans. La carte d'une planète portait aussi la classe volet : ses volets
+     Niveaux, Stock et « Pourquoi » étaient des volets dans un volet. */
+  const g = app(PROFIL_POSE);
+  const pages = { today: g.VIEWS.today(), empire: g.VIEWS.empire(), settings: g.VIEWS.settings(), conseils: g.conseilsHtml(g.simulateDay()) || '' };
+  for (const k of ['explore', 'colony', 'fleet', 'defense', 'moon', 'server']) { g.S.ui.tool = k; pages['tools:' + k] = g.VIEWS.tools(); }
+  for (const [nom, h] of Object.entries(pages)) assert.deepEqual(voletsDansVolets(h), [], nom);
+  assert.match(pages.empire, /<details class="card ligne" data-pi="0"/);
+  assert.deepEqual(voletsDansVolets('<details class="volet"><details class="volet"></details></details>'), ['volet'], 'le contrôle mord');
+});
+
+t('ENH-54 : un oui/non est un interrupteur ; une case reste pour choisir dans une liste', () => {
+  /* Restent des cases : choisir des éléments d'une liste (formes de vie,
+     focus, coffres-forts, jours du rappel, planètes de « Poser sur toutes »),
+     et la forme de vie lue sur les planètes, affichée cochée et grisée. */
+  const LISTES = ['data-lf=', 'data-pfocus=', 'data-secu-vault=', 'data-secu-jour=', 'data-posep=', 'checked disabled', 'id="${id}" ${attr}'];
+  const fs = require('fs'), path = require('path');
+  const src = ['app.js', 'src/flotte/cible.js', 'src/meteo.js', 'profils.js'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n');
+  const cases = [...src.matchAll(/<input[^>]*type="checkbox"[^>]*>/g)].map(m => m[0]);
+  const fautes = cases.filter(c => !/class="[^"]*\binterrupteur\b/.test(c) && !LISTES.some(x => c.includes(x)));
+  assert.deepEqual(fautes, []);
+  for (const a of ['data-rg-on=', 'data-regoff=', 'id="rdSafe"', 'data-cf="manque"', 'data-centre=']) assert.ok(cases.some(c => c.includes(a) && c.includes('interrupteur')), a);
+  const css = CSS();
+  assert.match(css, /label\.f\.bascule input,input\.interrupteur\{/, 'même dessin que la bascule');
+  assert.match(css, /label\.f\.bascule input:checked::after,input\.interrupteur:checked::after\{/);
+});
+
+t('ENH-54 : les aides longues d\'Outils attendent derrière « En savoir plus »', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  assert.match(src, /aide\('cotransport', '<p class="note">Les transporteurs partent après/);
+  const fl = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'flotte', 'cible.js'), 'utf8');
+  assert.match(fl, /<p class="note">Ce que chaque planète devrait avoir pour lancer une expédition et lever son stock seule le soir\.<\/p>\s*\$\{aide\('flottecible'/);
+});
+
 /* ENH-54, étape 1 : une seule échelle de styles. Ces deux vérifications
    empêchent les écarts de revenir un par un, ce qui les avait fait naître. */
 const sansCommentaires = css => css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -14568,7 +14654,7 @@ t('ENH-54 : un seul style de volet, déclaré une seule fois', () => {
   assert.doesNotMatch(css, /Ouvrir \+/, 'plus de second indicateur');
   // Chaque repli du panneau est une carte ou un volet (le sélecteur de défense et le « comment faire » d'une carte d'action exceptés).
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
-  const nus = (src.match(/<details(?![^>]*class="[^"]*\b(?:card|volet|defpick|how)\b)[^>]*\$\{fold/g) || []);
+  const nus = (src.match(/<details(?![^>]*class="[^"]*\b(?:card|volet|defpick|how|aide)\b)[^>]*\$\{fold/g) || []);
   assert.deepEqual(nus, [], 'volets sans style : ' + nus.join(' '));
 });
 
