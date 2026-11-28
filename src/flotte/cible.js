@@ -27,7 +27,8 @@ import {
 } from './vaisseaux.js';
 import { projectResources } from '../plan/journee.js';
 import { secu, prochaineHeure, attaquesEntrantes, transportSuggere } from '../securite/securite.js';
-import { production, mse, stockNow, tab, aide } from '../../app.js';
+import { tab } from '../vues/navigation.js';
+import { production, mse, stockNow, aide } from '../../app.js';
 
 /** Les transporteurs : ce qui compte dans la soute du soir. */
 const FC_SOUTE = ['lc', 'sc'];
