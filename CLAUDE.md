@@ -1,106 +1,98 @@
-# Copilote OGame — consignes pour Claude Code
+<!-- Fichier lu au début de chaque session Claude Code. Le garder sous 150 lignes :
+     les procédures vont dans .claude/skills/, les règles par fichier dans .claude/rules/,
+     les règles sans exception dans les hooks de .claude/settings.json. -->
+
+# Copilote OGame
 
 Extension Chrome MV3 en **lecture seule** : elle lit les pages d'OGame et dit au
 joueur quoi faire ensuite. Elle ne clique jamais, n'envoie jamais rien au jeu.
-Deux joueurs l'utilisent et la font évoluer, chacun avec ses sessions Claude Code.
+Deux joueurs la développent, chacun avec ses sessions Claude Code.
 
-## Règles non négociables
+## Règles du projet
 
-- **Lecture seule.** Aucune action de jeu, aucune requête vers le serveur du jeu
-  au nom du joueur, aucune navigation qui ne parte pas d'un clic du joueur.
-  Risque de bannissement : en cas de doute, on ne le fait pas.
+- **Lecture seule.** Aucune action de jeu, aucune requête au serveur du jeu au nom
+  du joueur, aucune navigation qui ne parte pas d'un clic du joueur. Risque de
+  bannissement : en cas de doute, on ne le fait pas.
 - **Aucun appel réseau vers un tiers.** Seule l'API publique d'OGame
   (`serverData.xml`, `players.xml`, `universe.xml`, `highscore.xml`) est lue.
-- **Aucune dépendance, aucun outil de compilation.** JavaScript brut, modules ES.
-- **Français** pour l'interface, les commentaires, les messages de commit et les PR.
+- **Aucune dépendance, aucun outil de compilation** : JavaScript brut, modules ES.
+  Pas de `package.json`.
+- **Français** pour l'interface, les commentaires, les commits et les PR.
   Un commentaire dit *pourquoi*, jamais *quoi*.
-- **ADR 0001** (`docs/adr/0001-identite-de-planete.md`) : une planète se désigne
-  par son `id` local. Le `gid` du jeu n'apparaît qu'aux frontières.
-- **Vocabulaire** : `GLOSSARY.md` fait foi. Une « cible » dans une issue
-  (niveau visé par le joueur) est une **priorité** dans le code (`S.prio`).
-  Ne pas la confondre avec les cibles de pillage (Outils › Cibles).
+- **Une planète se désigne par son `id` local** (ADR `docs/adr/0001-identite-de-planete.md`).
+  Le `gid` du jeu n'apparaît qu'aux frontières.
+- **Pas de seuil, durée ou ratio en dur** quand il peut vivre dans `rules.json`
+  ou dans les Réglages.
+
+## Vocabulaire
+
+`GLOSSARY.md` fait foi. Pièges fréquents :
+- Une **cible** dans une issue (niveau visé par le joueur) est une **priorité**
+  dans le code (`S.prio`, `prios()`).
+- Outils › **Cibles** désigne les cibles de **pillage** (`explore`, `raidTargets`) :
+  rien à voir.
 
 ## Commandes
 
 ```sh
-node test/run.js      # toutes les vérifications ; doit passer à chaque commit
+node test/run.js      # toutes les vérifications, environ 1 minute ; doit passer à chaque commit
 ./pack.sh             # construit dist/, le dossier que Chrome charge
 ```
 
-La CI (`.github/workflows/tests.yml`) relance `node test/run.js` sur chaque PR.
+La CI relance `node test/run.js` sur chaque PR. Un hook bloque tout `git push`
+quand les tests échouent ou que la cible est `main`.
 
 ## Où vit le code
 
-- `app.js` : le panneau (état, moteur du plan, rendu). **En cours de découpage**
-  vers `src/` (issue #49) : avant d'ajouter une fonction dans `app.js`, vérifier
-  si son domaine a déjà un module (`src/core`, `src/flotte`, `src/defense`,
-  `src/regles`, `src/securite`, `src/meteo.js`).
-- `content.js` : lecture des pages du jeu et marquages sur les tuiles.
+- `app.js` : le panneau. **En cours de découpage vers `src/`** (issue #49) :
+  avant d'ajouter une fonction dans `app.js`, regarder si son domaine a un module.
+- `src/core` (état, formules, temps), `src/plan` (plan du jour, priorités, nuit,
+  missions, vocations), `src/flotte`, `src/defense`, `src/formes-de-vie`,
+  `src/regles` (moteur de règles), `src/securite`, `src/meteo.js`.
+- `content.js` : lecture des pages du jeu (règles dans `.claude/rules/content-js.md`).
 - `background.js`, `boot.js` : service worker et démarrage.
-- `rules.json` : règles du moteur et leurs paramètres. Pas de seuil en dur dans
-  le code quand il peut vivre ici.
-- `test/` : `run.js` (moteur), `page.js` (content.js contre un DOM réduit).
+- `rules.json` : règles du moteur et leurs paramètres.
+- `test/run.js` (moteur), `test/page.js` (`content.js` contre un DOM réduit).
 - `docs/superpowers/specs/` et `plans/` : conception et plans des grosses évolutions.
 
-## Une issue, de bout en bout
+## Façon de travailler
 
-1. **Lire l'issue en entier**, sections « Recoupement avec l'existant » et
-   « Pistes techniques » comprises. Vérifier les numéros de ligne cités : ils
-   vieillissent vite pendant le découpage d'`app.js`.
-2. **Partir de `main` à jour** : `git fetch origin && git switch -c <branche> origin/main`.
-   - Branche : `enh-70-transport-palier`, `iss-72-onglet-journee`.
-   - Une issue = une branche = un worktree = une session.
-3. **Regarder les PR ouvertes** (`gh pr list`) et les fichiers qu'elles touchent.
-   Si une PR ouverte modifie les mêmes zones, s'arrêter et le dire avant de coder.
-4. **Gros changement** (plusieurs fichiers, nouveau comportement) : écrire d'abord
-   un plan dans `docs/superpowers/plans/AAAA-MM-JJ-<sujet>.md`, le faire valider.
-5. **Tests d'abord** : écrire le test qui échoue, puis le code. Chaque test est
-   validé par mutation : saboter le code gardé, vérifier que le test échoue,
-   remettre le code. Les vérifications existantes ne se modifient pas pour
-   faire passer un changement : si l'une casse, c'est la conception qui est fautive.
-6. **Petits commits**, chacun avec `node test/run.js` vert.
-7. **Avant d'ouvrir la PR** : `git fetch origin && git rebase origin/main`, tests,
-   puis **monter la version une seule fois**, dans un dernier commit :
-   `APP_VERSION` (`app.js`) et `"version"` (`manifest.json`) ensemble.
-   Correctif → patch (2.20.1), amélioration → mineure (2.21.0).
-8. **PR** : titre `ENH-70 : <ce que ça change>` ou `ISS-72 : <ce que ça corrige>`,
-   corps avec `Closes #70`, ce qui change pour le joueur, et comment le tester.
-   Une PR = une issue. Si la PR attend et que `main` bouge, rebaser et
-   remonter la version au-dessus de celle de `main`.
+- **Traiter une issue** : suivre le skill `traiter-issue` (`.claude/skills/traiter-issue/`).
+- **Créer une issue** : `/creer-issue`, avec les modèles de `.github/ISSUE_TEMPLATE/`.
+  Titre `ISS-<n> …` (anomalie, label `bug`) ou `ENH-<n> …` (amélioration,
+  label `enhancement`), `<n>` étant le numéro GitHub.
+- **Une issue = une branche = une PR.** Branche `enh-<n>-<sujet>` ou `iss-<n>-<sujet>`,
+  partie de `origin/main` à jour. Titre de PR `ENH-<n> : …`, corps avec `Closes #<n>`.
+- **Tests d'abord**, validés par mutation (saboter le code, voir le test échouer,
+  remettre le code). Les vérifications existantes ne se modifient pas pour faire
+  passer un changement.
+- **Gros changement** : un plan dans `docs/superpowers/plans/`, validé avant de coder.
+- **Version** : `APP_VERSION` (`app.js`) et `"version"` (`manifest.json`) montés
+  ensemble, **une seule fois, au dernier commit de la PR**, après rebase sur `main`.
+  Correctif : patch. Amélioration : mineure.
+- **Doute ou contradiction** entre l'issue et le code : s'arrêter et demander,
+  plutôt que choisir seul.
 
 ## Travailler à plusieurs sans conflits
 
 - **Fichiers chauds** : `app.js`, `panel.css`, `sidepanel.html`, `rules.json`,
-  `manifest.json`. Deux branches qui touchent la même zone d'un fichier chaud
-  ne tournent pas en parallèle : on les enchaîne, ou on les regroupe.
-- **Issues d'interface** (onglets, en-tête, cartes) : en série, ou sur une seule
-  branche avec un commit par issue.
-- **Issues de moteur** (calcul du plan, transports, règles) : peuvent avancer en
-  parallèle des issues d'interface si elles ne touchent pas les mêmes fonctions.
-- **Pendant le découpage d'`app.js` (#49)** : pas de nouvelle branche qui touche
-  `app.js` avant que l'étape en cours soit fusionnée. Sinon chaque fonction
-  déplacée devient un conflit.
-- **La version** est la source de conflit la plus fréquente : elle ne se monte
-  qu'au dernier commit de la PR, jamais dans les commits intermédiaires.
-- Rebaser souvent sur `main` ; ne jamais fusionner `main` dans une branche.
-
-## Issues
-
-- Titre : `ISS-<numéro> <description courte>` pour une anomalie,
-  `ENH-<numéro> <description courte>` pour une amélioration. Le numéro est celui
-  de GitHub : on crée l'issue, puis on ajuste le titre.
-- Label : `bug` pour ISS, `enhancement` pour ENH.
-- Corps : le modèle du projet (Objectif, Contexte, Recoupement avec l'existant,
-  Comportement attendu, Règles de calcul, Données d'entrée, Critères
-  d'acceptation, Hors périmètre, Contraintes, Pistes techniques, Comment tester, Liens).
-- Captures d'écran : sur la branche `issue-assets`, dossier `captures/`,
-  nommées `issue-<numéro>-<sujet>.png`.
+  `manifest.json`. Deux branches qui touchent la même zone ne tournent pas en
+  parallèle : on les enchaîne ou on les regroupe.
+- **Issues d'interface** (onglets, en-tête, cartes) : en série.
+  **Issues de moteur** (plan, transports, règles) : en parallèle si elles ne
+  touchent pas les mêmes fonctions.
+- **Pendant le découpage d'`app.js` (#49)** : pas de nouvelle branche sur `app.js`
+  avant la fusion de l'étape en cours.
+- Sessions en parallèle : une par worktree (`claude -w <branche>`).
+- Rebaser sur `main` (`git rebase origin/main`), ne jamais fusionner `main` dans une branche.
 
 ## Ne pas faire
 
-- Ajouter une bibliothèque, un bundler ou un `package.json`.
-- Écrire dans le DOM du jeu autre chose que les marquages déjà prévus par `content.js`.
+- Pousser sur `main`, forcer un push, réécrire l'historique de `main`.
+- Écrire dans le DOM du jeu autre chose que les marquages prévus par `content.js`.
 - Lancer une navigation, un envoi de flotte ou un clic à la place du joueur.
-- Coder un seuil, une durée ou un ratio en dur quand il peut vivre dans `rules.json`
-  ou dans les Réglages.
-- Pousser directement sur `main`.
+- Ajouter une bibliothèque, un bundler ou un `package.json`.
+
+## Notes personnelles
+
+Chacun peut ajouter ses préférences locales dans `CLAUDE.local.md` (ignoré par git).
