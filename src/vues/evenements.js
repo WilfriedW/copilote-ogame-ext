@@ -43,8 +43,9 @@ import {
   setCardMode, CARTES_DEF, cartesVal, voirPlusCle, voirPlusOuvert,
   garderVue
 } from './navigation.js';
+import { pushLook } from './page-du-jeu.js';
 import {
-  save, planetById, forgetPlanet, toast, pushLook, render, refresh, timeExport,
+  save, planetById, forgetPlanet, toast, render, refresh, timeExport,
   defPersoLive, TOOLS, VIEWS, REFRESH, on, msg, appliqueSauvegarde,
   publieLePlan
 } from '../../app.js';

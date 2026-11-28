@@ -46,9 +46,10 @@ import { conseilLignes, conseilsHtml } from './conseils.js';
 import {
   uiVu, fold, RESUMES, resumeDe, cardLayout, cartesMenu, listeCartes
 } from './navigation.js';
+import { gameSkin } from './page-du-jeu.js';
 import {
-  planetById, prioLfEtat, gameSkin, ignKey, SEV_LABEL, copyChips, whyParts,
-  actHtml, rebours, noBtn, noListe, aide, actsVus, on
+  planetById, prioLfEtat, ignKey, SEV_LABEL, copyChips, whyParts, actHtml,
+  rebours, noBtn, noListe, aide, actsVus, on
 } from '../../app.js';
 const prioRangHtml = (kind, pid, k) => { const r = prioOrdre(kind, pid, k); return r ? ` <span class="note">rang ${r.i + 1} sur ${r.n}</span>` : ''; };
 /* L'état d'une ligne est celui que le plan lui a donné à la première session,
