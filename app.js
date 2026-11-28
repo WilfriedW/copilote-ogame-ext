@@ -2,6 +2,7 @@
    domaine : il importe ce que les modules sortis de lui fournissent, et
    n'exporte que ce que la météo et la flotte cible lui empruntent (liste en
    fin de fichier). */
+import { calePlanete, parseProdPanel, bridage, production } from './src/economie/production.js';
 import { expoSain, expoJournal, expoMessages } from './src/flotte/expeditions.js';
 import { saveFailed, save, prioIn, syncApply, syncNettoie } from './src/synchro/synchro.js';
 import { sample, newPlanet, S, remplaceEtat } from './src/core/etat.js';
@@ -14,9 +15,6 @@ import {
 import {
   DEF_MODELES, DEF_RATIO, DEF_PALIERS, defModele, DEF_DUREES, DEF_PLANCHERS
 } from './src/defense/defense.js';
-import {
-  LF_READ_TTL, parseProdPanel, prodOf, bridage, production
-} from './src/economie/production.js';
 import {
   lfMetEnCommun, lfMerge, raceDeSerie, lfNomsRetiens, LIFEFORMS,
   speciesOfPlanet
@@ -392,40 +390,6 @@ function publieLePlan(){
 }
 
 
-/**
- * Cale une planète sur ce que le panneau de production affiche : d'abord son
- * solde d'énergie (eAdj), puis sa production horaire (pAdj). Même mesure dans
- * les deux cas — on remet l'écart à zéro pour que production() rende le chiffre
- * du moteur seul, et ce qui reste est ce qu'il ne sait pas expliquer : la
- * consommation des formes de vie déjà bâties, une mine bridée à la main, un
- * bonus que la formule ignore.
- * Sans effet si la planète est inconnue, la lecture a plus de sept jours ou
- * l'énergie libre est illisible. Une lecture ne cale qu'une fois (eAdjAt) : le
- * panneau et les niveaux viennent de la même visite, et une relecture plus tard
- * effacerait le coût des niveaux montés depuis.
- * @param {object|undefined} p planète de S.planets
- */
-function calePlanete(p){
-  const r = prodOf(p);
-  const free = r && r.energy && r.energy.free;
-  if(!Number.isFinite(free) || !(Date.now() - r.at < LF_READ_TTL) || p.eAdjAt === r.at) return;
-  const borne = x => Math.min(Math.max(x, -1e9), 1e9);
-  p.eAdjAt = r.at;
-  p.eAdj = 0;
-  p.eAdj = borne(free) - production(p).eBal;
-  /* Puis les trois ressources, sur « Total par heure » — le chiffre que le
-     joueur a sous les yeux. L'énergie d'abord : elle décide du facteur, donc
-     de la production. La formule connaît les niveaux, le plasma, la classe et
-     les formes de vie ; elle ignore le reste, et c'est ce reste qu'on mesure.
-     Comme pour l'énergie, la mesure se fait à écart nul, et une seule fois par
-     lecture — sinon la relecture d'un vieux panneau effacerait la mine montée
-     depuis. */
-  const t = r.perHour;
-  if(!Array.isArray(t) || !t.every(x => Number.isFinite(x))) return;
-  p.pAdj = [0,0,0];
-  const f = production(p);
-  p.pAdj = [borne(t[0]) - f.m, borne(t[1]) - f.c, borne(t[2]) - f.d];
-}
 
 /* ---------- live sync from the extension ---------- */
 /** Merges the game state collected by the content script into the panel state. */
