@@ -452,7 +452,9 @@ de règles) et `src/defense/defense.js` (pièces, modèles de défense, manque
 face au modèle), `src/flotte/vaisseaux.js` (vaisseaux, vols, flottes en
 mouvement) et `src/flotte/expeditions.js` (cadre, créneaux et journal des
 expéditions), `src/securite/securite.js` (mise à l'abri, attaques
-entrantes, plan de sécurité). `app.js` se découpe ainsi, un domaine
+entrantes, plan de sécurité) et `src/formes-de-vie/formes-de-vie.js`
+(espèces, coût des cases, paliers de population, règles propres aux formes
+de vie). `app.js` se découpe ainsi, un domaine
 par PR (issue #49), jusqu'à disparaître. `ids.js` et `profils.js` restent des
 scripts classiques. Les tests mettent les modules à plat dans une seule portée
 (`test/modules.js`) et vérifient à part les imports, les doublons, les cycles
