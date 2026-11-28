@@ -8713,7 +8713,7 @@ t('l\'onglet Lune garde le calculateur, sans les champs du mode', () => {
 t('la campagne de lune ne voyage plus, et son reste est effacé du stockage partagé', () => {
   const g = app();
   assert.ok(!('sy:lune' in g.syncOut()));
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'synchro', 'synchro.js'), 'utf8');
   assert.match(src, /chrome\.storage\.sync\.remove\('sy:lune'\)/, 'syncNettoie efface la clé orpheline');
 });
 

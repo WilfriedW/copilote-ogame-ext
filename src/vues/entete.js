@@ -16,8 +16,9 @@ import { lfBloquee, lfCost } from '../formes-de-vie/formes-de-vie.js';
 import { goUrl } from '../jeu/liens.js';
 import { wakeTime } from '../plan/nuit.js';
 import { REGLES_ERR } from '../regles/moteur.js';
+import { syncFailed } from '../synchro/synchro.js';
 import { tab } from './navigation.js';
-import { save, toast, render, habillage, on, syncFailed } from '../../app.js';
+import { save, toast, render, habillage, on } from '../../app.js';
 
 /* ---------- fraîcheur du relevé ---------- */
 /* Le copilote ne requête jamais le jeu : il lit la page que le joueur a sous

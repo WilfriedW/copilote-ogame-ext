@@ -15,7 +15,8 @@
 import { KEY, S } from '../core/etat.js';
 import { esc } from '../core/format.js';
 import { visibleTimers } from '../minuteurs/minuteurs.js';
-import { render, TOOLS, bascule, on, syncFailed } from '../../app.js';
+import { syncFailed } from '../synchro/synchro.js';
+import { render, TOOLS, bascule, on } from '../../app.js';
 
 /* ---------- views ---------- */
 export const view = document.getElementById('view');
