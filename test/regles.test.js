@@ -317,8 +317,4 @@ module.exports = ({ t, assert, app, appRegles, loadApp, fixtureState, lu, SOIR, 
     assert.ok(ms < 50, ms.toFixed(1) + ' ms');
   });
 
-  t('la carte du jour ne dit plus « Hors plan : formes de vie »', () => {
-    const g = app(); g.REFRESH.today();
-    assert.ok(!/Hors plan/.test(g.el('tdDay').innerHTML));
-  });
 };

@@ -166,7 +166,6 @@ export const CARTES = {
     {cardId:'alertes', titre:'Alertes', fixe:false, getSummary:()=>RESUMES.alertes},
     {cardId:'securite', titre:'Sécurité', fixe:true, getSummary:()=>RESUMES.securite},
     {cardId:'expeditions', titre:'Expéditions', fixe:true, getSummary:()=>RESUMES.expeditions},
-    {cardId:'journee', titre:'Ta journée', fixe:true},
     {cardId:'minuteurs', titre:'Minuteurs', fixe:true, getSummary:()=>{
       const v = visibleTimers(), now = Date.now();
       return v.length ? {count:v.length, maxLevel: v.some(t=>t.done || t.end<=now) ? 'imp' : 'info', critiques:[]} : null;

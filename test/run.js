@@ -3723,25 +3723,7 @@ t('pas de pastille quand aucune foreuse n\'est possible', () => {
     'plafond nul : rien à dire');
 });
 
-/* ---------- le fil du debut de partie ---------- */
 
-t('le bloc de progression nomme la prochaine etape', () => {
-  const g = app(s => { s.planets[0].b.lab = 2; s.tech.impulse = 0; });
-  g.REFRESH.today();
-  const html = g.html().tdDay || '';
-  assert.ok(/Prochaine étape/.test(html), 'le bloc doit être rendu : ' + html.slice(0, 300));
-  assert.ok(/\d+\s*\/\s*11/.test(html), 'et porter le compte sur onze');
-});
-
-t('les jalons franchis dans le desordre comptent quand meme', () => {
-  // Astro 3 est tenu, Ordinateur 2 aussi, mais le labo est à 2 : le compte
-  // doit refléter ce qui est franchi, pas l'indice du premier manquant.
-  const g = app(s => { s.planets[0].b.lab = 2; });
-  g.REFRESH.today();
-  const m = /(\d+)\s*\/\s*11/.exec(g.html().tdDay || '');
-  assert.ok(m, 'le compte doit être rendu');
-  assert.ok(+m[1] >= 9, 'neuf jalons au moins sont franchis ici, et non 7 : ' + (m && m[1]));
-});
 
 /* ---------- les alertes ne dependent plus d'un second moteur ---------- */
 /* Elles sortaient d'adviceList, moteur parallèle que simulateDay et
@@ -3965,15 +3947,6 @@ t('la carte Alertes affiche ce que le moteur produit', () => {
   assert.ok(!/au plafond/.test(html), 'sans se répéter dans les conseils');
 });
 
-t('tous les jalons franchis, le bloc disparait', () => {
-  const g = app(s => {
-    Object.assign(s.planets[0].b, { lab: 3, robot: 2, shipyard: 2 });
-    Object.assign(s.tech, { energy: 3, combustion: 4, espionage: 4, computer: 2, impulse: 3, astro: 3 });
-  });
-  g.REFRESH.today();
-  assert.ok(!/Début de partie/.test(g.html().tdDay || ''),
-    'rien à afficher quand les onze sont franchis');
-});
 
 /* ---------- le délai de retour d'une colonie est simulé ---------- */
 
@@ -10421,11 +10394,11 @@ t('« Comment faire » ouvert le reste quand ses propres montants changent', () 
 });
 
 t("l'état est lu avant le premier dessin, depuis le stockage du poste", () => {
-  const g = app(s => { s.__ui = {etats: {journee: 'open', expeditions: 'closed', bidon: 'peut-être'}, vus: {}}; });
-  assert.equal(g.uiOuvert('journee', false), true);
+  const g = app(s => { s.__ui = {etats: {minuteurs: 'open', expeditions: 'closed', bidon: 'peut-être'}, vus: {}}; });
+  assert.equal(g.uiOuvert('minuteurs', false), true);
   assert.equal(g.uiOuvert('expeditions', true), false, 'le choix enregistré bat le défaut');
   assert.equal(g.UI.etats.bidon, undefined, 'une valeur inconnue est ignorée');
-  assert.match(g.VIEWS.today(), /<details class="card" open><summary data-fold="journee">/);
+  assert.match(g.VIEWS.today(), /<details class="card" open><summary data-fold="minuteurs">/);
 });
 
 t('une carte fixe est globale : sa clé ne porte pas la planète', () => {
@@ -10751,8 +10724,8 @@ t('cartes : le mode empilé, choisi, n\'a ni barre ni masquage', () => {
   const h = g.VIEWS.today();
   assert.ok(!/en-onglets|carteTabs/.test(h), 'rien du mode onglets');
   assert.ok(!/<div class="carte"[^>]* hidden/.test(h), 'aucune carte masquée');
-  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions', 'journee', 'minuteurs']);
-  for (const id of ['tdNow', 'tdAlerts', 'expoBloc', 'tdDay', 'tmList']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là');
+  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions', 'minuteurs']);
+  for (const id of ['tdNow', 'tdAlerts', 'expoBloc', 'tmList']) assert.ok(h.includes(`id="${id}"`), id + ' toujours là');
 });
 t('cartes : un mode inconnu retombe sur les onglets, le défaut', () => {
   assert.ok(/en-onglets/.test(appCartes('grille').VIEWS.today()));
@@ -10762,7 +10735,7 @@ t('cartes : un mode inconnu retombe sur les onglets, le défaut', () => {
 t('cartes : en onglets, une barre .seg en tête, les cartes dans le même ordre', () => {
   const h = appCartes('tabs').VIEWS.today();
   assert.ok(/<section class="panel en-onglets" data-disposition="today"><div class="seg" role="tablist" id="carteTabs"/.test(h));
-  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions', 'journee', 'minuteurs']);
+  assert.deepEqual(ordreCartes(h), ['profil', 'attaque', 'maintenant', 'surplus', 'alertes', 'securite', 'expeditions', 'minuteurs']);
 });
 t('cartes : une carte ne sait pas dans quel mode elle est montrée', () => {
   const pile = appCartes('stacked').VIEWS.today();
@@ -10805,7 +10778,7 @@ t('cartes : une carte dynamique vide n\'a pas d\'onglet, une fixe toujours', () 
   g.RESUMES.maintenant = g.resumeDe([], 'maintenant');
   let ids = g.cartesPresentes('today').map(x => x.c.cardId);
   assert.ok(!ids.includes('alertes'), 'pas d\'alerte, pas d\'onglet');
-  assert.deepEqual(ids, ['profil', 'maintenant', 'securite', 'expeditions', 'journee', 'minuteurs'], 'pas d\'attaque, pas d\'onglet Attaque');
+  assert.deepEqual(ids, ['profil', 'maintenant', 'securite', 'expeditions', 'minuteurs'], 'pas d\'attaque, pas d\'onglet Attaque');
   g.RESUMES.alertes = g.resumeDe([{sev: 'warn'}], 'alertes');
   ids = g.cartesPresentes('today').map(x => x.c.cardId);
   assert.equal(ids[2], 'alertes', 'à sa place dans l\'ordre de la pile');
@@ -10856,6 +10829,31 @@ t('cartes : les onglets ne lancent rien dans le jeu', () => {
   const g = appCartes('tabs');
   const h = g.segTabs(g.CARTES.today.map(c => [c.cardId, c.titre, null]), 'data-carte-tab', 'maintenant');
   assert.ok(!/data-launch|data-sent|data-prep|href/.test(h));
+});
+
+/* ISS-72 : « Ta journée » sort d'Aujourd'hui pour que « Minuteurs » tienne dans la barre. */
+t('ISS-72 : plus de carte « Ta journée », ni en onglets ni empilée', () => {
+  for (const mode of ['tabs', 'stacked']) {
+    const h = appCartes(mode).VIEWS.today();
+    assert.ok(!ordreCartes(h).includes('journee'), mode + ' : ' + ordreCartes(h).join(','));
+    assert.ok(!/Ta journée|id="tdDay"/.test(h), mode + ' : plus rien de la carte');
+  }
+  const g = appCartes('tabs');
+  assert.ok(!g.CARTES.today.some(c => c.cardId === 'journee'), 'plus déclarée');
+});
+t('ISS-72 : un onglet retenu sur « Ta journée » rouvre sur le défaut', () => {
+  const s = fixtureState(); s.planets.forEach(p => { p.stock.at = SOIR; }); s.profil = Object.assign(s.profil || {}, {set: true});
+  s.__win = {__cardLayout: 'tabs', __cardTab: {today: 'journee'}};
+  const g = loadApp(s, SOIR, ['cartesPresentes', 'ongletAffiche', 'cardTabs']);
+  assert.deepEqual(g.cardTabs, {today: 'journee'}, 'le vieux choix est bien relu');
+  const ids = g.cartesPresentes('today').map(x => x.c.cardId);
+  assert.equal(g.ongletAffiche(ids, undefined, 'journee', 'maintenant'), 'maintenant');
+});
+t('ISS-72 : le rafraîchissement d\'Aujourd\'hui tourne sans la carte, et les minuteurs suivent', () => {
+  const g = app(s => { s.timers = [{id: 't1', label: 'Mine de métal', end: SOIR + 3600e3}]; });
+  g.el('tmList').innerHTML = '';
+  g.REFRESH.today();
+  assert.ok(/fin à/.test(g.el('tmList').innerHTML), 'renderTimers() est toujours appelé : ' + g.el('tmList').innerHTML);
 });
 
 /* ---------- combien de cartes par liste ---------- */
@@ -11549,7 +11547,7 @@ t('ENH-54 : « Modifier » et les renvois ouvrent le sous-onglet, retenu comme u
   assert.equal(g.cardTabs.settings, 'affichage', 'un sous-onglet inconnu ne change rien');
   const src = ['app.js', 'src/vues/aujourdhui.js', 'src/vues/defense.js'].map(f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8')).join('\n');
   const gotos = [...src.matchAll(/data-goto="([^"]+)"/g)].map(m => m[1]);
-  assert.deepEqual(gotos, ['settings:defense', 'settings:jeu', 'settings:defense']);
+  assert.deepEqual(gotos, ['settings:defense', 'settings:defense']);
 });
 
 /* ENH-54, étape 3 : Empire en sous-onglets, Aujourd'hui en onglets par défaut. */
