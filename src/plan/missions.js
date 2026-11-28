@@ -39,8 +39,8 @@ import {
   pickCargo, FS_MISSION, FS_MISSION_N, partAbri, fleetsavePlan,
   cargoGaps, secu, prochaineHeure
 } from '../securite/securite.js';
+import { save } from '../synchro/synchro.js';
 import { occupied } from '../univers/univers.js';
-import { save } from '../../app.js';
 /**
  * Les sources d'énergie posables sur cette planète, chiffrées, de la moins
  * chère à la plus chère par point d'énergie.

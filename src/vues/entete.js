@@ -17,8 +17,9 @@ import { goUrl } from '../jeu/liens.js';
 import { wakeTime } from '../plan/nuit.js';
 import { REGLES_ERR } from '../regles/moteur.js';
 import { syncFailed } from '../synchro/synchro.js';
+import { save } from '../synchro/synchro.js';
 import { tab, view, habillage } from './navigation.js';
-import { save, toast, render, on } from '../../app.js';
+import { toast, render, on } from '../../app.js';
 
 /* ---------- fraîcheur du relevé ---------- */
 /* Le copilote ne requête jamais le jeu : il lit la page que le joueur a sous
