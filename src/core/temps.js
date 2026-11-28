@@ -4,8 +4,9 @@
    décalage du serveur que le script de page relève (`S.srvTz`).
 
    Le mode des heures (`timeMode`) vit ici ; un autre module le lit mais ne
-   le réassigne pas : setTimeMode (app.js), qui enregistre le choix et
-   redessine, passe par poseModeHeure. */
+   le réassigne pas : setTimeMode (src/vues/entete.js), qui enregistre le
+   choix et redessine, passe par poseModeHeure. Les quatre champs horaires
+   d'un export (`timeExport`) vivent ici aussi. */
 import { S } from './etat.js';
 
 export function dur(sec){ if(!isFinite(sec)) return 'jamais'; sec=Math.max(0,Math.round(sec)); const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), m=Math.floor(sec%3600/60), s=sec%60; if(d) return `${d}j ${h}h`; if(h) return `${h}h ${String(m).padStart(2,'0')}m`; if(m) return `${m}m ${String(s).padStart(2,'0')}s`; return `${s}s`; }
@@ -87,3 +88,15 @@ export function timeTitle(ms){
 
 /** Change le mode des heures (déjà normalisé) et oublie les heures écrites dans l'ancien. */
 export function poseModeHeure(m){ timeMode = m; timeSeen.clear(); }
+/** Les quatre champs horaires de l'export : les deux heures, toujours, quel que soit le mode. */
+export function timeExport(ms){
+  const off = srvOffSec(), loc = new Date(ms);
+  const full = c => `${c.y}-${p2(c.mo+1)}-${p2(c.d)} ${p2(c.h)}:${p2(c.mi)}:${p2(c.s)}`;
+  return {
+    serverTime: off == null ? null : full(clockParts(ms, 'server')),
+    localTime: full(clockParts(ms, 'local')),
+    localTimeZone: LOCAL_TZ,
+    // heure serveur − heure locale, en minutes : les fuseaux vont par quart d'heure
+    serverOffsetMinutes: off == null ? null : Math.round((off/60 + loc.getTimezoneOffset()) / 15) * 15
+  };
+}
