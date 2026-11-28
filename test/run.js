@@ -11534,7 +11534,7 @@ t('ENH-54 : tout renvoi écrit dans le panneau mène quelque part', () => {
      pas pourquoi celui-ci ne se clique pas. Un nouveau nom de groupe ou
      d'outil doit s'ajouter à renvoiCible. */
   const g = appReglages();
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = ['app.js', ...require('./modules').ordre('src/main.js').filter(f => f !== 'app.js')].map(f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8')).join('\n');
   const perdus = [...src.matchAll(g.RENVOI_RE)].filter(m => !g.renvoiCible(m[1], m[2])).map(m => m[0]);
   assert.deepEqual([...new Set(perdus)], []);
 });
@@ -11665,7 +11665,7 @@ const sansCommentaires = css => css.replace(/\/\*[\s\S]*?\*\//g, '');
 t('ENH-54 : aucun style en ligne dans le panneau, hors couleur de planète', () => {
   /* 97 attributs style="…" faisaient chacun leur espacement. Le seul qui
      reste porte une valeur calculée : la couleur de la planète (--pc). */
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = ['app.js', ...require('./modules').ordre('src/main.js').filter(f => f !== 'app.js')].map(f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8')).join('\n');
   const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'sidepanel.html'), 'utf8');
   const styles = (src + html).match(/style="[^"]*"/g) || [];
   assert.deepEqual(styles.filter(x => !x.startsWith('style="--pc:')), [], 'styles en ligne : ' + styles.join(' '));
@@ -11692,7 +11692,7 @@ t('ENH-54 : un seul style de volet, déclaré une seule fois', () => {
   assert.doesNotMatch(css, /details\.card summary\{/, 'l\'ancienne règle en double a disparu');
   assert.doesNotMatch(css, /Ouvrir \+/, 'plus de second indicateur');
   // Chaque repli du panneau est une carte ou un volet (le sélecteur de défense et le « comment faire » d'une carte d'action exceptés).
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = ['app.js', ...require('./modules').ordre('src/main.js').filter(f => f !== 'app.js')].map(f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8')).join('\n');
   const nus = (src.match(/<details(?![^>]*class="[^"]*\b(?:card|volet|defpick|how|aide)\b)[^>]*\$\{fold/g) || []);
   assert.deepEqual(nus, [], 'volets sans style : ' + nus.join(' '));
 });
