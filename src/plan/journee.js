@@ -36,16 +36,17 @@ import {
 } from '../flotte/expeditions.js';
 import { shipStats, flight, shipList, shipCourt, mouvements, fleetSlots } from '../flotte/vaisseaux.js';
 import { lfCandidates, lfSuspendu } from '../formes-de-vie/formes-de-vie.js';
+import { timerLabel } from '../minuteurs/minuteurs.js';
 import { poseHeure, isNight } from './nuit.js';
 import { prios, prioOf, prioDevant, FOCUS, FOCUS_FLOTTE } from './priorites.js';
 import { besoinEmpire, VOC_KEYS, VOC_NOM, vocations } from './vocations.js';
 import { regleActive, regleParam, regleTexte, rangNiveau, constats, repondA } from '../regles/moteur.js';
 import {
-  addBuilt, planetIndexById, rankUpgrades, planetAlerts, timerLabel,
-  COL_SHIP_COST, KITS, colShipAt, colSentNow, colBuilt, maxPlanets,
-  coloTarget, coloFleet, LF_MODE, lfMode, SHIP_COST, shipReqOk, shipTime,
-  defSurplus, tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote,
-  poidsCat, catActe
+  addBuilt, planetIndexById, rankUpgrades, planetAlerts, COL_SHIP_COST,
+  KITS, colShipAt, colSentNow, colBuilt, maxPlanets, coloTarget,
+  coloFleet, LF_MODE, lfMode, SHIP_COST, shipReqOk, shipTime, defSurplus,
+  tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote, poidsCat,
+  catActe
 } from '../../app.js';
 
 /* ---------- advice ---------- */
