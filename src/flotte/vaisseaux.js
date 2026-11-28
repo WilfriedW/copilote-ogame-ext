@@ -10,7 +10,8 @@
    et quelques formats : ce cycle-là est toléré tant qu'app.js existe, et rien
    n'y est lu au chargement. */
 import { S } from '../core/etat.js';
-import { API, fleetSpeed, fuelFactor, hyperCargoPct, fmtLigne } from '../../app.js';
+import { fmtLigne } from '../core/format.js';
+import { API, fleetSpeed, fuelFactor, hyperCargoPct } from '../core/serveur.js';
 
 export const SHIPS = {
   sc:  {n:'Petit transporteur', cargo:5000, speed:5000, drive:'combustion', fuel:10, transporter:true, bou:10},

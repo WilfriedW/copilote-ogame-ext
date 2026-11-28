@@ -12,6 +12,7 @@
    leur emprunte encore ces noms : ce cycle-là est toléré tant qu'app.js
    existe, et rien n'y est lu au chargement. */
 import { S } from '../core/etat.js';
+import { IS_EXT } from '../core/serveur.js';
 import { formatTime } from '../core/temps.js';
 import {
   parseC, distance, souteUtile, shipStats, flight, planeteEn, mouvements,
@@ -20,7 +21,7 @@ import {
 import { depensesPayables, projectResources } from '../plan/journee.js';
 import { hhmmDe, wakeTime } from '../plan/nuit.js';
 import {
-  planetById, IS_EXT, labPlanet, stockNow, debordeA, debordeTexte,
+  planetById, labPlanet, stockNow, debordeA, debordeTexte,
   autreCibleAvecPlace, fileDe, enCours, fileBat
 } from '../../app.js';
 

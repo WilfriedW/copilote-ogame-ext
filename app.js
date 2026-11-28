@@ -6,10 +6,18 @@ import {
   KEY, LUNE_DF, EXPO_FRET, sample, newPlanet, S, remplaceEtat
 } from './src/core/etat.js';
 import {
+  nf, fmtLigne, coutTexte, fmt, esc, num, costHtml, planetRef,
+  PLANET_COLORS, planetTag, planetHue, qHtml, fmtK, majus, nf1, fmtCourt
+} from './src/core/format.js';
+import {
   B, B_SHORT, T, levelCost, rangeCost, storageCap, storageLevelFor,
   crawlerMax, crawlerBonus, CRAWLER_COST, CRAWLER_ENERGY, SAT_COST,
   MINES_PCT, POS_BONUS_M, POS_BONUS_C, satEnergy
 } from './src/core/formules.js';
+import {
+  IS_EXT, API, poseApi, srv, ecoSpeed, fleetSpeed, fuelFactor,
+  researchDiv, hyperCargoPct, buildTime
+} from './src/core/serveur.js';
 import {
   dur, LOCAL_TZ, timeMode, srvOffSec, timeZoneShown, clockParts,
   JOURS_COURTS, p2, clockText, timeSeen, formatTime, timeTitle,
@@ -262,107 +270,9 @@ function migratePlanetIds(){
   if(typeof S.colo.from === 'number'){ S.colo.fromId = idAt(S.colo.from); delete S.colo.from; }
   S.v = 2;
 }
-
-const IS_EXT = !!(window.chrome && window.chrome.runtime && window.chrome.runtime.id);
-let API = window.__api || null;
-
-/* ---------- ce que le serveur sait mieux que nous ---------- */
-
-/** Un fait publié par le serveur, ou la valeur de secours. Le panneau tourne
-    aussi hors extension et avant la première réponse de l'API : le secours est
-    ce que le copilote savait faire avant de la lire. */
-function srv(cle, secours){ const v = API && API.server ? API.server[cle] : null; return v == null ? secours : v; }
-
-/** Vitesse économie : production, constructions, recherches, expéditions.
-    Le serveur la publie ; la page du jeu la pose aussi dans les réglages, et
-    c'est elle qui sert tant que l'API n'a pas répondu. */
-function ecoSpeed(){ return Math.max(1, srv('speed', S.settings.eco) || 1); }
-
-/** Vitesse des missions pacifiques : transport, colonisation, expédition,
-    recyclage. Le copilote ne chiffre pas de vol d'attaque, dont le serveur
-    publie la vitesse à part (`speedFleetWar`). */
-function fleetSpeed(){ return Math.max(1, srv('speedFleetPeaceful', S.settings.fleet) || 1); }
-
-/** Ce que le serveur fait payer en deutérium, par rapport à la formule de
-    base. Un univers à 0,6 brûle 40 % de moins que ce que la formule annonce :
-    sans ce facteur, chaque vol était surévalué et le copilote renonçait à des
-    livraisons rentables. */
-function fuelFactor(){ return Math.max(0, srv('globalDeuteriumSaveFactor', 1)); }
-
-/** Diviseur des durées de recherche, en plus de la vitesse économie. Il vaut
-    1 là où le serveur ne dit rien : la formule d'avant, inchangée. */
-function researchDiv(){ return Math.max(1, srv('researchDurationDivisor', 1)); }
-
-/** Soute gagnée par niveau d'Hyperespace, en pourcent. */
-function hyperCargoPct(){ return srv('cargoHyperspaceTechMultiplier', 5); }
-
-/* ---------- formatting ---------- */
-const nf = new Intl.NumberFormat('fr-FR');
-/** Les chiffres d'une ligne repliée, jamais abrégés. `fmt` bascule en « k » à
-    cent mille : une colonne de sept planètes qui produisent dans le même ordre
-    de grandeur y mélangeait « 112 k » et « 82 951 », deux écritures du même
-    nombre, que l'œil ne compare plus. Et au-dessus d'un champ de stock qui dit
-    `1200000`, un « 1,20 M » n'aide pas à le recaler. La place ne manque pas
-    sur cette ligne : on les écrit en entier. */
-const fmtLigne = n => isFinite(n) ? nf.format(Math.round(n)) : '∞';
-/** Un coût en clair, sans nommer les ressources qu'il ne demande pas. */
-const coutTexte = c => { const l = ['métal','cristal','deutérium'].map((n,i)=>c[i]>0?`${fmt(c[i])} de ${n}`:'').filter(Boolean);
-  return l.length < 2 ? (l[0] || 'rien') : `${l.slice(0,-1).join(', ')} et ${l[l.length-1]}`; };
-function fmt(n){ if(!isFinite(n)) return '∞'; const a=Math.abs(n); if(a>=1e9) return (n/1e9).toFixed(2).replace('.',',')+' G'; if(a>=1e6) return (n/1e6).toFixed(2).replace('.',',')+' M'; if(a>=1e5) return (n/1e3).toFixed(0)+' k'; return nf.format(Math.round(n)); }
-/* L'apostrophe compte autant que le guillemet : data-launch est un attribut
-   à apostrophes, et « Tour d'habitation » — un nom qui est dans notre propre
-   table — y refermait l'attribut au milieu du JSON. Le bouton « Lancé » mourait
-   sur la carte, et la fin du nom se retrouvait lue comme des attributs. */
-function esc(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-/* Le pendant de `esc` pour les champs tenus pour des nombres. Les textes de ce
-   panneau passent par `esc` ; les nombres n'en avaient pas besoin — sauf qu'une
-   sauvegarde peut y avoir mis une chaîne, et `value="${x}"` n'échappe rien.
-   `d` est ce qui s'affiche à défaut. */
-function num(v, d=0){ const x = Number(v); return Number.isFinite(x) ? x : d; }
-function costHtml(c){ return `<span class="cost"><span class="c-m">${fmt(c[0])}</span><span class="c-c">${fmt(c[1])}</span><span class="c-d">${fmt(c[2])}</span></span>`; }
+/* ---------- le message éphémère ---------- */
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast.t); toast.t=setTimeout(()=>t.hidden=true,1800); }
-
 /* ---------- game formulas ---------- */
-/** Building time in seconds for a level on a given planet. */
-function buildTime(key, L, p){
-  const c = levelCost(B[key], L);
-  const lowLvl = (key==='nanite') ? 1 : Math.max(4 - L/2, 1);
-  const h = (c[0]+c[1]) / (2500 * lowLvl * (1+p.b.robot) * Math.pow(2,p.b.nanite) * ecoSpeed());
-  return Math.max(1, h*3600);
-}
-/**
- * Comment désigner une planète sans ambiguïté.
- * OGame nomme « Colonie » toutes les colonies par défaut : tant que le nom est
- * unique on l'affiche seul, sinon on ajoute les coordonnées.
- * @param {object} p planète
- * @returns {string}
- */
-function planetRef(p){
-  if(!p) return '';
-  const homonyme = S.planets.filter(x=>x.name===p.name).length > 1;
-  return homonyme && p.coords ? `${p.name} [${p.coords}]` : p.name;
-}
-/** La planète au meilleur laboratoire : c'est de là qu'on lance une recherche. */
-/* Autant de couleurs que de planètes raisonnablement suivies ; au-delà, on
-   boucle plutôt que de risquer deux teintes indistinguables. */
-const PLANET_COLORS = 6;
-/** Pastille colorée d'une planète, couleur stable sur son rang dans la liste. */
-function planetTag(name){
-  const i = S.planets.findIndex(p => p.name === name || planetRef(p) === name);
-  return `<span class="ptag" style="--pc:var(--p${(i < 0 ? 0 : i) % PLANET_COLORS})">${esc(name)}</span>`;
-}
-/** Le rang de couleur d'une planète : le même que celui de sa pastille, pour
-    que la page du jeu et le panneau parlent de la même planète en une seule
-    teinte. Une planète inconnue n'en a pas. */
-function planetHue(name){
-  const i = S.planets.findIndex(p => p.name === name || planetRef(p) === name);
-  return i < 0 ? null : i % PLANET_COLORS;
-}
-/** Étiquette « Catégorie · Planète » : la planète devient une pastille. */
-function qHtml(q){
-  const i = String(q || '').indexOf(' · ');
-  return i < 0 ? esc(q || '') : esc(q.slice(0, i)) + ' ' + planetTag(q.slice(i + 3));
-}
 /* Le copilote n'ouvre que des pages du jeu : il ne remplit aucun formulaire,
    ne clique sur rien et ne lance rien à ta place. Un lien, pas un robot. */
 const GO_KIND = {t:'research', ship:'shipyard', shipbuild:'shipyard', sats:'shipyard', def:'defenses',
@@ -1910,8 +1820,6 @@ function pertesParHeure(p, k, pr){
   const r = Math.max(0, [pr.m, pr.c, pr.d][k] || 0), ratio = S.settings.ratio || [3, 2, 1];
   return {res:r, eqM:r * ratio[0] / ratio[k]};
 }
-/** « 12 k », « 1,20 M » : un débit se lit d'un coup d'œil. */
-function fmtK(n){ return !isFinite(n) ? '∞' : Math.abs(n) >= 1e6 ? fmt(n) : Math.abs(n) >= 1e4 ? `${Math.round(n / 1e3)} k` : fmt(n); }
 /** Les variables communes aux deux règles de hangar. */
 function surplusVars(p, k, st, pr){
   const l = pertesParHeure(p, k, pr), e = st[k] - pr.cap[k];
@@ -2836,7 +2744,6 @@ function coloVerdict(fields, pos){
   return {sev:'bad', t:'Trop petite : recolonise', why:`${fields} cases pour une moyenne de ${avg}. Abandonne-la avant d'y construire et renvoie un vaisseau (coût ${fmt(COL_SHIP_COST[0])} M, ${fmt(COL_SHIP_COST[1])} C, ${fmt(COL_SHIP_COST[2])} D).`};
 }
 /* ---------- réglages du plan ---------- */
-const majus = s => s.charAt(0).toUpperCase() + s.slice(1);
 /* Place des formes de vie dans la journée. Par défaut elles passent après les
    bâtiments et s'effacent devant ce qu'un chantier proche épargne. */
 /* « Avant tout le reste » laissait entendre que les cases passent aussi devant
@@ -3335,9 +3242,6 @@ function exploreSystems(){
   }
   return out.filter(x=>x.left>0).slice(0,6);
 }
-/* Une décimale au plus, et rien quand elle est nulle : « 2,5 », « 25 ». */
-const nf1 = new Intl.NumberFormat('fr-FR', {maximumFractionDigits:1});
-const nf3 = new Intl.NumberFormat('fr-FR', {maximumFractionDigits:3});
 /** La même recette, chaque abréviation dans un <abbr> qui dit son nom et son prix. */
 function defRecetteHtml(m, o){
   const d = defRecette(m, o);
@@ -3349,9 +3253,6 @@ function defRecetteHtml(m, o){
 function defUniteTitre(k){
   return `${DEF_ABR[k][1]} : ${DEF[k].c.map((x,i)=>x > 0 ? `${nf.format(x)} ${'MCD'[i]}` : '').filter(Boolean).join(' / ')}`;
 }
-/** Le format court d'un pack : « 307,5 k », « 1,305 M ». `fmt` arrondit trop
-    pour comparer deux modèles — 307,5 k y devient 308 k. */
-function fmtCourt(n){ const a = Math.abs(n); return a >= 1e6 ? `${nf3.format(n / 1e6)} M` : a >= 1e3 ? `${nf3.format(n / 1e3)} k` : nf.format(n); }
 /** La carte du modèle choisi : la recette, sa version à 1 PL, le pack, la source. */
 function defModeleCarte(k){
   const m = defModele(k), a = defAncreRecette(m), parPL = !(a === 'pt' && m.r.pt === 1) ? defRecetteHtml(m, {per:'PL'}) : '';
@@ -5930,7 +5831,7 @@ function prioAccueille(liste){
   // render() ne publie le plan que sur Aujourd'hui : sans cela la tuile resterait muette
   publieLePlan();
 }
-chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioAsk) prioAccueille(ch.prioAsk.newValue); if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ API = ch.api.newValue; if(tab==='tools' && (S.ui.tool==='explore'||S.ui.tool==='server')) render(); } });
+chrome.storage.onChanged.addListener((ch, area)=>{ if(area==='local' && ch.prioAsk) prioAccueille(ch.prioAsk.newValue); if(area==='local' && ch.game) applyGame(ch.game.newValue); if(area==='local' && ch.api){ poseApi(ch.api.newValue); if(tab==='tools' && (S.ui.tool==='explore'||S.ui.tool==='server')) render(); } });
 
 /* ---------- deux postes, un seul plan ---------- */
 /* Le stockage local ne voyage pas : sur un deuxième ordinateur le panneau
@@ -6180,18 +6081,16 @@ if(IS_EXT && chrome.runtime.getURL) (function(){
 /* Ce que les modules sortis d'app.js lui empruntent encore. Rien de plus :
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
-  API, fleetSpeed, fuelFactor, hyperCargoPct, fmtLigne, IS_EXT, fmt, num,
-  mse, stockNow, nf1, fmtCourt, shipReqOk, save, raceDe, ignKey, lfMode,
-  poidsCat, on, ecoSpeed, SHIP_COST, planetById, lfNom, lfIdPour, poseLfCles,
-  labPlanet, goUrl, prodOf, fileDe, enCours, POS, planetRef, production,
-  addBuilt, planetIndexById, buildTime, labLevel, researchTime, NOM_RES,
-  storageNote, reqOk, upLabel, rankUpgrades, hangarSiJustifie, debordeTexte,
-  mineEnRetard, signe, naniteRetard, robotsOuNanites, casesBasses,
-  laboEnRetard, labOkPour, reglesRecherche, planetAlerts, timerLabel,
-  COL_SHIP_COST, KITS, colShipAt, colSentNow, colBuilt, maxPlanets,
-  coloTarget, coloFleet, majus, LF_MODE, shipTime, defSurplus, tournee,
-  hubIndex, centreIndex, POURQUOI_LABO, centreNote, catActe, debordeA,
-  autreCibleAvecPlace, fileBat, esc, tab, aide, uiOuvert, uiNote, render,
-  coutTexte, coordLink, leverFlotte, coloPaybackTxt, occupied,
-  colonyCandidates, raidTargets, raidPlan, catMission
+  mse, stockNow, shipReqOk, save, raceDe, ignKey, lfMode, poidsCat, on,
+  SHIP_COST, planetById, lfNom, lfIdPour, poseLfCles, labPlanet, goUrl,
+  prodOf, fileDe, enCours, POS, production, addBuilt, planetIndexById,
+  labLevel, researchTime, NOM_RES, storageNote, reqOk, upLabel, rankUpgrades,
+  hangarSiJustifie, debordeTexte, mineEnRetard, signe, naniteRetard,
+  robotsOuNanites, casesBasses, laboEnRetard, labOkPour, reglesRecherche,
+  planetAlerts, timerLabel, COL_SHIP_COST, KITS, colShipAt, colSentNow,
+  colBuilt, maxPlanets, coloTarget, coloFleet, LF_MODE, shipTime, defSurplus,
+  tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote, catActe,
+  debordeA, autreCibleAvecPlace, fileBat, tab, aide, uiOuvert, uiNote,
+  render, coordLink, leverFlotte, coloPaybackTxt, occupied, colonyCandidates,
+  raidTargets, raidPlan, catMission
 };

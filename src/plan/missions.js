@@ -8,7 +8,9 @@
    emprunte encore à app.js ce qu'il affiche et lit : ce cycle-là est toléré
    tant qu'app.js existe, et rien n'y est lu au chargement. */
 import { S } from '../core/etat.js';
+import { coutTexte, fmt, esc, planetRef } from '../core/format.js';
 import { B, T, levelCost, rangeCost, SAT_COST } from '../core/formules.js';
+import { IS_EXT, API } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
 import { DEF, defMixList } from '../defense/defense.js';
 import { flotteCible, reequilibreCartes, flotteAjout } from '../flotte/cible.js';
@@ -28,11 +30,10 @@ import {
   cargoGaps, secu, prochaineHeure
 } from '../securite/securite.js';
 import {
-  save, planetById, lfNom, IS_EXT, API, coutTexte, fmt, esc, planetRef,
-  coordLink, leverFlotte, labPlanet, production, mse, stockNow, reqOk,
-  debordeTexte, colSentNow, maxPlanets, coloTarget, coloPaybackTxt,
-  lfMode, occupied, colonyCandidates, raidTargets, raidPlan, poidsCat,
-  catMission
+  save, planetById, lfNom, coordLink, leverFlotte, labPlanet, production,
+  mse, stockNow, reqOk, debordeTexte, colSentNow, maxPlanets, coloTarget,
+  coloPaybackTxt, lfMode, occupied, colonyCandidates, raidTargets,
+  raidPlan, poidsCat, catMission
 } from '../../app.js';
 /**
  * Les sources d'énergie posables sur cette planète, chiffrées, de la moins
