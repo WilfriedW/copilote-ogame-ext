@@ -302,7 +302,7 @@ t("l'écran du relevé prend la place du contenu, et montre ce qui reste", () =>
 t("un arrêt qui va chercher une case a plus de temps qu'une page simple", () => {
   /* Il attend deux réponses du jeu : la page, puis le panneau de détail qu'il
      charge à part. Les planètes les plus lentes expiraient là. */
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'vues', 'entete.js'), 'utf8');
   const simple = +/const RELEVE_DELAI = (\d+);/.exec(src)[1];
   const avecCase = +/const RELEVE_DELAI_CASE = (\d+);/.exec(src)[1];
   assert.ok(avecCase > simple, avecCase + ' doit dépasser ' + simple);
@@ -10487,7 +10487,7 @@ t('le ⓘ ouvert le reste au dessin suivant', () => {
 });
 
 t('« Fait », « Non » et la copie ne touchent pas à l\'affichage des cartes', () => {
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = ['app.js', 'src/vues/navigation.js'].map(f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8')).join('\n');
   // seuls le résumé d'un repli et le ⓘ écrivent un état
   assert.equal((src.match(/uiNote\(/g) || []).length, 4, 'définition + résumé + ⓘ + « Voir plus »');
 });
@@ -11568,7 +11568,7 @@ t('ENH-54 : Aujourd\'hui s\'ouvre sur Maintenant une fois le profil posé, sur l
   assert.equal(g.ongletAffiche(['profil', 'maintenant'], null, 'profil', 'maintenant'), 'profil', 'le choix du joueur passe devant');
   assert.equal(g.ongletAffiche(['profil', 'maintenant'], 'maintenant', 'profil', 'profil'), 'maintenant', 'une alerte passe devant tout');
   assert.equal(g.ongletAffiche(['profil', 'journee'], null, null, 'maintenant'), 'profil', 'défaut absent : le premier');
-  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'app.js'), 'utf8');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'vues', 'navigation.js'), 'utf8');
   assert.match(src, /CARTE_DEFAUT = \{today: \(\)=> S\.profil\.set \? 'maintenant' : 'profil'\}/);
 });
 

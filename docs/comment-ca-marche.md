@@ -460,7 +460,13 @@ de vie), puis le plan du jour dans `src/plan/` : `priorites.js` (les
 priorités du joueur et leur pose), `nuit.js` (la nuit, l'heure de réveil),
 `vocations.js` (la vocation d'une planète, ce qui manque à l'empire),
 `journee.js` (la journée simulée, la prochaine recherche, la projection des
-ressources) et `missions.js` (les missions du jour). `app.js` se découpe ainsi, un domaine
+ressources) et `missions.js` (les missions du jour). Les vues commencent dans
+`src/vues/` : `navigation.js` (l'onglet affiché, ce qui est ouvert ou fermé,
+les cartes en onglets, les renvois, le nombre de cartes par liste ; l'onglet
+se change par `poseOnglet`) et `entete.js` (le relevé et sa fraîcheur,
+l'en-tête, l'heure locale ou serveur, le mode nuit ; `poseScanEcran` ferme
+l'écran du relevé). `render` et `refresh` restent dans `app.js` : ils
+appellent toutes les vues, que toutes rappellent. `app.js` se découpe ainsi, un domaine
 par PR (issue #49), jusqu'à disparaître. `ids.js` et `profils.js` restent des
 scripts classiques. Les tests mettent les modules à plat dans une seule portée
 (`test/modules.js`) et vérifient à part les imports, les doublons, les cycles
