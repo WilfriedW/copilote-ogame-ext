@@ -32,10 +32,11 @@ import {
 import { LIFEFORMS, lfPourPos, lfRaisonPos } from '../formes-de-vie/formes-de-vie.js';
 import { raidTargets, exploreSystems, raidPlan } from '../pillage/pillage.js';
 import { myScore } from '../univers/univers.js';
+import { actHtml } from './carte-action.js';
 import { fold, segTabs } from './navigation.js';
 import {
-  planetById, actHtml, centreIndex, cargoHomeIndex, centrePlanet, TOOLS,
-  bascule, aide, VIEWS, gauge, REFRESH
+  planetById, centreIndex, cargoHomeIndex, centrePlanet, TOOLS, bascule, aide,
+  VIEWS, gauge, REFRESH
 } from '../../app.js';
 /** La carte de calibrage, ou rien. */
 function expoCalibHtml(){
