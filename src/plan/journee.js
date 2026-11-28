@@ -24,6 +24,7 @@ import {
 import {
   stockNow, production, mse, NOM_RES, storageNote, upLabel
 } from '../economie/production.js';
+import { LF_MODE, lfMode } from './place-formes-de-vie.js';
 import {
   HANGARS, regleActive, regleParam, regleTexte, rangNiveau, constats, repondA
 } from '../regles/moteur.js';
@@ -53,7 +54,7 @@ import { poseHeure, isNight } from './nuit.js';
 import { prios, prioOf, prioDevant, FOCUS, FOCUS_FLOTTE } from './priorites.js';
 import { poidsCat, catActe } from './profil.js';
 import { besoinEmpire, VOC_KEYS, VOC_NOM, vocations } from './vocations.js';
-import { addBuilt, rankUpgrades, planetAlerts, LF_MODE, lfMode } from '../../app.js';
+import { addBuilt, rankUpgrades, planetAlerts } from '../../app.js';
 
 /* ---------- advice ---------- */
 export const MILESTONES = [

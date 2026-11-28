@@ -24,6 +24,8 @@ import {
   SHIPS, parseC, shipStats, flight, shipList, planeteEn, fleetSlots,
   flotteEnVol
 } from '../flotte/vaisseaux.js';
+import { lfNom } from '../formes-de-vie/cases.js';
+import { lfMode } from './place-formes-de-vie.js';
 import {
   lfBloquee, lfCandidates, LIFEFORMS, speciesOfPlanet, foundLifeforms,
   lfPourPos, lfRaisonPos, lfConseilPlanete
@@ -38,7 +40,7 @@ import {
   cargoGaps, secu, prochaineHeure
 } from '../securite/securite.js';
 import { occupied } from '../univers/univers.js';
-import { save, lfNom, lfMode } from '../../app.js';
+import { save } from '../../app.js';
 /**
  * Les sources d'énergie posables sur cette planète, chiffrées, de la moins
  * chère à la plus chère par point d'énergie.

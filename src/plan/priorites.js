@@ -5,20 +5,21 @@
    `prioPalier`), et la pose depuis le panneau (`prioPose`, `poseK`,
    `poseLignes`, `prioRetire`…), ainsi que les focus du profil (`FOCUS`).
 
-   Module de domaine (issue #49), le premier du plan du jour. Le rendu
-   (`prioHtml`, `prioRangHtml`), le réglage du mode des formes de vie
-   (`lfMode`) et les quelques poses propres aux formes de vie (`lfNom`,
-   `poseNom`, `prioLfEtat`…) restent dans app.js : les sortir ici ferait
-   importer les formes de vie, qui importent déjà ce module. Ce module
+   Module de domaine (issue #49), le premier du plan du jour. Le nom qu'une
+   pose donne à un rang (`poseNom`) vit ici ; ce qui nomme et désigne les
+   cases vient de `src/formes-de-vie/cases.js`, pas des formes de vie, qui
+   importent déjà ce module. Le rendu (`prioHtml`, `prioRangHtml`) reste
+   dans app.js. Ce module
    emprunte encore à app.js ce qu'il lit : ce cycle-là est toléré tant
    qu'app.js existe, et rien n'y est lu au chargement. */
+import { lfCle, lfIds, LF_ROLE, lfNom, lfIdPour, poseLfCles } from '../formes-de-vie/cases.js';
 import { S } from '../core/etat.js';
 import { num } from '../core/format.js';
 import { B, B_SHORT, T } from '../core/formules.js';
 import { planetById } from '../core/planetes.js';
 import { IS_EXT } from '../core/serveur.js';
 import { labPlanet } from '../economie/centre.js';
-import { save, lfNom, lfIdPour, poseLfCles } from '../../app.js';
+import { save } from '../../app.js';
 
 /* Une priorité est ce que le joueur pose : un bâtiment ou une recherche, avec
    le niveau qu'il vise. Elle ne se périme pas, elle s'accomplit — dès que le
@@ -249,16 +250,22 @@ export function poseK(){
      tout objet et passerait un `in`. */
   return poseLfCles().includes(k) ? k : 'metal';
 }
-/* Une case de forme de vie se désigne par son rang dans sa file, et non par
-   son identifiant : le jeu range les cases dans le même ordre chez chaque
-   espèce, et c'est ce rang qui se pose sur tout l'empire — chaque planète
-   recevant la case de son espèce à elle. Sans cela, un empire à deux espèces
-   donnait deux entrées pour la même ligne de la liste, et il fallait poser
-   deux fois.
-   Le rang seul ne suffit pas : chaque espèce occupe deux séries, les bâtiments
-   puis les recherches, et le rang 1 existe dans les deux. La file entre donc
-   dans la clé. */
-export const lfCle = id => lfQueue(id) + ':' + (+id % 100);
+/* Ce que la liste écrit sur un rang : les noms que le relevé lui connaît, une
+   fois chacun — « Secteur résidentiel / Enclave de méditation » pour un empire
+   à deux espèces. Pas de nom de rôle à la place : au-delà du logement et de la
+   nourriture, documentés chez les quatre espèces, le jeu ne donne pas le même
+   rôle au même rang, et un intitulé inventé ferait croire le contraire. */
+export function poseNom(k){
+  if(poseKind(k) === 'b') return B[k].n;
+  const noms = new Set();
+  for(const p of S.planets) for(const id of lfIds(p)) if(lfCle(id) === k) noms.add(lfNom(p, id));
+  const vus = [...noms].join(' / ') || k;
+  /* Les trois rôles communs devant les noms, quand le rang en a un. Les
+     recherches n'en ont pas : leur rang 1 est « Ambassadeurs intergalactiques »,
+     pas l'hébergement. */
+  const role = k.startsWith('lfbuilding:') ? LF_ROLE[+k.split(':')[1]] : null;
+  return role ? `${role} — ${vus}` : vus;
+}
 /* Le genre de la case en cours : 'lf' pour un rang de forme de vie, 'b' sinon. */
 export function poseKind(k){ return /^lf(building|research):\d+$/.test(k) ? 'lf' : 'b'; }
 /* Le niveau que le joueur vise, ou NaN tant qu'il n'a rien tapé. */

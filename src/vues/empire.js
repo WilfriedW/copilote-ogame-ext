@@ -20,15 +20,17 @@ import {
 } from '../economie/centre.js';
 import { production, mse, NOM_RES, stockNow } from '../economie/production.js';
 import { shipList } from '../flotte/vaisseaux.js';
-import { lfIds, LF_PALIER, lfPopNourriture } from '../formes-de-vie/formes-de-vie.js';
+import { lfNom, poseLfCles, lfIds } from '../formes-de-vie/cases.js';
+import { LF_PALIER, lfPopNourriture } from '../formes-de-vie/formes-de-vie.js';
 import { meteoVoit } from '../meteo.js';
 import {
-  lvLu, prioCount, prioLvl, poseK, poseVise, poseLignes, poseRien, FOCUS
+  lvLu, prioCount, prioLvl, poseK, poseVise, poseLignes, poseRien, FOCUS,
+  poseNom
 } from '../plan/priorites.js';
 import { besoinEmpire, VOC_NOM, vocations } from '../plan/vocations.js';
 import { REGLES_PAR_ID } from '../regles/moteur.js';
 import { fold, cardLayout } from './navigation.js';
-import { lfNom, poseLfCles, poseNom, VIEWS, gauge, REFRESH } from '../../app.js';
+import { VIEWS, gauge, REFRESH } from '../../app.js';
 
 /* Les règles qu'on coupe pour une planète seulement — « pas de Terraformeur
    sur mon coffre-fort ». Sur la planète, donc sur ce poste : un id local ne
