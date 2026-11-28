@@ -20,9 +20,10 @@ import { S } from './core/etat.js';
 import { fmt, esc, planetRef } from './core/format.js';
 import { formatTime } from './core/temps.js';
 import { DEF, DEF_ABR, defPlan } from './defense/defense.js';
+import { poidsCat } from './plan/profil.js';
 import { SEV_NIVEAU, constatsVus } from './regles/moteur.js';
 import { uiOuvert, uiNote } from './vues/navigation.js';
-import { planetById, render, planetAlerts, poidsCat } from '../app.js';
+import { planetById, render, planetAlerts } from '../app.js';
 
 /** Les quatre domaines, dans l'ordre des colonnes. */
 const METEO_DOM = [
