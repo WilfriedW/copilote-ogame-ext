@@ -17,10 +17,11 @@ import {
   parseC, distance, souteUtile, shipStats, flight, planeteEn, mouvements,
   aQuai
 } from '../flotte/vaisseaux.js';
+import { depensesPayables, projectResources } from '../plan/journee.js';
+import { hhmmDe, wakeTime } from '../plan/nuit.js';
 import {
-  planetById, IS_EXT, labPlanet, stockNow, depensesPayables, debordeA,
-  debordeTexte, autreCibleAvecPlace, fileDe, enCours, fileBat, hhmmDe,
-  wakeTime, projectResources
+  planetById, IS_EXT, labPlanet, stockNow, debordeA, debordeTexte,
+  autreCibleAvecPlace, fileDe, enCours, fileBat
 } from '../../app.js';
 
 /* ---------- mise à l'abri ---------- */
