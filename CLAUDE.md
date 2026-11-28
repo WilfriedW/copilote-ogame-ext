@@ -50,7 +50,7 @@ quand les tests échouent ou que la cible est `main`.
   `src/plan` (plan du jour, priorités, nuit, missions, vocations), `src/flotte`,
   `src/defense`, `src/formes-de-vie`, `src/regles` (moteur de règles),
   `src/securite`, `src/colonisation`, `src/univers` (ce que dit l'API publique),
-  `src/pillage`, `src/minuteurs`, `src/jeu` (liens vers les pages du jeu),
+  `src/pillage`, `src/minuteurs`, `src/jeu` (liens vers les pages du jeu, relevé du jeu fondu dans l'état),
   `src/synchro` (deux postes, un seul plan),
   `src/meteo.js`, `src/vues` (navigation, en-tête, un fichier par onglet).
 - `content.js` : lecture des pages du jeu (règles dans `.claude/rules/content-js.md`).

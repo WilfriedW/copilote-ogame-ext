@@ -2,10 +2,13 @@
    domaine : il importe ce que les modules sortis de lui fournissent, et
    n'exporte que ce que la météo et la flotte cible lui empruntent (liste en
    fin de fichier). */
-import { calePlanete, parseProdPanel, bridage, production } from './src/economie/production.js';
-import { expoSain, expoJournal, expoMessages } from './src/flotte/expeditions.js';
-import { saveFailed, save, prioIn, syncApply, syncNettoie } from './src/synchro/synchro.js';
-import { sample, newPlanet, S, remplaceEtat } from './src/core/etat.js';
+import {
+  releveLu, header, enScan, setTimeMode, finDeNuit, VIEWS_RELEVE, setMasque
+} from './src/vues/entete.js';
+import { bridage, production } from './src/economie/production.js';
+import { expoSain } from './src/flotte/expeditions.js';
+import { saveFailed, save, syncApply, syncNettoie } from './src/synchro/synchro.js';
+import { sample, S, remplaceEtat } from './src/core/etat.js';
 import { esc, num } from './src/core/format.js';
 import { B } from './src/core/formules.js';
 import { IS_EXT, poseApi } from './src/core/serveur.js';
@@ -15,17 +18,14 @@ import {
 import {
   DEF_MODELES, DEF_RATIO, DEF_PALIERS, defModele, DEF_DUREES, DEF_PLANCHERS
 } from './src/defense/defense.js';
-import {
-  lfMetEnCommun, lfMerge, raceDeSerie, lfNomsRetiens, LIFEFORMS,
-  speciesOfPlanet
-} from './src/formes-de-vie/formes-de-vie.js';
+import { raceDeSerie, LIFEFORMS, speciesOfPlanet } from './src/formes-de-vie/formes-de-vie.js';
 import { lfIds } from './src/formes-de-vie/cases.js';
 import { profilSain } from './src/plan/profil.js';
 import { meteoVoit, renderMeteo, meteoBind } from './src/meteo.js';
 import {
   unlockAudio, alertQueue, ackFinished, stopFlash, mirrorAlerts
 } from './src/minuteurs/minuteurs.js';
-import { casesSaines, casesLibres } from './src/plan/journee.js';
+import { casesLibres } from './src/plan/journee.js';
 import { energyOptions, energyLine } from './src/plan/missions.js';
 import { prioClean, prioRecoit, FOCUS } from './src/plan/priorites.js';
 import {
@@ -37,7 +37,6 @@ import { VIEWS_AUJOURDHUI, REFRESH_AUJOURDHUI } from './src/vues/aujourdhui.js';
 import { whyParts, majRebours } from './src/vues/carte-action.js';
 import { VIEWS_DEFENSE } from './src/vues/defense.js';
 import { VIEWS_EMPIRE, REFRESH_EMPIRE } from './src/vues/empire.js';
-import { releveLu, header, enScan, setTimeMode, finDeNuit, VIEWS_RELEVE, setMasque } from './src/vues/entete.js';
 import { bind, brancheEcoutes } from './src/vues/evenements.js';
 import {
   view, tab, UI, uiPurge, uiEcrit, fold, cardMode, VUES_ONGLETS, cartesSection,
@@ -51,6 +50,7 @@ import { litVersions } from './src/vues/version.js';
 /* Les constats d'économie s'inscrivent dans EVAL au chargement : rien d'autre
    n'en est importé. */
 import './src/plan/constats.js';
+import { fondReleve } from './src/jeu/releve.js';
 
 const APP_VERSION = '2.20.0';
 
@@ -391,131 +391,7 @@ function publieLePlan(){
 
 
 
-/* ---------- live sync from the extension ---------- */
-/** Merges the game state collected by the content script into the panel state. */
-function applyGame(g){
-  if(!g) return;
-  const m = g.meta || {};
-  if(m.playerId) S.me = m.playerId;
-  if(m.host) S.host = m.host;
-  S.explored = g.explored || S.explored || {};
-  // le décalage du serveur, relu à chaque page : formatTime en tire l'heure serveur
-  if(g.srvTz && Number.isFinite(g.srvTz.off)) S.srvTz = {off: g.srvTz.off, at: g.srvTz.at || 0, ok: g.srvTz.ok !== false};
-  if(m.eco) S.settings.eco = m.eco;
-  if(m.fleet) S.settings.fleet = m.fleet;
-  if(m.cls) S.settings.cls = m.cls;
-  Object.assign(S.tech, g.tech || {});
-  const ids = (g.order && g.order.length) ? g.order : Object.keys(g.planets || {});
-  const kept = [];
-  for(const id of ids){
-    const gp = (g.planets || {})[id]; if(!gp) continue;
-    let p = S.planets.find(x=>x.gid===id) || S.planets.find(x=>!x.gid && x.coords===gp.coords);
-    if(!p){
-      p = (S.sample && kept.length===0) ? S.planets[0] : newPlanet(gp.name||'Planète', gp.coords||'', gp.tmax ?? 20, {});
-      // révélée par la liste du jeu : elle a un nom, pas encore de niveaux
-      if(p !== S.planets[0]) p.bNeuve = 1;
-    }
-    p.gid = id;
-    if(gp.name) p.name = gp.name;
-    if(gp.coords) p.coords = gp.coords;
-    if(gp.lf){ const lf = Object.assign({}, p.lf); for(const [k,v] of Object.entries(gp.lf)) lf[k] = lfMerge(lf[k], v); p.lf = lf; }
-    if(gp.lfSeen) p.lfSeen = Object.assign({}, p.lfSeen, gp.lfSeen);
-    if(gp.tmax != null) p.tmax = gp.tmax;
-    if(casesSaines(gp.cases)) p.cases = { pris: gp.cases.pris, max: gp.cases.max };
-    Object.assign(p.b, gp.b || {});
-    /* `bLu` est posé ici et nulle part ailleurs : c'est le seul endroit où le
-       jeu rend une grille de niveaux. Un `gid` ne dit que le nom, et `bNeuve`
-       s'efface à la première frappe du joueur — ni l'un ni l'autre ne peut
-       servir de preuve que ces niveaux viennent du jeu. */
-    if(gp.b && Object.keys(gp.b).length){ delete p.bNeuve; p.bLu = 1; }
-    if(gp.sats != null) p.sats = gp.sats;
-    if(gp.crawlers != null) p.crawlers = gp.crawlers;
-    if(gp.def != null) p.def = gp.def;
-    if(gp.defs) p.defs = Object.assign({}, gp.defs);
-    if(gp.defsAt) p.defsAt = gp.defsAt;
-    if(gp.energy != null){ p.eAdj = 0; p.eAdj = gp.energy - production(p).eBal; }
-    if(gp.ships){ p.ships = Object.assign({}, gp.ships); p.shipsAt = gp.shipsAt || 0; }
-    if(gp.stock && gp.stock.m != null && gp.stock.at !== p.stockGameAt){ p.stock = {...gp.stock}; p.stockGameAt = gp.stock.at; }
-    kept.push(p);
-  }
-  if(kept.length) S.planets = kept;
-  lfMetEnCommun();
-  /* Une priorité reçue d'un autre poste attendait sa planète : le relevé vient
-     de la nommer, elle peut enfin désigner la planète d'ici. */
-  S.prio = prioIn(S.prio);
-  S.timers = (S.timers || []).filter(t=>!t.game);
-  for(const t of (g.timers || [])){
-    const tm = {id:'g'+t.end+(t.techId||t.type)+(t.planetId||''), game:true, queue:t.type, end:t.end*1000, done:t.end*1000 <= Date.now()};
-    const pi = S.planets.findIndex(p=>p.gid===t.planetId);
-    if(OG_TECH[t.techId]){ tm.kind='t'; tm.k=OG_TECH[t.techId]; tm.lvl=S.tech[tm.k]+1; if(pi>=0){ tm.pid=S.planets[pi].id; if(!tm.done) S.rechPid = tm.pid; } }
-    else if(OG_BUILD[t.techId] && pi>=0){ tm.kind='b'; tm.pid=S.planets[pi].id; tm.k=OG_BUILD[t.techId]; tm.lvl=S.planets[pi].b[tm.k]+1; }
-    else if(t.type==='fleet'){ tm.kind='x'; tm.k = /exp/i.test(t.label) ? 'expo' : 'fleet'; tm.label = t.label; }
-    else {
-      tm.kind='x'; tm.k = t.type!=='shipyard' ? 'other' : +t.techId===212 ? 'sats' : 'shipyard';
-      tm.techId = t.techId || null;
-      tm.pid = (S.planets[pi]||{}).id;
-      tm.label = t.label + (pi>=0 && S.planets.length>1 ? ` · ${S.planets[pi].name}` : '');
-      /* Le jeu nomme ce que son chantier sort, jamais combien : « Grand
-         transporteur » peut en valoir un ou cent, et sa file enchaîne les lots
-         sans annoncer les suivants. On retient donc l'heure du lot : le compte
-         au sol ne vaut que jusque-là, et `chantierFlou` fait taire ce chantier
-         jusqu'à ce que la page le redise. Sans ça, le copilote reproposait ce
-         qui était déjà en construction, et la carte disparaissait au clic — au
-         moment où la page relue lui apprenait la vérité. */
-      if(t.type==='shipyard' && S.planets[pi]){
-        const q = S.planets[pi], id = +t.techId || 0, def = id>=400 && id<500;
-        if(!def) q.flotteFloue = Math.max(q.flotteFloue||0, tm.end);
-        if(def || !id) q.defFloue = Math.max(q.defFloue||0, tm.end);
-      }
-    }
-    S.timers.push(tm);
-  }
-  S.timers = S.timers.filter(t=>t.game || !t.manual || !S.timers.some(g=>g.game && !g.done && g.kind===t.kind && g.k===t.k && (g.kind!=='b' || g.pid===t.pid)));
-  S.moves = g.moves || [];
-  S.arrived = g.arrived || [];
-  /* Une sonde en vol vaut un « Fait » : la cible sort de la liste sans clic.
-     Mission 6 = espionnage ; le jeu la montre tant qu'elle n'est pas rentrée. */
-  for(const m of S.moves) if(m.mission===6 && !m.ret && m.dest) S.raids[m.dest] = {at:Date.now(), probe:true};
-  /* L'historique des expéditions, pris sur les mouvements du jeu plutôt que
-     sur un clic : le joueur envoie depuis l'écran Flotte, et le copilote ne le
-     voit pas partir. L'aller ouvre l'entrée quand il est vu ; le retour la
-     complète — c'est lui qui dit ce que l'expédition a ramené, et lui seul est
-     sûr d'être vu : l'aller ne vole que quelques minutes. L'heure du retour
-     date l'entrée : un système reste « sollicité » tant que la flotte y est.
-     Les rapports de la messagerie, quand le joueur l'a ouverte, disent le
-     type d'événement. */
-  try {
-    expoJournal(S.moves, Date.now(), +g.listeVue || 0);
-    expoMessages(g.expoMsgs);
-  } catch(e){ console.error('Copilote : journal des expéditions', e); }
-  if(g.artefacts != null) S.artefacts = g.artefacts;
-  if(g.slots) S.slots = g.slots;
-  if(g.prod && typeof g.prod === 'object'){
-    S.prod = S.prod || {};
-    for(const [gid, e] of Object.entries(g.prod)){
-      if(!/^\d+$/.test(gid)) continue; // « __proto__ » & co : jamais une clé
-      const r = e && parseProdPanel(e.text);
-      if(r){ r.at = +e.at || 0; S.prod[gid] = r; calePlanete(S.planets.find(x=>x.gid===gid)); }
-    }
-  }
-  if(g.prodUrl) S.prodUrl = g.prodUrl;
-  if(g.lfMenu != null) S.lfMenu = g.lfMenu;
-  if(g.cur) S.cur = g.cur;
-  S.page = g.page || null;
-  S.sample = false;
-  S.syncAt = g.at || Date.now();
-  lfNomsRetiens(g.lfNoms); // les noms lus sur une planète servent à toutes
-  prioRecoit(); // une planète vient peut-être d'être relevée
-  save();
-  const a = document.activeElement;
-  const typing = a && view.contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName);
-  typing ? refresh() : render();
-  releveLu();
-  // render() ne publie le plan que sur Aujourd'hui : une demande placée ici resterait muette sur la tuile
-  publieLePlan();
-  // L'icône compte les critiques à chaque mise à jour des données, quel que soit l'onglet ouvert.
-  publieCritiques();
-}
+
 meteoBind();
 render();
 /* Et à l'ouverture du panneau : le réglage peut avoir été posé avant que la
@@ -529,6 +405,19 @@ pushLook();
    l'onglet ouvert. */
 publieLePlan();
 publieCritiques();
+/** Le relevé arrive toutes les cinq secondes : il se fond dans l'état, puis
+    le panneau se redessine. */
+function applyGame(g){
+  if(!fondReleve(g)) return;
+  const a = document.activeElement;
+  const typing = a && view.contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName);
+  typing ? refresh() : render();
+  releveLu();
+  // render() ne publie le plan que sur Aujourd'hui : une demande placée ici resterait muette sur la tuile
+  publieLePlan();
+  // L'icône compte les critiques à chaque mise à jour des données, quel que soit l'onglet ouvert.
+  publieCritiques();
+}
 if(window.__game) applyGame(window.__game);
 /* Demandes déposées pendant que le panneau était fermé. boot.js ne transmet que
    les clés « ls: » et game/api : sans lui, la clé resterait dans le stockage. */

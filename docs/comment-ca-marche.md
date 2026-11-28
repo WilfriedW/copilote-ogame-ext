@@ -457,7 +457,8 @@ départ et position visée, flotte, retour sur mise, positions libres),
 `src/pillage/pillage.js` (cibles, systèmes à explorer, rapport d'espionnage
 et flotte du pillage),
 `src/jeu/liens.js` (les liens vers les pages du jeu et les indices que la
-page du jeu surligne),
+page du jeu surligne), `src/jeu/releve.js` (ce que content.js a relevé, fondu
+dans l'état ; le redessin qui suit reste dans `applyGame`, dans app.js),
 `src/synchro/synchro.js` (l'enregistrement sur ce poste, `save`, et ce qui
 voyage entre deux postes et ce qui en revient),
 `src/minuteurs/minuteurs.js` (minuteurs, fin de
