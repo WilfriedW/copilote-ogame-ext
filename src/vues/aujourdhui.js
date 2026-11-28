@@ -22,6 +22,7 @@ import { flotteCible, flotteAjout } from '../flotte/cible.js';
 import { EXPO_LABELS, top1Tier, expoPts, expoRes, expoPropose, expoEtat } from '../flotte/expeditions.js';
 import { shipList, shipCourt, mcd, mouvements, aQuai } from '../flotte/vaisseaux.js';
 import { LF_NAMES } from '../formes-de-vie/formes-de-vie.js';
+import { fleetUrl, missionGo, coordLink, goAttr } from '../jeu/liens.js';
 import { meteoVoit } from '../meteo.js';
 import { renderTimers } from '../minuteurs/minuteurs.js';
 import {
@@ -42,10 +43,9 @@ import {
   uiVu, fold, RESUMES, resumeDe, cardLayout, cartesMenu, listeCartes
 } from './navigation.js';
 import {
-  planetById, prioLfEtat, fleetUrl, missionGo, coordLink, goAttr,
-  gameSkin, ignKey, SEV_LABEL, copyChips, whyParts, actHtml, rebours,
-  noBtn, noListe, aide, classeSuggeree, classeEcart, catActe, catMission,
-  profilLigne, profilFocusHtml, profilEtape, actsVus, on
+  planetById, prioLfEtat, gameSkin, ignKey, SEV_LABEL, copyChips, whyParts,
+  actHtml, rebours, noBtn, noListe, aide, classeSuggeree, classeEcart, catActe,
+  catMission, profilLigne, profilFocusHtml, profilEtape, actsVus, on
 } from '../../app.js';
 const prioRangHtml = (kind, pid, k) => { const r = prioOrdre(kind, pid, k); return r ? ` <span class="note">rang ${r.i + 1} sur ${r.n}</span>` : ''; };
 /* L'état d'une ligne est celui que le plan lui a donné à la première session,

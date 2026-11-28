@@ -49,8 +49,9 @@ quand les tests échouent ou que la cible est `main`.
 - `src/core` (état, formules, temps), `src/economie` (production, stocks),
   `src/plan` (plan du jour, priorités, nuit, missions, vocations), `src/flotte`,
   `src/defense`, `src/formes-de-vie`, `src/regles` (moteur de règles),
-  `src/securite`, `src/meteo.js`, `src/vues` (navigation, en-tête, un fichier
-  par onglet).
+  `src/securite`, `src/colonisation`, `src/univers` (ce que dit l'API publique),
+  `src/pillage`, `src/minuteurs`, `src/jeu` (liens vers les pages du jeu),
+  `src/meteo.js`, `src/vues` (navigation, en-tête, un fichier par onglet).
 - `content.js` : lecture des pages du jeu (règles dans `.claude/rules/content-js.md`).
 - `background.js`, `boot.js` : service worker et démarrage.
 - `rules.json` : règles du moteur et leurs paramètres.

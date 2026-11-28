@@ -455,6 +455,8 @@ des systèmes, des positions occupées et des joueurs),
 départ et position visée, flotte, retour sur mise, positions libres),
 `src/pillage/pillage.js` (cibles, systèmes à explorer, rapport d'espionnage
 et flotte du pillage),
+`src/jeu/liens.js` (les liens vers les pages du jeu et les indices que la
+page du jeu surligne),
 `src/minuteurs/minuteurs.js` (minuteurs, fin de
 chantier, son, titre qui clignote, alertes à acquitter), `src/economie/production.js` (production, stock
 au moment présent, attente avant de payer, labo et durée d'une recherche),
