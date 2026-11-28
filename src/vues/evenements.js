@@ -15,6 +15,7 @@ import { fmt, num } from '../core/format.js';
 import { IS_EXT, API } from '../core/serveur.js';
 import { timeMode } from '../core/temps.js';
 import { DEF_MODELES, DEF_RATIO, DEF_PALIERS, DEF_DUREES, DEF_PLANCHERS } from '../defense/defense.js';
+import { stockNow } from '../economie/production.js';
 import { EXPO_PREP_MAX, EXPO_PREP_TTL } from '../flotte/expeditions.js';
 import { rescanner, LIFEFORMS, lfPosePaliers } from '../formes-de-vie/formes-de-vie.js';
 import { dayValue } from '../plan/journee.js';
@@ -36,8 +37,8 @@ import {
   garderVue
 } from './navigation.js';
 import {
-  save, planetById, forgetPlanet, toast, pushLook, stockNow, render,
-  refresh, parseLeft, unlockAudio, chime, stopFlash, tickTimers, clock,
+  save, planetById, forgetPlanet, toast, pushLook, render, refresh,
+  parseLeft, unlockAudio, chime, stopFlash, tickTimers, clock,
   renderTimers, COL_SHIP_COST, coloSystem, masque, masqueBascule,
   setMasque, timeExport, colonyCandidates, defPersoLive, applyReport,
   TOOLS, profilConnu, styleRepose, poseProfilEtape, VIEWS, REFRESH, on,

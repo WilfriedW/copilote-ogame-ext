@@ -20,6 +20,7 @@
 import { S } from '../core/etat.js';
 import { fmtLigne, fmt, esc, num, planetRef, fmtCourt } from '../core/format.js';
 import { dur, formatTime } from '../core/temps.js';
+import { production, mse, stockNow } from '../economie/production.js';
 import { EXPO_GROS, expoRes, expoFleet, expoCap } from './expeditions.js';
 import {
   SHIPS, souteUtile, shipStats, flight, shipList, SHIP_COURT, shipCourt,
@@ -28,7 +29,7 @@ import {
 import { projectResources } from '../plan/journee.js';
 import { secu, prochaineHeure, attaquesEntrantes, transportSuggere } from '../securite/securite.js';
 import { tab } from '../vues/navigation.js';
-import { production, mse, stockNow, aide } from '../../app.js';
+import { aide } from '../../app.js';
 
 /** Les transporteurs : ce qui compte dans la soute du soir. */
 const FC_SOUTE = ['lc', 'sc'];

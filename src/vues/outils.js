@@ -13,6 +13,7 @@ import { nf, fmt, esc, num, costHtml, planetRef } from '../core/format.js';
 import { B, B_SHORT, T, rangeCost } from '../core/formules.js';
 import { IS_EXT, API, srv, ecoSpeed } from '../core/serveur.js';
 import { dur, formatTime } from '../core/temps.js';
+import { researchTime, storageNote } from '../economie/production.js';
 import { flotteCibleHtml } from '../flotte/cible.js';
 import {
   EXPO_LABELS, EXPO_STATS_N, EXPO_CALIB_MIN, EXPO_EVTS, top1Tier,
@@ -25,13 +26,12 @@ import {
 import { LIFEFORMS, lfPourPos, lfRaisonPos } from '../formes-de-vie/formes-de-vie.js';
 import { fold, segTabs } from './navigation.js';
 import {
-  planetById, researchTime, storageNote, KITS, OBJECTIVES, colShipAt,
-  colBuilt, maxPlanets, coloFrom, rankPositions, coloTarget, coloFleet,
-  COLO_HORIZON_H, colonyPayback, coloVerdict, actHtml, myScore,
-  colonyCandidates, raidTargets, exploreSystems, luneTir, luneVaisseaux,
-  luneFacture, luneFlotteAuSol, moonDf, luneMorts, centreIndex,
-  cargoHomeIndex, centrePlanet, raidPlan, TOOLS, bascule, aide, VIEWS,
-  gauge, REFRESH
+  planetById, KITS, OBJECTIVES, colShipAt, colBuilt, maxPlanets,
+  coloFrom, rankPositions, coloTarget, coloFleet, COLO_HORIZON_H,
+  colonyPayback, coloVerdict, actHtml, myScore, colonyCandidates,
+  raidTargets, exploreSystems, luneTir, luneVaisseaux, luneFacture,
+  luneFlotteAuSol, moonDf, luneMorts, centreIndex, cargoHomeIndex,
+  centrePlanet, raidPlan, TOOLS, bascule, aide, VIEWS, gauge, REFRESH
 } from '../../app.js';
 /** La carte de calibrage, ou rien. */
 function expoCalibHtml(){

@@ -46,10 +46,11 @@ quand les tests échouent ou que la cible est `main`.
 
 - `app.js` : le panneau. **En cours de découpage vers `src/`** (issue #49) :
   avant d'ajouter une fonction dans `app.js`, regarder si son domaine a un module.
-- `src/core` (état, formules, temps), `src/plan` (plan du jour, priorités, nuit,
-  missions, vocations), `src/flotte`, `src/defense`, `src/formes-de-vie`,
-  `src/regles` (moteur de règles), `src/securite`, `src/meteo.js`, `src/vues`
-  (navigation, en-tête, un fichier par onglet).
+- `src/core` (état, formules, temps), `src/economie` (production, stocks),
+  `src/plan` (plan du jour, priorités, nuit, missions, vocations), `src/flotte`,
+  `src/defense`, `src/formes-de-vie`, `src/regles` (moteur de règles),
+  `src/securite`, `src/meteo.js`, `src/vues` (navigation, en-tête, un fichier
+  par onglet).
 - `content.js` : lecture des pages du jeu (règles dans `.claude/rules/content-js.md`).
 - `background.js`, `boot.js` : service worker et démarrage.
 - `rules.json` : règles du moteur et leurs paramètres.

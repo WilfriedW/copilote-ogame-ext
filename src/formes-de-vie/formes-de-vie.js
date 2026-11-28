@@ -14,14 +14,13 @@
    chargement. */
 import { S } from '../core/etat.js';
 import { satEnergy } from '../core/formules.js';
+import { LF_READ_TTL, prodOf, mse } from '../economie/production.js';
 import { parseC } from '../flotte/vaisseaux.js';
 import { priosLf, prioPalier, FOCUS_VAISSEAU } from '../plan/priorites.js';
 import {
   REGLES, aSoi, REGLES_PAR_ID, EVAL, regle, regleActive, regleTexte
 } from '../regles/moteur.js';
-import {
-  lfNom, goUrl, prodOf, mse, fileDe, enCours, raceDe, POS
-} from '../../app.js';
+import { lfNom, goUrl, fileDe, enCours, raceDe, POS } from '../../app.js';
 /* Noms relevés sur le jeu ; le panneau de détail en apporte d'autres au fil
    des visites, et ceux-là priment puisqu'ils viennent de la partie en cours. */
 /* Les noms par défaut viennent de rules.json, toutes races confondues : un nom
@@ -454,10 +453,6 @@ export function lfConseilPlanete(p){
 }
 /** La race conseillée quand on ne sait rien de l'emplacement. */
 function bestLifeform(){ return lfPourPos(0); }
-/* Le bonus de forme de vie lu dans le panneau décrit les niveaux du moment :
-   au-delà de sept jours on le laisse, mieux vaut sous-estimer que décrire un
-   empire qui n'existe plus. */
-export const LF_READ_TTL = 7*86400e3;
 /** Les identifiants de case de forme de vie relevés sur une planète. Pas de
     tri : une clé entière s'énumère déjà en ordre croissant, et c'est l'ordre
     du jeu — les trier à nouveau serait une ligne qui ne fait rien. */

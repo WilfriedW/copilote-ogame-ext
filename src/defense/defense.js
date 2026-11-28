@@ -13,8 +13,9 @@ import { S } from '../core/etat.js';
 import { fmt, num, nf1, fmtCourt } from '../core/format.js';
 import { B, T } from '../core/formules.js';
 import { IS_EXT } from '../core/serveur.js';
+import { mse, stockNow } from '../economie/production.js';
 import { shipList } from '../flotte/vaisseaux.js';
-import { mse, stockNow, shipReqOk } from '../../app.js';
+import { shipReqOk } from '../../app.js';
 
 /* Un tas d'un seul type ne défend rien, quelle que soit la somme dépensée :
    le croiseur tire dix fois par lanceur de missiles et pas une fois par laser
