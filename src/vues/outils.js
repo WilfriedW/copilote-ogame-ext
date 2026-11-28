@@ -25,6 +25,7 @@ import {
   expoFind, expoPts, expoFret, expoRes, expoCap, expoStats,
   expoFretPropose
 } from '../flotte/expeditions.js';
+import { luneTir, luneVaisseaux, luneFacture, luneFlotteAuSol, moonDf, luneMorts } from '../flotte/lune.js';
 import {
   SHIPS, parseC, shipStats, flight, SHIP_PLURAL, shipList, planeteEn
 } from '../flotte/vaisseaux.js';
@@ -32,8 +33,7 @@ import { LIFEFORMS, lfPourPos, lfRaisonPos } from '../formes-de-vie/formes-de-vi
 import { fold, segTabs } from './navigation.js';
 import {
   planetById, actHtml, myScore, colonyCandidates, raidTargets,
-  exploreSystems, luneTir, luneVaisseaux, luneFacture, luneFlotteAuSol,
-  moonDf, luneMorts, centreIndex, cargoHomeIndex, centrePlanet, raidPlan,
+  exploreSystems, centreIndex, cargoHomeIndex, centrePlanet, raidPlan,
   TOOLS, bascule, aide, VIEWS, gauge, REFRESH
 } from '../../app.js';
 /** La carte de calibrage, ou rien. */
