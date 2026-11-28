@@ -35,6 +35,10 @@ import {
   prios, priosLf, PRIO_ATTENTE, prioDemandes, prioAttend, prioOrdre,
   prioSuite, prioRef, FOCUS
 } from '../plan/priorites.js';
+import {
+  classeSuggeree, classeEcart, catActe, catMission, profilLigne,
+  profilFocusHtml, profilEtape
+} from '../plan/profil.js';
 import { surplusListe } from '../plan/surplus.js';
 import { NIVEAU_SEV, regleParam, publieCritiques } from '../regles/moteur.js';
 import { FS_MISSION, secu, espionnagesEntrants, planSecurite, fsRappelActif } from '../securite/securite.js';
@@ -44,8 +48,7 @@ import {
 } from './navigation.js';
 import {
   planetById, prioLfEtat, gameSkin, ignKey, SEV_LABEL, copyChips, whyParts,
-  actHtml, rebours, noBtn, noListe, aide, classeSuggeree, classeEcart, catActe,
-  catMission, profilLigne, profilFocusHtml, profilEtape, actsVus, on
+  actHtml, rebours, noBtn, noListe, aide, actsVus, on
 } from '../../app.js';
 const prioRangHtml = (kind, pid, k) => { const r = prioOrdre(kind, pid, k); return r ? ` <span class="note">rang ${r.i + 1} sur ${r.n}</span>` : ''; };
 /* L'état d'une ligne est celui que le plan lui a donné à la première session,

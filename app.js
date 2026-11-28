@@ -32,6 +32,7 @@ import {
   lfNomsRetiens, LIFEFORMS, speciesOfPlanet, lfIds, LF_ROLE
 } from './src/formes-de-vie/formes-de-vie.js';
 import { BUILD_ID, fleetUrl, actGo, missionGo, goAttr, goNote, planHints, prioHints } from './src/jeu/liens.js';
+import { profilSain } from './src/plan/profil.js';
 import { meteoVoit, renderMeteo, meteoBind } from './src/meteo.js';
 import { unlockAudio, alertQueue, ackFinished, stopFlash, clock, mirrorAlerts } from './src/minuteurs/minuteurs.js';
 import { raidTargets, exploreSystems, REPORT_WORDS, SE_BAT, applyReport, raidPlan } from './src/pillage/pillage.js';
@@ -986,151 +987,6 @@ const bascule = (id, attr, label, on, note='') =>
 const aide = (id, html) =>
   `<details class="aide"${fold('aide:' + id, false)}><summary data-fold="aide:${id}">En savoir plus</summary>${html}</details>`;
 
-/* ---------- profil de jeu ---------- */
-/* Un mineur, un raideur et un explorateur regardent la même liste de cartes
-   et n'y cherchent pas la même chose. Le profil dit laquelle passe devant et
-   laquelle ne sort pas du tout ; les poids, eux, sont dans `profils.js`, pour
-   qu'on puisse les discuter sans relire le code qui les applique.
-
-   Le style sert deux fois : il pèse les cartes, et il pose « Ce que le plan
-   vise » — la question était déjà là, au troisième menu des Réglages, où
-   personne n'allait. Elle se pose donc une fois, en tête de la page que le
-   joueur regarde, avec les deux qui la complètent ; les Réglages restent
-   l'endroit où en changer ensuite. */
-
-/** La clé si la table la porte en propre, sinon null : sans ce garde-fou, une
-    sauvegarde truquée ferait passer `__proto__` pour un style. */
-function profilConnu(t, k){ return Object.prototype.hasOwnProperty.call(t, String(k)) ? String(k) : null; }
-/* Le profil remis d'aplomb : chaque clé relue dans sa table, le reste jeté.
-   Une sauvegarde d'une autre version, une synchro abîmée ou un fichier bricolé
-   à la main y mettraient sinon de quoi faire lever la ligne du profil. */
-function profilSain(){
-  const def = {style:'', classe:'', activite:'regulier', focus:[], set:false};
-  if(!S.profil || typeof S.profil !== 'object') S.profil = def;
-  S.profil.style    = profilConnu(PROFILS.styles, S.profil.style) || def.style;
-  S.profil.classe   = profilConnu(PROFILS.classes, S.profil.classe) || def.classe;
-  S.profil.activite = profilConnu(PROFILS.activites, S.profil.activite) || def.activite;
-  S.profil.focus = (Array.isArray(S.profil.focus) ? S.profil.focus : [])
-    .map(k => profilConnu(PROFILS.focus, k)).filter(Boolean);
-  // Répondu sans style : le questionnaire n'a pas abouti, il se repose.
-  S.profil.set = !!S.profil.set && !!S.profil.style;
-}
-/* Les deux réglages que le style pose, et qu'il ne reprend jamais : ce que le
-   plan vise, et le modèle de défense. Un turtle vise la tortue de fin de
-   partie et les mines, un raideur le pillage et rien qui fortifie.
-
-   Aucun des deux ne s'impose. Le réglage ne dit pas qui l'a écrit, alors le
-   copilote s'en tient à ce qu'il peut savoir : tant que la valeur en place est
-   celle du style d'avant — ou celle d'usine, pour qui n'a jamais répondu —
-   elle suit ; dès qu'elle s'en écarte, c'est un choix du joueur et l'assistant
-   n'y touche plus. Les deux ensemble, parce que c'est la même règle : l'avoir
-   écrite pour le modèle de défense et oubliée pour le plan du jour est
-   exactement ce que la relecture a trouvé.
-
-   Ça compte d'autant plus pour le plan que deux de ses cinq valeurs —
-   « Équilibré » et « Économie pure » — ne sont atteignables que par le menu
-   des Réglages : aucun style ne les vise, donc ce sont précisément celles que
-   l'assistant écraserait sans jamais pouvoir les rendre. */
-/** @param {string} avant le style d'avant, vide s'il n'y en avait pas
-    @param {string} apres le style qu'on vient de choisir */
-function styleRepose(avant, apres){
-  const neuf = PROFILS.styles[apres]; if(!neuf) return;
-  const vieux = PROFILS.styles[avant], def = sample();
-  // `dayValue` relit la clé dans FOCUS, comme pour le menu des Réglages.
-  if(S.day.focus === (vieux ? vieux.plan : def.day.focus))
-    S.day.focus = dayValue('focus', neuf.plan, S.day.focus);
-  if(S.settings.defModele === (vieux ? vieux.defense : def.settings.defModele))
-    S.settings.defModele = neuf.defense;
-}
-/* Le réglage « Ce que le plan vise » est posé par le style, mais le joueur peut
-   en changer : tant qu'il ne l'a pas fait, le dire sur place vaut mieux qu'un
-   paragraphe qui renvoie à une autre carte. C'est la même annotation que pour
-   le modèle de défense, et la même règle que `styleRepose` applique. */
-/** @returns {boolean} vrai si le plan en place est encore celui du style. */
-function planPoseParLeStyle(){
-  const st = PROFILS.styles[S.profil.style];
-  return !!(S.profil.set && st && S.day.focus === st.plan);
-}
-/** La classe que le style conseille, vide tant qu'aucun style n'est choisi. */
-function classeSuggeree(){ const s = PROFILS.styles[S.profil.style]; return s ? s.classe : ''; }
-/** La classe que le profil vise : celle demandée, ou celle que le style conseille. */
-function classeVoulue(){ return S.profil.classe || classeSuggeree(); }
-/* Le copilote ne change pas de classe dans le jeu, et il ne calcule pas sur une
-   classe que le compte n'a pas : ce qu'il peut faire, c'est le dire. */
-/** L'écart entre la classe lue dans le jeu et celle que le profil vise, ou ''. */
-function classeEcart(){
-  const v = classeVoulue();
-  if(!v || v === S.settings.cls) return '';
-  return `Ton compte joue ${PROFILS.classes[S.settings.cls] || 'sans classe'}, ton profil vise ${PROFILS.classes[v]}. Rien n'est bloqué : les calculs suivent la classe lue dans le jeu, le profil ne décide que de l'ordre des cartes.`;
-}
-/**
- * Ce que vaut une catégorie pour le profil en place : 3 passe devant, 0 ne
- * sort pas. Une catégorie que la table ne nomme pas garde la place qu'elle
- * avait avant le profil — et tant que le questionnaire n'a pas de réponse,
- * c'est le cas de toutes.
- * @param {string} cat clé de `PROFILS.cats`, ou '' pour « sans catégorie »
- * @returns {number} 0 à 4
- */
-/** @param {string[]} [focus] liste de focus à supposer, celle du profil par défaut */
-function poidsCat(cat, focus){
-  if(!cat) return PROFILS.neutre;
-  const pr = S.profil, mis = focus || pr.focus;
-  /* La mise à l'abri ne se pondère pas, elle se place : chez qui passe peu,
-     elle passe devant tout le reste. */
-  if(cat === 'abri') return PROFILS.abri[pr.activite] || 3;
-  let w = (PROFILS.poids[pr.style] || {})[cat];
-  if(w == null) return PROFILS.neutre;
-  // Un focus ajoute +2 une fois, pas +2 par focus qui le réclame.
-  if(mis.some(f => (PROFILS.focus[f] || {cats:[]}).cats.indexOf(cat) >= 0)) w = Math.min(3, w + 2);
-  const cap = (PROFILS.plafonds[pr.activite] || {})[cat];
-  return cap == null ? w : Math.min(w, cap);
-}
-/* Un focus qui ne peut rien remonter doit le dire. Pour un explorateur, cocher
-   « Expéditions » n'ajoute rien : sa catégorie vaut déjà 3 pour ce style, et le
-   +2 est plafonné là. Même chose sous « Peu présent », où un plafond d'activité
-   retient la catégorie plus bas que le focus ne la pousserait. Une case qui ne
-   peut pas agir et qui n'en dit rien est un mensonge par omission — c'est ce
-   que le joueur a trouvé en la cochant, et en ne voyant rien bouger. */
-/** @returns {boolean} vrai si cocher ce focus ne changerait aucun poids. */
-function focusInerte(k){
-  const f = PROFILS.focus[k]; if(!f) return false;
-  const sans = S.profil.focus.filter(x => x !== k), avec = sans.concat(k);
-  return f.cats.every(c => poidsCat(c, sans) === poidsCat(c, avec));
-}
-/** La catégorie d'une carte du plan, '' quand elle sert tous les styles. */
-function catActe(a){
-  const t = PROFILS.actes;
-  if(a.kind === 'b') return t.bat[a.k] || '';
-  if(a.kind === 't') return t.tech[a.k] || '';
-  // Un chantier vaut ce qu'il sort : c'est le vaisseau qui décide, pas la file.
-  if(a.kind === 'shipbuild') return t.vaisseaux[Object.keys(a.ships || {})[0]] || '';
-  return t.kinds[a.kind] || '';
-}
-/** La catégorie d'une carte à faire : sa rubrique, sauf les quelques exceptions. */
-function catMission(m){ return PROFILS.missions.id[m.id] || PROFILS.missions.q[m.q] || ''; }
-/** Le profil en une ligne : « Turtle · Collecteur · Régulier · + Expéditions ». */
-function profilLigne(){
-  const p = S.profil, st = PROFILS.styles[p.style];
-  if(!st) return '';
-  // Le nom court quand il existe : la ligne doit rester une ligne.
-  const f = p.focus.map(k => PROFILS.focus[k].court || PROFILS.focus[k].n);
-  return [st.n, PROFILS.classes[classeVoulue()], PROFILS.activites[p.activite].n]
-    .concat(f.length ? '+ ' + f.join(', ') : []).join(' · ');
-}
-/** Les six focus ponctuels en cases à cocher. */
-function profilFocusHtml(){
-  return Object.entries(PROFILS.focus).map(([k,f]) => {
-    const mis = S.profil.focus.indexOf(k) >= 0, inerte = focusInerte(k);
-    return `<label class="pill ${mis?'good':'info'} choix" title="${inerte?'Ton style met déjà cette catégorie au maximum : la cocher ne changerait rien.':''}"><input type="checkbox" data-pfocus="${k}" ${mis?'checked':''} class="w-auto mr-2">${esc(f.n)}${inerte?' <span class="note">· déjà au max</span>':''}</label>`;
-  }).join('');
-}
-/* Trois questions, une par écran : la deuxième dépend de la première, puisque
-   la classe conseillée n'existe qu'une fois le style choisi. L'assistant
-   s'ouvre tant que la réponse manque, et « Refaire le questionnaire » le
-   relance avec les réponses en place — un clic change un choix, pas trois. */
-let profilEtape = 0;
-/* Un import ne se réassigne pas : les clics du questionnaire passent par ici. */
-function poseProfilEtape(v){ profilEtape = v; }
 const VIEWS = {...VIEWS_AUJOURDHUI, ...VIEWS_RELEVE, ...VIEWS_EMPIRE, ...VIEWS_OUTILS, ...VIEWS_DEFENSE, ...VIEWS_REGLAGES};
 
 const gauge = (k,cls,label,v,sub) => `<div class="gauge"><span class="k"><i class="bg-${cls}"></i>${label}</span><span class="v c-${cls}">${v}</span>${sub?`<span class="s">${sub}</span>`:''}</div>`;
@@ -1674,17 +1530,15 @@ if(IS_EXT && chrome.runtime.getURL) (function(){
 /* Ce que les modules sortis d'app.js lui empruntent encore. Rien de plus :
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
-  planetById, centreOrHub, centrePlanet, rankUpgrades, shipTime, shipReqOk, save, raceDe,
-  ignKey, lfMode, poidsCat, on, SHIP_COST, lfNom, lfIdPour, poseLfCles,
+  planetById, centreOrHub, centrePlanet, rankUpgrades, shipTime, shipReqOk,
+  save, raceDe, ignKey, lfMode, on, SHIP_COST, lfNom, lfIdPour, poseLfCles,
   addBuilt, render, TOOLS, bascule, syncFailed, planetAlerts, cargoHomeIndex,
   planetIndexById, LF_MODE, defSurplus, tournee, hubIndex, centreIndex,
-  POURQUOI_LABO, centreNote, catActe, aide, catMission, SEV_LABEL,
-  prioLfEtat, gameSkin, copyChips, whyParts, actHtml, rebours, noBtn,
-  noListe, classeSuggeree, classeEcart, profilLigne, profilFocusHtml,
-  profilEtape, actsVus, defRecetteHtml, defModeleCarte, defPicker, poseNom,
-  centreWhy, VIEWS, gauge, REFRESH, toast, habillage, forgetPlanet, pushLook,
-  refresh, masque, masqueBascule, setMasque, timeExport, defPersoLive,
-  profilConnu, styleRepose, poseProfilEtape, msg, appliqueSauvegarde,
-  publieLePlan, APP_VERSION, VERSIONS, MAJ, HABILLAGES, MASQUE_CLES,
-  toutMasque, planPoseParLeStyle, plusRecente
+  POURQUOI_LABO, centreNote, aide, SEV_LABEL, prioLfEtat, gameSkin,
+  copyChips, whyParts, actHtml, rebours, noBtn, noListe, actsVus,
+  defRecetteHtml, defModeleCarte, defPicker, poseNom, centreWhy, VIEWS,
+  gauge, REFRESH, toast, habillage, forgetPlanet, pushLook, refresh, masque,
+  masqueBascule, setMasque, timeExport, defPersoLive, msg,
+  appliqueSauvegarde, publieLePlan, APP_VERSION, VERSIONS, MAJ, HABILLAGES,
+  MASQUE_CLES, toutMasque, plusRecente
 };

@@ -16,7 +16,7 @@ import {
   COL_SHIP_COST, KITS, colShipAt, colSentNow, colBuilt, maxPlanets,
   coloTarget, coloFleet
 } from '../colonisation/colonisation.js';
-import { S } from '../core/etat.js';
+import { S, sample } from '../core/etat.js';
 import { fmt, num, planetRef, majus } from '../core/format.js';
 import {
   B, B_SHORT, T, levelCost, rangeCost, storageLevelFor, SAT_COST,
@@ -43,12 +43,13 @@ import { lfCandidates, lfSuspendu } from '../formes-de-vie/formes-de-vie.js';
 import { timerLabel } from '../minuteurs/minuteurs.js';
 import { poseHeure, isNight } from './nuit.js';
 import { prios, prioOf, prioDevant, FOCUS, FOCUS_FLOTTE } from './priorites.js';
+import { poidsCat, catActe } from './profil.js';
 import { besoinEmpire, VOC_KEYS, VOC_NOM, vocations } from './vocations.js';
 import { regleActive, regleParam, regleTexte, rangNiveau, constats, repondA } from '../regles/moteur.js';
 import {
   addBuilt, planetIndexById, rankUpgrades, planetAlerts, LF_MODE, lfMode,
-  SHIP_COST, shipReqOk, shipTime, defSurplus, tournee, hubIndex,
-  centreIndex, POURQUOI_LABO, centreNote, poidsCat, catActe
+  SHIP_COST, shipReqOk, shipTime, defSurplus, tournee, hubIndex, centreIndex,
+  POURQUOI_LABO, centreNote
 } from '../../app.js';
 
 /* ---------- advice ---------- */
@@ -287,6 +288,33 @@ export function dayValue(k, v, prev){
   }
   const t = {focus:FOCUS, lf:LF_MODE, research:RESEARCH_MODE}[k];
   return t ? (t[v] ? v : prev) : Math.max(0, parseInt(v) || 0);
+}
+/* Les deux réglages que le style pose, et qu'il ne reprend jamais : ce que le
+   plan vise, et le modèle de défense. Un turtle vise la tortue de fin de
+   partie et les mines, un raideur le pillage et rien qui fortifie.
+
+   Aucun des deux ne s'impose. Le réglage ne dit pas qui l'a écrit, alors le
+   copilote s'en tient à ce qu'il peut savoir : tant que la valeur en place est
+   celle du style d'avant — ou celle d'usine, pour qui n'a jamais répondu —
+   elle suit ; dès qu'elle s'en écarte, c'est un choix du joueur et l'assistant
+   n'y touche plus. Les deux ensemble, parce que c'est la même règle : l'avoir
+   écrite pour le modèle de défense et oubliée pour le plan du jour est
+   exactement ce que la relecture a trouvé.
+
+   Ça compte d'autant plus pour le plan que deux de ses cinq valeurs —
+   « Équilibré » et « Économie pure » — ne sont atteignables que par le menu
+   des Réglages : aucun style ne les vise, donc ce sont précisément celles que
+   l'assistant écraserait sans jamais pouvoir les rendre. */
+/** @param {string} avant le style d'avant, vide s'il n'y en avait pas
+    @param {string} apres le style qu'on vient de choisir */
+export function styleRepose(avant, apres){
+  const neuf = PROFILS.styles[apres]; if(!neuf) return;
+  const vieux = PROFILS.styles[avant], def = sample();
+  // `dayValue` relit la clé dans FOCUS, comme pour le menu des Réglages.
+  if(S.day.focus === (vieux ? vieux.plan : def.day.focus))
+    S.day.focus = dayValue('focus', neuf.plan, S.day.focus);
+  if(S.settings.defModele === (vieux ? vieux.defense : def.settings.defModele))
+    S.settings.defModele = neuf.defense;
 }
 /** Connection times over the planning horizon, skipping the night window. */
 function sessionTimes(now){

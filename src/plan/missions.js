@@ -30,12 +30,13 @@ import { coordLink } from '../jeu/liens.js';
 import { raidTargets, raidPlan } from '../pillage/pillage.js';
 import { astroForPlanet, nextResearch, chantierARelire, satsOk, cardKey } from './journee.js';
 import { poseHeure, heureTxt, isNight, nightLen, absenceJour, wakeTime } from './nuit.js';
+import { poidsCat, catMission } from './profil.js';
 import {
   pickCargo, FS_MISSION, FS_MISSION_N, partAbri, fleetsavePlan,
   cargoGaps, secu, prochaineHeure
 } from '../securite/securite.js';
 import { occupied } from '../univers/univers.js';
-import { save, planetById, lfNom, lfMode, poidsCat, catMission } from '../../app.js';
+import { save, planetById, lfNom, lfMode } from '../../app.js';
 /**
  * Les sources d'énergie posables sur cette planète, chiffrées, de la moins
  * chère à la plus chère par point d'énergie.

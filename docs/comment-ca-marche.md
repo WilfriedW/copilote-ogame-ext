@@ -472,7 +472,8 @@ facture), `src/securite/securite.js` (mise à l'abri, attaques
 entrantes, plan de sécurité) et `src/formes-de-vie/formes-de-vie.js`
 (espèces, coût des cases, paliers de population, règles propres aux formes
 de vie), puis le plan du jour dans `src/plan/` : `priorites.js` (les
-priorités du joueur et leur pose), `nuit.js` (la nuit, l'heure de réveil),
+priorités du joueur et leur pose), `profil.js` (le profil de jeu et le poids
+qu'il donne aux cartes), `nuit.js` (la nuit, l'heure de réveil),
 `vocations.js` (la vocation d'une planète, ce qui manque à l'empire),
 `journee.js` (la journée simulée, la prochaine recherche, la projection des
 ressources), `missions.js` (les missions du jour), `surplus.js` (les

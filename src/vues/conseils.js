@@ -10,10 +10,11 @@ import { S } from '../core/etat.js';
 import { esc, costHtml } from '../core/format.js';
 import { stockNow } from '../economie/production.js';
 import { meteoFiltre, meteoVoit } from '../meteo.js';
+import { poidsCat } from '../plan/profil.js';
 import { SURPLUS_REGLES } from '../plan/surplus.js';
 import { NIVEAUX, NIVEAU_SEV, SEV_NIVEAU, DOMAINES, rangNiveau, constatsVus } from '../regles/moteur.js';
 import { fold } from './navigation.js';
-import { planetById, ignKey, SEV_LABEL, poidsCat } from '../../app.js';
+import { planetById, ignKey, SEV_LABEL } from '../../app.js';
 
 /* ---------- les règles du moteur : le bloc des conseils ---------- */
 /**

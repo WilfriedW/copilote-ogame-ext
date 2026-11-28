@@ -24,12 +24,13 @@ import {
   visibleTimers, renderTimers
 } from '../minuteurs/minuteurs.js';
 import { applyReport } from '../pillage/pillage.js';
-import { dayValue } from '../plan/journee.js';
+import { dayValue, styleRepose } from '../plan/journee.js';
 import { nightLen, absenceJour } from '../plan/nuit.js';
 import {
   prioLvl, prioPose, posePartout, poseRetireTout, poseCoche, poseChamp,
   prioDevant, prioRetire
 } from '../plan/priorites.js';
+import { profilConnu, poseProfilEtape } from '../plan/profil.js';
 import { aSoi, REGLES_PAR_ID, reglePose, ignores } from '../regles/moteur.js';
 import { secu, fsRappelVu, armeRappel } from '../securite/securite.js';
 import {
@@ -43,10 +44,9 @@ import {
   garderVue
 } from './navigation.js';
 import {
-  save, planetById, forgetPlanet, toast, pushLook, render, refresh,
-  masque, masqueBascule, setMasque, timeExport, defPersoLive, TOOLS,
-  profilConnu, styleRepose, poseProfilEtape, VIEWS, REFRESH, on, msg,
-  appliqueSauvegarde, publieLePlan
+  save, planetById, forgetPlanet, toast, pushLook, render, refresh, masque,
+  masqueBascule, setMasque, timeExport, defPersoLive, TOOLS, VIEWS, REFRESH,
+  on, msg, appliqueSauvegarde, publieLePlan
 } from '../../app.js';
 
 /* ---------- events ---------- */
