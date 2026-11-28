@@ -19,12 +19,15 @@
 
 import { S } from '../core/etat.js';
 import { dur, formatTime } from '../core/temps.js';
+import { EXPO_GROS, expoRes, expoFleet, expoCap } from './expeditions.js';
 import {
-  SHIPS, EXPO_GROS, expoRes, fmtLigne, fmt, esc, num, planetRef,
-  production, mse, stockNow, souteUtile, shipStats, flight, tab,
-  expoFleet, shipList, SHIP_COURT, shipCourt, mcd, secu, prochaineHeure,
-  planeteEn, mouvements, projectResources, attaquesEntrantes, aQuai,
-  transportSuggere, expoCap, fmtCourt, aide
+  SHIPS, souteUtile, shipStats, flight, shipList, SHIP_COURT, shipCourt,
+  mcd, planeteEn, mouvements, aQuai
+} from './vaisseaux.js';
+import {
+  fmtLigne, fmt, esc, num, planetRef, production, mse, stockNow, tab,
+  secu, prochaineHeure, projectResources, attaquesEntrantes,
+  transportSuggere, fmtCourt, aide
 } from '../../app.js';
 
 /** Les transporteurs : ce qui compte dans la soute du soir. */
