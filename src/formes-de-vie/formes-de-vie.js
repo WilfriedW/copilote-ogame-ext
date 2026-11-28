@@ -15,12 +15,12 @@
 import { S } from '../core/etat.js';
 import { satEnergy } from '../core/formules.js';
 import { parseC } from '../flotte/vaisseaux.js';
+import { priosLf, prioPalier, FOCUS_VAISSEAU } from '../plan/priorites.js';
 import {
   REGLES, aSoi, REGLES_PAR_ID, EVAL, regle, regleActive, regleTexte
 } from '../regles/moteur.js';
 import {
-  priosLf, prioPalier, lfNom, goUrl, prodOf, mse, fileDe, enCours,
-  raceDe, POS, FOCUS_VAISSEAU
+  lfNom, goUrl, prodOf, mse, fileDe, enCours, raceDe, POS
 } from '../../app.js';
 /* Noms relevés sur le jeu ; le panneau de détail en apporte d'autres au fil
    des visites, et ceux-là priment puisqu'ils viennent de la partie en cours. */
