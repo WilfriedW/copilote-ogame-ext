@@ -44,8 +44,11 @@ quand les tests échouent ou que la cible est `main`.
 
 ## Où vit le code
 
-- `app.js` : le panneau. **En cours de découpage vers `src/`** (issue #49) :
-  avant d'ajouter une fonction dans `app.js`, regarder si son domaine a un module.
+- `app.js` : le démarrage du panneau et le moyeu de rendu (`render`, `refresh`,
+  `VIEWS`, `REFRESH`, `publieLePlan`, `applyGame`), plus quelques pièces que
+  des cycles y retiennent (`planetAlerts`, `sainEtat`, `toast`…). Le reste vit
+  dans `src/` depuis le découpage (#49) : une fonction nouvelle va dans le
+  module de son domaine, pas dans `app.js`.
 - `src/core` (état, formules, temps), `src/economie` (production, stocks),
   `src/plan` (plan du jour, priorités, nuit, missions, vocations), `src/flotte`,
   `src/defense`, `src/formes-de-vie`, `src/regles` (moteur de règles),
@@ -85,8 +88,6 @@ quand les tests échouent ou que la cible est `main`.
 - **Issues d'interface** (onglets, en-tête, cartes) : en série.
   **Issues de moteur** (plan, transports, règles) : en parallèle si elles ne
   touchent pas les mêmes fonctions.
-- **Pendant le découpage d'`app.js` (#49)** : pas de nouvelle branche sur `app.js`
-  avant la fusion de l'étape en cours.
 - Sessions en parallèle : une par worktree (`claude -w <branche>`).
 - Rebaser sur `main` (`git rebase origin/main`), ne jamais fusionner `main` dans une branche.
 
