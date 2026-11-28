@@ -41,11 +41,11 @@ import { prios, prioOf, prioDevant, FOCUS, FOCUS_FLOTTE } from './priorites.js';
 import { besoinEmpire, VOC_KEYS, VOC_NOM, vocations } from './vocations.js';
 import { regleActive, regleParam, regleTexte, rangNiveau, constats, repondA } from '../regles/moteur.js';
 import {
-  addBuilt, planetIndexById, rankUpgrades, casesBasses, planetAlerts,
-  timerLabel, COL_SHIP_COST, KITS, colShipAt, colSentNow, colBuilt,
-  maxPlanets, coloTarget, coloFleet, LF_MODE, lfMode, SHIP_COST,
-  shipReqOk, shipTime, defSurplus, tournee, hubIndex, centreIndex,
-  POURQUOI_LABO, centreNote, poidsCat, catActe
+  addBuilt, planetIndexById, rankUpgrades, planetAlerts, timerLabel,
+  COL_SHIP_COST, KITS, colShipAt, colSentNow, colBuilt, maxPlanets,
+  coloTarget, coloFleet, LF_MODE, lfMode, SHIP_COST, shipReqOk, shipTime,
+  defSurplus, tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote,
+  poidsCat, catActe
 } from '../../app.js';
 
 /* ---------- advice ---------- */
@@ -1670,3 +1670,8 @@ export function satsOk(p){ return p && p.satsOk != null ? !!p.satsOk : !!S.setti
    n'en portent aucun — d'où l'identifiant passé par l'appelant. */
 export function cardKey(kind, pid, quoi){ return `${kind}:${pid||''}:${quoi||''}`; }
 export function refused(key){ return !!S.daily.no[key]; }
+/* À 0 et 1 case libre, planetAlerts dit déjà le mur ; la règle parle avant. */
+export function casesBasses(p){
+  const l = casesLibres(p), seuil = regleParam('INST_FIELDS_LOW', 'seuil', 10);
+  return l != null && l >= 2 && l < seuil ? l : null;
+}
