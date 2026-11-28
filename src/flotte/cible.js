@@ -29,6 +29,7 @@ import {
 import { projectResources } from '../plan/journee.js';
 import { secu, prochaineHeure, attaquesEntrantes, transportSuggere } from '../securite/securite.js';
 import { tab, aide } from '../vues/navigation.js';
+import { routeHtml } from '../vues/itineraire.js';
 
 /** Les transporteurs : ce qui compte dans la soute du soir. */
 const FC_SOUTE = ['lc', 'sc'];
@@ -356,10 +357,11 @@ export function reequilibreCartes(now, r){
     const raison = [];
     if(t.soute.actuelle < t.soute.cible * seuil) raison.push(`soute ${fmtCourt(t.soute.actuelle)} pour ${fmtCourt(t.soute.cible)} visés`);
     if(t.noyau.ships && ['pr', 'pf', r.gros].some(k => k && t.noyau.ships[k] && !(t.actuel[k] > 0))) raison.push('kit noyau incomplet');
-    const tab = `<table class="fs-tab"><thead><tr><th>Source</th><th>Vaisseaux</th><th>Cible</th><th>Mission</th><th>M / C / D</th></tr></thead><tbody><tr><td>${esc(src.name)}</td><td>${esc(shipCourt(mv.ships))}</td><td>${esc(dst.name)}</td><td>Stationner</td><td class="mono">${mcd(charge)}</td></tr></tbody></table>`;
+    /* Le même itinéraire que les cartes du plan (ENH-83) : Stationner, donc pas de retour. */
+    const iti = routeHtml({src, dest: dst.coords, ships: mv.ships, res: charge, dur: fl.secs, end: now + fl.secs*1000});
     out.push({id: 'reequilibre:' + src.id + '>' + dst.id, q: 'Flotte', every: 12, sev: 'warn', tags: [planetRef(dst)],
       what: `Rééquilibrer : ${shipList(mv.ships)} de ${planetRef(src)} vers ${planetRef(dst)}`,
-      whatHtml: `Rééquilibrer : ${esc(shipList(mv.ships))} de ${esc(planetRef(src))} vers ${esc(planetRef(dst))}${tab}`,
+      whatHtml: `Rééquilibrer · Stationner${iti}`,
       ships: mv.ships, dest: dst.coords, mission: 4, p: S.planets.indexOf(src), res: charge, dstId: dst.id,
       why: `${planetRef(dst)} est loin de sa flotte cible (${raison.join(', ') || 'écart'}). ${planetRef(src)} a ces vaisseaux en trop.`,
       how: ['<b>Stationner</b> : les vaisseaux restent sur la planète cible. En Transport, ils reviendraient à leur départ et l\'écart resterait.',

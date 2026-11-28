@@ -13,6 +13,7 @@ import { whyLead } from '../plan/journee.js';
 import { dailyMissions, NO_KINDS, actKey, noLabel } from '../plan/missions.js';
 import { NIVEAU_SEV } from '../regles/moteur.js';
 import { uiOuvert, uiVu, fold } from './navigation.js';
+import { routeHtml } from './itineraire.js';
 /* Les valeurs à retaper dans le jeu, en pastilles cliquables. Le presse-papier
    reste du côté du joueur : c'est lui qui colle, l'extension ne remplit aucun
    champ — ce serait jouer à sa place, et c'est ce qui fait bannir un compte.
@@ -70,7 +71,13 @@ export function actHtml(a, withBtn){
   const [wi, wb, lead] = whyParts([a.why,
     a.src==='estimé' ? 'Prix et durée estimés d\'après les niveaux déjà vus, pas lus sur le jeu ; la durée est probablement sous-estimée.' : a.src==='lu' && a.at ? `Prix lu à ${formatTime(a.at)}.` : '',
     goNote(a)], ck);
-  const m = [a.cost ? costHtml(a.cost) : '', a.dur ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end ? `<span>fin ${formatTime(a.end)}</span>` : '', copyChips(a)].filter(Boolean).join('');
+  /* Une carte qui déplace des vaisseaux d'une planète à l'autre dit d'où,
+     vers où, quoi et quand dans son itinéraire (ENH-83) : la durée et l'heure
+     y sont libellées, la ligne du bas ne garde que les pastilles à recopier.
+     Un Transporter revient à son départ, un Stationner non. */
+  const route = a.kind === 'transfer' && a.dest ? routeHtml({src:S.planets[a.p], dest:a.dest, ships:a.ships, res:a.res, dur:a.dur, end:a.end,
+    retour:a.mission === 3 && a.end && a.dur ? a.end + a.dur*1000 : 0, suite:a.suite}) : '';
+  const m = [a.cost ? costHtml(a.cost) : '', a.dur && !route ? `<span class="mono">${dur(a.dur)}</span>` : '', a.end && !route ? `<span>fin ${formatTime(a.end)}</span>` : '', copyChips(a)].filter(Boolean).join('');
   let btn = '';
   if(withBtn && a.kind==='fleet') btn = `<button class="btn sm" data-sent="1">Envoyé</button>`;
   else if(withBtn) btn = `<button class="btn sm primary" data-launch='${esc(JSON.stringify({kind:a.kind,k:a.k,lvl:a.lvl,pid:(S.planets[a.p]||{}).id,n:a.n,id:a.id,ships:a.ships,cost:a.cost,coords:a.coords,dur:Math.round(a.dur),what:a.what}))}'>Lancé</button>`;
@@ -78,7 +85,7 @@ export function actHtml(a, withBtn){
   /* Le niveau qu'un constat a donné à la carte : la carte du plan est la
      réponse à la règle, c'est donc sur elle qu'il se lit. */
   const niv = a.niveau ? `<span class="pill ${NIVEAU_SEV[a.niveau]}">${SEV_LABEL[NIVEAU_SEV[a.niveau]]}</span> ` : '';
-  return `<li data-ck="${esc(ck)}"${goAttr(actGo(a))}><div><div class="q">${niv}${qHtml(a.q)}${wi}</div><div class="w">${esc(a.what)}</div>${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
+  return `<li data-ck="${esc(ck)}"${goAttr(actGo(a))}><div><div class="q">${niv}${qHtml(a.q)}${wi}</div><div class="w">${esc(a.titre || a.what)}</div>${route}${lead?`<div class="but">${esc(lead)}</div>`:''}</div>${btn||'<span></span>'}${m?`<div class="m">${m}</div>`:''}${wb}</li>`;
 }
 
 /** Le compte à rebours, « 1 h 02 min 05 s », relu chaque seconde. */

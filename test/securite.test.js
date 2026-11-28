@@ -143,9 +143,10 @@ module.exports = ({ t, assert, lu, loadApp, fixtureState, mission, SOIR, chargeW
     const h = lu(g.securiteHtml([]).alerte);
     assert.ok(h.includes('Critique') && h.includes('Attaque sur Tourtierion'));
     assert.ok(h.includes(`data-impact="${SOIR + H}"`), 'le compte à rebours se met à jour seul');
-    assert.ok(/<th>Source<\/th><th>Vaisseaux<\/th><th>Cible<\/th><th>Mission<\/th><th>M \/ C \/ D<\/th>/.test(h));
-    assert.ok(h.includes('<td>Tourtierion</td><td>30 GT, 2 PT, 1 SE</td><td>Poutinia</td><td>Transport</td>'));
-    assert.ok(/Arrivée .* à \d+ %/.test(h));
+    // ENH-83 : l'itinéraire des cartes de flotte, au lieu du tableau Source / Cible
+    assert.ok(/class="route"/.test(h) && /Tourtierion<\/span> <span class="mono">[^<]+<\/span><\/span><span class="fleche"[^>]*>→<\/span><span class="bout"><span class="ptag"[^>]*>Poutinia/.test(h));
+    assert.ok(h.includes('30 GT · 2 PT · 1 SE'));
+    assert.ok(/Transport · Vol .* · arrivée (demain )?\d\d:\d\d/.test(h) && /À \d+ %/.test(h));
     assert.ok(h.includes('data-prep='), 'Préparer pré-remplit le formulaire');
     assert.ok(!/data-launch|data-sent/.test(h), 'aucun envoi automatique');
   });

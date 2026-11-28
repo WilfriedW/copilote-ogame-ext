@@ -1248,7 +1248,7 @@ export function simulateDay(){
               + (dernier && somme(reste) >= SURPLUS_MIN ? ` Il restera ${fmt(reste[0])} M, ${fmt(reste[1])} C, ${fmt(reste[2])} D à réunir par la production de ${planetRef(dst)}.` : '');
             acts.push({q:'Flotte · '+planetRef(q), what:`Transporter ${fmt(sent[0])} M, ${fmt(sent[1])} C, ${fmt(sent[2])} D vers ${planetRef(dst)}`,
               why:`De quoi monter ${cible}${pal.a < pal.vise ? `, vers ta cible ${pal.vise}` : ''}. ${shipList(ships)} · mission Transporter · arrivée vers ${formatTime(arrive)}.${avis}`,
-              dur:fl.secs, end:arrive, kind:'transfer', ships, p:q.i, dest:dst.coords, res:sent, mission:3});
+              dur:fl.secs, end:arrive, kind:'transfer', ships, p:q.i, dest:dst.coords, res:sent, mission:3, titre:'Livrer le palier · Transporter'});
             parts.push(planetRef(q));
             libres--;
           }
@@ -1326,10 +1326,11 @@ export function simulateDay(){
         acts.push(own
           ? {q:'Flotte · '+planetRef(q), what:`Rapatrier vers ${planetRef(dst)} : ${charge}`,
              why:`${motif}${shipList(ships)} déjà sur place · mission Transporter · arrivée vers ${formatTime(arrive)}${avert}`,
-             dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i, dest:dst.coords, res:sent, mission:3}
+             dur:(arrive-Tm)/1000, end:arrive, kind:'transfer', ships, p:src.i, dest:dst.coords, res:sent, mission:3, titre:'Rapatrier · Transporter'}
           : {q:'Flotte · '+planetRef(src), what:`Envoie ${shipList(ships)} vers ${planetRef(q)}`,
              why:`${motif}À vide : il n'y a aucun transporteur sur ${planetRef(q)}. Mission Stationner, arrivée vers ${formatTime(aller)}. Tu lances ensuite depuis ${planetRef(q)} un Transporter chargé de ${charge} vers ${planetRef(dst)}, arrivée vers ${formatTime(arrive)} — il repart à vide, ces vaisseaux restent basés sur ${planetRef(q)}.${avert}`,
-             dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i, dest:q.coords, mission:4});
+             dur:(aller-Tm)/1000, end:aller, kind:'transfer', ships, p:src.i, dest:q.coords, mission:4, titre:'Envoyer à vide · Stationner',
+             suite:`Puis, depuis ${planetRef(q)} : Transporter ${charge} vers ${planetRef(dst)}, arrivée vers ${formatTime(arrive)}.`});
         libres--;
       }
       for(let lance=0; lance<Math.min(3, libres) && expoBusy.filter(e=>e>Tm).length < maxExpo; lance++){
