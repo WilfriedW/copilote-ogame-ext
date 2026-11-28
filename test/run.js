@@ -37,8 +37,9 @@ const appRegles = (rules, modifier, ext) => app(modifier, null, null, ext, null,
 
 /** Deux planètes que le jeu nomme, sur un serveur connu. */
 const RELEVE = s => { s.host = 's1-fr.ogame.gameforge.com'; s.planets[0].gid = '101'; s.planets[1].gid = '102'; };
-/** Un relevé assez vieux pour que le bouton sorte. */
-const PERIME = s => { s.planets.forEach(p => { p.stock.at = SOIR - 42 * 60e3; }); };
+/** Un relevé assez vieux pour que le bouton sorte : plus de trois fois la
+    fraîcheur (ENH-77 : 60 min, contre 10 avant), carte du jour ou non. */
+const PERIME = s => { s.planets.forEach(p => { p.stock.at = SOIR - 200 * 60e3; }); };
 
 t('un relevé du jour même est frais, le bouton reste caché', () => {
   const g = app();
@@ -46,9 +47,9 @@ t('un relevé du jour même est frais, le bouton reste caché', () => {
 });
 
 t("c'est la planète la moins souvent vue qui donne l'âge", () => {
-  const g = app(s => { RELEVE(s); s.planets[1].stock.at = SOIR - 42 * 60e3; });
+  const g = app(s => { RELEVE(s); s.planets[1].stock.at = SOIR - 200 * 60e3; });
   assert.ok(g.releveAge() > g.FRAIS_MS);
-  assert.equal(Math.round(g.releveAge() / 60e3), 42);
+  assert.equal(Math.round(g.releveAge() / 60e3), 200);
 });
 
 t("une planète que le jeu vient de révéler rend tout l'empire périmé", () => {
@@ -68,11 +69,12 @@ t("une planète que le jeu ne nomme pas ne périme pas l'empire", () => {
   assert.ok(g.releveAge() <= g.FRAIS_MS);
 });
 
-t("en-tête : la synchro tant que le relevé est frais, l'heure du relevé sinon", () => {
-  const frais = app(s => { RELEVE(s); s.syncAt = SOIR; });
-  assert.match(frais.el('uniBadge').innerHTML, /^synchro /, 'rien à relire : la synchro suffit');
+/* ENH-77 : la synchro a quitté l'en-tête pour l'infobulle du bouton et
+   Réglages › Données (test/en-tete.test.js). */
+t("en-tête : la synchro se lit dans l'infobulle du bouton quand il sort", () => {
   const vieux = app(s => { RELEVE(s); PERIME(s); s.syncAt = SOIR; });
-  assert.match(vieux.el('uniBadge').innerHTML, /^relevé /, "le bouton est sorti : l'en-tête parle de ce qu'il corrige");
+  assert.match(vieux.el('majBtn').title, /synchro \d\d:\d\d/);
+  assert.equal(vieux.el('uniBadge'), null, "plus de badge dans l'en-tête");
 });
 
 t('sans serveur connu, aucun relevé à proposer', () => {
@@ -6392,6 +6394,7 @@ require('./plan.test')({ t, assert, app, lu, SOIR, prioLabo, prePlasma, POSE });
 require('./palier.test')({ t, assert, loadApp, fixtureState, JOUR, SOIR });
 require('./itineraire.test')({ t, assert, loadApp, fixtureState, JOUR, lu });
 require('./empire-planetes.test')({ t, assert, app, lu, SOIR });
+require('./en-tete.test')({ t, assert, loadApp, fixtureState, SOIR, lu });
 
 /* ---------- une carte en attente dit ce qui la retient ---------- */
 
@@ -10216,7 +10219,7 @@ t('un choix déjà enregistré n\'est pas écrasé par le défaut', () => {
 t('l\'en-tête ne porte plus le mode lune, ni la disposition, ni le masquage', () => {
   const html = require('fs').readFileSync(require('path').join(__dirname, '..', 'sidepanel.html'), 'utf8');
   for (const id of ['luneBtn', 'cartesBtn', 'masqueBtn', 'masqueMenu']) assert.ok(!html.includes(`id="${id}"`), id);
-  for (const id of ['appVer', 'uniBadge', 'tzBtn', 'tzLbl', 'nightBtn', 'gearBtn']) assert.ok(html.includes(`id="${id}"`), id + ' reste');
+  for (const id of ['nightBtn', 'gearBtn']) assert.ok(html.includes(`id="${id}"`), id + ' reste');
   const src = ['app.js', ...require('./modules').ordre('src/main.js').filter(f => f !== 'app.js')].map(f => require('fs').readFileSync(require('path').join(__dirname, '..', f), 'utf8')).join('\n');
   for (const id of ['luneBtn', 'cartesBtn', 'masqueBtn', 'masqueMenu']) assert.ok(!src.includes(id), id + ' n\'a plus de référence dans app.js');
 });
@@ -10556,7 +10559,7 @@ t('météo : un empire sans alerte est au soleil, quatre pastilles vertes', () =
   assert.deepEqual(g.meteoElements().filter(e => e.niveau !== 'conseil'), [], 'rien ne colore');
   assert.equal(empireDe(g), 0);
   const h = g.meteoHtml(g.meteoElements());
-  assert.ok(/<b>Soleil<\/b>/.test(h), 'le bandeau dit Soleil');
+  assert.ok(/aria-label="Météo de l&#39;empire : Soleil"/.test(h), "l'icône dit Soleil");
   assert.equal((h.match(/mt-dot mt-good/g) || []).length, 8, 'deux planètes, quatre pastilles vertes chacune');
   assert.ok(/title="Tout va bien"/.test(h), 'le survol dit « Tout va bien »');
 });
@@ -10604,7 +10607,7 @@ t('météo : une attaque entrante fait Tempête sur la planète et sur l\'empire
   assert.equal(g.domainColor(el, 'colo', 'sec'), 'bad');
   assert.equal(g.planetWeather(el, 'colo'), 3);
   assert.equal(empireDe(g), 3);
-  assert.ok(/<b>Tempête<\/b>/.test(g.meteoHtml(el)));
+  assert.ok(/aria-label="Météo de l&#39;empire : Tempête"/.test(g.meteoHtml(el)));
   assert.ok(/Sécurité : attaque entrant/.test(g.meteoCauses(el, 'colo')));
 });
 
@@ -10651,26 +10654,23 @@ t('météo : la recherche à l\'arrêt va sur la planète d\'où la dernière es
   assert.equal(g.domainColor(el, 'mere', 'act'), 'good');
 });
 
-t('météo : un clic sur le bandeau replie ou déplie la grille, et l\'état se garde', () => {
+/* ENH-77 : le bandeau dépliable est devenu une icône et un panneau volant,
+   qui ne se retient pas d'une session à l'autre (test/en-tete.test.js). */
+t('météo : un clic sur l\'icône ouvre ou ferme la grille', () => {
   const g = meteo();
   g.renderMeteo();
-  assert.ok(/class="mt-grid" hidden/.test(g.el('meteo').innerHTML), 'repliée par défaut');
+  assert.ok(/class="mt-grid mt-pop" hidden/.test(g.el('meteo').innerHTML), 'fermée par défaut');
   const tog = { closest: sel => sel === '[data-meteo-tog]' ? {} : null };
   g.click('meteo', tog);
-  // l'état part dans le store d'affichage du poste, comme celui des cartes
-  g.uiEcrit();
-  assert.equal(g.stored().uiState.meteo, 'open', 'l\'état part dans le stockage, comme celui des cartes');
-  assert.ok(!/class="mt-grid" hidden/.test(g.el('meteo').innerHTML), 'dépliée');
+  assert.ok(!/class="mt-grid mt-pop" hidden/.test(g.el('meteo').innerHTML), 'ouverte');
   g.click('meteo', tog);
-  g.uiEcrit();
-  assert.equal(g.stored().uiState.meteo, 'closed');
+  assert.ok(/class="mt-grid mt-pop" hidden/.test(g.el('meteo').innerHTML), 'refermée');
 });
 
-t('météo : la grille se rouvre comme on l\'a laissée', () => {
+t('météo : une ancienne grille dépliée ne rouvre pas le panneau', () => {
   const g = meteo(s => { s.ui.fold = { meteo: true }; });
   g.renderMeteo();
-  assert.ok(/aria-expanded="true"/.test(g.el('meteo').innerHTML));
-  assert.ok(!/class="mt-grid" hidden/.test(g.el('meteo').innerHTML));
+  assert.ok(/aria-expanded="false"/.test(g.el('meteo').innerHTML));
 });
 
 t('météo : une ligne par planète, dans l\'ordre du jeu, en-têtes abrégés', () => {
@@ -11508,7 +11508,7 @@ t('ENH-54 : chaque carte de Réglages est dans son groupe, aucune ne manque', ()
   assert.deepEqual(titresDuGroupe(h, 'defense'), ['Modèle de défense', 'Sécurité et mise à l\'abri']);
   assert.deepEqual(titresDuGroupe(h, 'affichage'), ['Allure du panneau', 'Affichage', 'Page du jeu']);
   assert.deepEqual(titresDuGroupe(h, 'moteur'), ['Règles du moteur', 'Fiabilité des calculs']);
-  assert.deepEqual(titresDuGroupe(h, 'donnees'), ['Sauvegarde', 'Version']);
+  assert.deepEqual(titresDuGroupe(h, 'donnees'), ['Relevé du jeu', 'Sauvegarde', 'Version']);
   // Les champs lus par REFRESH.settings et bind() restent dans le DOM, masqués ou non.
   for (const id of ['aideJour', 'daySum', 'sSkin', 'sEmpile', 'ioSave', 'sRatio']) assert.ok(h.includes(`id="${id}"`), id);
 });

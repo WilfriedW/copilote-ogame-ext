@@ -23,6 +23,26 @@ export function hhmmDe(h){ const [H, M] = heureMin(h); return `${p2(H)}:${p2(M)}
 export function heureTxt(h){ const [H, M] = heureMin(h); return M ? `${H}h${p2(M)}` : `${H}h`; }
 export function isNight(ms){ const d=new Date(ms), h=d.getHours()+d.getMinutes()/60, a=+S.day.nightStart, b=+S.day.nightEnd; if(a===b) return false; return a>b ? (h>=a || h<b) : (h>=a && h<b); }
 
+/**
+ * La nuit dont l'allumage automatique est dû à cet instant, ou null.
+ * Une nuit se nomme par la date de son coucher : à 1 h du matin, c'est
+ * encore celle de la veille. La fenêtre va de `nuitAvance` heures avant le
+ * coucher jusqu'au réveil ; une nuit vide (coucher = réveil) n'en a pas,
+ * comme pour `isNight`.
+ * @param {number} ms
+ * @returns {string|null} 'AAAA-MM-JJ'
+ */
+export function nuitAutoCle(ms){
+  const d = S.day;
+  if(d.nuitAuto === false || +d.nightStart === +d.nightEnd) return null;
+  const avance = Math.max(0, +d.nuitAvance >= 0 ? +d.nuitAvance : 1) * 3600e3, long = nightLen() * 3600e3;
+  for(const j of [-1, 0, 1]){
+    const c = poseHeure(new Date(ms), d.nightStart); c.setDate(c.getDate() + j);
+    if(ms >= c.getTime() - avance && ms < c.getTime() + long) return `${c.getFullYear()}-${p2(c.getMonth()+1)}-${p2(c.getDate())}`;
+  }
+  return null;
+}
+
 /* ---------- la nuit et le réveil ---------- */
 /** Longueur de la fenêtre de nuit, en heures ; huit quand elle est vide. */
 export function nightLen(){ return (+S.day.nightEnd - +S.day.nightStart + 24) % 24 || 8; }

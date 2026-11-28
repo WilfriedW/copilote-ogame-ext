@@ -19,6 +19,7 @@ import { RACE_SRC, nomRace, readLifeforms } from '../formes-de-vie/formes-de-vie
 import { RESEARCH_MODE, researchMode, simulateDay } from '../plan/journee.js';
 import { LIVRAISON, livraisonMode } from '../plan/palier.js';
 import { hhmmDe, heureTxt, nightLen } from '../plan/nuit.js';
+import { timeMode, srvOffSec, LOCAL_TZ, formatTime } from '../core/temps.js';
 import { FOCUS } from '../plan/priorites.js';
 import { planPoseParLeStyle, classeEcart, profilLigne, profilFocusHtml } from '../plan/profil.js';
 import { REGLES_PAR_ID, NIVEAU_SEV, DOMAINES, regle } from '../regles/moteur.js';
@@ -157,6 +158,10 @@ settings(){
       </div>
       <div class="bascules">
         ${bascule('dNight', 'data-day="night"', 'Mise à l\'abri (nuit, absence)', d.night)}
+        ${bascule('dNuitAuto', 'data-day="nuitAuto"', 'Mode nuit automatique', d.nuitAuto !== false, 'Il s\'allume seul avant le coucher, une fois par nuit ; éteint à la main, il attend la nuit suivante.')}
+      </div>
+      <div class="grid">
+        <label class="f">Allumage avant le coucher<select id="dNuitAv" data-day="nuitAvance">${[0.5,1,2,3].map(v=>`<option value="${v}" ${+d.nuitAvance===v?'selected':''}>${v < 1 ? '30 min' : v + ' h'}</option>`).join('')}</select></label>
       </div>
       <div class="grid">
         <label class="f">Retour vers (heure)<input id="dBack" type="time" step="3600" data-day="backHour" value="${d.backHour==null?'':hhmmDe(d.backHour)}"><span class="note">Vide : retour dans ${nightLen()} h, la durée de la nuit.</span></label>
@@ -208,6 +213,7 @@ settings(){
     <div class="card"><h2>Allure du panneau</h2>
       <div class="grid">
         <label class="f">Thème<select id="sSkin" data-set="skin">${Object.entries(HABILLAGES).map(([k,l])=>`<option value="${k}" ${habillage()===k?'selected':''}>${l}</option>`).join('')}</select></label>
+        <label class="f">Heures affichées<select id="sTz">${[['local','Heure locale'],['server','Heure du serveur']].map(([k,l])=>`<option value="${k}" ${timeMode===k?'selected':''}>${l}</option>`).join('')}</select>${timeMode === 'server' && srvOffSec() == null ? '<span class="note">Heure du serveur pas encore lue : les heures restent en heure locale jusqu\'à la prochaine page du jeu.</span>' : S.srvTz && S.srvTz.ok === false ? '<span class="note">Décalage du serveur non vérifié sur la dernière page : le dernier connu sert.</span>' : LOCAL_TZ ? `<span class="note">Fuseau local : ${esc(LOCAL_TZ)}</span>` : ''}</label>
       </div>
       <div class="bascules">
         ${bascule('sMuet','data-set="muet"','Couper le son', s.muet, 'Plus de carillon à la fin d\'un minuteur, et les notifications du navigateur arrivent sans bruit.')}
@@ -233,6 +239,12 @@ settings(){
       ${aide('fiabilite', '<p class="note">Production, coûts et temps de vol sont stables depuis des années. Moins sûrs : la production de deutérium (formule des univers récents, dépend de la température max), la durée des bâtiments de niveau 1 à 5, et les plafonds d\'expédition.</p>')}
     </div>`,
     donnees: `
+    <div class="card"><h2>Relevé du jeu</h2>
+      <p class="note">${S.syncAt ? `Dernière synchro : ${esc(formatTime(S.syncAt))}.` : 'Pas encore de synchro : ouvre une page du jeu.'}</p>
+      <div class="grid">
+        <label class="f">Relevé à refaire après<select id="sFrais" data-set="releveFrais">${[20,30,60,120].map(v=>`<option value="${v}" ${+s.releveFrais===v?'selected':''}>${v} min</option>`).join('')}</select><span class="note">Pour une planète qui porte une carte du plan ; trois fois plus pour les autres. Au-delà, « Actualiser » sort dans l'en-tête.</span></label>
+      </div>
+    </div>
     <div class="card"><h2>Sauvegarde</h2>
       <p class="note">Tes données restent dans ce navigateur.</p>
       <div class="row"><button class="btn" id="ioSave">Enregistrer dans un fichier</button><button class="btn" id="ioLoad">Charger un fichier…</button><input type="file" id="ioFile" accept="application/json,.json" hidden><button class="btn ghost" id="ioReset">Réinitialiser…</button><span class="note" id="ioMsg"></span></div>
