@@ -10,6 +10,7 @@
    chargement : app.js l'importe pour cela seul. Il lit le plan du jour, les
    chantiers et la production, et emprunte encore à app.js la colonisation et
    `rankUpgrades`, appelés et jamais lus au chargement. */
+import { colSentNow, maxPlanets, coloFrom } from '../colonisation/colonisation.js';
 import { S } from '../core/etat.js';
 import { B, B_SHORT, T, levelCost } from '../core/formules.js';
 import { hyperCargoPct } from '../core/serveur.js';
@@ -22,7 +23,7 @@ import { rechercheEnCours, nextResearch, casesBasses } from './journee.js';
 import { energyOptions, energyLine } from './missions.js';
 import { prios } from './priorites.js';
 import { aSoi, EVAL, HANGARS } from '../regles/moteur.js';
-import { rankUpgrades, colSentNow, maxPlanets, coloFrom } from '../../app.js';
+import { rankUpgrades } from '../../app.js';
 /* L'option satellites est respectée par energyOptions : un satellite écarté
    ne sort pas comme la solution, il se dit à part dans planetAlerts. */
 EVAL.energyBalance = p => {

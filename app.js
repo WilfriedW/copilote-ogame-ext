@@ -3,13 +3,18 @@
    n'exporte que ce que la météo et la flotte cible lui empruntent (liste en
    fin de fichier). */
 import {
+  COL_SHIP_COST, KITS, OBJECTIVES, colShipAt, colSentNow, colBuilt,
+  maxPlanets, coloFrom, coloSystem, rankPositions, coloTarget, coloFleet,
+  COLO_HORIZON_H, colonyPayback, coloPaybackTxt, coloVerdict
+} from './src/colonisation/colonisation.js';
+import {
   KEY, LUNE_DF, EXPO_FRET, sample, newPlanet, S, remplaceEtat
 } from './src/core/etat.js';
 import {
   nf, fmt, esc, num, costHtml, planetRef, PLANET_COLORS, planetHue,
   qHtml, nf1, fmtCourt
 } from './src/core/format.js';
-import { B, levelCost, rangeCost, crawlerMax, CRAWLER_COST } from './src/core/formules.js';
+import { B, levelCost, crawlerMax, CRAWLER_COST, POS } from './src/core/formules.js';
 import { IS_EXT, API, poseApi, srv, ecoSpeed, buildTime } from './src/core/serveur.js';
 import {
   dur, LOCAL_TZ, srvOffSec, clockParts, p2, timeSeen, formatTime,
@@ -22,7 +27,7 @@ import {
 } from './src/defense/defense.js';
 import {
   LF_READ_TTL, labPlanet, parseProdPanel, prodOf, bridage, production,
-  mse, NOM_RES, stockNow, waitFor
+  mse, NOM_RES, stockNow
 } from './src/economie/production.js';
 import { EXPO_LOG_MAX, EXPO_PREP_MAX, EXPO_EVTS, expoJournal, expoMessages } from './src/flotte/expeditions.js';
 import {
@@ -34,10 +39,7 @@ import {
   lfNomsRetiens, LIFEFORMS, speciesOfPlanet, lfIds, LF_ROLE
 } from './src/formes-de-vie/formes-de-vie.js';
 import { meteoVoit, renderMeteo, meteoBind } from './src/meteo.js';
-import {
-  parseLeft, timerLabel, unlockAudio, chime, alertQueue, ackFinished,
-  stopFlash, clock, visibleTimers, renderTimers, mirrorAlerts
-} from './src/minuteurs/minuteurs.js';
+import { unlockAudio, alertQueue, ackFinished, stopFlash, clock, mirrorAlerts } from './src/minuteurs/minuteurs.js';
 import { casesSaines, casesLibres, dayValue, whyLead, cardKey, refused } from './src/plan/journee.js';
 import { energyOptions, energyLine, dailyMissions, NO_KINDS, actKey, noLabel } from './src/plan/missions.js';
 import {
@@ -54,7 +56,7 @@ import { VIEWS_AUJOURDHUI, REFRESH_AUJOURDHUI } from './src/vues/aujourdhui.js';
 import { VIEWS_DEFENSE } from './src/vues/defense.js';
 import { VIEWS_EMPIRE, REFRESH_EMPIRE } from './src/vues/empire.js';
 import { releveLu, header, enScan, setTimeMode, finDeNuit, VIEWS_RELEVE } from './src/vues/entete.js';
-import { bind, brancheEcoutes, tickTimers } from './src/vues/evenements.js';
+import { bind, brancheEcoutes } from './src/vues/evenements.js';
 import {
   view, tab, UI, uiPurge, uiEcrit, uiOuvert, uiVu, fold, cardMode,
   VUES_ONGLETS, cartesSection, cartesSync, carteEnHaut, cardLue,
@@ -704,151 +706,6 @@ S.timers = S.timers || [];
 document.getElementById('bigAlertOk').addEventListener('click', ()=>{ alertQueue.length = 0; document.getElementById('bigAlert').hidden = true; stopFlash(); ackFinished(); });
 window.addEventListener('focus', stopFlash);
 document.addEventListener('pointerdown', ()=>{ unlockAudio(); stopFlash(); });
-
-/* ---------- colonization ---------- */
-const POS = [null,
-  {min:96, avg:134, max:172, t:240, bonus:'+40 % cristal', astro:8},
-  {min:104,avg:140, max:176, t:190, bonus:'+30 % cristal', astro:6},
-  {min:112,avg:147, max:182, t:140, bonus:'+20 % cristal', astro:4},
-  {min:118,avg:163, max:208, t:90,  bonus:'', astro:1},
-  {min:133,avg:182, max:232, t:80,  bonus:'', astro:1},
-  {min:146,avg:194, max:242, t:70,  bonus:'+17 % métal', astro:1},
-  {min:152,avg:200, max:248, t:60,  bonus:'+23 % métal', astro:1},
-  {min:156,avg:204, max:252, t:50,  bonus:'+35 % métal', astro:1},
-  {min:150,avg:198, max:246, t:40,  bonus:'+23 % métal', astro:1},
-  {min:142,avg:187, max:232, t:30,  bonus:'+17 % métal', astro:1},
-  {min:136,avg:173, max:210, t:20,  bonus:'', astro:1},
-  {min:125,avg:156, max:186, t:10,  bonus:'', astro:1},
-  {min:114,avg:143, max:172, t:-30, bonus:'', astro:4},
-  {min:100,avg:134, max:168, t:-70, bonus:'', astro:6},
-  {min:90, avg:127, max:164, t:-110,bonus:'', astro:8},
-];
-const COL_SHIP_COST = [10000, 20000, 10000];
-const KITS = {
-  none: {n:'Aucun', lv:{}},
-  light:{n:'Léger', lv:{metal:5, crystal:4, deut:2, solar:5}},
-  std:  {n:'Standard', lv:{metal:8, crystal:6, deut:4, solar:8, robot:2}},
-  fast: {n:'Rapide', lv:{metal:12, crystal:10, deut:6, solar:12, robot:4, shipyard:2}},
-  big:  {n:'Avancé', lv:{metal:15, crystal:13, deut:9, solar:15, robot:6, shipyard:4}},
-};
-const OBJECTIVES = {
-  balanced:{n:'Équilibré', w:{prod:.5, fields:.5}},
-  metal:   {n:'Métal', w:{metal:.75, fields:.25}},
-  crystal: {n:'Cristal', w:{crystal:.75, fields:.25}},
-  deut:    {n:'Deutérium', w:{deut:.7, fields:.3}},
-  big:     {n:'Grande planète', w:{fields:.8, prod:.2}},
-};
-/** Index of a planet that already has a colony ship docked, or -1. */
-function colShipAt(){ return S.planets.findIndex(p=>((p.ships||{}).col||0)>0); }
-/** True when a colonize mission is already flying or was marked as sent. */
-function colSentNow(){ return (S.moves||[]).some(m=>m.mission===7 && !m.ret && m.arrival*1000>Date.now()) || !!(S.colo.sentAt && Date.now()-S.colo.sentAt<48*3600e3 && !S.planets.some(p=>((p.ships||{}).col||0)>0 && (p.shipsAt||0)>S.colo.sentAt)); }
-function colBuilt(){ return !!S.colo.built || colShipAt()>=0; }
-function maxPlanets(){ return 1 + Math.floor((S.tech.astro+1)/2); }
-/* Un vaisseau déjà à quai est un fait et passe devant tout ; sinon la colonie
-   part du centre, puisque c'est lui que le plan fait construire. Deux leviers
-   se contredisaient : le plan sortait le vaisseau du centre et annonçait la
-   durée de vol de la planète du select, cent systèmes plus loin. */
-function coloFrom(){ const i = colShipAt(); return (i>=0 ? S.planets[i] : centrePlanet() || planetById(S.colo.fromId)) || S.planets[0]; }
-function coloSystem(){ const c = parseC(coloFrom().coords) || [1,1,8]; return c; }
-/** Simulated hourly output of a colony at each position, using the departure planet's mine levels. */
-function rankPositions(){
-  const dp = coloFrom(), [g,sy] = coloSystem(), o = OBJECTIVES[S.colo.objective] || OBJECTIVES.balanced, bonus = +S.colo.bonus || (API && API.server && API.server.bonusFields) || 0;
-  const rows = [];
-  for(let pos=1; pos<=15; pos++){
-    const P = POS[pos];
-    const fake = {coords:`${g}:${sy}:${pos}`, tmax:P.t, sats:0, b:Object.assign({}, dp.b)};
-    const pr = production(fake);
-    rows.push({pos, P, fields:P.avg+bonus, min:P.min+bonus, max:P.max+bonus, m:pr.m, c:pr.c, d:pr.d, v:mse(pr.m,pr.c,pr.d), ok:S.tech.astro>=P.astro});
-  }
-  const mx = k => Math.max(...rows.map(r=>r[k]), 1);
-  const M = {prod:mx('v'), metal:mx('m'), crystal:mx('c'), deut:mx('d'), fields:mx('fields')};
-  for(const r of rows){
-    r.score = (o.w.prod||0)*r.v/M.prod + (o.w.metal||0)*r.m/M.metal + (o.w.crystal||0)*r.c/M.crystal + (o.w.deut||0)*r.d/M.deut + (o.w.fields||0)*r.fields/M.fields;
-  }
-  const ranked = rows.filter(r=>r.ok).sort((a,b)=>b.score-a.score);
-  ranked.forEach((r,i)=>r.rank=i+1);
-  return rows;
-}
-function bestPosition(){ const r = rankPositions().filter(x=>x.ok).sort((a,b)=>b.score-a.score)[0]; return r ? r.pos : 8; }
-function coloTarget(){ if(parseC(S.colo.target)) return S.colo.target; const c = API && API.planets ? colonyCandidates()[0] : null; if(c) return c.coords; const [g,sy] = coloSystem(); return `${g}:${sy}:${bestPosition()}`; }
-/** Starter kit cost and the fleet that delivers it. */
-function coloFleet(){
-  const dp = coloFrom(), kit = KITS[S.colo.kit] || KITS.std, target = coloTarget();
-  const kitCost = [0,0,0];
-  for(const [k,L] of Object.entries(kit.lv)){ const c = rangeCost(B[k], 0, L); kitCost[0]+=c[0]; kitCost[1]+=c[1]; kitCost[2]+=c[2]; }
-  const col = shipStats('col'), tr = shipStats(S.colo.tr);
-  const total = kitCost[0]+kitCost[1]+kitCost[2];
-  const inCol = Math.min(total, col.cargoEff);
-  const f = total ? inCol/total : 0;
-  const colLoad = kitCost.map(x=>Math.floor(x*f));
-  const rest = kitCost.map((x,i)=>x-colLoad[i]);
-  const restSum = rest[0]+rest[1]+rest[2];
-  const n = restSum>0 ? Math.ceil(restSum/tr.cargoEff) : 0;
-  const leg1 = flight(dp.coords, target, {col:1}, 100);
-  const leg2 = n ? flight(dp.coords, target, {[S.colo.tr]:n}, 100) : null;
-  const fuel = (leg1 ? leg1.fuel : 0) + (leg2 ? leg2.fuel*2 : 0);
-  const ship = colBuilt() ? [0,0,0] : COL_SHIP_COST;
-  const need = [ship[0]+kitCost[0], ship[1]+kitCost[1], ship[2]+kitCost[2]+fuel];
-  const shipTime = colBuilt() ? 0 : (COL_SHIP_COST[0]+COL_SHIP_COST[1]) / (2500*(1+dp.b.shipyard)*Math.pow(2,dp.b.nanite)*ecoSpeed()) * 3600;
-  return {dp, kit, kitCost, colLoad, rest, n, tr, col, leg1, leg2, fuel, need, shipTime, target, wait:waitFor(dp, need)};
-}
-/** Verdict on a freshly colonized planet's size. */
-/* Tant qu'on ignore le vaisseau, le trajet et les semaines de mines qu'il faut
-   pour qu'une colonie produise, « amorti en moins d'un jour » est un slogan.
-   Au-delà de cet horizon un niveau de mine n'est plus ce que la colonie a de
-   plus pressé : elle commence à rendre ce qu'elle a coûté. */
-const COLO_HORIZON_H = 7*24;
-/**
- * Délai de retour d'une colonie, en heures, simulé au lieu d'être supposé :
- * construction du vaisseau, trajet, puis montée des mines au même classement
- * que pour une planète existante, et enfin le temps qu'il faut à sa production
- * pour rendre la mise de départ.
- * @param {number} [pos] position visée ; par défaut celle de la cible choisie
- * @returns {{hours:number, ramp:number, upfront:number, rate:number, b:object}|null}
- */
-function colonyPayback(pos){
-  const F = coloFleet();
-  const p = pos || (parseC(F.target) || [])[2] || bestPosition();
-  const P = POS[p]; if(!P) return null;
-  const b = Object.assign(Object.fromEntries(Object.keys(B).map(k=>[k,0])), F.kit.lv);
-  const colo = {coords:`1:1:${p}`, tmax:P.t, sats:0, b};
-  const upfront = mse(...F.need);
-  // Avant la première ressource : le vaisseau se construit, puis il vole.
-  let h = (F.shipTime + (F.leg1 ? F.leg1.secs : 0)) / 3600;
-  for(let step = 0; step < 200; step++){
-    const pr = production(colo), rate = mse(pr.m, pr.c, pr.d);
-    if(rate <= 0) return null;
-    /* Au cours du ratio, pas au besoin de l'empire : cette simulation sert à
-       comparer des POSITIONS entre elles, et une comparaison demande une règle
-       fixe. Pondérer la montée par un mélange que cette colonie n'a pas encore
-       changé mesurerait chaque position avec une règle différente — la plus
-       froide gagnerait pour la seule raison qu'il manque du deutérium ailleurs. */
-    const u = rankUpgrades(colo).sort((a,b) => a.payback - b.payback)
-      .find(x => B[x.key] && x.payback < COLO_HORIZON_H);
-    if(!u) break;
-    // Elle paie son niveau suivant avec sa propre production, puis le monte.
-    h += mse(...u.cost)/rate + u.time/3600;
-    colo.b[u.key] = u.lvl;
-    if(u.extraSolar) colo.b.solar += u.extraSolar;
-  }
-  const pr = production(colo), rate = mse(pr.m, pr.c, pr.d);
-  if(rate <= 0) return null;
-  return {hours: h + upfront/rate, ramp: h, upfront, rate, b:colo.b};
-}
-/** Le délai de retour d'une colonie, dit en une phrase, ou rien si incalculable. */
-function coloPaybackTxt(){
-  const cp = colonyPayback(); if(!cp) return '';
-  return `Simulé : ${fmt(cp.upfront)} éq. de mise (vaisseau, kit, carburant), `
-    + `${dur(cp.ramp*3600)} pour que ses mines montent toutes seules jusqu'à ${fmt(cp.rate)} éq./h, `
-    + `et la mise est rendue en ${dur(cp.hours*3600)} en tout.`;
-}
-function coloVerdict(fields, pos){
-  const P = POS[pos]; if(!P || !fields) return null;
-  const avg = P.avg + (+S.colo.bonus||0), r = fields/avg;
-  if(r >= 1) return {sev:'good', t:'Garde-la', why:`${fields} cases, au-dessus de la moyenne de la position ${pos} (${avg}).`};
-  if(r >= .88) return {sev:'warn', t:'Correcte', why:`${fields} cases pour une moyenne de ${avg}. Garde-la si tu ne veux pas perdre de temps.`};
-  return {sev:'bad', t:'Trop petite : recolonise', why:`${fields} cases pour une moyenne de ${avg}. Abandonne-la avant d'y construire et renvoie un vaisseau (coût ${fmt(COL_SHIP_COST[0])} M, ${fmt(COL_SHIP_COST[1])} C, ${fmt(COL_SHIP_COST[2])} D).`};
-}
 /* ---------- réglages du plan ---------- */
 /* Place des formes de vie dans la journée. Par défaut elles passent après les
    bâtiments et s'effacent devant ce qu'un chantier proche épargne. */
@@ -2351,23 +2208,20 @@ if(IS_EXT && chrome.runtime.getURL) (function(){
 /* Ce que les modules sortis d'app.js lui empruntent encore. Rien de plus :
    un nom ajouté ici sans module qui l'importe est un oubli. */
 export {
-  planetById, centrePlanet, shipReqOk, save, raceDe, ignKey, lfMode,
-  poidsCat, on, SHIP_COST, lfNom, lfIdPour, poseLfCles, goUrl, POS, addBuilt,
-  render, TOOLS, bascule, syncFailed, planetAlerts, rankUpgrades,
-  planetIndexById, COL_SHIP_COST, KITS, colShipAt, colSentNow, colBuilt,
-  maxPlanets, coloTarget, coloFleet, LF_MODE, shipTime, defSurplus, tournee,
-  hubIndex, centreIndex, POURQUOI_LABO, centreNote, catActe, aide, coordLink,
-  leverFlotte, coloPaybackTxt, occupied, colonyCandidates, raidTargets,
-  raidPlan, catMission, SEV_LABEL, prioLfEtat, fleetUrl, missionGo, goAttr,
-  gameSkin, copyChips, whyParts, actHtml, rebours, noBtn, noListe,
-  classeSuggeree, classeEcart, profilLigne, profilFocusHtml, profilEtape,
-  actsVus, defRecetteHtml, defModeleCarte, defPicker, poseNom, centreWhy,
-  VIEWS, gauge, REFRESH, toast, habillage, forgetPlanet, pushLook, refresh,
-  coloSystem, masque, masqueBascule, setMasque, timeExport, defPersoLive,
-  applyReport, profilConnu, styleRepose, poseProfilEtape, msg,
-  appliqueSauvegarde, publieLePlan, OBJECTIVES, coloFrom, rankPositions,
-  COLO_HORIZON_H, colonyPayback, coloVerdict, myScore, exploreSystems,
-  luneTir, luneVaisseaux, luneFacture, luneFlotteAuSol, moonDf, luneMorts,
-  cargoHomeIndex, APP_VERSION, VERSIONS, MAJ, HABILLAGES, MASQUE_CLES,
-  toutMasque, planPoseParLeStyle, plusRecente
+  planetById, centrePlanet, rankUpgrades, colonyCandidates, shipTime,
+  shipReqOk, save, raceDe, ignKey, lfMode, poidsCat, on, SHIP_COST, lfNom,
+  lfIdPour, poseLfCles, goUrl, addBuilt, render, TOOLS, bascule, syncFailed,
+  planetAlerts, planetIndexById, LF_MODE, defSurplus, tournee, hubIndex,
+  centreIndex, POURQUOI_LABO, centreNote, catActe, aide, coordLink,
+  leverFlotte, occupied, raidTargets, raidPlan, catMission, SEV_LABEL,
+  prioLfEtat, fleetUrl, missionGo, goAttr, gameSkin, copyChips, whyParts,
+  actHtml, rebours, noBtn, noListe, classeSuggeree, classeEcart, profilLigne,
+  profilFocusHtml, profilEtape, actsVus, defRecetteHtml, defModeleCarte,
+  defPicker, poseNom, centreWhy, VIEWS, gauge, REFRESH, toast, habillage,
+  forgetPlanet, pushLook, refresh, masque, masqueBascule, setMasque,
+  timeExport, defPersoLive, applyReport, profilConnu, styleRepose,
+  poseProfilEtape, msg, appliqueSauvegarde, publieLePlan, myScore,
+  exploreSystems, luneTir, luneVaisseaux, luneFacture, luneFlotteAuSol,
+  moonDf, luneMorts, cargoHomeIndex, APP_VERSION, VERSIONS, MAJ, HABILLAGES,
+  MASQUE_CLES, toutMasque, planPoseParLeStyle, plusRecente
 };

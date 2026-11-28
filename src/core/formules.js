@@ -114,3 +114,23 @@ export const POS_BONUS_C = {1:.40, 2:.30, 3:.20};
  * @returns {number} énergie par satellite
  */
 export function satEnergy(tmax){ return Math.max(1, Math.floor(((+tmax || 0) + 140) / 6)); }
+/** Les quinze positions d'un système : cases (min, moyenne, max), température
+    du milieu de la fourchette, bonus de production et niveau d'astrophysique
+    qu'il faut pour les atteindre. */
+export const POS = [null,
+  {min:96, avg:134, max:172, t:240, bonus:'+40 % cristal', astro:8},
+  {min:104,avg:140, max:176, t:190, bonus:'+30 % cristal', astro:6},
+  {min:112,avg:147, max:182, t:140, bonus:'+20 % cristal', astro:4},
+  {min:118,avg:163, max:208, t:90,  bonus:'', astro:1},
+  {min:133,avg:182, max:232, t:80,  bonus:'', astro:1},
+  {min:146,avg:194, max:242, t:70,  bonus:'+17 % métal', astro:1},
+  {min:152,avg:200, max:248, t:60,  bonus:'+23 % métal', astro:1},
+  {min:156,avg:204, max:252, t:50,  bonus:'+35 % métal', astro:1},
+  {min:150,avg:198, max:246, t:40,  bonus:'+23 % métal', astro:1},
+  {min:142,avg:187, max:232, t:30,  bonus:'+17 % métal', astro:1},
+  {min:136,avg:173, max:210, t:20,  bonus:'', astro:1},
+  {min:125,avg:156, max:186, t:10,  bonus:'', astro:1},
+  {min:114,avg:143, max:172, t:-30, bonus:'', astro:4},
+  {min:100,avg:134, max:168, t:-70, bonus:'', astro:6},
+  {min:90, avg:127, max:164, t:-110,bonus:'', astro:8},
+];
