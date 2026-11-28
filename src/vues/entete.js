@@ -400,3 +400,41 @@ export function finDeNuit(){
   toast('Mode jour : le plan est revenu');
   return true;
 }
+export const VIEWS_RELEVE = {
+/* L'écran du relevé. Il tient la place du contenu tant qu'il tourne : ce que
+   le joueur regardait est en train d'être relu, et le voir se recomposer carte
+   par carte ne lui apprend rien. Ici il voit ce qui reste à lire. */
+scan(){
+  const r = releveEnCours || {fait:0, total:0, etapes:[], etats:[], debut:Date.now()};
+  const etats = r.etats || [];
+  const groupes = new Map();
+  (r.etapes || []).forEach((e, i) => {
+    const cle = e.global ? '' : e.gid;
+    if(!groupes.has(cle)) groupes.set(cle, []);
+    groupes.get(cle).push({e, i});
+  });
+  const lignes = [...groupes].map(([cle, pas]) => {
+    const p = cle ? S.planets.find(x => x.gid === cle) : null;
+    const cases = pas.map(({e, i}) => {
+      const nom = esc(RELEVE_NOMS[e.page] || e.page), et = etats[i] || {};
+      return ({
+        attente: () => `<span class="pill">${nom}</span>`,
+        encours: () => `<span class="pill info">\u2026 ${nom}</span>`,
+        muet: () => `<span class="pill warn" title="Cette page n'a rien renvoyé : ${Math.round((et.ms||0)/1000)} s d'attente pour rien.">\u231b ${nom}</span>`,
+        lu: () => `<span class="pill good" title="${Math.round(et.ms || 0)} ms">\u2713 ${nom}</span>`
+      })[scanEtat(i, r.fait, et)]();
+    }).join(' ');
+    return `<tr><td>${esc(p ? p.name : 'Empire')}</td><td>${cases}</td></tr>`;
+  }).join('');
+  const muets = etats.filter(x => x && x.muet).length;
+  const ecoule = Math.max(0, Date.now() - (r.debut || Date.now())) / 1000;
+  const reste = r.fait ? ` · encore ~${dur(ecoule / r.fait * (r.total - r.fait))}` : '';
+  return `<section class="panel"><div class="card">
+    <div class="row spread"><h2>Relevé en cours</h2><span class="pill info">${r.fait} / ${r.total}</span></div>
+    <p class="note">Le relevé lit chaque page dans un onglet à lui, ouvert en arrière-plan : ta page de jeu ne bouge pas, tu peux continuer à jouer. Il se referme tout seul à la fin.</p>
+    <p class="note">${dur(ecoule)} écoulées${reste}${muets ? ` · <b>${muets} page${muets>1?'s':''} muette${muets>1?'s':''}</b> : rien n'en est revenu` : ''}</p>
+    <div class="tbl-wrap"><table><tbody>${lignes}</tbody></table></div>
+    <div class="row mt-2"><button class="btn sm" id="scanStop">Arrêter</button><span class="note">Ce qui est déjà lu reste acquis.</span></div>
+  </div></section>`;
+},
+};

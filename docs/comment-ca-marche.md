@@ -465,8 +465,13 @@ ressources) et `missions.js` (les missions du jour). Les vues commencent dans
 les cartes en onglets, les renvois, le nombre de cartes par liste ; l'onglet
 se change par `poseOnglet`) et `entete.js` (le relevé et sa fraîcheur,
 l'en-tête, l'heure locale ou serveur, le mode nuit ; `poseScanEcran` ferme
-l'écran du relevé). `render` et `refresh` restent dans `app.js` : ils
-appellent toutes les vues, que toutes rappellent. `app.js` se découpe ainsi, un domaine
+l'écran du relevé et le dessin du relevé en cours). Chaque onglet a son
+fichier : `aujourdhui.js`, `empire.js`, `outils.js`, `defense.js` (le
+sous-onglet Défense) et `reglages.js`, plus `conseils.js` pour le bloc des
+conseils d'Aujourd'hui. Chacun exporte ses morceaux de `VIEWS` et de
+`REFRESH` (`VIEWS_EMPIRE`, `REFRESH_EMPIRE`…), qu'`app.js` réassemble.
+`render` et `refresh` restent dans `app.js` : ils appellent toutes les vues,
+que toutes rappellent. `app.js` se découpe ainsi, un domaine
 par PR (issue #49), jusqu'à disparaître. `ids.js` et `profils.js` restent des
 scripts classiques. Les tests mettent les modules à plat dans une seule portée
 (`test/modules.js`) et vérifient à part les imports, les doublons, les cycles
