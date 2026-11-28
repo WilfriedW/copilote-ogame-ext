@@ -483,9 +483,10 @@ règles de stockage et ce que le plan propose pour les ressources en trop) et
 `constats.js` (les évaluateurs des règles du moteur sur l'empire, qui
 s'inscrivent dans `EVAL` au chargement). Les vues commencent dans
 `src/vues/` : `navigation.js` (l'onglet affiché, ce qui est ouvert ou fermé,
-les cartes en onglets, les renvois, le nombre de cartes par liste ; l'onglet
-se change par `poseOnglet`) et `entete.js` (le relevé et sa fraîcheur,
-l'en-tête, l'heure locale ou serveur, le mode nuit ; `poseScanEcran` ferme
+les cartes en onglets, les renvois, le nombre de cartes par liste,
+l'habillage ; l'onglet se change par `poseOnglet`) et `entete.js` (le relevé et sa fraîcheur,
+l'en-tête, l'heure locale ou serveur, le mode nuit, ce qui est masqué dans
+la page du jeu (`setMasque`) ; `poseScanEcran` ferme
 l'écran du relevé et le dessin du relevé en cours). Chaque onglet a son
 fichier : `aujourdhui.js`, `empire.js`, `outils.js`, `defense.js` (le
 sous-onglet Défense) et `reglages.js`, plus `conseils.js` pour le bloc des

@@ -53,12 +53,12 @@ import { occupied, myScore } from './src/univers/univers.js';
 import { VIEWS_AUJOURDHUI, REFRESH_AUJOURDHUI } from './src/vues/aujourdhui.js';
 import { VIEWS_DEFENSE } from './src/vues/defense.js';
 import { VIEWS_EMPIRE, REFRESH_EMPIRE } from './src/vues/empire.js';
-import { releveLu, header, enScan, setTimeMode, finDeNuit, VIEWS_RELEVE } from './src/vues/entete.js';
+import { releveLu, header, enScan, setTimeMode, finDeNuit, VIEWS_RELEVE, setMasque } from './src/vues/entete.js';
 import { bind, brancheEcoutes } from './src/vues/evenements.js';
 import {
   view, tab, UI, uiPurge, uiEcrit, uiOuvert, uiVu, fold, cardMode,
   VUES_ONGLETS, cartesSection, cartesSync, carteEnHaut, cardLue,
-  lierRenvois, setCardMode, cartesSain, garderVue
+  lierRenvois, setCardMode, cartesSain, garderVue, habillage
 } from './src/vues/navigation.js';
 import { VIEWS_OUTILS, REFRESH_OUTILS } from './src/vues/outils.js';
 import { VIEWS_REGLAGES, REFRESH_REGLAGES } from './src/vues/reglages.js';
@@ -557,43 +557,6 @@ document.addEventListener('pointerdown', ()=>{ unlockAudio(); stopFlash(); });
    des deux le disait. */
 const LF_MODE = {after:'Après les bâtiments', first:'Avant les bâtiments', off:'Ne pas s\'en occuper'};
 function lfMode(){ return LF_MODE[S.day.lf] ? S.day.lf : 'after'; }
-/* Les quatre habillages du panneau. La peau ne change que des couleurs et des
-   formes dans `panel.css` : aucune vue n'en sait rien, donc les quatre valent
-   pour toutes les pages, écran de relevé et bandeaux compris. */
-const HABILLAGES = {relief:'Relief — sobre (par défaut)', domaine:'Une couleur par page', hud:'Console de bord', arcade:'Arcade'};
-const habillage = () => HABILLAGES[S.settings.skin] ? S.settings.skin : 'relief';
-/* ---------- masquer des morceaux de la page du jeu ----------
-   Trois interrupteurs indépendants — Masquer la pub, la bannière, le
-   chat — rangés dans chrome.storage.sync sous `masque`. C'est masque.js, dans
-   la page, qui les applique : il écoute la même clé, donc un changement ici
-   se voit dans chaque onglet ouvert, sans recharger. Le panneau n'en garde
-   qu'un miroir pour se dessiner.
-   Par défaut les trois sont masqués : un choix jamais fait (clé absente)
-   vaut « masqué ». Un choix enregistré, lui, n'est jamais réécrit. masque.js
-   applique la même règle, sans quoi la page et le panneau se contrediraient. */
-const MASQUE_CLES = ['pub', 'bandeau', 'chat'];
-/** Les trois choix ramenés à des booléens : ce qui manque vaut « masqué ». */
-function masqueNorme(m){ const o = {}; for(const k of MASQUE_CLES) o[k] = !m || m[k] === undefined ? true : !!m[k]; return o; }
-/* `var` : header() peut s'exécuter avant que cette ligne soit atteinte. */
-var masque = masqueNorme(typeof window !== 'undefined' ? window.__masque : null);
-/** Vrai quand les trois sont masqués : le raccourci dit alors « Tout afficher ». */
-function toutMasque(){ return MASQUE_CLES.every(k=>masque[k]); }
-/** Ce que fait « Tout masquer » : tout cacher, ou tout rendre si tout l'est déjà. */
-function masqueBascule(m){ const tout = MASQUE_CLES.every(k=>m[k]); return masqueNorme({pub:!tout, bandeau:!tout, chat:!tout}); }
-/** Pose un nouveau choix, le retient, et redessine ce qui le montre. */
-function setMasque(m, retenir){
-  m = masqueNorme(m);
-  if(MASQUE_CLES.every(k=>m[k] === masque[k])) return;
-  masque = m;
-  if(retenir !== false){
-    try{ if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){ const r = chrome.storage.sync.set({masque: m}); if(r && r.catch) r.catch(syncFailed); } }catch(e){ syncFailed(e); }
-  }
-  header();
-  // la carte des Réglages porte les cases : elles ne doivent pas mentir
-  if(tab === 'settings') view.querySelectorAll('[data-masque]').forEach(el=>{ el.checked = !!masque[el.dataset.masque]; });
-  const tb = view.querySelector('[data-masque-tout]');
-  if(tb) tb.textContent = toutMasque() ? 'Tout afficher' : 'Tout masquer';
-}
 /* L'infobulle se pose après coup, sur ce qui est déjà dans la page : les heures
    vivent dans des phrases que esc() traverse, un balisage glissé par
    formatTime y serait échappé. On cherche donc dans les textes les écritures
@@ -1386,8 +1349,7 @@ export {
   tournee, hubIndex, centreIndex, POURQUOI_LABO, centreNote, aide, SEV_LABEL,
   prioLfEtat, gameSkin, copyChips, whyParts, actHtml, rebours, noBtn,
   noListe, actsVus, defRecetteHtml, defModeleCarte, defPicker, poseNom,
-  centreWhy, VIEWS, gauge, REFRESH, toast, habillage, forgetPlanet, pushLook,
-  refresh, masque, masqueBascule, setMasque, timeExport, defPersoLive, msg,
-  appliqueSauvegarde, publieLePlan, APP_VERSION, HABILLAGES, MASQUE_CLES,
-  toutMasque
+  centreWhy, VIEWS, gauge, REFRESH, toast, forgetPlanet, pushLook, refresh,
+  timeExport, defPersoLive, msg, appliqueSauvegarde, publieLePlan,
+  APP_VERSION
 };

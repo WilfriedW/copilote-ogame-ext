@@ -536,3 +536,8 @@ export function garderVue(fn){
   try{ fn(); }
   finally{ vueN--; try{ vueRecale(a); }catch(e){} vueOnglet = tab; }
 }
+/* Les quatre habillages du panneau. La peau ne change que des couleurs et des
+   formes dans `panel.css` : aucune vue n'en sait rien, donc les quatre valent
+   pour toutes les pages, écran de relevé et bandeaux compris. */
+export const HABILLAGES = {relief:'Relief — sobre (par défaut)', domaine:'Une couleur par page', hud:'Console de bord', arcade:'Arcade'};
+export const habillage = () => HABILLAGES[S.settings.skin] ? S.settings.skin : 'relief';

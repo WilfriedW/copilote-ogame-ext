@@ -17,8 +17,8 @@ import { goUrl } from '../jeu/liens.js';
 import { wakeTime } from '../plan/nuit.js';
 import { REGLES_ERR } from '../regles/moteur.js';
 import { syncFailed } from '../synchro/synchro.js';
-import { tab } from './navigation.js';
-import { save, toast, render, habillage, on } from '../../app.js';
+import { tab, view, habillage } from './navigation.js';
+import { save, toast, render, on } from '../../app.js';
 
 /* ---------- fraîcheur du relevé ---------- */
 /* Le copilote ne requête jamais le jeu : il lit la page que le joueur a sous
@@ -438,3 +438,36 @@ scan(){
   </div></section>`;
 },
 };
+/* ---------- masquer des morceaux de la page du jeu ----------
+   Trois interrupteurs indépendants — Masquer la pub, la bannière, le
+   chat — rangés dans chrome.storage.sync sous `masque`. C'est masque.js, dans
+   la page, qui les applique : il écoute la même clé, donc un changement ici
+   se voit dans chaque onglet ouvert, sans recharger. Le panneau n'en garde
+   qu'un miroir pour se dessiner.
+   Par défaut les trois sont masqués : un choix jamais fait (clé absente)
+   vaut « masqué ». Un choix enregistré, lui, n'est jamais réécrit. masque.js
+   applique la même règle, sans quoi la page et le panneau se contrediraient. */
+export const MASQUE_CLES = ['pub', 'bandeau', 'chat'];
+/** Les trois choix ramenés à des booléens : ce qui manque vaut « masqué ». */
+export function masqueNorme(m){ const o = {}; for(const k of MASQUE_CLES) o[k] = !m || m[k] === undefined ? true : !!m[k]; return o; }
+/* Lu au chargement du module, avant le premier header() : boot.js a posé
+   `window.__masque` avant de charger le panneau. */
+export let masque = masqueNorme(typeof window !== 'undefined' ? window.__masque : null);
+/** Vrai quand les trois sont masqués : le raccourci dit alors « Tout afficher ». */
+export function toutMasque(){ return MASQUE_CLES.every(k=>masque[k]); }
+/** Ce que fait « Tout masquer » : tout cacher, ou tout rendre si tout l'est déjà. */
+export function masqueBascule(m){ const tout = MASQUE_CLES.every(k=>m[k]); return masqueNorme({pub:!tout, bandeau:!tout, chat:!tout}); }
+/** Pose un nouveau choix, le retient, et redessine ce qui le montre. */
+export function setMasque(m, retenir){
+  m = masqueNorme(m);
+  if(MASQUE_CLES.every(k=>m[k] === masque[k])) return;
+  masque = m;
+  if(retenir !== false){
+    try{ if(typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync){ const r = chrome.storage.sync.set({masque: m}); if(r && r.catch) r.catch(syncFailed); } }catch(e){ syncFailed(e); }
+  }
+  header();
+  // la carte des Réglages porte les cases : elles ne doivent pas mentir
+  if(tab === 'settings') view.querySelectorAll('[data-masque]').forEach(el=>{ el.checked = !!masque[el.dataset.masque]; });
+  const tb = view.querySelector('[data-masque-tout]');
+  if(tb) tb.textContent = toutMasque() ? 'Tout afficher' : 'Tout masquer';
+}
